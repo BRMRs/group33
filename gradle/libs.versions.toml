@@ -1,7 +1,7 @@
 [versions]
 agp = "8.7.3"
 kotlin = "2.1.21"
-springBoot = "3.5.16"
+springBoot = "4.1.1"
 springDependencyManagement = "1.1.7"
 serialization = "1.8.1"
 coroutines = "1.10.2"
