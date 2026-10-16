@@ -26,7 +26,7 @@ There is no active two-hour response window or mandatory two-step Taken confirma
 - One calm, high-contrast product: white/cool-neutral surfaces, deep-blue primary, restrained elevation/moderate rounding, system fonts and Material Rounded icons. Roles differ in density/scale, not brand.
 - Scheduled gray, Due blue, Snoozed purple, Taken green, Missed dark gray, warning amber, error red; text plus non-color cue. A report is not verified ingestion; unknown is not green success.
 - Chinese roles are 长者 / 照护者; use Reminder plan / 用药提醒计划. Default locale follows device (Chinese → Simplified Chinese, otherwise English); persistent override offers system/English/简体中文.
-- Elder body ≥18sp, supporting ≥16sp, key status ≥24sp; Elder targets ≥56×56dp, main action ≥64dp high; Caregiver ≥48×48dp. Critical actions include text.
+- Elder body ≥18sp, supporting ≥16sp, key status ≥24sp; Caregiver body ≥16sp, supporting ≥14sp. Elder targets ≥56×56dp, main action ≥64dp high; Caregiver ≥48×48dp. Critical actions include text.
 - Normal-text contrast ≥4.5:1, large text ≥3:1; test TalkBack, grayscale, long text, system 200% font, 360dp portrait and 320dp compatibility. Font scaling is not an extra Elder choice.
 - Dark mode, dynamic color, separate themes/brands, custom fonts, decorative avatars, tablets/landscape optimization and complex motion remain deferred.
 
