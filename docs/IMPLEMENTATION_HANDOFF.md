@@ -1,5 +1,7 @@
 # P0 implementation handoff
 
+Delivery update (2026-10-17): [ADR-0009](adr/0009-two-stage-baseline-and-gate1-acceptance.md) separates Stage A baseline publication from Stage B / #12 completion. New members start with [agent onboarding](AGENT_START_HERE.md) and [role cards](contracts/ROLE_REVIEW_HANDOFF.md); all six actual contributions/signatures remain Stage B requirements. Current product authority is [V2 / #23](https://github.com/BRMRs/group33/issues/23), with [protocol/migration work #24](https://github.com/BRMRs/group33/issues/24) and separate Draft PR #25. The historical r1 interfaces/acceptance descriptions below cannot override it; affected feature freezing waits for #24, unaffected scoped preparation may continue.
+
 Product behavior is fixed by the [Wayfinder decision map](https://github.com/BRMRs/group33/issues/1). The project lead additionally confirmed the stack in [ADR-0004](adr/0004-hosting-storage-and-explicit-sync.md). The team accepted the six responsibility slots in [Team briefing](TEAM_BRIEFING.md); actual GitHub accounts remain unassigned. Delivery tracking uses ordinary implementation issues. Existing pairing implementation tracking is [Implement caregiver-elder pairing and relationship authorization](https://github.com/BRMRs/group33/issues/10).
 
 ## Required code ownership

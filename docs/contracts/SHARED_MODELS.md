@@ -1,5 +1,7 @@
 # Shared data models — Gate 1 review draft
 
+Reading status (2026-10-17): the declarations below describe the compiled **r1 legacy contract**, not a frozen ELDER_REMINDER_V2 model. Current product authority is [#23](https://github.com/BRMRs/group33/issues/23) and the accepted ADR-0008 in [separate Draft PR #25](https://github.com/BRMRs/group33/pull/25); version/cutover, group identity and Caregiver audit models remain technical work in [#24](https://github.com/BRMRs/group33/issues/24). Follow [the onboarding version boundary](../AGENT_START_HERE.md) before proposing a change; this notice does not change wire fields or reopen product decisions.
+
 Status: specification baseline `T01-T07/2026-10-16-r1` for [Implement shared HTTP contracts, feature Repository interfaces, and contract tests](https://github.com/BRMRs/group33/issues/12). P0 wire declarations now compile under `shared/src/main/kotlin/com/group33/shared/contract/` and are exercised by Shared/Server/Android tests; see [Gate 1 review packet](GATE1_REVIEW_PACKET.md). Existing `ApiError`, `User` (aliased as UserView) and DoseStatus are reused without breaking scaffold callers. The seven choices remain approved; six-role contribution and formal Android/Server sign-off remain outstanding. DTO declarations are not domain validators or business implementation.
 
 ## Layer ownership

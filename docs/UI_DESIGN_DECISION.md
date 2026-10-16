@@ -1,5 +1,7 @@
 # UI design decision — confirmed P0 direction
 
+> Legacy reading notice (2026-10-17): conflicting interaction/presentation text below, including mandatory second confirmation, is historical r1 reference, not the current UI specification. Read [accepted V2 / #23](https://github.com/BRMRs/group33/issues/23) and its separate Draft PR #25; [onboarding](AGENT_START_HERE.md) routes unresolved technical work to #24. This navigation fix does not merge that PR or implement V2.
+
 The layouts currently in `android-app` are functional placeholders. They define navigation entry points only and are not the approved visual design.
 
 The team selected the direction and accessibility profile below. Exact hexadecimal tokens, reusable styles, and final screen specifications remain implementation deliverables.

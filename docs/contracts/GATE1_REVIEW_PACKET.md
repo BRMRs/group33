@@ -1,6 +1,14 @@
 # Gate 1 technical review packet
 
+## Current delivery and product authority — 2026-10-17
+
+[ADR-0009](../adr/0009-two-stage-baseline-and-gate1-acceptance.md) separates Stage A development-baseline publication from Stage B Gate 1 completion. PR #22 prepares Stage A; six real member contribution/review records and named Android/Server contract signatures remain Stage B obligations, not prerequisites for accessing the initial engineering foundation. Normal CI/non-author and applicable cross-boundary publication review still apply; the current run keeps the PR Draft/unmerged and #12 OPEN.
+
+The r1 baseline and test results below describe historical code, not current V2 behavior acceptance. Read [accepted V2 product record #23](https://github.com/BRMRs/group33/issues/23), [its separate document PR #25](https://github.com/BRMRs/group33/pull/25) and [protocol/migration coordination #24](https://github.com/BRMRs/group33/issues/24). No V2 implementation or contract freeze is claimed by publishing this foundation. For role-scoped work use [the handoff](ROLE_REVIEW_HANDOFF.md); rehearsal findings are navigation evidence, not member signatures.
+
 Baseline: `T01-T07/2026-10-16-r1`. Status: **local contract code and checks ready for formal review; Gate 1 is NOT closed**.
+
+Stage A navigation evidence: [six independent read-only onboarding rehearsals](../evidence/GATE1_ONBOARDING_DRY_RUN.md), R1 fixes followed by R2 6/6 NAVIGATION_PASS. This is not six human reviews, executed candidate tests or V2 acceptance; final publication commit/check evidence remains in PR #22 / #12.
 
 The project lead authorized continuing Gate 1 implementation and explicitly deferred mapping E/C1/C2/C3/S1/S2 to GitHub accounts. Track the six role slots without inventing assignments or signatures. These are agent-prepared common artifacts, not six members' claimed contributions. Each member must still submit attributable code/tests and actual review evidence.
 
