@@ -4,6 +4,10 @@ Reading status (2026-10-17): the declarations below describe the compiled **r1 l
 
 Status: specification baseline `T01-T07/2026-10-16-r1` for [Implement shared HTTP contracts, feature Repository interfaces, and contract tests](https://github.com/BRMRs/group33/issues/12). P0 wire declarations now compile under `shared/src/main/kotlin/com/group33/shared/contract/` and are exercised by Shared/Server/Android tests; see [Gate 1 review packet](GATE1_REVIEW_PACKET.md). Existing `ApiError`, `User` (aliased as UserView) and DoseStatus are reused without breaking scaffold callers. The seven choices remain approved; six-role contribution and formal Android/Server sign-off remain outstanding. DTO declarations are not domain validators or business implementation.
 
+## Current product authority / required migration
+
+[ADR-0008 / ELDER_REMINDER_V2](../adr/0008-photo-first-elder-reminders-and-caregiver-handoff.md) is current. The r1 compiled tables below describe existing declaration shapes, **not a complete V2 wire contract**. The clarified Elder response deadline is two hours; thirty minutes is a separate Caregiver notification, not Missed or Elder expiry. T−5/T+5 probes alert only after two failed response waits; no all-day heartbeat is required. Group/help/takeover, separate authorized Caregiver outcome entries, authenticated device contact and alert-delivery models must be reviewed under [V2-T01–T05](../ELDER_UI_TECHNICAL_REVIEW.md); no new fields are invented here. Existing code/examples remain unchanged in this docs PR and cannot be frozen as V2 acceptance.
+
 ## Layer ownership
 
 | Layer | Contains | Excludes | Authors |
@@ -77,7 +81,7 @@ These fields capture confirmation, not medical validation. T03 rejects repeated 
 | `LateTakenReport` | `actionId`, `recordedAtEpochMillis`, `receivedAtEpochMillis`; preserves the report alongside Missed |
 | `DoseActionReceipt` | `actionId`, `receivedAtEpochMillis`, `classification: TIMELY_TAKEN/LATE_TAKEN/REMIND_LATER/SUPERSEDED`, `event: DoseEventView`; a replay returns the stored receipt, while later refresh supplies newer event state |
 
-`DoseStatus` remains exactly SCHEDULED/DUE/SNOOZED/TAKEN/MISSED. `Late taken` is a report attached to Missed, not a sixth dose state. `Pending sync` does not go into this enum. The service derives deadline as original planned instant + two hours; Remind later does not alter it. A timely recorded Taken may arrive after deadline and still reconcile provisional Missed. A stale Remind later receipt never downgrades an accepted Taken; a later snapshot governs current shared state.
+`DoseStatus` remains exactly SCHEDULED/DUE/SNOOZED/TAKEN/MISSED. `Late taken` is a report attached to Missed, not a sixth dose state. `Pending sync` does not go into this enum. The service derives deadline as original planned instant + two hours; Remind later alters neither it nor the separate thirty-minute notification threshold. At thirty minutes keep Elder actions available and do not derive MISSED. No new Elder action is offered after cutoff; retained late legacy evidence is still auditable. A timely recorded Taken may arrive after deadline and still reconcile provisional Missed. A stale Remind later receipt never downgrades an accepted Taken; a later snapshot governs current shared state.
 
 For Remind later recorded inside the Response window, the nominal repeat time is `recordedAtEpochMillis + 600_000`. `snoozedUntilEpochMillis` is that target only if strictly before the original deadline; it is null when no repeat can occur before expiry. Such an action can remain SNOOZED until the deadline, then becomes MISSED unless a timely Taken is known. The deadline wins a tie; no shortened-delay or post-deadline notification is created. Server receipt time never restarts the delay. See D03/O01 and `snoozeBoundaryVectors` in the fixtures.
 
@@ -125,7 +129,7 @@ Remaining interface helper types have these minimal shapes: `SessionView` contai
 
 `OnlineCommandKind` identifies ISSUE_PAIRING_CODE, CANCEL_PAIRING_CODE, REQUEST_PAIRING, RESPOND_PAIRING, CANCEL_PAIRING_REQUEST, REVOKE_RELATIONSHIP, SUBMIT_PHOTO, CONFIRM_PLAN, UPDATE_PLAN or DEACTIVATE_PLAN. The registered feature adapter owns its payload/target validation. The common command journal is recovery infrastructure, not a caller-controlled arbitrary HTTP transport.
 
-These Android-only objects are not serialized as arbitrary server Dose event state. A client sends Elder action facts; it does not PATCH the server to a chosen `status`.
+These Android-only objects are not serialized as arbitrary server Dose event state. A client does not PATCH the server to a chosen `status`. Elder action facts and authorized Caregiver follow-up entries are distinct sources; the latter requires a separate reviewed command/audit model, not a spoofed Elder DoseActionRequest.
 
 ## Migration from the scaffold
 

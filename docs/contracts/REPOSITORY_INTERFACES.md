@@ -6,18 +6,24 @@ These Interfaces now compile for [Implement shared HTTP contracts, feature Repos
 
 Baseline `T01-T07/2026-10-16-r1` is approved. The snippets match compiled declarations and have test-only caller harnesses. Six-role contributions and actual Android/Server sign-off remain required; GitHub-account mapping is deferred by the project lead.
 
+## V2 authority and outstanding interfaces
+
+[ADR-0008 / ELDER_REMINDER_V2](../adr/0008-photo-first-elder-reminders-and-caregiver-handoff.md) is current. The compiled r1 interfaces below are structural/regression evidence only: per-occurrence recordAction is not the final grouped reminder, Help/takeover or Caregiver-entry contract. [V2-T01–T05](../ELDER_UI_TECHNICAL_REVIEW.md) gate affected adapter/interface freeze; extend declarations/tests in coordinated follow-up PRs rather than inventing ViewModel-only state.
+
 ## Interface invariants
 
 - Business-data UI observes Room-backed `Flow<Cached<T>>`, keyed by Elder when applicable; it does not observe a global mutable list or call DAOs/HTTP directly. Session and language interfaces use their private device-local storage adapter rather than requiring tokens/settings in the business cache.
 - A read observation does not itself promise network refresh. Explicit commands or background synchronization update Room; observers receive the resulting state.
 - Online-only commands use `OnlineCommandResult<T>` to distinguish service-confirmed success, unknown completion, definitive rejection and no submission. A timeout is AWAITING_CONFIRMATION until reconciled with the same idempotency key. A successful service commit with failed local cache update remains CONFIRMED/REFRESH_REQUIRED. Do not replace the previous confirmed plan optimistically or call either case an ordinary failed save.
-- An Elder action returns success after atomic local event/outbox persistence, before any HTTP is required. A timely Taken can show Taken plus Pending sync; a Late taken report stays attached to effective Missed plus its independent Pending sync. Local storage failure must not claim the action was recorded.
+- An Elder action returns success after atomic local event/outbox persistence, before any HTTP is required. A timely Taken has Taken plus Pending sync in the data model, not technical Elder Home/reminder copy; a Late taken report stays attached to effective Missed plus its independent Pending sync. Local storage failure must not claim the action was recorded.
 - A shared command journal creates/persists `CommandContext`; feature methods persist its bound request before HTTP. UI single-flight/duplicate-tap handling keeps the context but cannot be the only duplicate defense. A process-restored UI can observe/resume the journal entry without inventing a new ID. WorkManager and manual retry reuse the same stored Elder action.
 - Cancellation, lost response, expired token and process recreation never silently erase a locally committed action. Cache merge does not overwrite pending facts with an older server status.
-- Typed errors and access/sync/capability metadata remain visible to feature mapping code. Backend-only `message` is not the localization contract.
+- Typed errors and access/sync/capability metadata remain visible to feature mapping code. Elder screens show simple recorded/help feedback, not technical sync or retry tasks; remote Caregiver screens cannot know unsent local queue contents. Backend-only `message` is not the localization contract.
 - A ViewModel uses these interfaces regardless of whether the adapter is a test fake or Room+HTTP. Worker scheduling, token secrets and network response handling remain behind internal seams.
 
-## Proposed Kotlin-shaped interfaces
+The Elder response cutoff is two hours from original time. A separate thirty-minute nonconfirmation threshold notifies the Caregiver without withdrawing Elder actions or deriving Missed. Help/acknowledged takeover can suppress prompting earlier; restoration never replays after the two-hour cutoff. Caregiver contact requires separate auditable outcome entry. Connection checks run at T−5/T+5 minutes, notifying only after both fail their response waits; any valid response prevents that round's two-failure alert. No all-day heartbeat or realtime monitoring is required; cached capability is not a probe response.
+
+## Existing r1 Kotlin-shaped interfaces (V2 extension pending)
 
 The snippets describe the public Interface, including adapter invariants above. Flow/result/helper types and all nine Interfaces are now declared in code; real persistence/network guarantees still require the downstream production adapters. Scripted test doubles do not discharge those guarantees.
 

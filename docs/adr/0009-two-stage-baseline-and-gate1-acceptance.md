@@ -8,7 +8,7 @@ Accepted by the project lead on 2026-10-17. This delivery-workflow supplement cl
 
 New developers need a buildable common foundation and concrete agent-readable tasks before they can contribute feature code. Requiring all six members' code PRs before publishing that foundation creates circular onboarding. Publishing a foundation must not be confused with freezing its contracts or completing Gate 1.
 
-A parallel accepted product record already exists: [ELDER_REMINDER_V2 / Issue #23](https://github.com/BRMRs/group33/issues/23), [product ADR-0008 at the published PR #25 revision](https://github.com/BRMRs/group33/blob/7104c8c122691990ef9ddec1f8bfd608640328c2/docs/adr/0008-photo-first-elder-reminders-and-caregiver-handoff.md), and [technical coordination #24](https://github.com/BRMRs/group33/issues/24). PR #22 still contains r1 code/fixtures. That code can be a structural/regression baseline, not current V2 acceptance. Do not import or merge PR #25 as part of this workflow change; its integration remains separately tracked.
+A parallel accepted product record already exists: [ELDER_REMINDER_V2 / Issue #23](https://github.com/BRMRs/group33/issues/23), [current product ADR-0008, clarified 2026-10-17](0008-photo-first-elder-reminders-and-caregiver-handoff.md), and [technical coordination #24](https://github.com/BRMRs/group33/issues/24). PR #22 still contains r1 code/fixtures. That code can be a structural/regression baseline, not current V2 acceptance. Do not import or merge PR #25 as part of this workflow change; its integration remains separately tracked.
 
 ## Decision
 
