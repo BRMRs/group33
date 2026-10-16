@@ -1,6 +1,6 @@
 # UI design decision — current ELDER_REMINDER_V2 entry point
 
-The sole current detailed UI specification is [Elder UI baseline](ELDER_UI_BASELINE.md), governed by [Accepted product ADR-0008](adr/0008-photo-first-elder-reminders-and-caregiver-handoff.md). The project lead explicitly selected the new version on 2026-10-16; earlier conflicting rules from Issue #7 and this document are superseded, not selectable alternatives.
+The sole current detailed UI specification is [Elder UI baseline](ELDER_UI_BASELINE.md), governed by [Accepted product ADR-0008](adr/0008-photo-first-elder-reminders-and-caregiver-handoff.md). The project lead selected the new version on 2026-10-16 and clarified timing on **2026-10-17**; earlier conflicting rules from Issue #7 and this document are superseded, not selectable alternatives.
 
 The existing Android layouts and archived Web prototype are placeholders/evidence, not approved pixel references. This document remains the common entry point so old links do not lead developers to a second rule set.
 
@@ -12,14 +12,15 @@ The existing Android layouts and archived Web prototype are placeholders/evidenc
 | Reminder | Photo-first original-box overview; six boxes in two columns/three rows, stable order, attached necessary quantity/instructions |
 | Elder actions | One-step Medicines taken / Remind me in 10 minutes / I need help; same group behavior for single/multiple medicines |
 | Partial intake / missing box | No Elder per-drug/quantity selection; Help starts Caregiver follow-up |
-| Response window | Exactly thirty minutes from the original planned instant, left-closed/right-open; exact cutoff removes alarm/photos/old actions and starts nonresponse follow-up |
+| Elder response window | Two hours from original planned time T, [T, T+7_200_000ms); only at this cutoff remove old alarm/photos/actions |
+| Nonresponse notification | T+30 minutes without known medication confirmation notifies Caregiver; Elder actions remain available until the two-hour cutoff unless Taken/Help/acknowledged takeover ends prompting earlier |
 | Snooze | Exactly ten minutes, original cutoff unchanged; no repeat at/after cutoff, no shortened delay |
 | Caregiver contact | Contact made is still pending outcome entry; Caregiver records Taken / Not taken / Unable to confirm without asking the Elder to return to the app |
-| Device-contact loss | Independent short detection/alert path, never waits for the ordinary thirty-minute timer; production threshold/transport needs technical review |
+| Connection check | First at T−5 minutes, recheck at T+5 minutes; notify only if both have no valid response after their waits. No all-day heartbeat or real-time loss monitoring; transport/wait/race handling needs review |
 | Synchronization | No technical sync burden on Elder Home/reminder; Caregiver sees only known received/freshness/delivery/acknowledgement facts |
 | Recovery | No stale reminder replay after cutoff/help/acknowledged takeover; timely offline evidence and conflicting records preserved |
 
-There is no active two-hour response window or mandatory two-step Taken confirmation. Follow-up/entry/contact-loss alerting is current required scope, not an optional future enhancement.
+The thirty-minute notification is not expiry or Missed; the Elder response window remains two hours. Mandatory two-step Taken confirmation is removed. Follow-up/entry/contact-loss alerting is current required scope, not an optional future enhancement.
 
 ## Shared identity and accessibility retained
 

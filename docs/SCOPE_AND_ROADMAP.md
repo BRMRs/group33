@@ -13,9 +13,9 @@ Current requirements are [ELDER_REMINDER_V2 / ADR-0008](adr/0008-photo-first-eld
 3. The caregiver views that photo through the active relationship, then enters and confirms the medication name, dosage text, and Reminder plan.
 4. The plan synchronizes to the elder's device.
 5. The elder sees original-box photos (six: two columns/three rows) and chooses group Medicines taken, ten-minute Remind later, or Help; no per-medicine selection or second confirmation.
-6. Reports synchronize to the caregiver without Elder sync-management UI. The sole thirty-minute response deadline withdraws old reminder surfaces/actions and starts nonresponse follow-up; snooze never extends it.
+6. Reports synchronize to the caregiver without Elder sync-management UI. At thirty minutes without known medication confirmation, notify the caregiver without withdrawing Elder actions; the response deadline remains two hours from original time and then removes old surfaces/actions. Snooze resets neither threshold.
 7. Help starts follow-up immediately. The caregiver contacts the elder and records Taken / Not taken / Unable to confirm, with source, actual-time uncertainty and audit history; contact alone is not completion.
-8. Device-contact loss independently alerts the caregiver under a reviewed short budget, without waiting thirty minutes or claiming the cause. Required follow-up and contact-loss alert delivery includes retry/failure/acknowledgement and local-fallback acceptance.
+8. Connection checks occur at T−5 and T+5 minutes; notify the caregiver only if both have no valid response after their waits, without claiming the cause. This is scheduled checking, not all-day heartbeat/real-time loss monitoring. Required follow-up and contact-loss alert delivery includes retry/failure/acknowledgement and local-fallback acceptance.
 
 P0 also includes Chinese and English resources, offline operation for already synchronized reminders, post-reboot reminder restoration after first unlock, the agreed Elder accessibility profile, and reproducible local deployment.
 
@@ -62,7 +62,7 @@ The approved deployment is Spring Boot on Render with Supabase PostgreSQL and Su
 
 - Replace development-only data with Room and server persistence.
 - Add pairing, photos, Reminder plan editing, and history.
-- Cover offline, permission, restart, thirty-minute cutoff/no-replay, Help/takeover, mandatory caregiver outcome entries and independent device-contact alert delivery/failure paths.
+- Cover offline, permission, restart, thirty-minute notification/two-hour cutoff/no-replay, Help/takeover, mandatory caregiver outcome entries and independent device-contact alert delivery/failure paths.
 
 ### Milestone 4 Quality and evidence
 

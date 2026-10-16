@@ -1,6 +1,6 @@
 # Medication Reminder
 
-Current product baseline: **ELDER_REMINDER_V2**, [ADR-0008](docs/adr/0008-photo-first-elder-reminders-and-caregiver-handoff.md). Retired behavior is not an alternative implementation contract.
+Current product baseline: **ELDER_REMINDER_V2**, [ADR-0008](docs/adr/0008-photo-first-elder-reminders-and-caregiver-handoff.md). Timing clarification 2026-10-17 controls: thirty-minute Caregiver notification, two-hour Elder response cutoff, T−5/T+5 connection probes. Retired behavior is not an alternative implementation contract.
 
 This context describes how a caregiver and an elder coordinate medication reminders and record user-reported outcomes without making medical decisions.
 
@@ -83,7 +83,7 @@ The elder's terminal report, recorded before a dose event's response window ends
 _Avoid_: Verified dose, confirmed ingestion
 
 **Late taken report**:
-A retained Elder report from legacy/delayed evidence, recorded at or after the thirty-minute deadline, stating that they took the associated medication. The current Elder UI does not offer post-cutoff reporting. The fact is shared with the caregiver but does not replace the event's Missed state or prove ingestion.
+A retained Elder report from legacy/delayed evidence, recorded at or after the two-hour deadline, stating that they took the associated medication. The current Elder UI does not offer post-cutoff reporting. The fact is shared with the caregiver but does not replace the event's Missed state or prove ingestion.
 _Avoid_: Taken, corrected dose, verified dose
 
 **Remind later**:
@@ -99,7 +99,7 @@ The system-derived state of a dose event for which no timely Taken report is cur
 _Avoid_: Verified missed dose, proof of non-adherence, notification failure
 
 **Response window**:
-The fixed thirty-minute interval [plannedAt, plannedAt + 1_800_000ms) beginning at a dose event's original planned time during which the elder may report Taken, request Remind later or ask for help. The exact cutoff withdraws this reminder and its old actions, and creates caregiver follow-up if no timely report is known. Help or acknowledged takeover stops this occurrence's repeated prompting earlier; there is no second active response window.
+The fixed two-hour interval [plannedAt, plannedAt + 7_200_000ms) beginning at a dose event's original planned time during which the elder may report Taken, request Remind later or ask for help. The exact cutoff withdraws this reminder and its old actions, while existing unresolved follow-up remains. A separate thirty-minute threshold notifies the Caregiver without closing this response window or deriving Missed. Help or acknowledged takeover stops this occurrence's repeated prompting earlier.
 _Avoid_: Dosage window, medically safe interval, snooze extension
 
 **Pending sync**:
@@ -126,10 +126,13 @@ _Avoid_: Missed, no medication taken, synchronization failure
 The frozen set of confirmed same-time occurrences presented together in stable photo order; one Elder action applies to this whole set without per-medicine selection. Protocol identity, membership/transaction and partial-receipt handling require V2-T02 review, not medication compatibility inference.
 
 **Caregiver follow-up**:
-An actionable case raised immediately by Help, by the thirty-minute nonresponse cutoff, or separately by device-contact loss. Contact made alone does not complete an outcome-entry case; medication uncertainty and device recovery are closed independently.
+An actionable case raised immediately by Help, at thirty minutes without known medication confirmation, or by the scheduled two-probe connection check failing twice. Contact made alone does not complete an outcome-entry case; medication uncertainty and device recovery are closed independently.
 
 **Caregiver outcome entry**:
 An authorized, auditable Caregiver report of Taken / Not taken / Unable to confirm after contact, retaining actor/source, actual time or explicit unknown, entry/receipt times and prior entries. It is not an Elder Taken action, verified ingestion, or permission to erase conflicting evidence.
 
 **Device contact lost**:
-No fresh authenticated device contact within a separately reviewed short detection budget. It triggers its own Caregiver alert without waiting thirty minutes, but does not identify the cause or prove non-intake. The demo's two minutes is not a production SLA.
+No valid response to either scheduled probe for the same reminder: first at T−5 minutes, recheck at T+5 minutes, after their response waits. Only both failing triggers the Caregiver connection alert; either valid response prevents it. It does not identify cause or prove non-intake. Cached sync/old reports are not current probe responses. All-day heartbeat/real-time loss detection is not required.
+
+**Nonresponse notification threshold**:
+Thirty minutes from the original planned time without a known medication confirmation; creates/updates Caregiver follow-up, not Elder expiry or Missed. Snooze does not reset it; existing Help/case notifications are deduplicated. The Elder response window remains two hours unless Taken, Help or acknowledged takeover ends prompting earlier.

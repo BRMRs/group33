@@ -1,12 +1,12 @@
 # T01–T07 技术决定记录（保留未被 V2 替换的决定）
 
-**现行产品版本为 [ELDER_REMINDER_V2 / ADR-0008](../adr/0008-photo-first-elder-reminders-and-caregiver-handoff.md)。** 以下当前响应参数已改为三十分钟；r1 代码/JSON/测试仍需按 [V2 技术清单](../ELDER_UI_TECHNICAL_REVIEW.md) 协调迁移。旧批准记录是历史，不允许继续采用旧时长、长者同步负担、禁止照护者独立补登记或刷新代替告警。
+**现行产品版本为 [ELDER_REMINDER_V2 / ADR-0008](../adr/0008-photo-first-elder-reminders-and-caregiver-handoff.md)。** 2026-10-17明确保留两小时响应窗口，增加独立三十分钟未确认通知及T−5/T+5两次连接检查；r1的两小时字段/断言相符，但不能证明新增闭环。后续代码/JSON/测试按 [V2 技术清单](../ELDER_UI_TECHNICAL_REVIEW.md) 协调迁移。旧批准记录是历史，不允许继续采用三十分钟退出、全天心跳或长者同步负担、禁止照护者独立补登记或刷新代替告警。
 
 后续 Gate 1 代码/测试进展见 [实际交付与审查包](GATE1_REVIEW_PACKET.md)。本记录中的“仅同步文档/不写业务代码”描述原批准同步轮次；后来经项目负责人授权补齐了契约声明和测试，但仍未实现下游具体业务功能，也不代替六人正式审查。
 
 对应 [共享契约、Repository 接口和契约测试 Issue](https://github.com/BRMRs/group33/issues/12) 及 [双视角审查记录](REVIEW.md)。项目负责人于 **2026-10-16** 明确批准全部七项，版本 **`T01-T07/2026-10-16-r1`**，特别确认 T02 长者端单写生成与滚动 24 小时窗口、T07 完全不依赖云服务的本地备用验收。本文件保留选择理由和代价，已同步 API、Shared 模型、Repository 和测试方案；不是代码交付或六人正式签署。
 
-既定产品规则继续有效：显式长者同意、关系授权、每日计划、长者执行时区、三十分钟唯一响应窗口、十分钟稍后提醒、已生成事件原意保留、及时离线报告对账、三类状态分离、双语/无障碍、Render/Supabase/Room 及本地备用部署。新增求助/非回应跟进、照护者补登记与设备失联独立告警属于当前版本必需能力；具体协议和通知阈值/渠道审查不能将其退回 P1。
+既定产品规则继续有效：显式长者同意、关系授权、每日计划、长者执行时区、两小时响应窗口与三十分钟独立未确认通知、十分钟稍后提醒、已生成事件原意保留、及时离线报告对账、三类状态分离、双语/无障碍、Render/Supabase/Room 及本地备用部署。新增求助/非回应跟进、照护者补登记与T−5/T+5两次失败连接告警（无全天监测）属于当前版本必需能力；时点已定；具体探测响应等待上限/机制及通知渠道仍需技术审查，不能改动已定时点或将闭环退回 P1。
 
 批准与同步追踪：[Issue 12 确认记录](https://github.com/BRMRs/group33/issues/12#issuecomment-6216776752)。ADR-0005/0006 分别记录单写生成/冻结时间与完全断云备用的长期取舍。
 
@@ -30,8 +30,8 @@
 
 - 保存用户输入的 nominal local date/time、IANA zone 和解析后的 `plannedAtEpochMillis`，不能只保存 UTC 或手机当前时区。
 - 正常日期直接解析；gap 中不存在的本地时间向前平移整个跳时长度；fold 中重复的本地时间只选择较早的那个 instant。保留原输入和最终 offset，不产生第二个 occurrence。
-- 响应窗口定义为 `[plannedAt, plannedAt + 1_800_000ms)`：deadline 前 1ms 为及时；恰好 deadline 及之后属于 Late taken report，仍保留 Missed；在 Due 前提交动作按既定状态规则拒绝。截止即撤下旧闹钟/照片/操作并交照护者；当前长者界面不提供过窗报告入口，遗留/延迟证据仍保留。
-- 三十分钟按真实经过的毫秒计，不按可能重复/跳跃的墙上钟表小时计。已有事件的 instant/deadline 不因系统时区数据库更新而重算。
+- 响应窗口定义为 `[plannedAt, plannedAt + 7_200_000ms)`：deadline 前 1ms 为及时；恰好 deadline 及之后属于 Late taken report，仍保留 Missed；在 Due 前提交动作按既定状态规则拒绝。三十分钟只通知照护者，长者仍可操作；两小时截止才撤下旧闹钟/照片/操作；当前长者界面不提供过窗报告入口，遗留/延迟证据仍保留。
+- 两小时响应窗口和三十分钟通知均按真实经过的毫秒计，不按可能重复/跳跃的墙上钟表小时计。已有事件的 instant/deadline 不因系统时区数据库更新而重算。
 - Remind later 固定从本地 recordedAt 延后 600,000ms；若目标时间恰好达到或超过 deadline，窗口到期优先，不缩短延迟、不再弹过期提醒，未有及时 Taken 时进入 Missed。仅目标严格早于 deadline 时设置 snoozedUntil；否则为 null，UI 明示窗口先结束。依据已接受 Issue #4，补充 D03/O01 边界夹具；迟到同步不重启十分钟计时。
 - Server JDK 17 与 Android 采用同一显式解析算法；Android API 23 所需 `java.time` 支持通过 core-library desugaring 配置并验证。记录 `resolutionPolicyVersion`、`resolvedOffsetSeconds`；同一个算法不能被当成时区数据库版本必然相同的保证。跨端差异应显式对账，不能静默移动已生成事件或丢掉本地报告。
 

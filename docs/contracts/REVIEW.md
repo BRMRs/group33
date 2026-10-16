@@ -32,7 +32,7 @@ The corrections above align representations with confirmed behavior. The subsequ
 
 ## Resolved technical confirmations — 2026-10-16
 
-The project lead explicitly approved T01–T07 as recommended, baseline `T01-T07/2026-10-16-r1`; [the decision record](TECHNICAL_RECOMMENDATIONS.md) preserves rationale and trade-offs. The earlier pending list is resolved, not superseded by an agent's assumption. Unaffected choices remain; ADR-0008 explicitly supersedes the affected old duration/presentation/scope rules, with separate authorized Caregiver outcome entries and required alerting.
+The project lead explicitly approved T01–T07 as recommended, baseline `T01-T07/2026-10-16-r1`; [the decision record](TECHNICAL_RECOMMENDATIONS.md) preserves rationale and trade-offs. The earlier pending list is resolved, not superseded by an agent's assumption. Unaffected choices remain; ADR-0008 explicitly supersedes the affected presentation/follow-up rules, with the 2026-10-17 clarification retaining two-hour response, adding thirty-minute Caregiver notification and T−5/T+5 two-failure checks (not continuous monitoring).
 
 | ID | Approved choice | Formal reviewers / verification still required |
 |---|---|---|
@@ -50,7 +50,7 @@ All six roles must be named and submit/review their own contract/model/mapping/t
 
 ## V2 verification limits
 
-This documentation PR does not alter production declarations/resources or JSON/tests. Their r1 duration assertion is known legacy evidence, not passing V2 acceptance. The current plan adds V201–V206 for group/closure/contact/delivery/photo behavior; technical sign-off and actual adapter/device proof remain open.
+This documentation PR does not alter production declarations/resources or JSON/tests. Their r1 two-hour duration assertion matches the clarified response window, but does not prove the separate thirty-minute notification, scheduled connection checks or the rest of V2. The current plan adds V201–V206 for group/closure/contact/delivery/photo behavior; technical sign-off and actual adapter/device proof remain open.
 
 ## Verification limits
 

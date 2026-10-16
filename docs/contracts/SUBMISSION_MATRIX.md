@@ -13,7 +13,7 @@ The project lead explicitly deferred mapping role slots to GitHub accounts. Cont
 ## Confirmed inputs
 
 - [Choose the caregiver-elder identity and pairing model](https://github.com/BRMRs/group33/issues/3): explicit Elder approval, active-relationship authorization, role/cardinality/revocation constraints.
-- [Define medication plans and dose-event semantics](https://github.com/BRMRs/group33/issues/4): daily local times, Elder zone, 30m response/10m snooze, immutable event meaning and prospective edits.
+- [Define medication plans and dose-event semantics](https://github.com/BRMRs/group33/issues/4): daily local times, Elder zone, 2h response/30m Caregiver notification/10m snooze, immutable event meaning and prospective edits.
 - [Choose the offline-first synchronization and conflict model](https://github.com/BRMRs/group33/issues/5): Room-backed local execution, service-confirmed Caregiver saves, durable Elder reports/idempotent retry.
 - [Research Android reminder, permission, and restart constraints](https://github.com/BRMRs/group33/issues/6): capability separation, late reports, local/reboot recovery and platform evidence.
 - [Select the shared UI direction and elder accessibility profile](https://github.com/BRMRs/group33/issues/7): separate dose/sync/delivery semantics, language and accessibility mappings.

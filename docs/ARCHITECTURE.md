@@ -140,15 +140,15 @@ Medication reminders and background synchronization are different jobs:
 - The server never replaces the local medication alarm.
 
 Exact-alarm and notification permissions need explicit denied-permission behavior. `Reminder delivery degraded` and `Reminder delivery unavailable` are capability conditions, not Dose event states and never imply `Missed`.
-A persisted future reminder must be restored after reboot and first unlock. Only a non-taken, non-helped, non-taken-over Due event still inside its original thirty-minute Response window may restore; an expired event becomes Missed without an expired notification; Taken events are never replayed.
+A persisted future reminder must be restored after reboot and first unlock. Only a non-taken, non-helped, non-taken-over Due event still inside its original two-hour Response window may restore; an expired event becomes Missed without an expired notification; Taken events are never replayed.
 
 ## Caregiver follow-up and device-contact supervision
 
-Photo-first grouped reminders use one confirmation, ten-minute snooze or Help. The sole response interval is [plannedAt, plannedAt + 1_800_000ms); Help suppresses repeated prompting immediately, and cutoff removes old photos/notifications/actions. Local cutoff survives offline/recovery. A remote takeover is not represented as applied before Elder acknowledgement.
+Photo-first grouped reminders use one confirmation, ten-minute snooze or Help. The response interval is [plannedAt, plannedAt + 7_200_000ms); thirty minutes without known medication confirmation triggers Caregiver follow-up, not expiry or Missed, and Elder actions remain available. Help suppresses repeated prompting immediately; the two-hour cutoff removes old photos/notifications/actions. Local cutoff survives offline/recovery. A remote takeover is not represented as applied before Elder acknowledgement.
 
-Caregiver contact requires a separate auditable Taken / Not taken / Unable to confirm entry, preserving actor/source, actual-time uncertainty and entry/receipt times. It neither impersonates an Elder action nor erases timely offline/conflicting reports. Independent device-contact monitoring alerts well before the ordinary nonresponse deadline, without guessing power/network cause. Medication follow-up and device recovery close independently.
+Caregiver contact requires a separate auditable Taken / Not taken / Unable to confirm entry, preserving actor/source, actual-time uncertainty and entry/receipt times. It neither impersonates an Elder action nor erases timely offline/conflicting reports. Scheduled connection checks run at T−5 minutes and T+5 minutes; notify only when both have no valid response after their waits. Any valid response prevents that round's two-failure alert; no all-day heartbeat or real-time loss monitoring, and no power/network cause inference. Medication follow-up and device recovery close independently.
 
-These are current required capabilities, not P1. V2-T01–T05 must specify models/transactions/version migration, authenticated contact evidence and persistent/retried notification delivery, including offline Caregiver and local fallback. Neither WorkManager timing nor a stale snapshot alone proves contact-loss detection or delivery. Server expected-plan monitoring does not become a competing canonical event generator.
+These are current required capabilities, not P1. V2-T01–T05 must specify models/transactions/version migration, authenticated per-probe responses and persistent/retried notification delivery, including offline Caregiver and local fallback. Neither WorkManager timing nor a stale snapshot alone proves contact-loss detection or delivery. Server expected-plan monitoring does not become a competing canonical event generator.
 
 ## OCR boundary
 
@@ -170,7 +170,7 @@ The shared dose states are:
 - `DUE`: the reminder time has arrived
 - `SNOOZED`: the user requested another reminder
 - `TAKEN`: the elder confirmed completion
-- `MISSED`: the thirty-minute Response window ended without a timely Taken report currently known; it does not prove non-adherence or notification delivery
+- `MISSED`: the two-hour Response window ended without a timely Taken report currently known; it does not prove non-adherence or notification delivery
 
 Normal transitions are `SCHEDULED -> DUE`, `DUE -> SNOOZED`, `SNOOZED -> DUE`, `DUE/SNOOZED -> TAKEN`, and any non-final state to `MISSED` when the Response window expires. A Taken report recorded locally before the deadline may reconcile a provisional Missed result after synchronization. A UI label must not invent a state that the server cannot represent.
 

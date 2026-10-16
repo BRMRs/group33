@@ -19,7 +19,7 @@ Baseline `T01-T07/2026-10-16-r1` is approved. The snippets match compiled declar
 - Typed errors and access/sync/capability metadata remain visible to feature mapping code. Elder screens show simple recorded/help feedback, not technical sync or retry tasks; remote Caregiver screens cannot know unsent local queue contents. Backend-only `message` is not the localization contract.
 - A ViewModel uses these interfaces regardless of whether the adapter is a test fake or Room+HTTP. Worker scheduling, token secrets and network response handling remain behind internal seams.
 
-The sole original response cutoff is thirty minutes, including after Help/takeover/restore checks; no stale alarm/action is exposed after it. Caregiver contact requires separate auditable outcome entry. Device-contact monitoring/alerts are independent from dose timers and capability snapshots.
+The Elder response cutoff is two hours from original time. A separate thirty-minute nonconfirmation threshold notifies the Caregiver without withdrawing Elder actions or deriving Missed. Help/acknowledged takeover can suppress prompting earlier; restoration never replays after the two-hour cutoff. Caregiver contact requires separate auditable outcome entry. Connection checks run at T−5/T+5 minutes, notifying only after both fail their response waits; any valid response prevents that round's two-failure alert. No all-day heartbeat or realtime monitoring is required; cached capability is not a probe response.
 
 ## Existing r1 Kotlin-shaped interfaces (V2 extension pending)
 
