@@ -165,7 +165,12 @@ PR titles use the same Conventional Commit form as final commits. A PR must:
 
 Prefer no more than 500 changed non-generated lines. A larger PR is allowed only when the description explains why splitting it would make the change less safe or less reviewable. Generated fixtures, lock files, and mechanical migrations are excluded from this guideline.
 
-The lead-approved initial engineering/Gate 1 publication may be a Draft PR while role-to-account mapping remains deferred. This is an artifact-publication exception to task readiness, not permission to mark feature issues Ready, waive member code contributions, freeze contracts as ACCEPTED, or bypass any review/merge requirement. The accountable lead is BRMRs; role review slots remain unassigned until recorded by the team.
+The lead-approved initial development-baseline publication may be a Draft PR while role-to-account mapping remains deferred. The accountable lead is BRMRs; role review slots remain unassigned until recorded by the team. [ADR-0009](adr/0009-two-stage-baseline-and-gate1-acceptance.md), accepted on 2026-10-17, defines two separate checkpoints:
+
+- **Stage A — development baseline:** reproducible build/CI, truthful scaffold/legacy/fake boundaries, six independent agent-onboarding briefs and resolved navigation defects. Any later merge still requires non-author approval, resolved discussions, current-main checks and applicable real Android/Server boundary review. Future six-member code PRs and full Gate 1 signatures are not prerequisites merely to publish the foundation.
+- **Stage B — Gate 1 completion:** six actual member contributions/reviews, attributable code/test PRs, named Android/Server same-version contract sign-off and agreed current contract/test evidence. These remain required before closing #12; a Stage A merge does not satisfy them.
+
+PR #22 is a Stage A partial delivery using `Refs #12`. Agent rehearsals are not human approval or signatures. Account mapping/ordinary feature DoR remain unchanged. Current accepted product behavior and open technical seams must be explicitly routed; legacy r1 test success cannot freeze the V2 protocol. This run keeps PR #22 Draft/unmerged and Gate 1 OPEN even if Stage A preparation checks pass.
 
 Do not combine unrelated refactoring, dependency updates, and product behavior in one PR. A PR that changes a shared contract must update the relevant model, fixture, documentation, and tests together or explicitly use linked coordinated PRs.
 
@@ -209,6 +214,8 @@ Review target is one working day. If no required reviewer responds within two wo
 Configure GitHub branch protection to require a PR, required CI, at least one approval, resolved conversations, and prevention of force pushes and deletion. Where supported, require CODEOWNERS review. Repository settings are part of the engineering system and must match this document.
 
 ## 9. Definition of Done
+
+Apply Done to the explicitly scoped delivery. A reviewed/merged Stage A baseline PR may finish its publication scope while #12 remains open for Stage B; it must not use an issue-closing keyword or mark unfinished Gate 1 criteria complete.
 
 Work is Done only when:
 

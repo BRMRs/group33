@@ -2,6 +2,8 @@
 
 The sole current detailed UI specification is [Elder UI baseline](ELDER_UI_BASELINE.md), governed by [Accepted product ADR-0008](adr/0008-photo-first-elder-reminders-and-caregiver-handoff.md). The project lead selected the new version on 2026-10-16 and clarified timing on **2026-10-17**; earlier conflicting rules from Issue #7 and this document are superseded, not selectable alternatives.
 
+For role-scoped implementation use [onboarding](AGENT_START_HERE.md) and [technical coordination #24](https://github.com/BRMRs/group33/issues/24); this docs PR does not implement the UI.
+
 The existing Android layouts and archived Web prototype are placeholders/evidence, not approved pixel references. This document remains the common entry point so old links do not lead developers to a second rule set.
 
 ## Required behavior

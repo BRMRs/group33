@@ -4,6 +4,8 @@ This file is the authoritative mapping from the six responsibility slots to peop
 
 The project lead is **Rui Zheng (`BRMRs`)**. The lead owns integration, build health, release decisions, and backup assignment.
 
+Under [ADR-0009](adr/0009-two-stage-baseline-and-gate1-acceptance.md), six independent role-only onboarding rehearsals may prepare the Stage A development baseline while this table remains unassigned. Rehearsal roles are not people, feature assignments, formal reviews or signatures. Ordinary feature Ready requirements and all Stage B member contributions remain unchanged.
+
 Any teammate may be assigned as backup for any role. The lead records the active backup in the affected issue; there are no permanent backup silos. Backup assignment does not permit self-approval or remove mandatory Android/Server perspective review.
 
 | Role | Member | GitHub handle | Primary review boundary | Status |

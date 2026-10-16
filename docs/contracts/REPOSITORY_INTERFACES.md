@@ -1,5 +1,7 @@
 # Android Repository interfaces — Gate 1 review draft
 
+> Version boundary (2026-10-17): snippets and invariants below describe legacy r1 declarations. Current product authority is [V2 / #23](https://github.com/BRMRs/group33/issues/23), with affected protocol/migration work in [#24](https://github.com/BRMRs/group33/issues/24). In particular, legacy Elder reporting/sync presentation is not a V2 UI requirement. Use [onboarding](../AGENT_START_HERE.md) to choose unaffected scoped work; no V2 adapter or contract freeze is claimed here.
+
 These Interfaces now compile for [Implement shared HTTP contracts, feature Repository interfaces, and contract tests](https://github.com/BRMRs/group33/issues/12), under `android-app/src/main/kotlin/com/group33/medicationreminder/core/data/contract/`. Model names follow [Shared models](SHARED_MODELS.md). S1 owns shared infrastructure; each feature author owns their mapping/integration/tests. See [current code and evidence](GATE1_REVIEW_PACKET.md). No production adapter is registered by this change.
 
 Baseline `T01-T07/2026-10-16-r1` is approved. The snippets match compiled declarations and have test-only caller harnesses. Six-role contributions and actual Android/Server sign-off remain required; GitHub-account mapping is deferred by the project lead.

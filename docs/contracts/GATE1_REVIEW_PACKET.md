@@ -1,8 +1,16 @@
 # Gate 1 technical review packet
 
+## Current delivery and product authority — 2026-10-17
+
+[ADR-0009](../adr/0009-two-stage-baseline-and-gate1-acceptance.md) separates Stage A development-baseline publication from Stage B Gate 1 completion. PR #22 prepares Stage A; six real member contribution/review records and named Android/Server contract signatures remain Stage B obligations, not prerequisites for accessing the initial engineering foundation. Normal CI/non-author and applicable cross-boundary publication review still apply; the current run keeps the PR Draft/unmerged and #12 OPEN.
+
 Baseline: `T01-T07/2026-10-16-r1`. Status: **historical r1 code/check evidence; V2 migration required before affected contract freeze; Gate 1 is NOT closed**.
 
 Current behavior is [ELDER_REMINDER_V2 / ADR-0008](../adr/0008-photo-first-elder-reminders-and-caregiver-handoff.md). The unchanged r1 two-hour fixture/WireContractTest duration matches the 2026-10-17 clarification, but is not proof of separate thirty-minute notification, T−5/T+5 probes or other V2 behavior. [V2-T01–T06](../ELDER_UI_TECHNICAL_REVIEW.md) list pending implementation review; the product decisions are no longer alternatives. The docs PR refreshes the artifact checksum manifest solely to identify its current review inputs, not to bless r1 as V2.
+
+For role-scoped work use [the handoff](ROLE_REVIEW_HANDOFF.md); rehearsal findings are navigation evidence, not member signatures.
+
+Stage A navigation evidence: [six independent read-only onboarding rehearsals](../evidence/GATE1_ONBOARDING_DRY_RUN.md), R1 fixes followed by R2 6/6 NAVIGATION_PASS. This is not six human reviews, executed candidate tests or V2 acceptance; final publication commit/check evidence remains in PR #22 / #12.
 
 The project lead authorized continuing Gate 1 implementation and explicitly deferred mapping E/C1/C2/C3/S1/S2 to GitHub accounts. Track the six role slots without inventing assignments or signatures. These are agent-prepared common artifacts, not six members' claimed contributions. Each member must still submit attributable code/tests and actual review evidence.
 

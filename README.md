@@ -71,6 +71,8 @@ Android Studio normally creates `local.properties` automatically. If it does not
 
 ## Start here
 
+New to development? Start with the Chinese [agent onboarding guide](docs/AGENT_START_HERE.md): copy the read-only startup prompt, supply your role, and ask for one bounded first task. For Gate 1, use the [six-role review handoff](docs/contracts/ROLE_REVIEW_HANDOFF.md) for files, code/tests, evidence and same-revision signature forms. These are navigation/checklists, not automatic implementation, approval or merge permission.
+
 1. Read [Scope and roadmap](docs/SCOPE_AND_ROADMAP.md).
 2. Read [Architecture](docs/ARCHITECTURE.md).
 3. Use [Team briefing](docs/TEAM_BRIEFING.md) for the kickoff meeting.

@@ -1,5 +1,7 @@
 # API contract
 
+> Legacy compiled-contract reference (2026-10-17): this file describes r1 code/fixtures, not a frozen V2 API. Current product authority is [accepted V2 / #23](https://github.com/BRMRs/group33/issues/23), with its full document update in separate PR #25 and affected protocol/migration decisions in [#24](https://github.com/BRMRs/group33/issues/24). Use [onboarding](AGENT_START_HERE.md) before choosing work; this notice neither changes wire fields nor implements V2.
+
 Base path: `/api/v1`
 
 The contract is deliberately small. Any incompatible change requires Android and server review in the same pull request or linked pull requests.

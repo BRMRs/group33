@@ -35,6 +35,8 @@ Do not create permanent branches for a person, the elder app, the caregiver app,
 
 ## Definition of done
 
+Initial publication uses the [two-stage acceptance workflow](docs/adr/0009-two-stage-baseline-and-gate1-acceptance.md): Stage A delivers a buildable, agent-navigable development foundation under normal CI/non-author/specialized review; Stage B retains all six actual contributions, code/test PRs and named Android/Server same-version Gate 1 sign-off. Future member feature contributions do not block obtaining the initial foundation. PR #22 references #12 without closing it, remains Draft in the current run, and cannot be merged by an onboarding agent.
+
 A task is done only when:
 
 - the acceptance criterion works on a device or emulator;

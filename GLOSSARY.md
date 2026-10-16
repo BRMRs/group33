@@ -2,6 +2,8 @@
 
 Current product baseline: **ELDER_REMINDER_V2**, [ADR-0008](docs/adr/0008-photo-first-elder-reminders-and-caregiver-handoff.md). Timing clarification 2026-10-17 controls: thirty-minute Caregiver notification, two-hour Elder response cutoff, T−5/T+5 connection probes. Retired behavior is not an alternative implementation contract.
 
+For role-scoped startup read [the onboarding entry](docs/AGENT_START_HERE.md); current definitions follow the accepted 2026-10-17 timing clarification, while compiled r1 declarations remain incomplete V2 evidence.
+
 This context describes how a caregiver and an elder coordinate medication reminders and record user-reported outcomes without making medical decisions.
 
 ## Language

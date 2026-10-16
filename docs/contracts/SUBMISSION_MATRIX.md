@@ -1,5 +1,9 @@
 # Gate 1 submission and review checklist
 
+**Delivery split accepted 2026-10-17:** [ADR-0009](../adr/0009-two-stage-baseline-and-gate1-acceptance.md) makes the initial PR #22 a Stage A development-baseline delivery. The six-member requirements below belong to Stage B / #12 completion, not to acquiring the initial foundation. Stage A retains CI, non-author and applicable cross-boundary publication review. Agent onboarding evidence never signs any row below.
+
+**Product-version warning:** compiled r1 DTOs/JSON/tests below are legacy structural evidence. Current accepted product behavior is [ELDER_REMINDER_V2 / #23](https://github.com/BRMRs/group33/issues/23); its separate Draft PR #25 and [open protocol coordination #24](https://github.com/BRMRs/group33/issues/24) must be read before proposing affected feature work. Do not use old two-hour/confirmation/reporting assertions as current requirements.
+
 [Implement shared HTTP contracts, feature Repository interfaces, and contract tests](https://github.com/BRMRs/group33/issues/12) is assigned to **BRMRs (Rui Zheng)** as requested. This assignment makes the issue accountable; it does not assign all six people's implementation work to one account. Role-to-person mapping remains with the team.
 
 The project lead authorized continuing Gate 1 code/test work on baseline `T01-T07/2026-10-16-r1`. P0 Shared DTOs, nine Android Repository Interfaces and actual wire/transport/caller tests now compile and pass locally; see [Gate 1 review packet](GATE1_REVIEW_PACKET.md). The pre-existing scaffold corrections are preserved. These common agent-prepared artifacts are not attributed to six individual teammates and do not deliver downstream P0 behavior. Member code/test PRs and formal review remain required before closing the Issue.
@@ -10,7 +14,7 @@ The project lead explicitly deferred mapping role slots to GitHub accounts. Cont
 
 [ADR-0008 / ELDER_REMINDER_V2](../adr/0008-photo-first-elder-reminders-and-caregiver-handoff.md) supersedes the affected prior inputs. The r1 compiled artifacts and passing tests below remain historical structural/regression evidence, not a freeze-ready V2 contract. [V2-T01–T06](../ELDER_UI_TECHNICAL_REVIEW.md) track coordinated code/fixture/interface migration and delivery decisions; those cannot restore old behavior.
 
-## Confirmed inputs
+## Current inputs with historical decision sources
 
 - [Choose the caregiver-elder identity and pairing model](https://github.com/BRMRs/group33/issues/3): explicit Elder approval, active-relationship authorization, role/cardinality/revocation constraints.
 - [Define medication plans and dose-event semantics](https://github.com/BRMRs/group33/issues/4): daily local times, Elder zone, 2h response/30m Caregiver notification/10m snooze, immutable event meaning and prospective edits.
