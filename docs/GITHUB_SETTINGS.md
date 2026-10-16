@@ -65,4 +65,26 @@ After the first push and whenever settings change, the project lead records the 
 
 | Date | Verified by | Ruleset/settings evidence | Notes |
 |---|---|---|---|
-| Pending verification | Rui Zheng (`BRMRs`) | Record actual post-push readback in Issue #12 | Three-file bootstrap and Draft PR publication authorized; checking in this checklist does not apply GitHub settings |
+| 2026-10-16, 23:38 Asia/Shanghai | `BRMRs`, lead-authorized agent execution | [Active main ruleset 25250513](https://github.com/BRMRs/group33/rules/25250513); repository settings and effective branch-rule API readback | Configuration applied and independently read back; not a teammate review or Gate 1 signature |
+
+### Applied configuration and effective-rule verification
+
+The lead explicitly authorized applying these settings on 2026-10-16. This entry supersedes the initial publication's historical “settings pending” notes; the product decisions, role assignments and Gate 1 acceptance criteria are unchanged.
+
+| Control | Observed configuration / evidence |
+|---|---|
+| Merge methods | Squash enabled; merge commits and rebase disabled, both at repository level and in the main PR rule |
+| Squash title / branch cleanup | `squash_merge_commit_title=PR_TITLE`; `delete_branch_on_merge=true` (no branch was deleted during this verification) |
+| Protected target | Exact `refs/heads/main`; ruleset `main-reviewed-squash-delivery`, ID `25250513`, `enforcement=active`; branch API reports `protected=true` |
+| Bypass | `bypass_actors=[]`; current administrator reports `current_user_can_bypass=never` |
+| Required CI | `build-and-test`, restricted to GitHub Actions integration `15368`; `strict_required_status_checks_policy=true`, so the branch must be tested against current main |
+| Required approval | `required_approving_review_count=1`; stale approvals dismissed; `require_last_push_approval=true` requires someone other than the latest pusher to approve the final reviewable push. This does not allow a PR author to approve their own PR |
+| Discussion resolution | `required_review_thread_resolution=true`, present in the effective main rules |
+| Force push / deletion | Effective `non_fast_forward` and `deletion` rules enabled with no bypass actors |
+| CODEOWNERS | `require_code_owner_review=false` until the six handles and a non-lead stable owner are recorded, as required above; the temporary lead-only map is not a substitute for independent approval |
+
+Verification used read-only `GET /repos/BRMRs/group33`, `/rulesets/25250513`, `/rules/branches/main`, `/branches/main`, and the PR GraphQL state after applying the configuration. The effective-branch endpoint confirms enforcement on main, not merely that a ruleset was saved. No push to main, merge attempt, force push, deletion, synthetic approval or synthetic review thread was used as a probe.
+
+PR #22 readback immediately after activation: `isDraft=true`, `merged=false`, `state=OPEN`, `autoMergeRequest=null`, `reviewDecision=REVIEW_REQUIRED`, `mergeStateStatus=BLOCKED`, no submitted reviews and no review threads. Its then-current head `0fd7848a14fa3d88eee1e99215ce832ee73c669b` had a successful `build-and-test` check from integration 15368 ([CI evidence](https://github.com/BRMRs/group33/actions/runs/38924492725)). A later documentation commit must pass its own required CI; the earlier success must not be attributed to a new SHA. With no existing threads, discussion enforcement was verified through active-rule readback, not by claiming an exercised unresolved-thread rejection.
+
+Six real role reviews, each member's attributable code/test PRs, and named Android/Server same-revision sign-off remain mandatory under Issue #12. GitHub's one-approval minimum is not six-role acceptance. PR #22 remains Draft and unmerged; Gate 1 remains OPEN. Final documentation commit/manifest identity, its CI result and configuration evidence are recorded in [Issue #12](https://github.com/BRMRs/group33/issues/12) and [PR #22](https://github.com/BRMRs/group33/pull/22).
