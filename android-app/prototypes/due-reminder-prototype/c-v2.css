@@ -1,0 +1,38 @@
+/* C v2 throwaway: photo scroller and action area are separate, never overlapping. */
+.c-phone{height:calc(100svh - 82px);max-height:840px;min-height:560px;display:flex;flex-direction:column}
+.c-role{flex:none}.c-elder{min-height:0;flex:1;overflow:auto;padding:18px;position:relative}
+.c-alarm{display:flex;flex-direction:column;height:100%;min-height:0}
+.c-alarm-heading{flex:none;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.c-alarm-heading small{font-size:.8em;color:#526576;font-weight:700;white-space:nowrap}
+.c-font-large .c-alarm-heading{display:block}.c-font-large .c-alarm-heading small{display:block;white-space:normal;margin:6px 0}
+.c-alarm-time{font-size:.9em;color:#526576;margin-bottom:2px!important}
+.c-elder .c-alarm .c-photos{grid-template-columns:repeat(2,minmax(0,1fr))!important;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;scrollbar-width:auto;flex:1;min-height:120px;align-content:start;margin:14px 0;padding:0 5px 8px 0;gap:12px;border-bottom:1px solid #cad4dd}
+.c-elder .c-alarm .c-photos.c-one{grid-template-columns:1fr!important;width:100%;max-width:290px}
+.c-elder .c-box img{height:140px}.c-elder .c-one .c-box img{height:200px}
+.c-alarm .c-actions{flex:none;gap:12px;padding-top:2px}
+.c-elder .c-alarm .c-photos{grid-auto-rows:max-content}.c-alarm .c-box{height:max-content;align-self:start}
+.c-alarm .c-action{min-height:64px;padding:12px 14px;font-size:1.06em}
+.c-alarm .c-action.c-primary{min-height:72px;font-size:1.18em}
+.c-home{height:100%;min-height:0;padding-top:20px}.c-home .c-home-space{min-height:24px}
+.c-elder:has(>.c-home){display:flex;flex-direction:column}.c-elder>.c-home{height:auto;flex:1}.c-elder>.c-header{flex:none}
+.c-home .c-actions{margin-top:18px}.c-home .c-state-icon{width:80px;height:80px;margin-bottom:20px}
+.c-elder .c-home h1{font-size:1.4em}
+.c-camera{display:flex;flex-direction:column;min-height:100%}.c-camera-box{display:grid;place-items:center;border:3px dashed #8194a4;border-radius:20px;flex:1;min-height:180px;margin:20px 0;background:#f3f6f8;color:#526576;text-align:center;padding:20px}
+.c-camera-box svg{width:72px;height:72px;display:block;margin:0 auto 18px}
+.c-capture-preview{width:100%;max-height:320px;object-fit:contain;margin:18px 0;background:#f3f6f8;border-radius:16px}
+.c-camera input[type=file]{max-width:100%}.c-off{position:absolute;inset:0;background:#10202b;display:grid;place-items:center;color:#9eafbc;text-align:center;padding:24px;font-size:16px}
+.c-case-stage{display:inline-block;padding:5px 10px;border:1px solid #9b7040;border-radius:8px;background:#fff4de;color:#6c4500;font-weight:750;font-size:14px;margin:12px 0}
+.c-case-stage.c-case-closed{border-color:#508365;background:#e9f5ee;color:#24633e}
+.c-result-options{border:0;padding:0;margin:14px 0;display:grid;gap:8px}.c-result-options legend{font-weight:750;margin-bottom:10px}
+.c-result-option{display:flex;align-items:center;gap:12px;min-height:52px;padding:12px;border:2px solid #8a9eae;border-radius:12px;cursor:pointer}
+.c-result-option:has(input:checked){border-color:#16539b;background:#eaf2fb}.c-result-option input{width:22px;height:22px;flex:none;accent-color:#16539b}
+.c-entry-form label.c-field{display:block;margin:12px 0 6px;font-weight:700}.c-entry-form input[type=time],.c-entry-form textarea{width:100%;max-width:100%;padding:10px;border:1px solid #8194a4;border-radius:10px;min-height:48px;background:white;color:#172d3c}
+.c-entry-form textarea{min-height:70px;resize:vertical}.c-entry-form .c-check-line{display:flex;gap:8px;align-items:center;margin:10px 0}.c-check-line input{width:20px;height:20px}
+.c-entry-error{color:#9b2531!important;font-weight:750}.c-task-buttons{display:flex;flex-wrap:wrap;gap:8px}
+.c-care-card .c-care-action.c-care-secondary{background:white;color:#173f65}
+.c-captured-thumb{max-width:100%;height:130px;object-fit:contain;border-radius:12px;margin-top:12px;background:#f3f6f8;display:block}
+.c-quick{display:flex;gap:8px;flex-wrap:wrap;width:100%}.c-quick button{min-height:36px;border:1px solid #8d9eae;border-radius:9px;padding:6px 10px;background:white;color:#173f65;font-size:13px}
+.c-reviewbar{flex-wrap:wrap}.c-reviewbar .c-quick{display:none}
+.c-font-large .c-phone{height:auto;max-height:none}.c-font-large .c-elder{overflow:visible}.c-font-large .c-alarm{height:auto}.c-font-large .c-alarm .c-photos{overflow:visible;flex:none}
+@media(max-width:850px){.c-phone{height:calc(100svh - 72px);max-height:840px}.c-elder{padding:16px}.c-elder .c-box img{height:130px}.c-home .c-header{margin-bottom:12px}}
+@media(max-width:340px){.c-elder{padding:12px}.c-elder .c-box img{height:116px}.c-alarm .c-action{gap:9px;padding:11px 10px}.c-reviewbar{padding:8px 10px}}

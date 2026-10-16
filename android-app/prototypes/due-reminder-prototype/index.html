@@ -1,0 +1,15 @@
+<!doctype html>
+<!-- THROWAWAY: three photo and partial-report flows at ?variant=A|B|C. In-memory only. -->
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>长者取药 · 设计验证原型</title>
+<link rel="stylesheet" href="prototype.css">
+<body><div class="workbench">
+<section class="device"><div class="prototype-label" id="watermark"></div><main id="app" class="app" aria-live="polite"></main></section>
+<aside class="bench"><details id="controls"><summary id="controls-title"></summary><div id="control-body"></div><div id="bench-description"></div><pre class="readout" id="readout"></pre></details></aside>
+</div><nav class="switcher" aria-label="Prototype versions"><button data-act="variant-prev" aria-label="Previous version">←</button><span id="variant-label"></span><button data-act="variant-next" aria-label="Next version">→</button></nav>
+<script src="copy.js"></script><script>
+// C is the revised, caregiver-supported flow; A/B remain historical comparisons.
+const prototypeScript=document.createElement('script');
+prototypeScript.src=new URLSearchParams(location.search).get('variant')==='C'?'c-v2.js':'prototype.js';
+document.body.append(prototypeScript);
+</script></body></html>
