@@ -1,0 +1,1060 @@
+{
+  "status": "APPROVED_TECHNICAL_BASELINE_EXAMPLES_NOT_IMPLEMENTED_TESTS",
+  "note": "Baseline T01-T07/2026-10-16-r1 approved by project lead on 2026-10-16. Timely/late are independent scenarios; reset event state. UUIDs and fictional data are fixtures, not implemented handlers or passing tests.",
+  "pairingCode": {
+    "id": "code-1",
+    "code": "00123456",
+    "expiresAtEpochMillis": 1792368600000
+  },
+  "pendingPairing": {
+    "id": "pair-request-1",
+    "elderId": "elder-1",
+    "caregiver": {
+      "id": "caregiver-1",
+      "role": "CAREGIVER",
+      "displayName": "Demo Caregiver"
+    },
+    "status": "PENDING",
+    "expiresAtEpochMillis": 1792368600000,
+    "closedReason": null,
+    "relationshipId": null
+  },
+  "relationship": {
+    "id": "relation-1",
+    "elderId": "elder-1",
+    "caregiverId": "caregiver-1",
+    "status": "ACTIVE",
+    "createdAtEpochMillis": 1792368000000,
+    "revokedAtEpochMillis": null,
+    "elder": {
+      "id": "elder-1",
+      "role": "ELDER",
+      "displayName": "Demo Elder"
+    },
+    "caregiver": {
+      "id": "caregiver-1",
+      "role": "CAREGIVER",
+      "displayName": "Demo Caregiver"
+    }
+  },
+  "photo": {
+    "id": "photo-1",
+    "elderId": "elder-1",
+    "contentType": "image/jpeg",
+    "createdAtEpochMillis": 1792368000000
+  },
+  "confirmPlanRequest": {
+    "photoId": "photo-1",
+    "medication": {
+      "displayName": "Fictional Medication A",
+      "dosageText": "Demo text only",
+      "instructions": null
+    },
+    "plan": {
+      "localTimes": [
+        "08:00",
+        "20:00"
+      ],
+      "startDate": "2026-10-20",
+      "endDate": null,
+      "executionTimeZoneId": "Asia/Shanghai"
+    },
+    "timeZoneAcknowledgement": {
+      "executionTimeZoneId": "Asia/Shanghai",
+      "mismatchAcknowledged": false,
+      "caregiverTimeZoneId": "Asia/Shanghai",
+      "observedElderTimeZoneId": "Asia/Shanghai"
+    }
+  },
+  "confirmPlanResponse": {
+    "medication": {
+      "id": "medication-1",
+      "elderId": "elder-1",
+      "displayName": "Fictional Medication A",
+      "dosageText": "Demo text only",
+      "instructions": null,
+      "active": true,
+      "photoId": "photo-1"
+    },
+    "plan": {
+      "id": "plan-1",
+      "elderId": "elder-1",
+      "medicationId": "medication-1",
+      "revision": 1,
+      "localTimes": [
+        "08:00",
+        "20:00"
+      ],
+      "startDate": "2026-10-20",
+      "endDate": null,
+      "executionTimeZoneId": "Asia/Shanghai",
+      "active": true,
+      "effectiveFromEpochMillis": 1792368000000,
+      "confirmedAtEpochMillis": 1792368000000
+    }
+  },
+  "retainedPlanRevision": {
+    "id": "plan-1",
+    "elderId": "elder-1",
+    "medicationId": "medication-1",
+    "revision": 1,
+    "localTimes": [
+      "08:00",
+      "20:00"
+    ],
+    "startDate": "2026-10-20",
+    "endDate": null,
+    "executionTimeZoneId": "Asia/Shanghai",
+    "active": true,
+    "effectiveFromEpochMillis": 1792368000000,
+    "confirmedAtEpochMillis": 1792368000000,
+    "medicationSnapshot": {
+      "displayName": "Fictional Medication A",
+      "dosageText": "Demo text only",
+      "instructions": null
+    }
+  },
+  "timelyOffline": {
+    "idempotencyKey": "00000000-0000-4000-8000-000000000001",
+    "request": {
+      "actionId": "00000000-0000-4000-8000-000000000001",
+      "occurrence": {
+        "planId": "plan-1",
+        "localDate": "2026-10-20",
+        "localTime": "08:00"
+      },
+      "planRevision": 1,
+      "kind": "TAKEN",
+      "recordedAtEpochMillis": 1792455000000,
+      "generationEvidence": {
+        "generationId": "00000000-0000-4000-8000-000000000100",
+        "occurrence": {
+          "planId": "plan-1",
+          "localDate": "2026-10-20",
+          "localTime": "08:00"
+        },
+        "planRevision": 1,
+        "generatedAtEpochMillis": 1792450800000,
+        "executionTimeZoneId": "Asia/Shanghai",
+        "plannedAtEpochMillis": 1792454400000,
+        "resolvedOffsetSeconds": 28800,
+        "resolutionPolicyVersion": "P0_TIME_V1",
+        "sourceSnapshotVersion": "confirmed-before-generation",
+        "sourceSnapshotServerAtEpochMillis": 1792368000000
+      }
+    },
+    "localReceiptBeforeSync": {
+      "actionId": "00000000-0000-4000-8000-000000000001",
+      "occurrence": {
+        "planId": "plan-1",
+        "localDate": "2026-10-20",
+        "localTime": "08:00"
+      },
+      "kind": "TAKEN",
+      "recordedAtEpochMillis": 1792455000000,
+      "syncState": "PENDING_SYNC",
+      "classification": "TIMELY_TAKEN"
+    },
+    "response": {
+      "actionId": "00000000-0000-4000-8000-000000000001",
+      "receivedAtEpochMillis": 1792462800000,
+      "classification": "TIMELY_TAKEN",
+      "event": {
+        "id": "event-1",
+        "elderId": "elder-1",
+        "occurrence": {
+          "planId": "plan-1",
+          "localDate": "2026-10-20",
+          "localTime": "08:00"
+        },
+        "planRevision": 1,
+        "medicationId": "medication-1",
+        "medicationSnapshot": {
+          "displayName": "Fictional Medication A",
+          "dosageText": "Demo text only",
+          "instructions": null
+        },
+        "executionTimeZoneId": "Asia/Shanghai",
+        "plannedAtEpochMillis": 1792454400000,
+        "responseDeadlineEpochMillis": 1792461600000,
+        "status": "TAKEN",
+        "snoozedUntilEpochMillis": null,
+        "takenRecordedAtEpochMillis": 1792455000000,
+        "lateTakenReports": [],
+        "serverUpdatedAtEpochMillis": 1792462800000,
+        "generationEvidence": {
+          "generationId": "00000000-0000-4000-8000-000000000100",
+          "occurrence": {
+            "planId": "plan-1",
+            "localDate": "2026-10-20",
+            "localTime": "08:00"
+          },
+          "planRevision": 1,
+          "generatedAtEpochMillis": 1792450800000,
+          "executionTimeZoneId": "Asia/Shanghai",
+          "plannedAtEpochMillis": 1792454400000,
+          "resolvedOffsetSeconds": 28800,
+          "resolutionPolicyVersion": "P0_TIME_V1",
+          "sourceSnapshotVersion": "confirmed-before-generation",
+          "sourceSnapshotServerAtEpochMillis": 1792368000000
+        }
+      }
+    }
+  },
+  "lateTaken": {
+    "idempotencyKey": "00000000-0000-4000-8000-000000000002",
+    "request": {
+      "actionId": "00000000-0000-4000-8000-000000000002",
+      "occurrence": {
+        "planId": "plan-1",
+        "localDate": "2026-10-20",
+        "localTime": "08:00"
+      },
+      "planRevision": 1,
+      "kind": "TAKEN",
+      "recordedAtEpochMillis": 1792461660000,
+      "generationEvidence": {
+        "generationId": "00000000-0000-4000-8000-000000000100",
+        "occurrence": {
+          "planId": "plan-1",
+          "localDate": "2026-10-20",
+          "localTime": "08:00"
+        },
+        "planRevision": 1,
+        "generatedAtEpochMillis": 1792450800000,
+        "executionTimeZoneId": "Asia/Shanghai",
+        "plannedAtEpochMillis": 1792454400000,
+        "resolvedOffsetSeconds": 28800,
+        "resolutionPolicyVersion": "P0_TIME_V1",
+        "sourceSnapshotVersion": "confirmed-before-generation",
+        "sourceSnapshotServerAtEpochMillis": 1792368000000
+      }
+    },
+    "response": {
+      "actionId": "00000000-0000-4000-8000-000000000002",
+      "receivedAtEpochMillis": 1792462800000,
+      "classification": "LATE_TAKEN",
+      "event": {
+        "id": "event-1",
+        "elderId": "elder-1",
+        "occurrence": {
+          "planId": "plan-1",
+          "localDate": "2026-10-20",
+          "localTime": "08:00"
+        },
+        "planRevision": 1,
+        "medicationId": "medication-1",
+        "medicationSnapshot": {
+          "displayName": "Fictional Medication A",
+          "dosageText": "Demo text only",
+          "instructions": null
+        },
+        "executionTimeZoneId": "Asia/Shanghai",
+        "plannedAtEpochMillis": 1792454400000,
+        "responseDeadlineEpochMillis": 1792461600000,
+        "status": "MISSED",
+        "snoozedUntilEpochMillis": null,
+        "takenRecordedAtEpochMillis": null,
+        "lateTakenReports": [
+          {
+            "actionId": "00000000-0000-4000-8000-000000000002",
+            "recordedAtEpochMillis": 1792461660000,
+            "receivedAtEpochMillis": 1792462800000
+          }
+        ],
+        "serverUpdatedAtEpochMillis": 1792462800000,
+        "generationEvidence": {
+          "generationId": "00000000-0000-4000-8000-000000000100",
+          "occurrence": {
+            "planId": "plan-1",
+            "localDate": "2026-10-20",
+            "localTime": "08:00"
+          },
+          "planRevision": 1,
+          "generatedAtEpochMillis": 1792450800000,
+          "executionTimeZoneId": "Asia/Shanghai",
+          "plannedAtEpochMillis": 1792454400000,
+          "resolvedOffsetSeconds": 28800,
+          "resolutionPolicyVersion": "P0_TIME_V1",
+          "sourceSnapshotVersion": "confirmed-before-generation",
+          "sourceSnapshotServerAtEpochMillis": 1792368000000
+        }
+      }
+    },
+    "localReceiptBeforeSync": {
+      "actionId": "00000000-0000-4000-8000-000000000002",
+      "occurrence": {
+        "planId": "plan-1",
+        "localDate": "2026-10-20",
+        "localTime": "08:00"
+      },
+      "kind": "TAKEN",
+      "classification": "LATE_TAKEN",
+      "recordedAtEpochMillis": 1792461660000,
+      "syncState": "PENDING_SYNC"
+    },
+    "localEventBeforeSync": {
+      "occurrence": {
+        "planId": "plan-1",
+        "localDate": "2026-10-20",
+        "localTime": "08:00"
+      },
+      "serverEventId": "event-1",
+      "plannedAtEpochMillis": 1792454400000,
+      "responseDeadlineEpochMillis": 1792461600000,
+      "effectiveStatus": "MISSED",
+      "lastAcceptedStatus": "MISSED",
+      "localReports": [
+        {
+          "actionId": "00000000-0000-4000-8000-000000000002",
+          "occurrence": {
+            "planId": "plan-1",
+            "localDate": "2026-10-20",
+            "localTime": "08:00"
+          },
+          "kind": "TAKEN",
+          "classification": "LATE_TAKEN",
+          "recordedAtEpochMillis": 1792461660000,
+          "syncState": "PENDING_SYNC"
+        }
+      ],
+      "generationEvidence": {
+        "generationId": "00000000-0000-4000-8000-000000000100",
+        "occurrence": {
+          "planId": "plan-1",
+          "localDate": "2026-10-20",
+          "localTime": "08:00"
+        },
+        "planRevision": 1,
+        "generatedAtEpochMillis": 1792450800000,
+        "executionTimeZoneId": "Asia/Shanghai",
+        "plannedAtEpochMillis": 1792454400000,
+        "resolvedOffsetSeconds": 28800,
+        "resolutionPolicyVersion": "P0_TIME_V1",
+        "sourceSnapshotVersion": "confirmed-before-generation",
+        "sourceSnapshotServerAtEpochMillis": 1792368000000
+      }
+    }
+  },
+  "unavailableCapability": {
+    "reportId": "00000000-0000-4000-8000-000000000003",
+    "observedAtEpochMillis": 1792455000000,
+    "deliveryCondition": "UNAVAILABLE",
+    "notificationPermissionGranted": false,
+    "channelEnabled": true,
+    "exactAlarmAccess": "GRANTED",
+    "reasons": [
+      "NOTIFICATION_PERMISSION_DENIED"
+    ],
+    "observationSequence": 1
+  },
+  "validationError": {
+    "code": "VALIDATION_FAILED",
+    "message": "Invalid reminder plan input",
+    "retryable": false,
+    "requestId": "request-example-1",
+    "fieldErrors": [
+      {
+        "field": "plan.localTimes",
+        "code": "DUPLICATE_LOCAL_TIME"
+      }
+    ]
+  },
+  "terminalPairing": {
+    "id": "pair-request-1",
+    "elderId": "elder-1",
+    "caregiver": {
+      "id": "caregiver-1",
+      "role": "CAREGIVER",
+      "displayName": "Demo Caregiver"
+    },
+    "status": "CANCELLED",
+    "expiresAtEpochMillis": 1792368600000,
+    "closedReason": "CODE_REPLACED",
+    "relationshipId": null
+  },
+  "capabilityOutOfOrder": {
+    "newerReport": {
+      "reportId": "00000000-0000-4000-8000-000000000004",
+      "observedAtEpochMillis": 1792455060000,
+      "deliveryCondition": "AVAILABLE",
+      "notificationPermissionGranted": true,
+      "channelEnabled": true,
+      "exactAlarmAccess": "GRANTED",
+      "reasons": [],
+      "observationSequence": 2
+    },
+    "newerReceipt": {
+      "reportId": "00000000-0000-4000-8000-000000000004",
+      "receivedAtEpochMillis": 1792455120000,
+      "applied": true,
+      "current": {
+        "reportId": "00000000-0000-4000-8000-000000000004",
+        "observedAtEpochMillis": 1792455060000,
+        "deliveryCondition": "AVAILABLE",
+        "notificationPermissionGranted": true,
+        "channelEnabled": true,
+        "exactAlarmAccess": "GRANTED",
+        "reasons": [],
+        "observationSequence": 2,
+        "receivedAtEpochMillis": 1792455120000
+      }
+    },
+    "delayedOlderReport": {
+      "reportId": "00000000-0000-4000-8000-000000000003",
+      "observedAtEpochMillis": 1792455000000,
+      "deliveryCondition": "UNAVAILABLE",
+      "notificationPermissionGranted": false,
+      "channelEnabled": true,
+      "exactAlarmAccess": "GRANTED",
+      "reasons": [
+        "NOTIFICATION_PERMISSION_DENIED"
+      ],
+      "observationSequence": 1
+    },
+    "delayedOlderReceipt": {
+      "reportId": "00000000-0000-4000-8000-000000000003",
+      "receivedAtEpochMillis": 1792455180000,
+      "applied": false,
+      "current": {
+        "reportId": "00000000-0000-4000-8000-000000000004",
+        "observedAtEpochMillis": 1792455060000,
+        "deliveryCondition": "AVAILABLE",
+        "notificationPermissionGranted": true,
+        "channelEnabled": true,
+        "exactAlarmAccess": "GRANTED",
+        "reasons": [],
+        "observationSequence": 2,
+        "receivedAtEpochMillis": 1792455120000
+      }
+    }
+  },
+  "updatePlanResponse": {
+    "medication": {
+      "id": "medication-1",
+      "elderId": "elder-1",
+      "displayName": "Fictional Medication A (updated)",
+      "dosageText": "Demo text only",
+      "instructions": null,
+      "active": true,
+      "photoId": "photo-1"
+    },
+    "plan": {
+      "id": "plan-1",
+      "elderId": "elder-1",
+      "medicationId": "medication-1",
+      "revision": 2,
+      "localTimes": [
+        "08:00",
+        "20:00"
+      ],
+      "startDate": "2026-10-20",
+      "endDate": null,
+      "executionTimeZoneId": "Asia/Shanghai",
+      "active": true,
+      "effectiveFromEpochMillis": 1792455300000,
+      "confirmedAtEpochMillis": 1792455300000
+    }
+  },
+  "planCollection": {
+    "items": [
+      {
+        "id": "plan-1",
+        "elderId": "elder-1",
+        "medicationId": "medication-1",
+        "revision": 2,
+        "localTimes": [
+          "08:00",
+          "20:00"
+        ],
+        "startDate": "2026-10-20",
+        "endDate": null,
+        "executionTimeZoneId": "Asia/Shanghai",
+        "active": true,
+        "effectiveFromEpochMillis": 1792455300000,
+        "confirmedAtEpochMillis": 1792455300000
+      }
+    ],
+    "planRevisions": [
+      {
+        "id": "plan-1",
+        "elderId": "elder-1",
+        "medicationId": "medication-1",
+        "revision": 1,
+        "localTimes": [
+          "08:00",
+          "20:00"
+        ],
+        "startDate": "2026-10-20",
+        "endDate": null,
+        "executionTimeZoneId": "Asia/Shanghai",
+        "active": true,
+        "effectiveFromEpochMillis": 1792368000000,
+        "confirmedAtEpochMillis": 1792368000000,
+        "medicationSnapshot": {
+          "displayName": "Fictional Medication A",
+          "dosageText": "Demo text only",
+          "instructions": null
+        }
+      },
+      {
+        "id": "plan-1",
+        "elderId": "elder-1",
+        "medicationId": "medication-1",
+        "revision": 2,
+        "localTimes": [
+          "08:00",
+          "20:00"
+        ],
+        "startDate": "2026-10-20",
+        "endDate": null,
+        "executionTimeZoneId": "Asia/Shanghai",
+        "active": true,
+        "effectiveFromEpochMillis": 1792455300000,
+        "confirmedAtEpochMillis": 1792455300000,
+        "medicationSnapshot": {
+          "displayName": "Fictional Medication A (updated)",
+          "dosageText": "Demo text only",
+          "instructions": null
+        }
+      }
+    ]
+  },
+  "snapshot": {
+    "elder": {
+      "id": "elder-1",
+      "role": "ELDER",
+      "displayName": "Demo Elder"
+    },
+    "careRelationship": {
+      "id": "relation-1",
+      "elderId": "elder-1",
+      "caregiverId": "caregiver-1",
+      "status": "ACTIVE",
+      "createdAtEpochMillis": 1792368000000,
+      "revokedAtEpochMillis": null,
+      "elder": {
+        "id": "elder-1",
+        "role": "ELDER",
+        "displayName": "Demo Elder"
+      },
+      "caregiver": {
+        "id": "caregiver-1",
+        "role": "CAREGIVER",
+        "displayName": "Demo Caregiver"
+      }
+    },
+    "photos": [
+      {
+        "id": "photo-1",
+        "elderId": "elder-1",
+        "contentType": "image/jpeg",
+        "createdAtEpochMillis": 1792368000000
+      }
+    ],
+    "medications": [
+      {
+        "id": "medication-1",
+        "elderId": "elder-1",
+        "displayName": "Fictional Medication A (updated)",
+        "dosageText": "Demo text only",
+        "instructions": null,
+        "active": true,
+        "photoId": "photo-1"
+      }
+    ],
+    "reminderPlans": [
+      {
+        "id": "plan-1",
+        "elderId": "elder-1",
+        "medicationId": "medication-1",
+        "revision": 2,
+        "localTimes": [
+          "08:00",
+          "20:00"
+        ],
+        "startDate": "2026-10-20",
+        "endDate": null,
+        "executionTimeZoneId": "Asia/Shanghai",
+        "active": true,
+        "effectiveFromEpochMillis": 1792455300000,
+        "confirmedAtEpochMillis": 1792455300000
+      }
+    ],
+    "planRevisions": [
+      {
+        "id": "plan-1",
+        "elderId": "elder-1",
+        "medicationId": "medication-1",
+        "revision": 1,
+        "localTimes": [
+          "08:00",
+          "20:00"
+        ],
+        "startDate": "2026-10-20",
+        "endDate": null,
+        "executionTimeZoneId": "Asia/Shanghai",
+        "active": true,
+        "effectiveFromEpochMillis": 1792368000000,
+        "confirmedAtEpochMillis": 1792368000000,
+        "medicationSnapshot": {
+          "displayName": "Fictional Medication A",
+          "dosageText": "Demo text only",
+          "instructions": null
+        }
+      },
+      {
+        "id": "plan-1",
+        "elderId": "elder-1",
+        "medicationId": "medication-1",
+        "revision": 2,
+        "localTimes": [
+          "08:00",
+          "20:00"
+        ],
+        "startDate": "2026-10-20",
+        "endDate": null,
+        "executionTimeZoneId": "Asia/Shanghai",
+        "active": true,
+        "effectiveFromEpochMillis": 1792455300000,
+        "confirmedAtEpochMillis": 1792455300000,
+        "medicationSnapshot": {
+          "displayName": "Fictional Medication A (updated)",
+          "dosageText": "Demo text only",
+          "instructions": null
+        }
+      }
+    ],
+    "doseEvents": [
+      {
+        "id": "event-1",
+        "elderId": "elder-1",
+        "occurrence": {
+          "planId": "plan-1",
+          "localDate": "2026-10-20",
+          "localTime": "08:00"
+        },
+        "planRevision": 1,
+        "medicationId": "medication-1",
+        "medicationSnapshot": {
+          "displayName": "Fictional Medication A",
+          "dosageText": "Demo text only",
+          "instructions": null
+        },
+        "executionTimeZoneId": "Asia/Shanghai",
+        "plannedAtEpochMillis": 1792454400000,
+        "responseDeadlineEpochMillis": 1792461600000,
+        "status": "TAKEN",
+        "snoozedUntilEpochMillis": null,
+        "takenRecordedAtEpochMillis": 1792455000000,
+        "lateTakenReports": [],
+        "serverUpdatedAtEpochMillis": 1792462800000,
+        "generationEvidence": {
+          "generationId": "00000000-0000-4000-8000-000000000100",
+          "occurrence": {
+            "planId": "plan-1",
+            "localDate": "2026-10-20",
+            "localTime": "08:00"
+          },
+          "planRevision": 1,
+          "generatedAtEpochMillis": 1792450800000,
+          "executionTimeZoneId": "Asia/Shanghai",
+          "plannedAtEpochMillis": 1792454400000,
+          "resolvedOffsetSeconds": 28800,
+          "resolutionPolicyVersion": "P0_TIME_V1",
+          "sourceSnapshotVersion": "confirmed-before-generation",
+          "sourceSnapshotServerAtEpochMillis": 1792368000000
+        }
+      }
+    ],
+    "capability": {
+      "reportId": "00000000-0000-4000-8000-000000000004",
+      "observedAtEpochMillis": 1792455060000,
+      "deliveryCondition": "AVAILABLE",
+      "notificationPermissionGranted": true,
+      "channelEnabled": true,
+      "exactAlarmAccess": "GRANTED",
+      "reasons": [],
+      "observationSequence": 2,
+      "receivedAtEpochMillis": 1792455120000
+    },
+    "fromDate": "2026-10-20",
+    "throughDate": "2026-10-20",
+    "snapshotVersion": "opaque-example-token",
+    "serverAtEpochMillis": 1792462800000
+  },
+  "onlineAwaitingResult": {
+    "status": "AWAITING_CONFIRMATION",
+    "operationId": "00000000-0000-4000-8000-000000000005"
+  },
+  "onlineCommittedCachePendingResult": {
+    "status": "CONFIRMED",
+    "operationId": "00000000-0000-4000-8000-000000000005",
+    "value": {
+      "medication": {
+        "id": "medication-1",
+        "elderId": "elder-1",
+        "displayName": "Fictional Medication A (updated)",
+        "dosageText": "Demo text only",
+        "instructions": null,
+        "active": true,
+        "photoId": "photo-1"
+      },
+      "plan": {
+        "id": "plan-1",
+        "elderId": "elder-1",
+        "medicationId": "medication-1",
+        "revision": 2,
+        "localTimes": [
+          "08:00",
+          "20:00"
+        ],
+        "startDate": "2026-10-20",
+        "endDate": null,
+        "executionTimeZoneId": "Asia/Shanghai",
+        "active": true,
+        "effectiveFromEpochMillis": 1792455300000,
+        "confirmedAtEpochMillis": 1792455300000
+      }
+    },
+    "cacheState": "REFRESH_REQUIRED"
+  },
+  "snapshotOrderingVector": {
+    "olderFetch": {
+      "requestGeneration": 1,
+      "accessGeneration": 1
+    },
+    "currentScope": {
+      "requestGeneration": 2,
+      "accessGeneration": 2,
+      "access": "REVOKED"
+    },
+    "expectedMerge": "DISCARD",
+    "expectedAccess": "REVOKED"
+  },
+  "photoOnlySnapshot": {
+    "elder": {
+      "id": "elder-1",
+      "role": "ELDER",
+      "displayName": "Demo Elder"
+    },
+    "careRelationship": {
+      "id": "relation-1",
+      "elderId": "elder-1",
+      "caregiverId": "caregiver-1",
+      "status": "ACTIVE",
+      "createdAtEpochMillis": 1792368000000,
+      "revokedAtEpochMillis": null,
+      "elder": {
+        "id": "elder-1",
+        "role": "ELDER",
+        "displayName": "Demo Elder"
+      },
+      "caregiver": {
+        "id": "caregiver-1",
+        "role": "CAREGIVER",
+        "displayName": "Demo Caregiver"
+      }
+    },
+    "photos": [
+      {
+        "id": "photo-1",
+        "elderId": "elder-1",
+        "contentType": "image/jpeg",
+        "createdAtEpochMillis": 1792368000000
+      }
+    ],
+    "medications": [],
+    "reminderPlans": [],
+    "planRevisions": [],
+    "doseEvents": [],
+    "capability": null,
+    "fromDate": "2026-10-20",
+    "throughDate": "2026-10-20",
+    "snapshotVersion": "opaque-photo-only-example-token",
+    "serverAtEpochMillis": 1792368000000
+  },
+  "occurrenceRegistration": {
+    "idempotencyKey": "00000000-0000-4000-8000-000000000101",
+    "request": {
+      "items": [
+        {
+          "generationId": "00000000-0000-4000-8000-000000000100",
+          "occurrence": {
+            "planId": "plan-1",
+            "localDate": "2026-10-20",
+            "localTime": "08:00"
+          },
+          "planRevision": 1,
+          "generatedAtEpochMillis": 1792450800000,
+          "executionTimeZoneId": "Asia/Shanghai",
+          "plannedAtEpochMillis": 1792454400000,
+          "resolvedOffsetSeconds": 28800,
+          "resolutionPolicyVersion": "P0_TIME_V1",
+          "sourceSnapshotVersion": "confirmed-before-generation",
+          "sourceSnapshotServerAtEpochMillis": 1792368000000
+        }
+      ]
+    },
+    "response": {
+      "items": [
+        {
+          "generationId": "00000000-0000-4000-8000-000000000100",
+          "receivedAtEpochMillis": 1792450860000,
+          "event": {
+            "id": "event-1",
+            "elderId": "elder-1",
+            "occurrence": {
+              "planId": "plan-1",
+              "localDate": "2026-10-20",
+              "localTime": "08:00"
+            },
+            "planRevision": 1,
+            "medicationId": "medication-1",
+            "medicationSnapshot": {
+              "displayName": "Fictional Medication A",
+              "dosageText": "Demo text only",
+              "instructions": null
+            },
+            "executionTimeZoneId": "Asia/Shanghai",
+            "plannedAtEpochMillis": 1792454400000,
+            "responseDeadlineEpochMillis": 1792461600000,
+            "status": "SCHEDULED",
+            "snoozedUntilEpochMillis": null,
+            "takenRecordedAtEpochMillis": null,
+            "lateTakenReports": [],
+            "serverUpdatedAtEpochMillis": 1792450860000,
+            "generationEvidence": {
+              "generationId": "00000000-0000-4000-8000-000000000100",
+              "occurrence": {
+                "planId": "plan-1",
+                "localDate": "2026-10-20",
+                "localTime": "08:00"
+              },
+              "planRevision": 1,
+              "generatedAtEpochMillis": 1792450800000,
+              "executionTimeZoneId": "Asia/Shanghai",
+              "plannedAtEpochMillis": 1792454400000,
+              "resolvedOffsetSeconds": 28800,
+              "resolutionPolicyVersion": "P0_TIME_V1",
+              "sourceSnapshotVersion": "confirmed-before-generation",
+              "sourceSnapshotServerAtEpochMillis": 1792368000000
+            }
+          }
+        }
+      ]
+    }
+  },
+  "approvedTechnicalDefaults": {
+    "baseline": "T01-T07/2026-10-16-r1",
+    "canonicalizationVersion": "P0_CANONICAL_V1",
+    "pairing": {
+      "digits": 8,
+      "ttlSeconds": 600,
+      "attemptsPerInstallationPerMinute": 5,
+      "attemptsPerIpPerMinute": 20,
+      "issuesPerElderPerMinute": 3,
+      "terminalMetadataDays": 30
+    },
+    "photo": {
+      "contentTypes": [
+        "image/jpeg",
+        "image/png"
+      ],
+      "maxFileBytes": 5242880,
+      "maxDecodedPixels": 20000000,
+      "connectTimeoutSeconds": 10,
+      "totalTimeoutSeconds": 120,
+      "orphanThresholdHours": 24,
+      "cleanupRequiresReconciliationAndNoReferenceOrLiveLease": true
+    },
+    "sync": {
+      "realGenerationHours": 24,
+      "historyLocalDates": 30,
+      "previewDays": 7,
+      "maxSnapshotInclusiveDates": 90,
+      "maxSnapshotEntities": 10000,
+      "acceptedEvidenceRetention": "P0_PROJECT_LIFETIME",
+      "snapshotReadIsolation": "PRIMARY_READ_ONLY_REPEATABLE_READ"
+    },
+    "fallback": {
+      "server": "SAME_SPRING_BOOT_ARTIFACT",
+      "database": "LOCAL_POSTGRESQL",
+      "photoStorage": "PRIVATE_LOCAL_FILE_ADAPTER",
+      "cloudRuntimeDependencies": [],
+      "environmentIsolation": true,
+      "automaticCloudPendingMigration": false
+    }
+  },
+  "timeResolutionVectors": [
+    {
+      "zone": "America/New_York",
+      "localDate": "2026-03-08",
+      "localTime": "02:30",
+      "resolvedLocalTime": "03:30",
+      "resolvedOffsetSeconds": -14400,
+      "plannedAtEpochMillis": 1772955000000,
+      "resolutionPolicyVersion": "P0_TIME_V1",
+      "occurrenceCount": 1
+    },
+    {
+      "zone": "America/New_York",
+      "localDate": "2026-11-01",
+      "localTime": "01:30",
+      "resolvedLocalTime": "01:30",
+      "resolvedOffsetSeconds": -14400,
+      "plannedAtEpochMillis": 1793511000000,
+      "resolutionPolicyVersion": "P0_TIME_V1",
+      "occurrenceCount": 1
+    }
+  ],
+  "deadlineVectors": [
+    {
+      "recordedAtEpochMillis": 1792454399999,
+      "expected": "REJECT_BEFORE_DUE"
+    },
+    {
+      "recordedAtEpochMillis": 1792454400000,
+      "expected": "TIMELY_TAKEN"
+    },
+    {
+      "recordedAtEpochMillis": 1792461599999,
+      "expected": "TIMELY_TAKEN"
+    },
+    {
+      "recordedAtEpochMillis": 1792461600000,
+      "expected": "LATE_TAKEN"
+    },
+    {
+      "recordedAtEpochMillis": 1792461600001,
+      "expected": "LATE_TAKEN"
+    }
+  ],
+  "snoozeBoundaryVectors": {
+    "note": "Independent D03/O01 scenarios for the same fictional planned time; reset event state for each case. Nominal targets are illustrative calculations, not extra wire fields. A target strictly before deadline is eligible only while the response window remains open.",
+    "plannedAtEpochMillis": 1792454400000,
+    "responseDeadlineEpochMillis": 1792461600000,
+    "delayMillis": 600000,
+    "cases": [
+      {
+        "recordedAtEpochMillis": 1792455000000,
+        "nominalTargetEpochMillis": 1792455600000,
+        "expectedSnoozedUntilEpochMillis": 1792455600000,
+        "expectedRepeatEligible": true
+      },
+      {
+        "recordedAtEpochMillis": 1792460999999,
+        "nominalTargetEpochMillis": 1792461599999,
+        "expectedSnoozedUntilEpochMillis": 1792461599999,
+        "expectedRepeatEligible": true
+      },
+      {
+        "recordedAtEpochMillis": 1792461000000,
+        "nominalTargetEpochMillis": 1792461600000,
+        "expectedSnoozedUntilEpochMillis": null,
+        "expectedRepeatEligible": false,
+        "expectedStatusAtDeadlineWithoutTimelyTaken": "MISSED"
+      },
+      {
+        "recordedAtEpochMillis": 1792461300000,
+        "nominalTargetEpochMillis": 1792461900000,
+        "expectedSnoozedUntilEpochMillis": null,
+        "expectedRepeatEligible": false,
+        "expectedStatusAtDeadlineWithoutTimelyTaken": "MISSED"
+      },
+      {
+        "recordedAtEpochMillis": 1792455000000,
+        "receivedAtEpochMillis": 1792462800000,
+        "nominalTargetEpochMillis": 1792455600000,
+        "expectedRepeatEligibleAtReceipt": false,
+        "expectedStatusAtReceiptWithoutTimelyTaken": "MISSED",
+        "expectedRestartsDelay": false
+      },
+      {
+        "recordedAtEpochMillis": 1792454399999,
+        "expected": "REJECT_BEFORE_DUE"
+      },
+      {
+        "recordedAtEpochMillis": 1792461600000,
+        "expected": "REJECT_REMIND_LATER_OUTSIDE_RESPONSE_WINDOW"
+      },
+      {
+        "recordedAtEpochMillis": 1792461600001,
+        "expected": "REJECT_REMIND_LATER_OUTSIDE_RESPONSE_WINDOW"
+      }
+    ]
+  },
+  "closedPairingRequestResponse": {
+    "note": "A participant sends a new accept command for their cancelled/replaced request. This is not a retry of a previously accepted command.",
+    "httpStatus": 409,
+    "body": {
+      "code": "PAIRING_REQUEST_CLOSED",
+      "message": "Pairing request is already closed",
+      "retryable": false,
+      "requestId": "request-pairing-closed",
+      "fieldErrors": null,
+      "reason": "CODE_REPLACED"
+    },
+    "expectedRecovery": "FETCH_OWN_TERMINAL_REQUEST",
+    "unrelatedCallerExpectedHttpStatus": 404,
+    "unrelatedCallerExpectedCode": "RESOURCE_NOT_ACCESSIBLE",
+    "acceptedCancellationReplay": {
+      "reuseOriginalKeyAndPayload": true,
+      "expectedHttpStatus": 204,
+      "note": "Separate case: exact replay of the participant's own previously successful cancellation, after current access checks."
+    }
+  },
+  "inProgressResponse": {
+    "httpStatus": 409,
+    "headers": {
+      "Retry-After": "1"
+    },
+    "body": {
+      "code": "OPERATION_IN_PROGRESS",
+      "message": "Operation is still processing",
+      "retryable": true,
+      "requestId": "request-in-progress",
+      "fieldErrors": null,
+      "reason": null
+    },
+    "expectedOnlineState": "AWAITING_CONFIRMATION",
+    "reuseOriginalKey": true
+  },
+  "generatedEventAfterPlanEditVector": {
+    "generatedEvidence": {
+      "generationId": "00000000-0000-4000-8000-000000000100",
+      "occurrence": {
+        "planId": "plan-1",
+        "localDate": "2026-10-20",
+        "localTime": "08:00"
+      },
+      "planRevision": 1,
+      "generatedAtEpochMillis": 1792450800000,
+      "executionTimeZoneId": "Asia/Shanghai",
+      "plannedAtEpochMillis": 1792454400000,
+      "resolvedOffsetSeconds": 28800,
+      "resolutionPolicyVersion": "P0_TIME_V1",
+      "sourceSnapshotVersion": "confirmed-before-generation",
+      "sourceSnapshotServerAtEpochMillis": 1792368000000
+    },
+    "laterCurrentPlanRevision": 2,
+    "expectedGenerationPlanRevision": 1,
+    "expectedGeneratedScheduledIsRewritten": false,
+    "oldRevisionAloneIsRejection": false
+  },
+  "uploadByteBoundaryVectors": [
+    {
+      "fileBytes": 5242880,
+      "type": "image/jpeg",
+      "validDecodedContent": true,
+      "expected": "ACCEPT_SIZE_CHECK"
+    },
+    {
+      "fileBytes": 5242881,
+      "type": "image/jpeg",
+      "validDecodedContent": true,
+      "expectedHttpStatus": 413,
+      "expectedCode": "PHOTO_TOO_LARGE"
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+name: Technical decision
+description: Resolve an implementation choice without silently changing accepted product behavior
+title: "[Decision] "
+labels:
+  - needs-triage
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Decision required
+      description: State the exact choice that blocks or affects implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: authority
+    attributes:
+      label: Existing authority
+      description: Link relevant ADRs, contracts, issues, and preserved constraints.
+    validations:
+      required: true
+  - type: textarea
+    id: options
+    attributes:
+      label: Options and tradeoffs
+      description: Compare viable options, including compatibility, test, migration, security, and rollback effects.
+    validations:
+      required: true
+  - type: textarea
+    id: owners
+    attributes:
+      label: Required owners and reviewers
+      description: Name the accountable role and required Android, Server, feature, or lead reviewers.
+    validations:
+      required: true
+  - type: textarea
+    id: deadline
+    attributes:
+      label: Blocking scope and deadline
+      description: State which work must pause, which work may continue, and when the decision is needed.
+    validations:
+      required: true
