@@ -318,6 +318,8 @@ Environment switches do not imply that identities, pairing, photos, or pending a
 
 ## 16. UI, localization, and accessibility
 
+The sole current product/UI baseline is [ELDER_REMINDER_V2 / ADR-0008](adr/0008-photo-first-elder-reminders-and-caregiver-handoff.md) and [Elder UI baseline](ELDER_UI_BASELINE.md). Former conflicting Issue/UI paragraphs are superseded. Remaining [technical questions](ELDER_UI_TECHNICAL_REVIEW.md) gate affected protocol freeze, not selection between old and new product behavior.
+
 Shared color, typography, spacing, shape, elevation, icon, and component-state tokens are centrally owned. Feature branches do not invent local design systems.
 
 User-visible work includes English and Simplified Chinese in the same PR. Android maps stable domain/error codes to localized resources and provides a safe unknown-code fallback. Do not build sentences by concatenating translated fragments.

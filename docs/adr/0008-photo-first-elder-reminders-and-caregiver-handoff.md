@@ -1,66 +1,51 @@
-# ADR-0008: Photo-first grouped elder reminders with caregiver exception handling
+# ADR-0008: Adopt the photo-first elder reminder and caregiver follow-up baseline
 
 ## Status
 
-Proposed — 2026-10-16. Product intent confirmed by the project lead in the prototype discussion and recorded in [Issue #23](https://github.com/BRMRs/group33/issues/23). Cross-client contract amendments and delivery scope are **not accepted** by this record. No named Android/Server approval, implementation or production delivery evidence is claimed.
+**Accepted product decision — ELDER_REMINDER_V2**, explicitly confirmed by the project lead on 2026-10-16 in [Issue #23](https://github.com/BRMRs/group33/issues/23). This replaces the earlier proposal and is the sole current product behavior. It does not claim implemented features, named Android/Server protocol sign-off, or release acceptance.
 
-This ADR deliberately distinguishes confirmed product intent from protocol acceptance. Until the affected amendments are reviewed, the existing accepted ADRs/contracts retain precedence and affected implementation is gated, rather than each developer choosing a different rule. Unaffected work continues.
+Partially supersedes ADR-0002/0004 on Elder sync presentation and refresh-only sufficiency, ADR-0003/0005 on the response deadline and Elder-only outcome reporting, and Issues #4/#5/#7/#9/#11 on those affected requirements. Unaffected pairing, authorization, offline execution, generation, frozen historical context, stack and accessibility decisions remain in force. The old choices are not optional alternatives.
 
 ## Context
 
-Repeated prototypes optimized large controls and exposed domain detail while leaving elders to identify medicines from names, report partial intake, inspect synchronization and navigate hidden photos. This shifted care-management work onto the least suitable participant. The preferred direction is C's recognizable-box overview, supporting gathering several boxes before taking them together, with caregiver intervention for uncertainty.
+The target Elder can recognize familiar original boxes, gather medicines and take them independently, but should not perform complex reading, per-medicine reporting or synchronization management. The Caregiver configures plans and handles exceptions. Earlier prototypes confused this division and hid recognition content behind oversized actions.
 
-The current C v2 is not an approved pixel reference: its action area leaves only one complete row visible. A runnable state simulation and absence of clipping do not establish older-adult usability or reliable remote alerting.
+## Decision
 
-## Product decision to carry into implementation review
+1. Home is quiet: brief state/next reminder and Photograph a box; no daily medicine list, technical sync state or generic Help.
+2. Reminder recognition is photo-first. Six original-box photos use two columns/three rows and stable order, with necessary confirmed quantity/instructions attached. Names/strengths do not dominate. Photos do not prove identity, dose or ingestion.
+3. Both single- and multi-medicine reminders expose exactly three group actions: **Medicines taken / Remind me in 10 minutes / I need help**. No per-drug selection, partial-intake form or mandatory second confirmation. Help is available in the reminder, not Home.
+4. **The sole response interval is [plannedAt, plannedAt + 1_800_000ms).** At the exact thirty-minute boundary, absent a timely report, withdraw this occurrence's alarm, photos and old Taken/snooze actions and create Caregiver nonresponse follow-up. There is no remaining two-hour action window.
+5. Snooze is exactly ten minutes from the local action time, never from receipt time, and never extends the original deadline. If its target reaches/passes the deadline, do not promise or shorten another reminder; deadline wins ties. Help starts follow-up immediately and stops repeated prompting for that occurrence.
+6. After cutoff/help/takeover, the Elder does not register an outcome or reopen old reminders. At recovery, apply the same original cutoff before any catch-up notification. Timely offline reports retain their original time and may reconcile provisional nonresponse after receipt.
+7. A Caregiver contact is **Contact made — record outcome**, not completion. The Caregiver records **Taken / Not taken / Unable to confirm**, with actor/source, actual time or explicit unknown, entry time and receipt time. Unknown remains actionable. Partial/ambiguous intake is not forced into all-taken/all-not-taken. No Elder return-to-phone step is required.
+8. Caregiver entries are separate auditable facts, not forged Elder actions. Preserve earlier records and contradictory delayed reports; require explicit review rather than last-arrival overwrite. Elder report status and Caregiver follow-up outcome remain distinguishable. Missed means no timely Elder report known, not proven non-intake.
+9. **Device-contact loss has its own short detection/alert path; it does not wait for the thirty-minute dose timer.** Alert the Caregiver to contact the Elder without guessing battery/network/power state. Reconnection does not close an unresolved medication follow-up; outcome entry does not prove device recovery.
+10. Caregiver follow-up, supplement entry and independent contact-loss alerting are required current-version scope, not optional P1. Data sync may remain explicit Room–Server; refresh alone is not sufficient alert delivery. The two-minute simulation is not a production threshold or SLA.
+11. Local offline operation and its cutoff continue from durable cached state. Remote takeover is not claimed applied until acknowledged by the Elder installation. Offline help is locally queued, not falsely delivered. The Caregiver sees truthful freshness, received evidence, delivery and acknowledgement distinctions.
+12. Keep technical Pending sync / Synced / Sync needs attention out of ordinary Elder Home/reminder screens. Retain them in data/diagnostics and map Caregiver-known information truthfully; remote UI cannot know an unsent local action.
+13. Use one shared product identity, tokens, components and bilingual resources. System font scaling including 200% remains an accessibility check, not an Elder setting task. Current C geometry is rejected; finish one shared reference component rather than more prototype variants.
 
-1. Keep Home quiet with a photo-capture entry, not a daily medicine dashboard or generic Help button.
-2. Use actual-box photos as the reminder's main recognition aid. Six boxes use two columns/three rows in stable order. Necessary quantity/instructions stay attached to each photo; box images do not prove identity, dose or ingestion.
-3. Offer one-step grouped Medicines taken, a fixed ten-minute Remind later, and I need help. Remove per-medicine selection/partial-intake forms and mandatory second confirmation. Snoozing is autonomous ordinary behavior, not a help request.
-4. End the elder reminder UI thirty minutes from its original planned time if still unconfirmed. Remove stale alarm content and actions and do not replay after recovery. Snoozing never extends that cutoff. Help stops repeated prompting for this occurrence and starts caregiver follow-up.
-5. Caregiver contact alone does not complete follow-up. Record Taken / Not taken / Unable to confirm with actor/source, actual time or explicit unknown, registration time and receipt time. Preserve history and unresolved uncertainty; do not fabricate an Elder report.
-6. Monitor device contact separately from dose nonresponse. An independent, reviewed detection and notification path is required. No message cannot distinguish power loss, network loss, background limitations or a service fault. The prototype's two minutes is illustrative, not an SLA.
-7. Keep technical synchronization work off ordinary elder screens. Caregivers receive truthful freshness, acceptance and device-acknowledgement information. Locally queued does not mean received, delivered or read.
-8. Share product tokens, localized labels and reusable components across roles. Retain system font scaling/accessibility support; a reviewer font control is not a new elder task.
+Page/component rules are in [ELDER_UI_BASELINE.md](../ELDER_UI_BASELINE.md); the old UI document is an entry point to that single baseline, not another specification.
 
-The complete page/component baseline and prohibited patterns are in [ELDER_UI_BASELINE.md](../ELDER_UI_BASELINE.md). Current geometry is explicitly rejected; a finite reference-component check remains, not another open-ended prototype round.
+## What remains technical, not a product choice
 
-## Required amendments before acceptance
+[ELDER_UI_TECHNICAL_REVIEW.md](../ELDER_UI_TECHNICAL_REVIEW.md) lists V2-T01–V2-T06 with required reviewers, deliverables and tests: protocol/version migration, frozen group transactions, caregiver record/audit APIs, contact monitoring thresholds, alert delivery/recovery, and shared-layout acceptance.
 
-| Gate | Existing source / conflict | Required resolution and reviewers |
-| --- | --- | --- |
-| G1 — UI presentation | Issue #7 and `docs/UI_DESIGN_DECISION.md`: text-first, two-step Taken, elder sync presentation | C1/E review; update the old UI document and append the supersession to #7. Preserve unrelated visual/accessibility rules |
-| G2 — time semantics | ADR-0003/0005 and P0_TIME_V1 use a two-hour Response window | C2/E/S1/S2 choose whether thirty-minute UI withdrawal is a separate timer or the canonical window changes. Update glossary, API, fixtures and exact-boundary tests together; never simply map withdrawal to Missed |
-| G3 — grouped action | Existing plans/events are per medication; no frozen group transaction | E/C2/C3/S1/S2 define exact membership, common planned time, generation evidence, identity/idempotency, atomic acceptance or explicit partial-result handling, and immutable historical context. Group only plans confirmed to belong to this reminder; do not infer medical compatibility |
-| G4 — help/takeover/supplement | Existing Elder-only timely Taken is final | E/C3/C1/S1/S2 define authorized caregiver append-only entries, unknowns, supersession/audit, contact vs closure, acknowledgement, retries and contradictory delayed Elder reports. Do not spoof Elder identity or silently replace accepted records |
-| G5 — device and remote alerts | ADR-0002/0004 permit explicit sync without realtime push; remote missed-dose notification is P1 in the scope document | Lead + C3/S1/S2 select milestone, authenticated contact evidence, monitoring/delivery mechanisms, detection and notification budgets, caregiver-offline behavior, retry/escalation/dedup/recovery. No background worker or freshness timestamp alone proves prompt delivery |
-| G6 — finite UI verification | C v2 hides boxes; placeholder public photos are not elders' own medicines | C1/E lock one shared reference component and tokens, verify on target device with approved photo fixtures and both languages; document unresolved real-user recognition/accidental-tap risk |
+These questions cannot restore a two-hour window, remove supplement entry, defer mandatory alerting to P1, add per-drug Elder reporting, or expose Elder sync management. Named cross-client review is still required before freezing affected DTOs/adapters. Unaffected work can continue.
 
-G1/G6 can prepare reference resources without inventing G2–G5 fields. Fake adapters must use reviewed interfaces. These gates do not authorize expanding all P0 work silently.
+## Migration and evidence boundary
 
-## Safety and integrity invariants
+Existing compiled r1 declarations, JSON examples and tests are **legacy structural/regression evidence, not V2 acceptance**. In particular WireContractTest currently asserts the retired duration. This docs-only change does not alter those files or imply V2 is implemented; #12 must migrate code/fixtures/tests together under V2-T01.
 
-- Thirty minutes is a product handoff, not a recommendation to take, skip or replace a medicine.
-- Stop locally at cutoff using retained state even while offline. A remote caregiver cannot force an offline phone to stop before receiving an instruction. Display pending acknowledgement truthfully; never replay an expired or taken reminder after recovery.
-- Neither lack of action nor lack of device contact proves non-intake. Server expected-plan monitoring must not generate canonical Dose events contrary to ADR-0005.
-- Keep planned time, elder action time, actual intake time (possibly unknown), caregiver entry time and Server receipt time distinct. Do not infer actual intake from entry time.
-- Preserve timely offline reports and conflicting caregiver reports with original sources. A UI outcome label is not permission to change canonical Taken/Missed meanings.
-- Authorization comes from verified active relationships, not a selected actor field. Photos stay private; demonstration data remains fictional even when public real-box images are used as fixtures.
+Do not rewrite accepted historical reports, generate competing Server Dose events, or silently relabel old policy evidence. New interactions use the V2 cutoff; old installed clients/retained records need an explicit compatibility/cutover plan before deployment. There must not be a second active legacy response window offered to the Elder.
 
-## Alternatives rejected
+At least Android S1 and Server S2 perspectives review the same protocol revision, with E/C2/C3 reviewing behavior and C1 reviewing shared resources/authorization. Actual members remain to be recorded; no signatures are fabricated. Existing implementation Issues remain open.
 
-- Text-first dashboards and daily lists: reading and management load on Home.
-- Per-box wizard, checkbox or moved-card reporting: many decisions, memory and partial-intake bookkeeping.
-- Removing Remind later: incorrectly treats being busy as requiring help.
-- Showing all sync states on the elder path: technical burden without improving the elder's immediate task.
-- Three tall full-width buttons by default: touch size alone does not justify hiding the recognition target.
-- Treating contact as completion, or marking every partial/unknown case as all Taken/all Not taken: loses uncertainty and accountability.
-- Promoting prototype CSS/JavaScript directly: browser simulations do not implement durable Android reminders, authorization or notifications.
+## Alternatives rejected and consequences
 
-## Consequences and rollout
+Text-first dashboards, per-box wizards/selection, missing snooze, Elder sync troubleshooting and treating contact as completion all transfer avoidable burden to the Elder. Three tall full-width actions also fail if they hide the photos. Larger targets alone do not establish accessibility.
 
-The elder path becomes simpler, while caregiver workflow and system reliability become more demanding. UI simplicity does not remove backend/outbox, monitoring, auditing or notification work. Scope must be budgeted explicitly.
+Simpler Elder UI increases Caregiver, audit, monitoring and delivery obligations; those costs are accepted product scope, not hidden by the prototype. Thirty minutes is a workflow boundary, **not medical advice about taking/skipping/replacing a medicine**.
 
-Accept this ADR only after named reviewers record the same reviewed commit and G1–G5 decisions, update conflicting accepted sources and affected Issue acceptance criteria, and identify required tests. G6 must have a bounded acceptance owner and evidence plan; passing real-device/user tests is still an implementation/release gate, not assumed by accepting the decision. Existing #12/#13/#14/#17/#18/#19/#21 remain open; this document does not waive their tests or review requirements.
-
-Publish conclusions separately from the [archived prototype](https://github.com/BRMRs/group33/tree/60b035a72255cf0c3f11d15f900438ca0809637c/android-app/prototypes/due-reminder-prototype). Only decision documents belong in the eventual main-branch integration. Do not merge the evidence branch or use its README as current requirements.
+Only decision documents enter the integration PR. The [frozen prototype evidence](https://github.com/BRMRs/group33/tree/60b035a72255cf0c3f11d15f900438ca0809637c/android-app/prototypes/due-reminder-prototype) stays on its own branch and is not a final layout or production implementation.

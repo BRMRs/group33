@@ -1,5 +1,7 @@
 # Architecture
 
+Current behavior: [ADR-0008 / ELDER_REMINDER_V2](adr/0008-photo-first-elder-reminders-and-caregiver-handoff.md). Protocol work remains in the [technical queue](ELDER_UI_TECHNICAL_REVIEW.md); compiled r1 declarations/tests are not V2 acceptance.
+
 ## Why this architecture exists
 
 Six people need to work in parallel without waiting for every screen or backend endpoint to be finished. The architecture therefore separates UI, application state, data access, shared contracts, and server implementation.
@@ -38,7 +40,7 @@ The project lead confirmed the following stack on 2026-10-16; see [ADR-0004](adr
 | Supabase Storage | Medication photo objects |
 | Local deployment configuration | Fully cloud-independent Spring Boot + local PostgreSQL + private local-file Storage; rehearsed two-device LAN fallback |
 
-Android synchronizes application data explicitly between Room and the Spring Boot API. Spring Boot remains the authentication, care-relationship authorization, and validation boundary. Choosing Supabase storage does not change anonymous login/JWT into Supabase Auth. Real-time push is not a prerequisite.
+Android synchronizes application data explicitly between Room and the Spring Boot API. Spring Boot remains the authentication, care-relationship authorization, and validation boundary. Choosing Supabase storage does not change anonymous login/JWT into Supabase Auth. Realtime database subscriptions are not mandated; required timely alerts need their own reviewed delivery mechanism, not manual refresh alone.
 
 T07 was approved on 2026-10-16: the local fallback must run the same Spring Boot artifact with local PostgreSQL and a private local-file Storage adapter, with no Render/Supabase/cloud-auth/content/download runtime dependency. Preprepare dependencies/APKs and perform the complete real two-device LAN flow with cloud egress disabled, including restart persistence and offline recovery. Environment profiles isolate sessions, Room, outbox and upload intents; cloud identities/pending actions never migrate automatically. Both Storage adapters enforce the same protected-content, staging/READY and safe-cleanup Interface. See [ADR-0006](adr/0006-cloud-independent-demonstration-fallback.md). These are accepted requirements, not implemented scaffold functionality.
 
@@ -115,7 +117,7 @@ The shared service holds the mutually recognized Reminder plan version and accep
 
 This rule allows an elder to see already synchronized plans while offline. It also gives the reminder scheduler a stable local source after the app process is closed.
 
-Caregivers may view clearly marked cached data while offline but cannot create or edit Reminder plans offline. Elders may execute already synchronized plans offline. Elder actions are recorded locally first as `Pending sync`, retried automatically after connectivity returns, and become `Synced` only after service acceptance. Repeated submissions use one logical action identity and must not duplicate results. A rejected action remains visible as `Sync needs attention`.
+Caregivers may view clearly marked cached data while offline but cannot create or edit Reminder plans offline. Elders may execute already synchronized plans offline. Elder actions are recorded locally first as `Pending sync`, retried automatically after connectivity returns, and become `Synced` only after service acceptance. Repeated submissions use one logical action identity and must not duplicate results. A rejected action remains preserved as `Sync needs attention`. These are data/diagnostic states, not ordinary Elder screen tasks; Caregiver mapping displays only received/known evidence.
 
 The current in-memory repository is temporary. It lets screen owners build against the Repository boundary before Room and the API client are ready.
 
@@ -138,7 +140,15 @@ Medication reminders and background synchronization are different jobs:
 - The server never replaces the local medication alarm.
 
 Exact-alarm and notification permissions need explicit denied-permission behavior. `Reminder delivery degraded` and `Reminder delivery unavailable` are capability conditions, not Dose event states and never imply `Missed`.
-A persisted future reminder must be restored after reboot and first unlock. A Due event still inside its Response window is restored as Due; an expired event becomes Missed without an expired notification; Taken events are never replayed.
+A persisted future reminder must be restored after reboot and first unlock. Only a non-taken, non-helped, non-taken-over Due event still inside its original thirty-minute Response window may restore; an expired event becomes Missed without an expired notification; Taken events are never replayed.
+
+## Caregiver follow-up and device-contact supervision
+
+Photo-first grouped reminders use one confirmation, ten-minute snooze or Help. The sole response interval is [plannedAt, plannedAt + 1_800_000ms); Help suppresses repeated prompting immediately, and cutoff removes old photos/notifications/actions. Local cutoff survives offline/recovery. A remote takeover is not represented as applied before Elder acknowledgement.
+
+Caregiver contact requires a separate auditable Taken / Not taken / Unable to confirm entry, preserving actor/source, actual-time uncertainty and entry/receipt times. It neither impersonates an Elder action nor erases timely offline/conflicting reports. Independent device-contact monitoring alerts well before the ordinary nonresponse deadline, without guessing power/network cause. Medication follow-up and device recovery close independently.
+
+These are current required capabilities, not P1. V2-T01–T05 must specify models/transactions/version migration, authenticated contact evidence and persistent/retried notification delivery, including offline Caregiver and local fallback. Neither WorkManager timing nor a stale snapshot alone proves contact-loss detection or delivery. Server expected-plan monitoring does not become a competing canonical event generator.
 
 ## OCR boundary
 
@@ -160,7 +170,7 @@ The shared dose states are:
 - `DUE`: the reminder time has arrived
 - `SNOOZED`: the user requested another reminder
 - `TAKEN`: the elder confirmed completion
-- `MISSED`: the two-hour Response window ended without a timely Taken report currently known; it does not prove non-adherence or notification delivery
+- `MISSED`: the thirty-minute Response window ended without a timely Taken report currently known; it does not prove non-adherence or notification delivery
 
 Normal transitions are `SCHEDULED -> DUE`, `DUE -> SNOOZED`, `SNOOZED -> DUE`, `DUE/SNOOZED -> TAKEN`, and any non-final state to `MISSED` when the Response window expires. A Taken report recorded locally before the deadline may reconcile a provisional Missed result after synchronization. A UI label must not invent a state that the server cannot represent.
 

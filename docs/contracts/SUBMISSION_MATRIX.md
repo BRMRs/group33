@@ -6,10 +6,14 @@ The project lead authorized continuing Gate 1 code/test work on baseline `T01-T0
 
 The project lead explicitly deferred mapping role slots to GitHub accounts. Continue by E/C1/C2/C3/S1/S2, without asking for names again or automatically assigning the repository collaborators. Deferred account mapping is not permission to fabricate reviews or member contributions.
 
+## Current product authority
+
+[ADR-0008 / ELDER_REMINDER_V2](../adr/0008-photo-first-elder-reminders-and-caregiver-handoff.md) supersedes the affected prior inputs. The r1 compiled artifacts and passing tests below remain historical structural/regression evidence, not a freeze-ready V2 contract. [V2-T01–T06](../ELDER_UI_TECHNICAL_REVIEW.md) track coordinated code/fixture/interface migration and delivery decisions; those cannot restore old behavior.
+
 ## Confirmed inputs
 
 - [Choose the caregiver-elder identity and pairing model](https://github.com/BRMRs/group33/issues/3): explicit Elder approval, active-relationship authorization, role/cardinality/revocation constraints.
-- [Define medication plans and dose-event semantics](https://github.com/BRMRs/group33/issues/4): daily local times, Elder zone, 2h response/10m snooze, immutable event meaning and prospective edits.
+- [Define medication plans and dose-event semantics](https://github.com/BRMRs/group33/issues/4): daily local times, Elder zone, 30m response/10m snooze, immutable event meaning and prospective edits.
 - [Choose the offline-first synchronization and conflict model](https://github.com/BRMRs/group33/issues/5): Room-backed local execution, service-confirmed Caregiver saves, durable Elder reports/idempotent retry.
 - [Research Android reminder, permission, and restart constraints](https://github.com/BRMRs/group33/issues/6): capability separation, late reports, local/reboot recovery and platform evidence.
 - [Select the shared UI direction and elder accessibility profile](https://github.com/BRMRs/group33/issues/7): separate dose/sync/delivery semantics, language and accessibility mappings.
@@ -40,11 +44,11 @@ Every role submits attributable contract/model/mapping code and relevant tests i
 | `shared/.../ApiModels.kt` | `ApiError`/`FieldError` and controller/security envelope implemented; P0 feature-specific errors remain incomplete | Complete feature errors and bilingual recovery mappings with joint contract tests |
 | `android-app/.../MedicationRepository.kt` | Scoped legacy preview remains in memory | Nine new P0 Interfaces/helper types compile separately in `core/data/contract/`; real Room adapters stay downstream, each feature owns its integration |
 | `server/.../web/ScheduleController.kt` | Calls relationship-access seam; shipped adapter denies all until real Pairing exists | S2 implements verified active-relationship lookup with explicit consent/revocation; development-only endpoint cannot satisfy the P0 gate |
-| Prior API resource sketch | Photo upload required an already created Medication; generic event PATCH allowed unclear status authorship | Proposed independent photo resource, atomic photo-to-plan confirmation and Elder-only action command replace the old sketch, preserving all closed behaviors |
+| Prior API resource sketch | Photo upload required an already created Medication; generic event PATCH allowed unclear status authorship | Proposed independent photo resource, atomic photo-to-plan confirmation and Elder-only action command replace the old sketch, preserving unaffected behavior; V2 separately requires caregiver entries and grouped actions |
 
 ## Approved technical baseline, formal review still required
 
-The [review record](REVIEW.md) retains CR01–CR08 and records T01–T07 as resolved. [The decision record](TECHNICAL_RECOMMENDATIONS.md) preserves approved values/trade-offs. API, models, Repository, fixtures and the existing 33 test cases share baseline `T01-T07/2026-10-16-r1`. No additional project-lead parameter choice is pending among these seven.
+The [review record](REVIEW.md) retains CR01–CR08 and records T01–T07 as resolved. [The decision record](TECHNICAL_RECOMMENDATIONS.md) preserves approved values/trade-offs. Compiled models/Repository/fixtures remain r1; current behavior docs and the existing 33 planned cases plus V201–V206 now require V2. Coordinated migration is pending; the two artifact versions are not interchangeable. No additional project-lead parameter choice is pending among these seven.
 
 E coauthors frozen generation/source-upload/action mappings; C1 owns pairing limits/terminal recovery; C2 owns preview-versus-generated/edit-effective/overlap/time-zone mappings; C3 owns bounded history, retained-instance/capability/refresh and local rehearsal tests; S1 owns generation/registration work, durable journal/outbox/sequence and environment isolation with feature authors; S2 owns real auth/pairing/plan/event/registration business code, receipt transactions, persistence and both Storage adapters. No role can substitute review/deployment-only work for its own code and tests.
 

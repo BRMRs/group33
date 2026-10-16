@@ -1,94 +1,41 @@
-# UI design decision — confirmed P0 direction
+# UI design decision — current ELDER_REMINDER_V2 entry point
 
-The layouts currently in `android-app` are functional placeholders. They define navigation entry points only and are not the approved visual design.
+The sole current detailed UI specification is [Elder UI baseline](ELDER_UI_BASELINE.md), governed by [Accepted product ADR-0008](adr/0008-photo-first-elder-reminders-and-caregiver-handoff.md). The project lead explicitly selected the new version on 2026-10-16; earlier conflicting rules from Issue #7 and this document are superseded, not selectable alternatives.
 
-The team selected the direction and accessibility profile below. Exact hexadecimal tokens, reusable styles, and final screen specifications remain implementation deliverables.
+The existing Android layouts and archived Web prototype are placeholders/evidence, not approved pixel references. This document remains the common entry point so old links do not lead developers to a second rule set.
 
-## Confirmed direction
+## Required behavior
 
-- **Structure:** Calm healthcare dashboard.
-- **Expression:** High-contrast utility.
-- **Mood:** Calm and reliable rather than strongly clinical or illustration-led.
-- **Surfaces:** White and light cool-neutral surfaces with a deep-blue accent, moderate rounding, restrained elevation, and Material Rounded icon language.
-- **Caregiver density:** Balanced cards with compact rows inside grouped sections.
-- **Elder density:** Spacious single-task layout with the current Due event as the primary visual focus.
-- **Product identity:** Caregiver and Elder screens share one product name, color meanings, typography, icon family, spacing grid, shape language, vocabulary, and common state patterns.
-- **P0 scope:** Dark mode, dynamic color, custom fonts, themes, decorative avatars/illustrations, tablets, landscape optimization, Wear OS, iOS, Web, and complex motion are deferred.
+| Area | Current requirement |
+| --- | --- |
+| Elder Home | Quiet state/next reminder and Photograph a box; no daily medicine dashboard, sync indicators or generic Help |
+| Reminder | Photo-first original-box overview; six boxes in two columns/three rows, stable order, attached necessary quantity/instructions |
+| Elder actions | One-step Medicines taken / Remind me in 10 minutes / I need help; same group behavior for single/multiple medicines |
+| Partial intake / missing box | No Elder per-drug/quantity selection; Help starts Caregiver follow-up |
+| Response window | Exactly thirty minutes from the original planned instant, left-closed/right-open; exact cutoff removes alarm/photos/old actions and starts nonresponse follow-up |
+| Snooze | Exactly ten minutes, original cutoff unchanged; no repeat at/after cutoff, no shortened delay |
+| Caregiver contact | Contact made is still pending outcome entry; Caregiver records Taken / Not taken / Unable to confirm without asking the Elder to return to the app |
+| Device-contact loss | Independent short detection/alert path, never waits for the ordinary thirty-minute timer; production threshold/transport needs technical review |
+| Synchronization | No technical sync burden on Elder Home/reminder; Caregiver sees only known received/freshness/delivery/acknowledgement facts |
+| Recovery | No stale reminder replay after cutoff/help/acknowledged takeover; timely offline evidence and conflicting records preserved |
 
-## Shared product rules
+There is no active two-hour response window or mandatory two-step Taken confirmation. Follow-up/entry/contact-loss alerting is current required scope, not an optional future enhancement.
 
-Both roles belong to one product and must share:
+## Shared identity and accessibility retained
 
-- one colour system and status meanings;
-- one typography family and naming scale;
-- one icon family;
-- one spacing grid and component shape language;
-- the same words for the same medication and dose states;
-- reusable loading, empty, offline, error, and confirmation patterns.
+- One calm, high-contrast product: white/cool-neutral surfaces, deep-blue primary, restrained elevation/moderate rounding, system fonts and Material Rounded icons. Roles differ in density/scale, not brand.
+- Scheduled gray, Due blue, Snoozed purple, Taken green, Missed dark gray, warning amber, error red; text plus non-color cue. A report is not verified ingestion; unknown is not green success.
+- Chinese roles are 长者 / 照护者; use Reminder plan / 用药提醒计划. Default locale follows device (Chinese → Simplified Chinese, otherwise English); persistent override offers system/English/简体中文.
+- Elder body ≥18sp, supporting ≥16sp, key status ≥24sp; Elder targets ≥56×56dp, main action ≥64dp high; Caregiver ≥48×48dp. Critical actions include text.
+- Normal-text contrast ≥4.5:1, large text ≥3:1; test TalkBack, grayscale, long text, system 200% font, 360dp portrait and 320dp compatibility. Font scaling is not an extra Elder choice.
+- Dark mode, dynamic color, separate themes/brands, custom fonts, decorative avatars, tablets/landscape optimization and complex motion remain deferred.
 
-The elder experience is an accessibility profile within this system. It is not a separately branded app.
+## Reference component, not further prototype iteration
 
-## Confirmed semantic state rules
+The current C photo area hides rows behind oversized actions and is not accepted. Default six-box use should target complete, recognizable same-screen photos without shrinking targets, clipping quantity or forcing per-drug checks. The remaining geometry/device check is jointly owned under #19; it does not authorize each feature to choose its own layout.
 
-- Scheduled: neutral gray; Due: blue; Snoozed: purple; Taken: green; Missed: dark gray; Warning: amber; Error: red.
-- Dose outcome, synchronization state, and reminder-delivery capability are separate categories.
-- Every state includes text plus an icon or other non-color cue; color alone never communicates meaning.
-- A Late taken report remains visibly associated with the Missed event and report time; it does not repaint the event as green Taken.
+C1 centrally integrates tokens/styles/localized resources; E reviews the Elder accessibility profile; feature owners reuse common components and submit state needs rather than clone styles. Review requirements and PR checks are in the baseline.
 
-## Confirmed language and interaction rules
+## Technical review and implementation state
 
-- Default language follows the device: Simplified Chinese for Chinese device languages, English otherwise. A manual choice offers Follow system, English, and 简体中文 and persists until reset.
-- Use `Reminder plan` / `用药提醒计划` rather than `Schedule` / `日程` in product copy.
-- Caregiver-facing Taken copy says the Elder reported taking the medication; it never claims verified ingestion.
-- The Elder Due screen prioritizes planned time, medication name, dosage, necessary instructions, Taken, and Remind later.
-- Taken uses a short two-step confirmation; Remind later is single-step and shows the next reminder time when it falls inside the Response window. If the fixed ten-minute delay reaches or passes the deadline, explicitly show that the window will end before another reminder; keep Taken available until the deadline and do not promise another notification.
-- Loading, unavailable controls, duplicate-tap prevention, offline, sync, validation, authorization, and delivery-capability feedback remain accessible and actionable.
-
-## Candidate directions (historical)
-
-### A — Calm healthcare cards
-
-Soft neutral surfaces, restrained blue/green accents, rounded cards, and a dashboard hierarchy. It feels reassuring and is easy to scan, but the team must keep contrast high enough and avoid excessive cards.
-
-### B — High-contrast utility
-
-White surfaces, dark text, a strong primary colour, compact lists on caregiver screens, and very prominent state labels. It is the clearest and easiest to implement consistently, but can feel more clinical.
-
-### C — Friendly family companion
-
-Warm neutral surfaces, friendly accent colours, supportive language, and selective avatars or illustrations. It can feel more human, but requires tighter asset discipline and more design work.
-
-A hybrid is allowed only when the team names exactly which structural direction and which visual traits are being combined.
-
-## Elder accessibility constraints
-
-These constraints apply regardless of the selected visual direction:
-
-- critical actions include text; they are not icon-only;
-- information is never communicated by colour alone;
-- layouts tolerate Android font scaling without clipped text;
-- controls meet at least Android's 48 dp touch-target guidance, with the team choosing a larger elder target after device testing;
-- the home screen prioritizes the next medication, its time, and one clear primary action;
-- confirmations state what happened and how to undo an accidental action where appropriate;
-- secondary information does not compete visually with the current reminder;
-- test on a real device using increased font size, display size, TalkBack labels, and both portrait orientations used in the demo.
-
-## Confirmed Elder accessibility profile
-
-- Chinese role labels are `长者` and `照护者`; `长辈端` and `小辈端` are not canonical.
-- Elder body text is at least 18sp, supporting text at least 16sp, and the current medication name/key status at least 24sp.
-- Caregiver targets are at least 48×48dp; Elder controls are at least 56dp high and the current reminder primary action at least 64dp high.
-- Critical actions contain text and are never icon-only.
-- Test at 200% font size, with TalkBack, grayscale, long user-entered text, 360dp portrait, and a 320dp compatibility check without horizontal scrolling or disappearing actions.
-- Normal-text contrast is at least 4.5:1 and large-text contrast at least 3:1.
-
-## Implementation deliverables
-
-The project lead creates and the team reviews:
-
-- a token table for colour, typography, spacing, shape, elevation, and icon sizes;
-- shared XML resources and reusable view styles;
-- one caregiver reference screen and one elder reference screen;
-- a component-state sheet covering normal, pressed, disabled, loading, empty, error, offline, due, taken, and missed states;
-- an accessibility check against the two reference screens;
-- a short UI review checklist in the pull-request template.
+[Technical review queue](ELDER_UI_TECHNICAL_REVIEW.md) defines the remaining implementation decisions. Those do not reopen product behavior. Code, fixtures and actual device/notification evidence are not updated by this docs-only PR. Required Android/Server sign-off and the normal non-author PR review remain outstanding.
