@@ -1,6 +1,6 @@
 # Medication Reminder
 
-> Reading status (2026-10-17): the definitions below describe the compiled r1 scaffold where they conflict with [accepted ELDER_REMINDER_V2 / #23](https://github.com/BRMRs/group33/issues/23). Retired response-window/reporting/presentation rules are not current alternatives. Read [the version-aware onboarding entry](docs/AGENT_START_HERE.md) before implementation; the full product-document update remains in separate PR #25 and affected protocol work in #24. This notice changes no term definition or implementation.
+> Reading status (2026-10-17): the definitions below describe the compiled r1 scaffold where they conflict with [accepted ELDER_REMINDER_V2 / #23](https://github.com/BRMRs/group33/issues/23). Its two-hour response duration is retained; separate thirty-minute follow-up, scheduled probes and changed interaction/reporting are not proved by legacy types. Read [the version-aware onboarding entry](docs/AGENT_START_HERE.md) before implementation; the full product-document update remains in separate PR #25 and affected protocol work in #24. This notice changes no term definition or implementation.
 
 This context describes how a caregiver and an elder coordinate medication reminders and record user-reported outcomes without making medical decisions.
 

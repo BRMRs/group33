@@ -2,7 +2,7 @@
 
 ## Current delivery and product authority — 2026-10-17
 
-[ADR-0009](../adr/0009-two-stage-baseline-and-gate1-acceptance.md) separates Stage A development-baseline publication from Stage B Gate 1 completion. PR #22 prepares Stage A; six real member contribution/review records and named Android/Server contract signatures remain Stage B obligations, not prerequisites for accessing the initial engineering foundation. Normal CI/non-author and applicable cross-boundary publication review still apply; the current run keeps the PR Draft/unmerged and #12 OPEN.
+[ADR-0009](../adr/0009-two-stage-baseline-and-gate1-acceptance.md) separates Stage A development-baseline publication from Stage B Gate 1 completion. Six real member contribution/review records and named Android/Server contract signatures remain Stage B obligations, not prerequisites for accessing the initial foundation. The lead's one-time PR #22 publication-approval exception permits its checked squash release and requires immediate restoration of regular approvals; ordinary CI/protection remain. Query GitHub for current PR/main state; #12 stays OPEN after publication.
 
 The r1 baseline and test results below describe historical code, not current V2 behavior acceptance. Read [accepted V2 product record #23](https://github.com/BRMRs/group33/issues/23), [its separate document PR #25](https://github.com/BRMRs/group33/pull/25) and [protocol/migration coordination #24](https://github.com/BRMRs/group33/issues/24). No V2 implementation or contract freeze is claimed by publishing this foundation. For role-scoped work use [the handoff](ROLE_REVIEW_HANDOFF.md); rehearsal findings are navigation evidence, not member signatures.
 

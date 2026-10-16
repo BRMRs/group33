@@ -6,6 +6,8 @@ Accepted by the project lead on 2026-10-16.
 
 Delivery clarification accepted on 2026-10-17: [ADR-0009](0009-two-stage-baseline-and-gate1-acceptance.md) separates initial development-baseline acceptance from full Gate 1 completion. Mandatory CI, non-author and specialized review remain; six future member contributions are Stage B obligations, not circular prerequisites for obtaining the Stage A foundation.
 
+The sole lead-authorized exception to publication approvals is recorded in [ADR-0009's one-time PR #22 exception](0009-two-stage-baseline-and-gate1-acceptance.md#one-time-pr-22-publication-exception--2026-10-17); regular approvals are restored immediately after that attempt. It is not a reusable bypass or Gate 1 sign-off.
+
 Publication note: this governance record was renumbered from the unpublished duplicate 0005 to 0007. ADR-0005 on occurrence generation and ADR-0006 on the demonstration fallback retain their existing identities and decisions.
 
 ## Context

@@ -2,7 +2,7 @@
 
 更新：2026-10-17。现行产品：ELDER_REMINDER_V2（[#23](https://github.com/BRMRs/group33/issues/23)、[独立文档 PR #25](https://github.com/BRMRs/group33/pull/25)）；技术收口 [#24](https://github.com/BRMRs/group33/issues/24) 仍 OPEN。`T01-T07/2026-10-16-r1` 仅标识当前 legacy 代码/fixture，不是 V2 冻结版本。任务：[Issue #12](https://github.com/BRMRs/group33/issues/12)；共同代码：[Draft PR #22](https://github.com/BRMRs/group33/pull/22)。
 
-交付顺序已由负责人按[ADR-0009](../adr/0009-two-stage-baseline-and-gate1-acceptance.md)批准：阶段 A 验收可开发基线，阶段 B 保留六人真实贡献与正式 Gate 1 签署。下面角色卡首先帮助定位一个小任务；六人未来的代码 PR 不再是获取初始工程的前置，但不能在阶段 A 勾完阶段 B。当前 PR 继续 Draft、不合并。
+交付顺序已由负责人按[ADR-0009](../adr/0009-two-stage-baseline-and-gate1-acceptance.md)批准：阶段 A 验收可开发基线，阶段 B 保留六人真实贡献与正式 Gate 1 签署。下面角色卡首先帮助定位一个小任务；六人未来的代码 PR 不再是获取初始工程的前置，但不能在阶段 A 勾完阶段 B。PR #22 的一次性发布授权见该ADR，当前PR/main状态实时核验，不由本角色卡推断。
 
 本清单是既有[贡献矩阵](SUBMISSION_MATRIX.md)的执行入口，不改变产品决策、任务归属或合并条件。E/C1/C2/C3/S1/S2 暂不映射 GitHub 账号，下面所有正式审查均为 **PENDING**。agent 可以辅助解释、跑测试、整理发现；真实成员亲自确认理解和证据之后，才填写本人记录。agent 不代签、不提交 APPROVE，不把共同准备的代码算到六人名下。
 
@@ -10,7 +10,7 @@
 
 | 交付层 | 现在已有 | 尚不代表 |
 |---|---|---|
-| 开发基础 | Android/Server/Shared 可编译工程、旧预览、构建与 CI、受保护 main | 已有可使用的 P0 产品；main 目前仍只有三文件初始化，完整工程在 PR #22 |
+| 开发基础 | Android/Server/Shared 可编译工程、旧预览、构建与 CI、受保护 main | 已有可使用的 P0 产品；核验 PR #22 是否已合 main，再按最新main开工，不长期依赖发布分支 |
 | Gate 1 共同契约 | P0 DTO、九个 Repository Interfaces、序列化/HTTP converter/调用 harness | 已有真实 Room、业务 HTTP、幂等事务、照片 Storage 或提醒执行 |
 | 六人正式交付 | 已列明每个人要看和要交的内容 | 六个人已经审查/实现，或 Gate 1 已完成 |
 
@@ -26,7 +26,7 @@
 - [GATE1_REVIEW_PACKET.md](GATE1_REVIEW_PACKET.md)：区分真实 JVM 证据、scripted fake 与下游生产验收。
 - [SUBMISSION_MATRIX.md](SUBMISSION_MATRIX.md)：角色代码责任的权威矩阵；[工程手册](../ENGINEERING_PLAYBOOK.md)控制 PR/审查流程。
 
-**先做版本检查**：#23/PR #25 中 ADR-0008 已接受的 V2 产品行为高于这里 legacy 示例。唯一响应窗口三十分钟、整组确认/十分钟延后/求助、无强制二次确认、照护者独立补登记、独立失联告警、长者不承担同步管理，均不能退回旧规则。V2-T01–T06 的具体协议/阈值/迁移仍由 #24 协调；当前代码没有这些完整能力。下文 case ID 指 legacy 测试族/待迁移证据，不能直接签成 V2 通过。
+**先做版本检查**：#23最新正文/PR #25 中 ADR-0008 已接受的 V2 产品行为高于这里 legacy 示例。T+30分钟仅通知照护者、长者提醒保留，T+2小时才截止；T−5/T+5两次连接检查在各自响应等待后均无有效响应才通知，任一次有效响应不发本轮两次失败告警，不要求全天心跳。整组确认/十分钟延后/求助、无强制二次确认、照护者独立补登记及长者不管理同步不变。时点已定，V2-T01–T06 的探测等待/具体协议/迁移由 #24 协调。当前r1两小时值与窗口相符，但不证明新增通知/探测/组动作。下文case ID不能直接签成完整V2通过。
 
 所有命令都在仓库根目录运行：
 
@@ -57,7 +57,7 @@ python3 scripts/check_repository_policy.py
 
 **验收证据**
 
-P01/P04、D03/D04、S03/S04/S07/S09、R04/U01 中实际执行的子断言；至少一个正常与一个失败/边界反例，附测试类/方法、日志和自身 PR diff。涉及旧响应/补报告的向量先作为 migration gap 交 #24；V2 的三十分钟截止、整组动作与求助不能按 r1 签通过。Room 原子写、真实照片上传和设备通知/重启需后续真实适配器证明。配对与 C1/S2、动作与 S1/S2、照片与 C2 联审。
+P01/P04、D03/D04、S03/S04/S07/S09、R04/U01 中实际执行的子断言；至少一个正常与一个失败/边界反例，附测试类/方法、日志和自身 PR diff。涉及旧交互/补报告的向量先作为 migration gap 交 #24；独立三十分钟通知不退出、两小时截止、两次探测、整组动作与求助不能仅按 r1 签通过。Room 原子写、真实照片上传和设备通知/重启需后续真实适配器证明。配对与 C1/S2、动作与 S1/S2、照片与 C2 联审。
 
 ## 4. C1 — 身份、配对、共享语言
 
@@ -220,12 +220,12 @@ Review commit / baseline / manifest SHA / fixture SHA：<与六角色记录完�
 |---|---|
 | E / C1 / C2 / C3 / S1 / S2 | 六项均 PENDING |
 | Android / Server 联合签署 | 两项均 PENDING |
-| Issue #12 / PR #22 | Issue 保持 OPEN；PR 保持 Draft、未合并 |
+| Issue #12 / PR #22 | Issue 保持 OPEN；PR/main发布状态从GitHub实时核验，baseline合入不勾完本表 |
 
 ## 11. 关于“先合入大家能开发的脚手架”
 
 **已批准，2026-10-17，见 ADR-0009**：把“开发基线可以供全组使用”和“Gate 1 正式完成”分开。阶段 A 交付可编译工程、任务入口、真实边界、接口/fixture/测试和六次独立只读开工单；未来发布仍保留 CI、非作者、适用的真实 Android/Server publication review 和单独的合并授权。阶段 B 继续要求六角色真实代码/测试 PR、正式职责审查和同版本联合签署；不能在 baseline merge 时勾完，也不要求这些未来代码先存在才能拿到初始工程。
 
-本轮明确授权只包括规范/PR边界同步、六个独立只读agent演练、修正文档、检查、commit/push至PR #22。不会修改保护规则、转 Ready、合并或关闭 Gate 1。阶段 A 的边界 review 只判断安全发布 legacy foundation，不是阶段 B 对 V2 协议的正式冻结；#24 未解决的相关技术仍不允许页面自行实现/猜字段。
+最初仅准备/演练的授权现为历史记录；负责人另批准[仅PR #22的一次性发布审批例外](../adr/0009-two-stage-baseline-and-gate1-acceptance.md#one-time-pr-22-publication-exception--2026-10-17)，检查通过后squash发布并立即恢复普通审批。本例外不填写任何真人review/签署，不关闭Gate 1。Stage A发布不冻结阶段B的V2协议；#24未解决的技术仍须协调，页面不能自行猜字段。
 
 新人先让 agent 给出可核验的小任务和解释，真实成员复现/理解后逐步提交。独立agent演练仅证明角色导航可用，不证明六位成员本人或六台机器已跑通，更不能为成员签署。本轮报告中的角色标签不映射任何账号。

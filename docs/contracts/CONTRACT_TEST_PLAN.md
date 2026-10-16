@@ -1,6 +1,6 @@
 # Contract test plan — Gate 1 review draft
 
-> Version boundary (2026-10-17): the r1 baseline, 33 scenario IDs and fixtures below are historical structural/regression evidence where replaced by [accepted V2 / #23](https://github.com/BRMRs/group33/issues/23). They cannot freeze retired duration/confirmation/reporting behavior. Full V2 document/test obligations live in separate Draft PR #25; coordinated code/fixture migration remains [#24](https://github.com/BRMRs/group33/issues/24). See [onboarding](../AGENT_START_HERE.md) before proposing a test or claiming V2 coverage.
+> Version boundary (2026-10-17): the r1 baseline, 33 scenario IDs and fixtures below are historical structural/regression evidence where replaced by [accepted V2 / #23](https://github.com/BRMRs/group33/issues/23). They cannot freeze replaced interaction/reporting behavior or prove the separate follow-up/probe requirements. Full V2 document/test obligations live in separate Draft PR #25; coordinated code/fixture migration remains [#24](https://github.com/BRMRs/group33/issues/24). See [onboarding](../AGENT_START_HERE.md) before proposing a test or claiming V2 coverage.
 
 This is the full P0 test plan for [Implement shared HTTP contracts, feature Repository interfaces, and contract tests](https://github.com/BRMRs/group33/issues/12). Shared wire, Server Jackson/MVC and Android caller/model contract tests now execute against actual declarations and [examples.json](examples.json); [the review packet](GATE1_REVIEW_PACKET.md) records classes, commands, results and limits. Existing scaffold regressions remain. These checks do not mark the 33 P0 scenarios below complete.
 
@@ -33,7 +33,7 @@ Approved technical baseline: `T01-T07/2026-10-16-r1` (project lead, 2026-10-16).
 
 ## Shared fixture data
 
-Use fictional `elder-1`, `caregiver-1` (active), `caregiver-2` (unrelated), `elder-2` (other relationship), plan `plan-1`, photo `photo-1`, and a second plan revision. Local test date is 2026-10-20 in `Asia/Shanghai`; it is a fixture, not the current device time. Inject a controllable clock into tested adapters. The two-hour values below belong to legacy r1 regression fixtures, not V2 requirements; migrate affected vectors through #24 rather than using real waiting or silently relabeling history.
+Use fictional `elder-1`, `caregiver-1` (active), `caregiver-2` (unrelated), `elder-2` (other relationship), plan `plan-1`, photo `photo-1`, and a second plan revision. Local test date is 2026-10-20 in `Asia/Shanghai`; it is a fixture, not the current device time. Inject a controllable clock into tested adapters. The r1 two-hour values agree with the latest V2 response duration, but do not cover the separate thirty-minute notification, T−5/T+5 probes or group/reporting migration. Coordinate affected vectors through #24; use controlled clocks, not real waiting or relabeled historical evidence.
 
 [examples.json](examples.json) contains a P0 confirmation request/response, one timely offline Taken and receipt, the separate Pending sync local representation, a late report, and an error. These are illustrative JSON instances, not a full OpenAPI/JSON Schema or executable test harness. Test code must read the actual DTOs/production adapters when those exist; parsing these examples alone does not prove an API implementation.
 
