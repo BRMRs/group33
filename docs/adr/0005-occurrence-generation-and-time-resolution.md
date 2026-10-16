@@ -1,0 +1,26 @@
+# ADR-0005: Use Elder-only occurrence generation with frozen time resolution
+
+Reading clarification (2026-10-17): conflicting interaction/reporting rules in this r1 record are partially superseded by the [latest accepted V2 product ADR-0008 in separate PR #25](https://github.com/BRMRs/group33/blob/5dc2683045a0c12393c60949d4143cd1575087e1/docs/adr/0008-photo-first-elder-reminders-and-caregiver-handoff.md). The original two-hour response duration is retained; thirty-minute Caregiver notification and T−5/T+5 connection checks are separate requirements, not implemented by that duration. Unaffected generation/history requirements remain. Migration/protocol work is tracked in [#24](https://github.com/BRMRs/group33/issues/24); no implementation is changed by this pointer.
+
+## Status
+
+Accepted by the project lead on 2026-10-16, baseline `T01-T07/2026-10-16-r1`, T01/T02. Recorded in [Issue 12](https://github.com/BRMRs/group33/issues/12) and the [technical decision record](../contracts/TECHNICAL_RECOMMENDATIONS.md). Supplements ADR-0002/0003; does not reopen their product behavior.
+
+## Context and trade-off
+
+An offline Elder can generate an event from a previously confirmed revision while the Caregiver has saved a newer revision. Independent Server generation or first-network-arrival arbitration could change the same occurrence's historical meaning. Generating far into the future also freezes too many instances before a later edit.
+
+## Decision
+
+The P0 Elder execution installation is the sole generator of real Dose events. It rolls a next-24-hour generation window forward locally, including offline and after reboot. Server-generated or Android-computed seven-day previews are not real events and cannot claim canonical event identity. Room atomically retains generated events, frozen evidence and registration work; Server validates/accepts registrations and can atomically register with an action. Occurrence uniqueness remains `(planId, localDate, localTime)`, excluding revision/offset.
+
+Every real generated event, including SCHEDULED, keeps its revision/text/nominal context/instant through edits and deactivation. Only ungenerated parts adopt a later synchronized plan. Retained old revision alone is never rejection; contradictory evidence preserves the local report for Needs attention instead of overwriting history. Generation timestamps are trusted P0 application evidence, not tamper-proof proof.
+
+P0_TIME_V1 shifts nonexistent local time by the full DST gap, chooses the earlier instant once in a fold, and freezes the offset/instant. The response window is `[plannedAt, plannedAt + 7_200_000ms)`. The exact deadline is late; timely offline Taken remains reconcilable. Android API 23/35 and Server must pass the same vectors; different TZDB versions cannot silently move a frozen event.
+
+## Consequences
+
+- Registration/evidence, durable recovery and retained revision storage add protocol and test work.
+- A reminder already generated for tomorrow can retain its old meaning after tonight's edit; UI must explain saved/not-delivered/retained-instance distinctions.
+- 24 hours is not an offline expiry. Background local replenishment and recovery must continue beyond it.
+- Concrete algorithms and production tests need six-role review and Android/Server sign-off. No implementation is delivered by this ADR.

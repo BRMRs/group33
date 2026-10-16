@@ -1,0 +1,8 @@
+server:
+  port: ${PORT:8080}
+
+app:
+  jwt:
+    issuer: group33-server
+    expires-in-seconds: 86400
+    secret: ${JWT_SECRET:GROUP33_LOCAL_DEVELOPMENT_SECRET_CHANGE_BEFORE_DEPLOYMENT_2026}
