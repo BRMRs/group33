@@ -1,0 +1,59 @@
+name: Bug
+description: Report reproducible incorrect behavior
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Device or environment
+      placeholder: Emulator API 35, macOS server, and so on
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Elder Android
+        - Caregiver Android
+        - Shared contract
+        - Server
+        - Infrastructure
+        - Testing
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and privacy check
+      description: Add safe logs, screenshots, frequency, and regression information. Remove tokens, identifiers, dosage text, photos, and real personal or medical data.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Fix acceptance criteria
+      description: List observable conditions and tests that prove the defect is fixed without regression.
+    validations:
+      required: true
+

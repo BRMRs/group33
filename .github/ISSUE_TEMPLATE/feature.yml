@@ -1,0 +1,75 @@
+name: Feature
+description: Plan a user-visible or engineering feature
+title: "[Feature] "
+labels:
+  - feature
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: Describe the result for a user or another module.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List observable conditions that prove the work is complete.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Elder Android
+        - Caregiver Android
+        - Shared contract
+        - Server
+        - Infrastructure
+        - Testing
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and risks
+      description: Link blocking issues, contracts, ADRs, shared files, and integration risks.
+    validations:
+      required: true
+  - type: dropdown
+    id: owner_role
+    attributes:
+      label: Accountable role
+      options:
+        - E — Elder client
+        - C1 — Caregiver identity and pairing
+        - C2 — Caregiver Medication and plans
+        - C3 — Caregiver feedback and evidence
+        - S1 — Android data and background execution
+        - S2 — Server and deployment
+    validations:
+      required: true
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Files, interfaces, and reviewers
+      description: Name expected modules/shared interfaces and required review perspectives.
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification and evidence
+      description: List test IDs, commands, devices, languages, accessibility, migration, or deployment evidence required.
+    validations:
+      required: true
+  - type: textarea
+    id: non_goals
+    attributes:
+      label: Non-goals
+      description: State what this issue will deliberately not implement.
+    validations:
+      required: true
+

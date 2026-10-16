@@ -1,0 +1,11 @@
+# The project lead is the default integration owner until the six GitHub handles
+# are recorded in docs/TEAM_ROSTER.md. This temporary map does not satisfy the
+# non-author approval rule when the lead is the author. Add stable role owners
+# here before enabling required CODEOWNERS review.
+* @BRMRs
+
+/docs/adr/ @BRMRs
+/docs/contracts/ @BRMRs
+/.github/ @BRMRs
+/build.gradle.kts @BRMRs
+/settings.gradle.kts @BRMRs

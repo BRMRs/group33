@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Group33" parent="Base.Theme.Group33">
+        <item name="android:forceDarkAllowed">false</item>
+    </style>
+</resources>

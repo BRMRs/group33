@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Group 33 Medication Reminder</string>
+    <string name="role_prompt">Choose a role for the development prototype.</string>
+    <string name="elder_role">Elder</string>
+    <string name="caregiver_role">Caregiver</string>
+    <string name="elder_home_title">Today\'s medication</string>
+    <string name="elder_home_hint">Local demo Elder preview using Shanghai time. Not signed in or synchronized. Reminder delivery and confirmation actions are not implemented yet.</string>
+    <string name="caregiver_home_title">Reminder plans</string>
+    <string name="add_demo_schedule">Add demo reminder plan</string>
+    <string name="demo_data_notice">Local preview using Shanghai time. Not signed in, paired or synchronized. Demo data is stored in memory and is not medical advice.</string>
+    <string name="no_schedules">No reminder plans</string>
+    <string name="no_today_schedules">No medication scheduled today</string>
+    <string name="error_request">The request could not be processed. Check the input and try again.</string>
+    <string name="error_authentication">Your session needs to be restored. Please sign in again.</string>
+    <string name="error_role">Your role cannot perform this action.</string>
+    <string name="error_resource">This information is unavailable or you do not have access.</string>
+    <string name="error_installation_role">This installation already has a different role. Continue with its original role.</string>
+    <string name="error_validation">Some fields are invalid. Check your input.</string>
+    <string name="error_service">The service is temporarily unavailable. Try again later.</string>
+    <string name="error_unknown">The request could not be completed. Try again or check your connection.</string>
+    <string name="error_pairing_code">This pairing code is unavailable. Ask the Elder for a new code.</string>
+    <string name="error_pairing_closed">This pairing request is closed. Refresh to view its result.</string>
+    <string name="error_already_paired">The Elder already has an active care relationship. Refresh to check its status.</string>
+    <string name="error_plan_version">The reminder plan has changed. Refresh before editing again.</string>
+    <string name="error_command_conflict">The request identity conflicts with its recorded content. Refresh before starting a corrected request.</string>
+    <string name="error_operation_pending">The service is still processing this request. Its result has not been confirmed yet.</string>
+    <string name="error_photo_not_ready">The photo is not ready. Refresh before confirming the plan.</string>
+    <string name="error_photo_too_large">Choose a photo no larger than 5 MiB.</string>
+    <string name="error_photo_type">Choose a JPEG or PNG photo.</string>
+    <string name="error_overlapping_plan">This medication already has a reminder at that time. Check the plan.</string>
+    <string name="error_snapshot_range">Too much information was requested. Choose a smaller date range.</string>
+    <plurals name="schedule_count">
+        <item quantity="one">%d reminder plan</item>
+        <item quantity="other">%d reminder plans</item>
+    </plurals>
+    <plurals name="today_schedule_count">
+        <item quantity="one">%d reminder plan today</item>
+        <item quantity="other">%d reminder plans today</item>
+    </plurals>
+</resources>

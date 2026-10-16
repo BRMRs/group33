@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">第 33 组服药提醒</string>
+    <string name="role_prompt">请选择开发原型中的用户角色。</string>
+    <string name="elder_role">长者</string>
+    <string name="caregiver_role">照护者</string>
+    <string name="elder_home_title">今日用药</string>
+    <string name="elder_home_hint">此页仅显示本机示例长者的计划（按上海时区统计），尚未登录或同步。服药提醒与确认功能待实现。</string>
+    <string name="caregiver_home_title">用药提醒计划</string>
+    <string name="add_demo_schedule">添加示例提醒计划</string>
+    <string name="demo_data_notice">此页仅为本机示例预览，使用上海时区，尚未登录、配对或同步。数据只保存在内存中，不构成医疗建议。</string>
+    <string name="no_schedules">暂无计划</string>
+    <string name="no_today_schedules">今天暂无用药安排</string>
+    <string name="error_request">无法处理请求，请检查输入后重试。</string>
+    <string name="error_authentication">登录状态需要恢复，请重新登录。</string>
+    <string name="error_role">当前角色无法执行此操作。</string>
+    <string name="error_resource">此信息不可用，或您没有访问权限。</string>
+    <string name="error_installation_role">此安装已使用其他角色，请继续使用原角色。</string>
+    <string name="error_validation">部分字段无效，请检查输入。</string>
+    <string name="error_service">服务暂时不可用，请稍后重试。</string>
+    <string name="error_unknown">无法完成请求，请重试或检查网络连接。</string>
+    <string name="error_pairing_code">此配对码不可用，请长者提供新的配对码。</string>
+    <string name="error_pairing_closed">此配对请求已结束，请刷新查看结果。</string>
+    <string name="error_already_paired">长者已有活动照护关系，请刷新查看状态。</string>
+    <string name="error_plan_version">提醒计划已更新，请刷新后重新编辑。</string>
+    <string name="error_command_conflict">请求身份与已记录的内容冲突，请刷新后再开始更正后的请求。</string>
+    <string name="error_operation_pending">服务仍在处理此请求，结果尚未确认。</string>
+    <string name="error_photo_not_ready">照片尚未准备好，请刷新后再确认计划。</string>
+    <string name="error_photo_too_large">请选择不超过 5 MiB 的照片。</string>
+    <string name="error_photo_type">请选择 JPEG 或 PNG 照片。</string>
+    <string name="error_overlapping_plan">同一药品在该时间已有提醒，请检查计划。</string>
+    <string name="error_snapshot_range">请求的信息过多，请缩小日期范围。</string>
+    <plurals name="schedule_count">
+        <item quantity="other">%d 个计划</item>
+    </plurals>
+    <plurals name="today_schedule_count">
+        <item quantity="other">今天有 %d 个用药计划</item>
+    </plurals>
+</resources>
+
