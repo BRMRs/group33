@@ -1,0 +1,47 @@
+# Gradle
+.gradle/
+.kotlin/
+**/build/
+**/bin/
+
+# Android Studio and IntelliJ IDEA
+.idea/
+*.iml
+local.properties
+
+# macOS
+.DS_Store
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+server/data/
+
+# Signing material and private keys
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+
+# Local databases (including SQLite WAL/SHM and journal files)
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+
+# Android deliverables and heap dumps; keep the Gradle wrapper JAR
+*.apk
+*.aab
+*.hprof
+
+# Python policy-check caches
+__pycache__/
+*.py[cod]
+
+# Logs
+*.log
