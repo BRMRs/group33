@@ -1,5 +1,7 @@
 # API contract
 
+> 2026-10-22负责人补充：首发无旧版用户；整组动作全收或全拒；相反报告的当前跟进结论以照护者有效登记为准，双方原始报告与审计仍保留，不能冒充Elder Taken。产品决定已记录于ADR-0008；组身份、事务/更正版本和具体wire/schema仍待S1/S2联审，现有r1代码/JSON未实现这些新能力。
+
 > Legacy compiled-contract reference (2026-10-17): this file describes r1 code/fixtures, not a frozen V2 API. Current product authority is [accepted V2 / #23](https://github.com/BRMRs/group33/issues/23), with its full document update in separate PR #25 and affected protocol/migration decisions in [#24](https://github.com/BRMRs/group33/issues/24). Use [onboarding](AGENT_START_HERE.md) before choosing work; this notice neither changes wire fields nor implements V2.
 
 Base path: `/api/v1`
@@ -26,7 +28,7 @@ The behavior decisions are confirmed. The HTTP routes, new fields and return sha
 
 Baseline `T01-T07/2026-10-16-r1`: the project lead approved all seven technical recommendations on 2026-10-16, explicitly including Elder-only generation with a rolling 24-hour window and a fully cloud-independent fallback. Unaffected choices remain requirements, not open product questions; ADR-0008 retains the two-hour response duration, adds a separate thirty-minute notification and scheduled T−5/T+5 probes, and replaces the Elder-only outcome-recording restriction and refresh-only alert sufficiency. Concrete declarations still require six-role review, named Android/Server sign-off and actual contract/adapter tests; approval is not evidence of implementation or passing tests.
 
-Gate 1 now provides compiled P0 DTOs in `com.group33.shared.contract`, eight feature Repository Interfaces plus one recovery Interface, and local wire/Jackson/MVC/caller tests. Required missing/null fields, unknown properties and fractional integers are rejected by the tested transport configurations; documented optional omission/null equivalence is retained. `__contract-probe` exists only in test sources. None of the future P0 route table is made operational by those tests; production handlers/adapters and formal sign-off remain outstanding. GitHub-account mapping of the six roles is intentionally deferred.
+Gate 1 now provides compiled P0 DTOs in `com.group33.shared.contract`, eight feature Repository Interfaces plus one recovery Interface, and local wire/Jackson/MVC/caller tests. Required missing/null fields, unknown properties and fractional integers are rejected by the tested transport configurations; documented optional omission/null equivalence is retained. `__contract-probe` exists only in test sources. None of the future P0 route table is made operational by those tests; production handlers/adapters and formal sign-off remain outstanding. Current named ownership is recorded in [TEAM_ROSTER.md](TEAM_ROSTER.md); ownership is not formal approval.
 
 ## Service and synchronization boundary
 

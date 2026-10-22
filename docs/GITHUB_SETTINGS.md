@@ -28,6 +28,10 @@ Apply a ruleset targeting `main`:
 
 The project lead may administer the repository but follows the same PR and CI path. A GitHub service outage or repository-recovery event is documented after the fact if an administrative repair is unavoidable.
 
+### One-time first-baseline publication
+
+The lead-approved [PR #22 exception in ADR-0009](adr/0009-two-stage-baseline-and-gate1-acceptance.md#one-time-pr-22-publication-exception--2026-10-17) is the only approval exception. During its final merge window only, `required_approving_review_count` changes 1 → 0 → 1, `require_last_push_approval` true → false → true, and `require_extra_approval_for_unattributed_changes` true → false → true. Restore the complete prior ruleset, not just those fields; verify effective main rules after success or failure. This paragraph records authorized procedure, not a claim that settings have already changed or been restored. Exact execution/readback evidence belongs in PR #22 / #12. CI, conversations, strict current-main checks, active protection, empty bypass list and squash-only remain enforced throughout; all later PRs require ordinary approvals.
+
 ## Labels
 
 Create and use these labels consistently:
@@ -87,4 +91,4 @@ Verification used read-only `GET /repos/BRMRs/group33`, `/rulesets/25250513`, `/
 
 PR #22 readback immediately after activation: `isDraft=true`, `merged=false`, `state=OPEN`, `autoMergeRequest=null`, `reviewDecision=REVIEW_REQUIRED`, `mergeStateStatus=BLOCKED`, no submitted reviews and no review threads. Its then-current head `0fd7848a14fa3d88eee1e99215ce832ee73c669b` had a successful `build-and-test` check from integration 15368 ([CI evidence](https://github.com/BRMRs/group33/actions/runs/38924492725)). A later documentation commit must pass its own required CI; the earlier success must not be attributed to a new SHA. With no existing threads, discussion enforcement was verified through active-rule readback, not by claiming an exercised unresolved-thread rejection.
 
-Six real role reviews, each member's attributable code/test PRs, and named Android/Server same-revision sign-off remain mandatory under Issue #12. GitHub's one-approval minimum is not six-role acceptance. PR #22 remains Draft and unmerged; Gate 1 remains OPEN. Final documentation commit/manifest identity, its CI result and configuration evidence are recorded in [Issue #12](https://github.com/BRMRs/group33/issues/12) and [PR #22](https://github.com/BRMRs/group33/pull/22).
+Six real role reviews, each member's attributable code/test PRs, and named Android/Server same-revision sign-off remain mandatory under Issue #12. GitHub's one-approval minimum is not six-role acceptance. The activation-time Draft state above is historical; query PR #22 for current publication status. Gate 1 remains OPEN after publication. Final commit/manifest identity, CI, merge and approval-restoration evidence are recorded in [Issue #12](https://github.com/BRMRs/group33/issues/12) and [PR #22](https://github.com/BRMRs/group33/pull/22).

@@ -1,6 +1,6 @@
 # ADR-0005: Use Elder-only occurrence generation with frozen time resolution
 
-Reading clarification (2026-10-17): conflicting response/reporting rules in this r1 record are partially superseded by the [accepted V2 product ADR-0008 in separate PR #25](https://github.com/BRMRs/group33/blob/7104c8c122691990ef9ddec1f8bfd608640328c2/docs/adr/0008-photo-first-elder-reminders-and-caregiver-handoff.md). Unaffected generation/history requirements remain; do not use the old duration as a current choice. Migration/protocol work is tracked in [#24](https://github.com/BRMRs/group33/issues/24); no implementation is changed by this pointer.
+Reading clarification (2026-10-17): conflicting interaction/reporting rules in this r1 record are partially superseded by the [accepted V2 product ADR-0008 with the 2026-10-22 supplements](0008-photo-first-elder-reminders-and-caregiver-handoff.md). The original two-hour response duration is retained; thirty-minute Caregiver notification and T−5/T+5 connection checks are separate requirements, not implemented by that duration. Unaffected generation/history requirements remain. Migration/protocol work is tracked in [#24](https://github.com/BRMRs/group33/issues/24); no implementation is changed by this pointer.
 
 ## Status
 

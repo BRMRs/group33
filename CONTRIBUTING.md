@@ -35,7 +35,7 @@ Do not create permanent branches for a person, the elder app, the caregiver app,
 
 ## Definition of done
 
-Initial publication uses the [two-stage acceptance workflow](docs/adr/0009-two-stage-baseline-and-gate1-acceptance.md): Stage A delivers a buildable, agent-navigable development foundation under normal CI/non-author/specialized review; Stage B retains all six actual contributions, code/test PRs and named Android/Server same-version Gate 1 sign-off. Future member feature contributions do not block obtaining the initial foundation. PR #22 references #12 without closing it, remains Draft in the current run, and cannot be merged by an onboarding agent.
+Initial publication uses the [two-stage acceptance workflow](docs/adr/0009-two-stage-baseline-and-gate1-acceptance.md): Stage A delivers a buildable, agent-navigable foundation; Stage B retains all six actual contributions, code/test PRs and named Android/Server same-version Gate 1 sign-off. Future member feature contributions do not block obtaining the foundation. The sole [PR #22 publication-approval exception](docs/adr/0009-two-stage-baseline-and-gate1-acceptance.md#one-time-pr-22-publication-exception--2026-10-17) permits its explicitly authorized squash release after checks and requires immediate restoration of regular approvals. PR #22 references #12 without closing it; an onboarding prompt grants no merge permission.
 
 A task is done only when:
 

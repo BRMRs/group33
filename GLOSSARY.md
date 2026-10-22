@@ -125,13 +125,13 @@ A user-visible condition meaning the elder device cannot currently present remin
 _Avoid_: Missed, no medication taken, synchronization failure
 
 **Reminder group**:
-The frozen set of confirmed same-time occurrences presented together in stable photo order; one Elder action applies to this whole set without per-medicine selection. Protocol identity, membership/transaction and partial-receipt handling require V2-T02 review, not medication compatibility inference.
+The frozen set of confirmed same-time occurrences presented together in stable photo order; one Elder action applies to this whole set without per-medicine selection. The whole group is accepted or rejected; grouping does not infer medication compatibility.
 
 **Caregiver follow-up**:
 An actionable case raised immediately by Help, at thirty minutes without known medication confirmation, or by the scheduled two-probe connection check failing twice. Contact made alone does not complete an outcome-entry case; medication uncertainty and device recovery are closed independently.
 
 **Caregiver outcome entry**:
-An authorized, auditable Caregiver report of Taken / Not taken / Unable to confirm after contact, retaining actor/source, actual time or explicit unknown, entry/receipt times and prior entries. It is not an Elder Taken action, verified ingestion, or permission to erase conflicting evidence.
+An authorized, auditable Caregiver report of Taken / Not taken / Unable to confirm after contact, retaining actor/source, actual time or explicit unknown, entry/receipt times and prior entries. It determines the current follow-up conclusion when reports disagree, while original Elder reports and entry history remain preserved; it is not an Elder Taken action or verified ingestion.
 
 **Device contact lost**:
 No valid response to either scheduled probe for the same reminder: first at T−5 minutes, recheck at T+5 minutes, after their response waits. Only both failing triggers the Caregiver connection alert; either valid response prevents it. It does not identify cause or prove non-intake. Cached sync/old reports are not current probe responses. All-day heartbeat/real-time loss detection is not required.

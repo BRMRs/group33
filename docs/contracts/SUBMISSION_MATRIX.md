@@ -2,13 +2,13 @@
 
 **Delivery split accepted 2026-10-17:** [ADR-0009](../adr/0009-two-stage-baseline-and-gate1-acceptance.md) makes the initial PR #22 a Stage A development-baseline delivery. The six-member requirements below belong to Stage B / #12 completion, not to acquiring the initial foundation. Stage A retains CI, non-author and applicable cross-boundary publication review. Agent onboarding evidence never signs any row below.
 
-**Product-version warning:** compiled r1 DTOs/JSON/tests below are legacy structural evidence. Current accepted product behavior is [ELDER_REMINDER_V2 / #23](https://github.com/BRMRs/group33/issues/23); its separate Draft PR #25 and [open protocol coordination #24](https://github.com/BRMRs/group33/issues/24) must be read before proposing affected feature work. Do not use old two-hour/confirmation/reporting assertions as current requirements.
+**Product-version warning:** compiled r1 DTOs/JSON/tests below are legacy structural evidence. Current accepted product behavior is [ELDER_REMINDER_V2 / #23](https://github.com/BRMRs/group33/issues/23); its separate Draft PR #25 and [open protocol coordination #24](https://github.com/BRMRs/group33/issues/24) must be read before affected work. The r1 two-hour value agrees with the latest response window, but does not prove separate thirty-minute notification, T−5/T+5 probes or current group/reporting behavior. The one-time PR #22 publication-approval exception is in ADR-0009; it signs no Stage B row here.
 
-[Implement shared HTTP contracts, feature Repository interfaces, and contract tests](https://github.com/BRMRs/group33/issues/12) is assigned to **BRMRs (Rui Zheng)** as requested. This assignment makes the issue accountable; it does not assign all six people's implementation work to one account. Role-to-person mapping remains with the team.
+[Implement shared HTTP contracts, feature Repository interfaces, and contract tests](https://github.com/BRMRs/group33/issues/12) is assigned to **BRMRs (Rui Zheng)** as requested. This assignment makes the issue accountable; it does not assign all six people's implementation work to one account. The confirmed role-to-person mapping is in [TEAM_ROSTER.md](../TEAM_ROSTER.md).
 
 The project lead authorized continuing Gate 1 code/test work on baseline `T01-T07/2026-10-16-r1`. P0 Shared DTOs, nine Android Repository Interfaces and actual wire/transport/caller tests now compile and pass locally; see [Gate 1 review packet](GATE1_REVIEW_PACKET.md). The pre-existing scaffold corrections are preserved. These common agent-prepared artifacts are not attributed to six individual teammates and do not deliver downstream P0 behavior. Member code/test PRs and formal review remain required before closing the Issue.
 
-The project lead explicitly deferred mapping role slots to GitHub accounts. Continue by E/C1/C2/C3/S1/S2, without asking for names again or automatically assigning the repository collaborators. Deferred account mapping is not permission to fabricate reviews or member contributions.
+The earlier mapping deferral ended with the lead’s 2026-10-22 confirmed [roster](../TEAM_ROSTER.md). Named ownership does not establish a completed review, signature or code contribution.
 
 ## Current product authority
 
@@ -56,7 +56,7 @@ The [review record](REVIEW.md) retains CR01–CR08 and records T01–T07 as reso
 
 E coauthors frozen generation/source-upload/action mappings; C1 owns pairing limits/terminal recovery; C2 owns preview-versus-generated/edit-effective/overlap/time-zone mappings; C3 owns bounded history, retained-instance/capability/refresh and local rehearsal tests; S1 owns generation/registration work, durable journal/outbox/sequence and environment isolation with feature authors; S2 owns real auth/pairing/plan/event/registration business code, receipt transactions, persistence and both Storage adapters. No role can substitute review/deployment-only work for its own code and tests.
 
-Technical approval does not constitute formal engineering sign-off. All six role slots must record actual review against the same manifest/fixture/commit and link attributable code/test PRs; GitHub-account mapping is deferred. A named Android reviewer and Server reviewer still jointly sign. Local Gate 1 code/tests now pass; production-adapter/device/fully cloud-independent rehearsal remains outstanding under its ordinary Issues, not disguised as completed Gate 1 tests.
+Technical approval does not constitute formal engineering sign-off. All six role slots must record actual review against the same manifest/fixture/commit and link attributable code/test PRs; use the confirmed [roster](../TEAM_ROSTER.md). A named Android reviewer and Server reviewer still jointly sign. Local Gate 1 code/tests now pass; production-adapter/device/fully cloud-independent rehearsal remains outstanding under its ordinary Issues, not disguised as completed Gate 1 tests.
 
 ## Review and completion record
 
@@ -64,12 +64,12 @@ Technical approval does not constitute formal engineering sign-off. All six role
 - [x] Draft routes/errors/idempotency and data-model migration documented.
 - [x] Feature Repository interface proposals, role-specific submissions and case matrix documented.
 - [x] Agent Android/Server consistency review recorded; determinable corrections applied and examples updated. Test plan has 33 proposed cases; eight feature interfaces share an additional command-recovery Interface.
-- [ ] Six role-specific contribution/review records and required code/test PRs linked; GitHub-account mapping intentionally deferred.
+- [ ] Six role-specific contribution/review records and required code/test PRs linked; named assignments are in [TEAM_ROSTER.md](../TEAM_ROSTER.md).
 - [ ] Android reviewer: name, date, reviewed fixture/commit version.
 - [ ] Server reviewer: name, date, reviewed fixture/commit version.
 - [x] Project lead approved and recorded T01–T07; technical choices synchronized into the specification baseline.
 - [x] Compiled P0 wire declarations, nine Repository Interfaces, local model/wire/Jackson/MVC/caller tests and bilingual error mappings delivered; gate1Check passes locally.
-- [ ] All six role slots record actual formal review of their Interface/model/test obligations against the same baseline/fixture/manifest/commit; account mapping remains deferred.
+- [ ] All six role slots record actual formal review of their Interface/model/test obligations against the same baseline/fixture/manifest/commit; use the confirmed roster.
 - [ ] Actual Shared serialization/Server transport/Android Repository tests implemented and passing for the agreed Gate 1 scope; downstream real-adapter cases tracked separately.
 
 Issue remains OPEN for formal review/member contribution/PR acceptance. The local automated checks above are evidence, not teammate sign-off; the unchecked formal test acceptance remains for the team to verify against the same reviewed artifact. See the review packet for exact commands, 69 three-module JVM checks plus 23 Release variant checks, and downstream production tests. Feature implementation still follows accepted Interfaces and attributable code/test PRs.

@@ -43,7 +43,7 @@ The project lead owns:
 - merge and release decisions;
 - confirmation that shared decisions have the required review.
 
-The lead does not bypass CI, security rules, contract review, or the requirement for a non-author approval.
+The lead follows CI, security and contract-review rules. The only first-baseline publication approval exception is the recorded PR #22 authorization in ADR-0009; ordinary non-author and specialized approvals remain mandatory.
 
 ## 3. Work states and Definition of Ready
 
@@ -165,12 +165,12 @@ PR titles use the same Conventional Commit form as final commits. A PR must:
 
 Prefer no more than 500 changed non-generated lines. A larger PR is allowed only when the description explains why splitting it would make the change less safe or less reviewable. Generated fixtures, lock files, and mechanical migrations are excluded from this guideline.
 
-The lead-approved initial development-baseline publication may be a Draft PR while role-to-account mapping remains deferred. The accountable lead is BRMRs; role review slots remain unassigned until recorded by the team. [ADR-0009](adr/0009-two-stage-baseline-and-gate1-acceptance.md), accepted on 2026-10-17, defines two separate checkpoints:
+During historical Stage A preparation, the lead-approved initial publication could be a Draft PR while mapping was deferred. The accountable lead remains BRMRs; current named roles are now recorded in [TEAM_ROSTER.md](TEAM_ROSTER.md). [ADR-0009](adr/0009-two-stage-baseline-and-gate1-acceptance.md), accepted on 2026-10-17, defines two separate checkpoints:
 
 - **Stage A — development baseline:** reproducible build/CI, truthful scaffold/legacy/fake boundaries, six independent agent-onboarding briefs and resolved navigation defects. Any later merge still requires non-author approval, resolved discussions, current-main checks and applicable real Android/Server boundary review. Future six-member code PRs and full Gate 1 signatures are not prerequisites merely to publish the foundation.
 - **Stage B — Gate 1 completion:** six actual member contributions/reviews, attributable code/test PRs, named Android/Server same-version contract sign-off and agreed current contract/test evidence. These remain required before closing #12; a Stage A merge does not satisfy them.
 
-PR #22 is a Stage A partial delivery using `Refs #12`. Agent rehearsals are not human approval or signatures. Account mapping/ordinary feature DoR remain unchanged. Current accepted product behavior and open technical seams must be explicitly routed; legacy r1 test success cannot freeze the V2 protocol. This run keeps PR #22 Draft/unmerged and Gate 1 OPEN even if Stage A preparation checks pass.
+PR #22 is a Stage A partial delivery using `Refs #12`. Agent rehearsals are not human approval or signatures. Account mapping/ordinary feature DoR remain unchanged. Current accepted product behavior and open technical seams must be explicitly routed; legacy r1 test success cannot freeze the V2 protocol. Its separately authorized publication follows the one-time exception below; Gate 1 remains OPEN after a baseline merge.
 
 Do not combine unrelated refactoring, dependency updates, and product behavior in one PR. A PR that changes a shared contract must update the relevant model, fixture, documentation, and tests together or explicitly use linked coordinated PRs.
 
@@ -189,6 +189,8 @@ Additional approval:
 - Authentication, authorization, secrets, or privacy changes require S2 or the named Server/security backup.
 - Room, WorkManager, AlarmManager, session storage, and Android background execution changes require S1 or the named Android-infrastructure backup.
 - Database migrations and Storage publication/cleanup require S2 or the named persistence backup.
+
+The lead's [one-time PR #22 publication exception](adr/0009-two-stage-baseline-and-gate1-acceptance.md#one-time-pr-22-publication-exception--2026-10-17) is the sole exception to the human approval bullets for that initial Stage A attempt. Follow its retained gates, minimum ruleset window and mandatory restoration. It does not mark any review or Stage B signature complete; all later PRs use the normal requirements above.
 
 Review labels in comments:
 

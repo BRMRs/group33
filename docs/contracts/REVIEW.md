@@ -2,7 +2,7 @@
 
 Current status: [ELDER_REMINDER_V2 / ADR-0008](../adr/0008-photo-first-elder-reminders-and-caregiver-handoff.md) is the sole product baseline. The r1 compiled artifacts/checks below are historical structural evidence; affected contracts cannot freeze or complete #12 until [V2 technical review](../ELDER_UI_TECHNICAL_REVIEW.md) and coordinated migration. Earlier document-only/source-hash records below are historical evidence of those earlier turns, not claims that source is still unchanged now.
 
-Scope: API contract, Shared models, Android Repository proposals, test plan and example JSON for [Implement shared HTTP contracts, feature Repository interfaces, and contract tests](https://github.com/BRMRs/group33/issues/12). The initial agent review was document-only, not teammate sign-off. Later scaffold corrections and the current Gate 1 contract-code/test delivery are recorded separately; see [current review packet](GATE1_REVIEW_PACKET.md). All six formal role reviews and Android/Server sign-off remain outstanding; account mapping is deferred by the project lead.
+Scope: API contract, Shared models, Android Repository proposals, test plan and example JSON for [Implement shared HTTP contracts, feature Repository interfaces, and contract tests](https://github.com/BRMRs/group33/issues/12). The initial agent review was document-only, not teammate sign-off. Later scaffold corrections and the current Gate 1 contract-code/test delivery are recorded separately; see [current review packet](GATE1_REVIEW_PACKET.md). All six formal role reviews and Android/Server sign-off remain outstanding; current assignments are in [TEAM_ROSTER.md](../TEAM_ROSTER.md), without fabricated signatures.
 
 ## Gate 1 code/test delivery — 2026-10-16
 

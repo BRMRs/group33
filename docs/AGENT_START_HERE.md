@@ -2,7 +2,7 @@
 
 目标：让每个人知道自己负责什么、第一步改哪里、怎样验证、何时交给别人。本文是任务导航，不是新的产品规范或自动实施许可。职责依据[六人分工](TEAM_BRIEFING.md)与[贡献矩阵](contracts/SUBMISSION_MATRIX.md)，流程依据[工程手册](ENGINEERING_PLAYBOOK.md)。
 
-2026-10-17 负责人已批准[两阶段验收 ADR-0009](adr/0009-two-stage-baseline-and-gate1-acceptance.md)：Stage A 发布可开发基线，Stage B 才完成六人真实贡献/正式审查并关闭 Gate 1。当前仅做 Stage A 准备，PR #22 仍 Draft。先看[现行产品 #23](https://github.com/BRMRs/group33/issues/23)、[独立文档 PR #25](https://github.com/BRMRs/group33/pull/25) 与[技术收口 #24](https://github.com/BRMRs/group33/issues/24)：ELDER_REMINDER_V2 已取代冲突的 r1 行为，PR #22 中的旧代码/JSON/测试仅是 legacy 回归基础，不能反向决定产品。
+2026-10-17 负责人已批准[两阶段验收 ADR-0009](adr/0009-two-stage-baseline-and-gate1-acceptance.md)：Stage A 发布可开发基线，Stage B 才完成六人真实贡献/正式审查并关闭 Gate 1。PR #22 的当前状态从 GitHub 核验；其一次性发布例外仅适用于本次负责人的发布授权，不适用于新人任务。先看[现行产品 #23](https://github.com/BRMRs/group33/issues/23)、[独立文档 PR #25](https://github.com/BRMRs/group33/pull/25) 与[技术收口 #24](https://github.com/BRMRs/group33/issues/24)。三十分钟通知、两小时退出与T−5/T+5检查已经确定；初版探测等待60秒等参数已授权，实际调度/协议/投递仍待收口，见[当前技术清单](ELDER_UI_TECHNICAL_REVIEW.md)。r1的两小时字段与最新窗口一致，但旧代码/JSON/测试不能证明完整V2。
 
 ## 1. 组员只需要先给 agent 这一段
 
@@ -28,13 +28,13 @@ docs/contracts/ROLE_REVIEW_HANDOFF.md 中我的角色卡。
 ## 2. agent 的只读检查顺序
 
 1. **工作区**：读 AGENTS/工程手册/roster；检查 Git 分支、HEAD、未提交改动，保护他人内容。角色只来自本次人的明确输入；未知时只问角色，不索要全部 GitHub 账号。
-2. **基线**：读取当前 main 和 PR #22 的实际状态。先确认 origin/main ref，再用 `git cat-file -e origin/main:settings.gradle.kts` 判断 main 是否已有工程；网络允许时只读核对远端 SHA。main 只有三文件时，报告“开发基线尚未合入”，不在空 main 运行 Gradle，也不自动把 PR #22 分支当 feature 开发基线。负责人提供的 PR/commit/工作区快照可用于只读理解；本轮六角色演练明确授权读取当前 PR #22 工作区，标识为 parent HEAD + dirty input hashes，不能伪称已提交版本。改基底、切换工作区、stacked PR 仍先由负责人确认。
+2. **基线**：读取当前 main 和 PR #22 的实际状态。先确认 origin/main ref，再用 `git cat-file -e origin/main:settings.gradle.kts` 判断 main 是否已有工程；网络允许时只读核对远端 SHA。main 已有工程时，以最新 main 为正常开发基底，先完成本次只读开工单，实施另等人的指令与DoR。若仍只有三文件或本地ref落后，报告实际差异并请人确认同步，不在空 main 运行 Gradle、不自动改用旧 PR 分支。负责人提供的 PR/工作区快照仅用于明确授权的理解；未提交输入用parent SHA+dirty摘要标识。改基底、切换工作区、stacked PR 先由负责人确认。
 3. **范围**：读自己的[角色卡](contracts/ROLE_REVIEW_HANDOFF.md)，再读角色卡链接的 API/模型/测试和相关 ADR。到 GitHub 读取现有 Issue 的最新正文、依赖、reviewer、其他重叠 PR，优先核对 #23/#24 的版本差异。新产品决定已接受不等于 V2 技术协议已冻结；受影响的组动作/照护者补登记/告警/迁移先交 #24，不擅自加 wire 字段。网络不可用则标明来源版本和无法核验项，不假设已 Ready。
 4. **现状**：在源码查入口、调用接口、既有测试；对候选反例先确认是否已覆盖。每个“已有/没有/建议新增”结论附路径或命令证据。
 5. **证据**：环境齐备时运行适用的只读/构建检查；实际缺 JDK/SDK/网络/设备就记录原因，不抹掉测试、不放宽授权。本地构建会生成被忽略的产物，不属于功能源码改动。
 6. **交接**：输出下面的开工单，然后等待人明确要求实现某个有边界的小任务。涉及产品/共享行为冲突只暂停受影响部分，按手册记录，不自行改契约。
 
-规则中的 account mapping 暂缓，不妨碍只读学习和已授权的共同 Gate 1 准备；但不能据此绕过 roster/DoR，把未指定负责人/reviewer 的 feature Issue 标 Ready。本文不改变已有这个前提。
+人员映射已由负责人于2026-10-22确认，见[六人分工](TEAM_ROSTER.md)。这不自动指定每个Issue的owner/reviewer，也不意味着六角色审查已完成；逐票Ready仍须满足DoR。
 
 ## 3. agent 必须交出的开工单
 
@@ -103,15 +103,15 @@ Issue 里“尚未发布”一类旧叙述与当前状态冲突时，区分历�
 
 已按 ADR-0009 接受；以下是阶段 A 的证据要求，不是当前的合并许可。负责人在考虑发布前，至少能展示：
 
-- [ ] 工程在干净检出按 README/手册构建和测试通过，命令/环境/失败提示明确。
+- [x] 干净检出构建/测试已跑通（a669bf3证据见PR #22）；最终发布版本仍须重跑并记录其自身SHA/CI，命令/环境/失败提示明确。
 - [x] README → AGENTS/开工指南 → 自己角色卡 → Issue/源码/测试，六条路径都找得到。
 - [x] 六个角色的只读开工单各得到一个有价值的小任务：可改文件、接口、输入输出、失败反例、测试、依赖、reviewer，不靠未实现的能力假装可运行。
 - [x] 已实现、旧预览、接口/test fake、待实现生产适配器明确分层；JVM检查与设备/生产验收分开。
 - [x] 共享文件 owner/协作方式及阻塞升级路径清楚；角色/负责人未确定的任务如实停在准备状态。
-- [ ] 人能解释自己的小任务，且仍需本人确认正式记录。没有把“agent可读”当成“六名成员都已上手”。
+- [ ] 后续成员本人能解释自己的小任务并确认正式记录；这不是获取初始工程的循环前置，也不能把“agent可读”当成“六名成员都已上手”。
 
 六次独立 agent 演练的结果由主执行者统一记录为独立证据；它们不代表六台成员机器现场验收或六个人已理解。阶段 A 的只读演练能通过，同时阶段 B 的成员/签署仍全部 PENDING。
 
 2026-10-17 [演练记录与六份小任务](evidence/GATE1_ONBOARDING_DRY_RUN.md)：R1 后修正文档，R2 六项 NAVIGATION_PASS。这里的勾选仅覆盖导航准备；最终提交的干净检出/远端 CI 证据在 PR #22 更新，人理解/真实审查仍未勾选。
 
-已批准的两阶段边界见[交接清单第11节](contracts/ROLE_REVIEW_HANDOFF.md#11-关于先合入大家能开发的脚手架)。六个成员未来的业务 PR 和完整 Gate 1 签署不再阻止获得基础工程；当前仍保留 CI、非作者、适用的真实跨端 publication review 和后续单独合并授权。本轮只提交/push文档与证据，不转 Ready、不合并、不关闭 Gate 1。
+已批准的两阶段边界见[交接清单第11节](contracts/ROLE_REVIEW_HANDOFF.md#11-关于先合入大家能开发的脚手架)。六个成员未来的业务 PR 和完整 Gate 1 签署不再阻止获得基础工程。仅PR #22本次按[一次性发布例外](adr/0009-two-stage-baseline-and-gate1-acceptance.md#one-time-pr-22-publication-exception--2026-10-17)在检查通过后发布并立即恢复常规审批；其余PR按正常CI、非作者/专业审查和发布授权执行。开工单不授予合并权，Gate 1保持OPEN。
