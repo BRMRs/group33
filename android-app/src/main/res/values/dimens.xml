@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="group33_space_xs">4dp</dimen>
+    <dimen name="group33_space_sm">8dp</dimen>
+    <dimen name="group33_space_md">16dp</dimen>
+    <dimen name="group33_space_lg">24dp</dimen>
+    <dimen name="group33_space_xl">32dp</dimen>
+    <dimen name="group33_corner_md">16dp</dimen>
+    <dimen name="group33_corner_lg">20dp</dimen>
+    <dimen name="group33_elder_touch_min">56dp</dimen>
+    <dimen name="group33_elder_primary_action_min">64dp</dimen>
+    <dimen name="group33_elder_body_text">18sp</dimen>
+    <dimen name="group33_elder_supporting_text">16sp</dimen>
+    <dimen name="group33_elder_emphasis_text">24sp</dimen>
+    <dimen name="group33_elder_title_text">28sp</dimen>
+    <dimen name="group33_elder_time_text">48sp</dimen>
+</resources>

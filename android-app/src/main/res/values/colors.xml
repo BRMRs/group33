@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shared calm healthcare tokens (#19). Elder uses the same product colours with a larger accessibility profile. -->
+    <color name="group33_primary">#1E5494</color>
+    <color name="group33_on_primary">#FFFFFF</color>
+    <color name="group33_surface">#F3F6FA</color>
+    <color name="group33_surface_card">#E8F1FA</color>
+    <color name="group33_outline_subtle">#C5D6EA</color>
+    <color name="group33_text_primary">#163A66</color>
+    <color name="group33_text_secondary">#5A6F86</color>
+    <color name="group33_status_due">#1E5494</color>
+    <color name="group33_status_pending_bg">#F8D7E0</color>
+    <color name="group33_status_scheduled">#6B7C8F</color>
+    <color name="group33_status_taken">#2E7D4F</color>
+    <color name="group33_status_snoozed">#6A4C9C</color>
+    <color name="group33_bottom_nav_inactive">#8A9AAB</color>
+    <color name="group33_white">#FFFFFF</color>
+</resources>
