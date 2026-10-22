@@ -32,6 +32,15 @@
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/elder_exit_button"
+                    style="@style/Widget.Group33.Elder.SecondaryButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="@dimen/group33_space_sm"
+                    android:minWidth="@dimen/group33_elder_touch_min"
+                    android:text="@string/elder_exit" />
+
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -100,6 +109,7 @@
 
                     <TextView
                         android:id="@+id/due_status_chip"
+                        style="@style/TextAppearance.Group33.Elder.Emphasis"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:background="@drawable/bg_status_pending_chip"
@@ -109,7 +119,7 @@
                         android:paddingBottom="@dimen/group33_space_xs"
                         android:text="@string/elder_status_pending"
                         android:textColor="@color/group33_status_due"
-                        android:textSize="@dimen/group33_elder_supporting_text" />
+                        android:textSize="@dimen/group33_elder_emphasis_text" />
                 </LinearLayout>
 
                 <TextView

@@ -1,17 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Group 33 Medication Reminder</string>
-    <string name="role_prompt">Choose a role for the development prototype. Elder continues with anonymous installation login (no WeChat or third-party account).</string>
+    <string name="role_prompt">Choose a role. Elder uses anonymous installation login (not WeChat).</string>
     <string name="elder_role">Continue as Elder</string>
     <string name="caregiver_role">Caregiver</string>
     <string name="elder_home_title">Medication reminder</string>
     <string name="elder_home_subtitle">Today\'s medication plan</string>
     <string name="elder_home_hint">Local demo Elder preview using Shanghai time. Not signed in or synchronized. Reminder delivery and confirmation actions are not implemented yet.</string>
     <string name="elder_settings">Settings</string>
+    <string name="elder_exit">Exit</string>
     <string name="elder_due_now_label">Need to take medicine now</string>
     <string name="elder_status_pending">To be taken</string>
-    <string name="elder_status_taken">Taken reported</string>
+    <string name="elder_status_taken">Done</string>
     <string name="elder_status_snoozed">Remind later</string>
+    <string name="elder_status_missed">Window closed</string>
     <string name="elder_dosage_format">Dose: %1$s</string>
     <string name="elder_instructions_format">Note: %1$s</string>
     <string name="elder_instructions_default">Take according to the Reminder plan set by the caregiver</string>
@@ -27,12 +29,13 @@
     <string name="elder_nav_profile_format">Anonymous Elder session\nInstallation restored locally.\nDisplay name: %1$s</string>
     <string name="elder_anonymous_display_name">Elder</string>
     <string name="elder_login_failed">Anonymous login could not be restored. Try again.</string>
-    <string name="elder_action_recorded_pending_sync">Recorded on this device. Pending sync is separate from Taken.</string>
+    <string name="elder_action_completed">Done. This action was recorded.</string>
     <string name="elder_remind_later_next_format">Next reminder at %1$s.</string>
-    <string name="elder_remind_later_window_ending">The response window will end before another reminder. Taken stays available until the deadline.</string>
-    <string name="elder_action_failed_storage">Could not save locally. The action was not recorded.</string>
+    <string name="elder_remind_later_window_ending">No further reminder before the window ends. You can still tap Done until then.</string>
+    <string name="elder_action_not_recorded">This action was not recorded. Please try again.</string>
+    <string name="elder_window_closed">This reminder window has ended. Confirmation is closed.</string>
     <string name="elder_no_due_item">No medication needs action right now.</string>
-    <string name="elder_preview_notice">Preview layout for accessibility (#19). Dose actions use a local preview recorder (Refs #14); not Room, AlarmManager, or server acceptance.</string>
+    <string name="elder_preview_notice">Preview only (#19 / Refs #14): simulated time 2026-10-22 08:30 Asia/Shanghai. Not Room, AlarmManager, or server acceptance.</string>
     <string name="elder_demo_medication_a">Sample medication A</string>
     <string name="elder_demo_medication_b">Sample medication B</string>
     <string name="elder_demo_dosage_one_tablet">1 tablet</string>

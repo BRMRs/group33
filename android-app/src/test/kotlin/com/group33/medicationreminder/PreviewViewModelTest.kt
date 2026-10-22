@@ -70,7 +70,7 @@ class PreviewViewModelTest {
                 }
             }
             val viewModel = ElderHomeViewModel(
-                auth, PreviewElderDoseRepository(), clock, "Elder",
+                auth, PreviewElderDoseRepository(clock), clock, "Elder",
                 "Sample medication A", "Sample medication B", "1 tablet",
             )
             advanceUntilIdle()

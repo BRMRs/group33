@@ -3,7 +3,6 @@ package com.group33.medicationreminder.elder
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.group33.medicationreminder.core.data.DemoPreview
 import com.group33.medicationreminder.core.data.contract.AuthReadiness
 import com.group33.medicationreminder.core.data.contract.AuthRepository
 import com.group33.medicationreminder.core.data.contract.DoseEventRepository
@@ -20,17 +19,18 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 sealed interface ElderFeedback {
-    data object RecordedPendingSync : ElderFeedback
+    data object ActionCompleted : ElderFeedback
     data class RemindLaterNext(val timeText: String) : ElderFeedback
     data object RemindLaterWindowEnding : ElderFeedback
-    data object StorageFailed : ElderFeedback
+    data object NotRecorded : ElderFeedback
     data object LoginFailed : ElderFeedback
+    data object WindowClosed : ElderFeedback
 }
 
 class ElderHomeViewModel(
     private val authRepository: AuthRepository,
     private val doseRepository: DoseEventRepository,
-    private val clock: Clock = DemoPreview.clock,
+    private val clock: Clock,
     private val anonymousDisplayName: String,
     private val dueMedicationName: String,
     private val upcomingMedicationName: String,
@@ -71,14 +71,32 @@ class ElderHomeViewModel(
 
     private fun record(kind: DoseActionKind) {
         val due = mutableState.value.due ?: return
+        val now = clock.millis()
+        val withinWindow = ElderDuePreviewCatalog.canAcceptElderAction(
+            status = due.status,
+            nowEpochMillis = now,
+            plannedAtEpochMillis = due.plannedAtEpochMillis,
+            responseDeadlineEpochMillis = due.responseDeadlineEpochMillis,
+        )
+        if (!withinWindow) {
+            mutableState.update {
+                it.copy(
+                    due = due.copy(
+                        status = if (now >= due.responseDeadlineEpochMillis) DoseStatus.MISSED else due.status,
+                    ),
+                    actionsEnabled = false,
+                    feedback = ElderFeedback.WindowClosed,
+                )
+            }
+            return
+        }
         if (!mutableState.value.actionsEnabled) return
-        if (due.status != DoseStatus.DUE && due.status != DoseStatus.SNOOZED) return
 
         viewModelScope.launch {
             mutableState.update { it.copy(actionsEnabled = false, feedback = null) }
             when (val result = doseRepository.recordAction(due.occurrence, kind)) {
                 is Outcome.Failure -> mutableState.update {
-                    it.copy(actionsEnabled = true, feedback = ElderFeedback.StorageFailed)
+                    it.copy(actionsEnabled = true, feedback = ElderFeedback.NotRecorded)
                 }
                 is Outcome.Success -> {
                     val nextStatus = when (kind) {
@@ -86,7 +104,7 @@ class ElderHomeViewModel(
                         DoseActionKind.REMIND_LATER -> DoseStatus.SNOOZED
                     }
                     val feedback = when (kind) {
-                        DoseActionKind.TAKEN -> ElderFeedback.RecordedPendingSync
+                        DoseActionKind.TAKEN -> ElderFeedback.ActionCompleted
                         DoseActionKind.REMIND_LATER -> when (
                             val snooze = ElderDuePreviewCatalog.remindLaterOutcome(
                                 recordedAtEpochMillis = result.value.recordedAtEpochMillis,
@@ -100,10 +118,17 @@ class ElderHomeViewModel(
                                 ElderFeedback.RemindLaterWindowEnding
                         }
                     }
+                    val stillOpen = nextStatus == DoseStatus.SNOOZED &&
+                        ElderDuePreviewCatalog.canAcceptElderAction(
+                            status = nextStatus,
+                            nowEpochMillis = clock.millis(),
+                            plannedAtEpochMillis = due.plannedAtEpochMillis,
+                            responseDeadlineEpochMillis = due.responseDeadlineEpochMillis,
+                        )
                     mutableState.update {
                         it.copy(
                             due = due.copy(status = nextStatus),
-                            actionsEnabled = nextStatus == DoseStatus.SNOOZED,
+                            actionsEnabled = stillOpen,
                             feedback = feedback,
                         )
                     }
@@ -119,13 +144,19 @@ class ElderHomeViewModel(
             upcomingMedicationName = upcomingMedicationName,
             dosageText = dosageText,
         )
-        return ElderHomeUiState(due = due, upcoming = upcoming, actionsEnabled = true)
+        val actionsEnabled = ElderDuePreviewCatalog.canAcceptElderAction(
+            status = due.status,
+            nowEpochMillis = clock.millis(),
+            plannedAtEpochMillis = due.plannedAtEpochMillis,
+            responseDeadlineEpochMillis = due.responseDeadlineEpochMillis,
+        )
+        return ElderHomeUiState(due = due, upcoming = upcoming, actionsEnabled = actionsEnabled)
     }
 
     class Factory(
         private val authRepository: AuthRepository,
         private val doseRepository: DoseEventRepository,
-        private val clock: Clock = DemoPreview.clock,
+        private val clock: Clock,
         private val anonymousDisplayName: String,
         private val dueMedicationName: String,
         private val upcomingMedicationName: String,

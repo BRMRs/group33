@@ -2,7 +2,6 @@ package com.group33.medicationreminder.elder
 
 import android.os.Bundle
 import android.view.LayoutInflater
-import android.view.View
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
@@ -20,11 +19,13 @@ import kotlinx.coroutines.launch
 
 class ElderHomeActivity : AppCompatActivity() {
     private lateinit var binding: ActivityElderHomeBinding
-    private val doseRepository = PreviewElderDoseRepository()
+    private val previewClock = ElderDuePreviewCatalog.PREVIEW_CLOCK
+    private val doseRepository = PreviewElderDoseRepository(previewClock)
     private val viewModel: ElderHomeViewModel by viewModels {
         ElderHomeViewModel.Factory(
             authRepository = InstallationAnonymousAuthRepository(applicationContext),
             doseRepository = doseRepository,
+            clock = previewClock,
             anonymousDisplayName = getString(R.string.elder_anonymous_display_name),
             dueMedicationName = getString(R.string.elder_demo_medication_a),
             upcomingMedicationName = getString(R.string.elder_demo_medication_b),
@@ -39,13 +40,18 @@ class ElderHomeActivity : AppCompatActivity() {
 
         binding.dueTakenButton.setOnClickListener { viewModel.onTaken() }
         binding.dueRemindLaterButton.setOnClickListener { viewModel.onRemindLater() }
+        binding.elderExitButton.setOnClickListener { finish() }
         binding.elderSettingsButton.setOnClickListener { showSessionInfo() }
         binding.elderBottomNav.selectedItemId = R.id.elder_nav_home
         binding.elderBottomNav.setOnItemSelectedListener { item ->
             when (item.itemId) {
                 R.id.elder_nav_home -> true
                 R.id.elder_nav_history -> {
-                    Toast.makeText(this, R.string.elder_nav_history_pending, Toast.LENGTH_SHORT).show()
+                    AlertDialog.Builder(this)
+                        .setTitle(R.string.elder_nav_history)
+                        .setMessage(R.string.elder_nav_history_pending)
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
                     false
                 }
                 R.id.elder_nav_profile -> {
@@ -79,8 +85,11 @@ class ElderHomeActivity : AppCompatActivity() {
                 (due.status == DoseStatus.DUE || due.status == DoseStatus.SNOOZED)
             binding.dueTakenButton.isEnabled = showActions
             binding.dueRemindLaterButton.isEnabled = showActions
-            binding.dueTakenButton.isVisible = due.status != DoseStatus.TAKEN
-            binding.dueRemindLaterButton.isVisible = due.status != DoseStatus.TAKEN
+            binding.dueTakenButton.isVisible = due.status == DoseStatus.DUE || due.status == DoseStatus.SNOOZED
+            binding.dueRemindLaterButton.isVisible = due.status == DoseStatus.DUE || due.status == DoseStatus.SNOOZED
+            binding.dueNowLabel.setText(
+                if (due.status == DoseStatus.MISSED) R.string.elder_window_closed else R.string.elder_due_now_label,
+            )
         }
 
         binding.upcomingList.removeAllViews()
@@ -111,16 +120,17 @@ class ElderHomeActivity : AppCompatActivity() {
         DoseStatus.TAKEN -> getString(R.string.elder_status_taken)
         DoseStatus.SNOOZED -> getString(R.string.elder_status_snoozed)
         DoseStatus.SCHEDULED -> getString(R.string.elder_status_not_due_yet)
-        DoseStatus.MISSED -> getString(R.string.elder_status_not_due_yet)
+        DoseStatus.MISSED -> getString(R.string.elder_status_missed)
     }
 
     private fun feedbackText(feedback: ElderFeedback): String = when (feedback) {
-        ElderFeedback.RecordedPendingSync -> getString(R.string.elder_action_recorded_pending_sync)
+        ElderFeedback.ActionCompleted -> getString(R.string.elder_action_completed)
         is ElderFeedback.RemindLaterNext ->
             getString(R.string.elder_remind_later_next_format, feedback.timeText)
         ElderFeedback.RemindLaterWindowEnding -> getString(R.string.elder_remind_later_window_ending)
-        ElderFeedback.StorageFailed -> getString(R.string.elder_action_failed_storage)
+        ElderFeedback.NotRecorded -> getString(R.string.elder_action_not_recorded)
         ElderFeedback.LoginFailed -> getString(R.string.elder_login_failed)
+        ElderFeedback.WindowClosed -> getString(R.string.elder_window_closed)
     }
 
     private fun showSessionInfo() {

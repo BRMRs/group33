@@ -10,9 +10,9 @@
     <color name="group33_text_secondary">#5A6F86</color>
     <color name="group33_status_due">#1E5494</color>
     <color name="group33_status_pending_bg">#F8D7E0</color>
-    <color name="group33_status_scheduled">#6B7C8F</color>
+    <color name="group33_status_scheduled">#3F5368</color>
     <color name="group33_status_taken">#2E7D4F</color>
     <color name="group33_status_snoozed">#6A4C9C</color>
-    <color name="group33_bottom_nav_inactive">#8A9AAB</color>
+    <color name="group33_bottom_nav_inactive">#3F5368</color>
     <color name="group33_white">#FFFFFF</color>
 </resources>

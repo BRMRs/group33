@@ -1,5 +1,6 @@
 package com.group33.medicationreminder.elder
 
+import com.group33.medicationreminder.core.data.contract.AccessState
 import com.group33.medicationreminder.core.data.contract.Cached
 import com.group33.medicationreminder.core.data.contract.DoseEventRepository
 import com.group33.medicationreminder.core.data.contract.DoseEventState
@@ -14,6 +15,7 @@ import com.group33.medicationreminder.core.data.contract.SyncState
 import com.group33.shared.contract.DoseActionKind
 import com.group33.shared.contract.OccurrenceKey
 import com.group33.shared.model.DoseStatus
+import java.time.Clock
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.flow.Flow
@@ -23,8 +25,10 @@ import kotlinx.coroutines.flow.map
 /**
  * In-process preview recorder for Elder Taken / Remind later UI (#14 boundary).
  * Success means local preview state only — not Room atomic write or server acceptance.
+ * Uses the same [Clock] as the Elder Due screen so deadline tests stay consistent.
  */
 class PreviewElderDoseRepository(
+    private val clock: Clock,
     private val failNextRecord: () -> Boolean = { false },
 ) : DoseEventRepository {
     private val statuses = ConcurrentHashMap<OccurrenceKey, DoseStatus>()
@@ -35,8 +39,13 @@ class PreviewElderDoseRepository(
 
     override fun observeEvents(elderId: String, range: LocalDateRange): Flow<Cached<List<DoseEventState>>> =
         revisions.map {
-            Cached(emptyList(), hasLocalData = false, lastSuccessfulSyncAtEpochMillis = null, isStale = true,
-                access = com.group33.medicationreminder.core.data.contract.AccessState.UNKNOWN)
+            Cached(
+                emptyList(),
+                hasLocalData = false,
+                lastSuccessfulSyncAtEpochMillis = null,
+                isStale = true,
+                access = AccessState.UNKNOWN,
+            )
         }
 
     override fun observeLocalAction(actionId: String): Flow<LocalActionReceipt?> =
@@ -49,7 +58,7 @@ class PreviewElderDoseRepository(
         if (failNextRecord()) {
             return Outcome.Failure(RepositoryError.Local(LocalFailureCode.STORAGE_UNAVAILABLE))
         }
-        val recordedAt = System.currentTimeMillis()
+        val recordedAt = clock.millis()
         val actionId = UUID.randomUUID().toString()
         val classification = when (kind) {
             DoseActionKind.TAKEN -> LocalActionClassification.TIMELY_TAKEN
