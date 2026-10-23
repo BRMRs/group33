@@ -89,6 +89,31 @@ class WireContractTest {
         assertTrue(photoOnly.doseEvents.isEmpty())
     }
 
+    @Test fun `W01 caregiver snapshot omitted capability stays unknown like explicit null`() {
+        val snapshot = at("snapshot").jsonObject
+        val omitted = json.decodeFromJsonElement<ElderSnapshot>(JsonObject(snapshot - "capability"))
+        val explicitNull = json.decodeFromJsonElement<ElderSnapshot>(JsonObject(snapshot + ("capability" to JsonNull)))
+
+        assertNull(omitted.capability)
+        assertEquals(explicitNull, omitted)
+        assertEquals(json.decodeFromJsonElement<ElderSnapshot>(snapshot).copy(capability = null), omitted)
+    }
+
+    @Test fun `W01 caregiver snapshot rejects malformed capability instead of treating it as unknown`() {
+        val snapshot = at("snapshot").jsonObject
+        val capability = snapshot.getValue("capability").jsonObject
+        val malformedCapabilities = mapOf(
+            "missing observation time" to JsonObject(capability - "observedAtEpochMillis"),
+            "unknown delivery condition" to JsonObject(capability + ("deliveryCondition" to JsonPrimitive("UNKNOWN"))),
+        )
+
+        for ((reason, malformed) in malformedCapabilities) {
+            assertFailsWith<SerializationException>(reason) {
+                json.decodeFromJsonElement<ElderSnapshot>(JsonObject(snapshot + ("capability" to malformed)))
+            }
+        }
+    }
+
     @Test fun `W01 error envelopes retain codes and nullable reasons`() {
         roundTrip<ApiError>("validationError")
         val progress = roundTrip<ApiError>("inProgressResponse.body")

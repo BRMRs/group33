@@ -11,7 +11,7 @@
 | `android-app/.../core/reminder/FollowUpPolicy.kt` | 照护结论优先、无法确认仍待核实；15/60秒投递评估；0/15/60秒名义重试和收到后2/5分钟再提醒 | V203/V205的本地规则，不证明通知送达 |
 | `android-app/.../core/data/contract/CommandRecoveryPolicy.kt` | 原operationId恢复；拒绝不自动重放；成功/缓存未更新只刷新；用户/安装/环境变化拒绝旧操作 | R01/R04既有公共命令类型的真实决策逻辑 |
 
-代码路径中的省略前缀是`src/main/kotlin/com/group33/medicationreminder`。公开入口为evaluate、next、assessDelivery、conclude和decide；不是新增HTTP路由。未修改旧预览或Tang的#35/#36，未改变Shared DTO/JSON/依赖版本。
+代码路径中的省略前缀是`src/main/kotlin/com/group33/medicationreminder`。公开入口为evaluate、next、assessDelivery、conclude和decide；不是新增HTTP路由。未修改旧预览或`Katherine-Tang` 的#35/#36，未改变Shared DTO/JSON/依赖版本。
 
 ## 输入怎样接入
 
@@ -65,3 +65,7 @@ S2反馈的回执/已执行提醒回拨反例已先复现失败，再修复。Al
 真实Room事务、整组全收/全拒落库、HTTP/Server业务、回执持久化、平台闹钟/推送、设备权限/开机恢复、双设备送达与实时预算测试均未完成。对应实现仍在#12/#14/#15/#17/#18/#20等普通任务，不能把本地投影测试勾成生产验收。
 
 38个规则用例是可交接的S1代码草稿；未经本人阅读/复现/正式review，不计为真人签署或Gate1关闭。最终代码分支略超500行建议规模的主要原因是四个相关规则边界及其可读反例成对交付；不混入UI、依赖升级或协议冻结。
+
+## 2026-10-23 主干同步复核
+
+本次同步 main `e740d0b`（已含 #25/#36/#38）。原38项策略方法及生产策略文件与受审 `d5ede24` 逐字节一致；冲突仅涉及贡献记录和摘要，已保留两边有效条目。最终提交与新CI记录在 PR #37，S2实际复核仍按最终版本完成；不把原先辅助复核转成正式Approve。
