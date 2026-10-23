@@ -55,3 +55,7 @@ shasum -a 256 -c docs/contracts/GATE1_ARTIFACTS.sha256
 The recorded device run installed test APKs with replacement and invoked `RoomCommandJournalTest` via AndroidJUnitRunner to preserve the existing app/data, rather than relying on automatic package cleanup. Device tests are separate from CI's JVM/lint/build gate.
 
 Still outstanding in #17: actual process death/reboot and API23/35 tests; trusted clock/session/WorkManager integration; HTTP and server receipts; feature domain/cache/outbox atomic transactions and typed failure mapping; offline Elder actions and capability sequence; cross-device recovery. No UI change, new permission, wire field or product timing change is included. #37 policy integration follows separately after review/merge.
+
+## Current-main revalidation — 2026-10-23
+
+Updated onto main `e740d0b` (#25/#36/#38). Journal production files, its 12 device tests, schema and build configuration are byte-identical to the device-tested `422264c`; no new device run or reboot evidence is claimed. The original API27 evidence remains applicable to these unchanged files. Current JVM reports are Shared 18, Server 30, Android Debug/Release 25 each (98 executions). The final commit/CI and named reviewer requests are recorded in PR #45; full integration remains open in #17.
