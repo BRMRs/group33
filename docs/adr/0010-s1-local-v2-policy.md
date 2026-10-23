@@ -23,3 +23,8 @@ Main is a buildable r1 scaffold; current V2 product authority is recorded in #23
 Pure policies use an injected Clock and public inputs. Actual scope/authentication, matching a probe to the right round, current accepted Caregiver revision, durable journal/outbox transactions, atomic work claims and network/notification/AlarmManager execution belong to later real adapters. Calling a policy does not send, persist or deliver anything. No arbitrary Shared DTO, API or Room schema is frozen.
 
 This is a separate S1 code branch from main, not code inserted into the docs-only #25 workspace. E/C1/C2/C3 keep their feature work; S2 keeps Server behavior and transport. Agent-assisted tests are not member sign-off, real process recovery, group transaction acceptance or dual-device proof.
+
+
+## 2026-10-23 follow-up: wall-clock rollback
+
+The lead authorized addressing S2 review feedback on PR #37. Verified alert transmission, receipt and completed reminder facts survive wall-clock rollback; structural field/count validation remains. A negative visibility time difference is an unconfirmed latency measurement, not an invalid visibility event. The local planner returns wall-clock due times; real elapsed-time guarantees require monotonic scheduling anchors, restart recovery and calibrated cross-device measurements in later adapters. No wire/schema fields or production scheduling implementation are introduced. The PR is Ready for review; merge remains unauthorized.

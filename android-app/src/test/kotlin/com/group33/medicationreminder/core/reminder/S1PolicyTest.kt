@@ -202,13 +202,36 @@ class S1PolicyTest {
             AlertTimingPolicy(clock("11:00:00")).assessDelivery(at("10:06:00"), null))
     }
 
+    @Test fun `verifiedReceiptAfterWallClockRollbackStillStopsTransmissionRetries`() {
+        val received = alert.copy(transmissionCount = 1, lastTransmissionAt = at("10:06:00"),
+            receivedAt = at("10:05:10"))
+        assertEquals(AlertStep.Wait(at("10:07:10")), alertStep("10:05:10", received))
+    }
+
+    @Test fun `completedReminderAfterWallClockRollbackCanBeRecorded`() {
+        val reminded = alert.copy(receivedAt = at("10:06:10"), reminderCount = 1,
+            lastReminderAt = at("10:05:00"))
+        assertEquals(AlertStep.Wait(at("10:11:10")), alertStep("10:05:00", reminded))
+    }
+
+    @Test fun `completedTransmissionAfterWallClockRollbackCanBeRecorded`() {
+        val sent = alert.copy(transmissionCount = 1, lastTransmissionAt = at("10:05:00"))
+        assertEquals(AlertStep.Wait(at("10:05:15")), alertStep("10:05:00", sent))
+    }
+
+    @Test fun `visibleReceiptAfterWallClockRollbackIsNotReportedAsAnOnTimeMeasurement`() {
+        val policy = AlertTimingPolicy(clock("10:05:10"))
+        assertEquals(DeliveryAssessment.UNCONFIRMED,
+            policy.assessDelivery(at("10:06:00"), at("10:05:10")))
+    }
+
     @Test fun `V205 visibility metrics use actual device visibility with inclusive limits`() {
         val policy = AlertTimingPolicy(clock("11:00:00"))
         assertEquals(DeliveryAssessment.ON_TARGET, policy.assessDelivery(at("10:06:00"), at("10:06:15")))
         assertEquals(DeliveryAssessment.WITHIN_LIMIT, policy.assessDelivery(at("10:06:00"), at("10:06:15.001")))
         assertEquals(DeliveryAssessment.WITHIN_LIMIT, policy.assessDelivery(at("10:06:00"), at("10:07:00")))
         assertEquals(DeliveryAssessment.OVER_LIMIT, policy.assessDelivery(at("10:06:00"), at("10:07:00.001")))
-        assertThrows(IllegalArgumentException::class.java) { policy.assessDelivery(at("10:06:00"), at("10:05:59")) }
+        assertEquals(DeliveryAssessment.UNCONFIRMED, policy.assessDelivery(at("10:06:00"), at("10:05:59")))
     }
 
     @Test fun `V205 invalid durable progress cannot skip to a fabricated successful stage`() {
@@ -218,10 +241,6 @@ class S1PolicyTest {
         assertThrows(IllegalArgumentException::class.java) {
             alert.copy(receivedAt = at("10:06:10"), reminderCount = 1)
         }
-        assertThrows(IllegalArgumentException::class.java) {
-            alert.copy(receivedAt = at("10:06:10"), reminderCount = 1, lastReminderAt = at("10:06:09"))
-        }
-        assertThrows(IllegalArgumentException::class.java) { alert.copy(receivedAt = at("10:05:59")) }
     }
 
     @Test fun `V203 current Caregiver entry wins over late Elder Taken for all three outcomes`() {

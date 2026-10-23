@@ -34,14 +34,12 @@ data class AlertProgress(
     val deliveryBlocked: Boolean = false,
 ) {
     init {
+        // Adapter validation establishes causality; wall-clock rollback can reverse timestamps.
         require(alertId.isNotBlank())
         require(transmissionCount in 0..3 && reminderCount in 0..2)
         require((transmissionCount == 0) == (lastTransmissionAt == null))
-        require(lastTransmissionAt == null || lastTransmissionAt >= createdAt)
-        require(receivedAt == null || receivedAt >= createdAt)
         require(reminderCount == 0 || receivedAt != null)
         require((reminderCount == 0) == (lastReminderAt == null))
-        require(lastReminderAt == null || (receivedAt != null && lastReminderAt >= receivedAt))
     }
 }
 
@@ -59,6 +57,8 @@ enum class DeliveryAssessment { UNCONFIRMED, ON_TARGET, WITHIN_LIMIT, OVER_LIMIT
 
 /** Stateless planner over durable progress. The adapter must atomically claim/persist work and
  * scope it before dispatch. Polling this planner is NOT an exactly-once delivery mechanism.
+ * Wait/dueAt use the injected wall-clock domain; clock corrections can shift elapsed waits.
+ * A real scheduler must measure elapsed delays monotonically and re-evaluate after clock changes.
  */
 class AlertTimingPolicy(private val clock: Clock) {
     private val retryGaps = listOf(Duration.ofSeconds(15), Duration.ofSeconds(45))
@@ -87,7 +87,8 @@ class AlertTimingPolicy(private val clock: Clock) {
 
     fun assessDelivery(createdAt: Instant, visibleAt: Instant?): DeliveryAssessment {
         if (visibleAt == null) return DeliveryAssessment.UNCONFIRMED
-        require(visibleAt >= createdAt)
+        // A negative wall-clock delta cannot measure delivery latency or invalidate visibility.
+        if (visibleAt < createdAt) return DeliveryAssessment.UNCONFIRMED
         val elapsed = Duration.between(createdAt, visibleAt)
         return when {
             elapsed <= InitialTiming.deliveryTarget -> DeliveryAssessment.ON_TARGET

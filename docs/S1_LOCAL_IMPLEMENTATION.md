@@ -1,6 +1,6 @@
 # S1本地规则初版：代码、测试与接入边界
 
-关联：[#24](https://github.com/BRMRs/group33/issues/24)、[#12](https://github.com/BRMRs/group33/issues/12)。本地授权/规则见[ADR-0010](adr/0010-s1-local-v2-policy.md)。负责人现已授权将本次S1独立改动提交、推送并创建Draft PR；不合并、不代签，不混入#25文档分支。
+关联：[#24](https://github.com/BRMRs/group33/issues/24)、[#12](https://github.com/BRMRs/group33/issues/12)。本地授权/规则见[ADR-0010](adr/0010-s1-local-v2-policy.md)。负责人已授权提交、推送本次S1改动并转为Ready for review；不合并、不代签，不混入#25文档分支。
 
 ## 已实现
 
@@ -25,7 +25,7 @@
 
 ## 已新增测试
 
-`android-app/src/test/kotlin/com/group33/medicationreminder/core/reminder/S1PolicyTest.kt`与`CommandRecoveryPolicyTest.kt`：34个测试方法，覆盖真实生产策略代码，不用fake证明Room/HTTP行为。所有时间均由Clock控制，不等待真实分钟。
+`android-app/src/test/kotlin/com/group33/medicationreminder/core/reminder/S1PolicyTest.kt`与`CommandRecoveryPolicyTest.kt`：38个测试方法，覆盖真实生产策略代码，不用fake证明Room/HTTP行为。所有时间均由Clock控制，不等待真实分钟。
 
 覆盖：截止前/恰好/后；30分钟仍能响应；延后目标恰好deadline；单次Clock采样；四种探测回复组合；漏执行/晚发/迟到/已有告警/系统时间回拨；15/60秒边界；重试同ID/上限/晚恢复不突发；2/5分钟提醒及晚恢复防连发；耗尽不自动结案；照护三种结果优先；无确认不等于未服用；四种在线命令状态及三维scope变化。
 
@@ -42,6 +42,16 @@ shasum -a 256 -c docs/contracts/GATE1_ARTIFACTS.sha256
 
 实际检查数/结果随本次交付记录保存；不能用旧SHA CI冒充新版本远端CI。这些测试不等于V201–V205或全部P0场景验收通过。
 
+## 系统时间回拨与测量边界（2026-10-23修正）
+
+S2反馈的回执/已执行提醒回拨反例已先复现失败，再修复。AlertProgress保留计数、必要字段与回执前提校验；已验证的发送、收到和提醒事实不再因墙钟数值先后被拒绝。鉴权、身份、轮次和因果有效性仍由真实adapter确认，不代表任意输入都可信。
+
+此纯策略的`dueAt`/`Wait`使用注入Clock的墙钟域：重试锚定实际发送时间，再提示取收到后的名义时点与上次实际提示后间隔的较晚值。回拨可能延后、拨快可能提前墙钟到期；这不是跨调时/重启的真实经过时长保证。真实adapter必须将已验证事实与单调经过时长的调度锚点分开，同次开机使用单调计时；跨重启恢复、时钟校正和持久化认领仍由后续适配器验证。本次没有添加未协商的wire字段。
+
+`assessDelivery`的负墙钟差返回UNCONFIRMED，不抛异常，也不伪造按时送达；非负差仍只是同一稳定时钟域的参考测量。真实Server创建到设备可见的15/60秒预算需要可比较的时钟/校正依据，不能直接相减两个未校准设备的UTC值。测量未知不撤销已收到/已可见事实。
+
+新增四个回归方法覆盖回拨后的真实回执、已执行提醒、已发送进度和不可测的可见延迟。它们不证明平台调度、真实持久化或端到端预算。
+
 ## 接下来需要S2配合
 
 1. 共同确定组/动作身份、成员冻结、Server全收/全拒及receipt查询；提供重复提交、部分成员失败和丢回执的真实事务测试。
@@ -54,4 +64,4 @@ shasum -a 256 -c docs/contracts/GATE1_ARTIFACTS.sha256
 
 真实Room事务、整组全收/全拒落库、HTTP/Server业务、回执持久化、平台闹钟/推送、设备权限/开机恢复、双设备送达与实时预算测试均未完成。对应实现仍在#12/#14/#15/#17/#18/#20等普通任务，不能把本地投影测试勾成生产验收。
 
-34个规则用例是可交接的S1代码草稿；未经本人阅读/复现/正式review，不计为真人签署或Gate1关闭。最终代码分支略超500行建议规模的主要原因是四个相关规则边界及其可读反例成对交付；不混入UI、依赖升级或协议冻结。
+38个规则用例是可交接的S1代码草稿；未经本人阅读/复现/正式review，不计为真人签署或Gate1关闭。最终代码分支略超500行建议规模的主要原因是四个相关规则边界及其可读反例成对交付；不混入UI、依赖升级或协议冻结。
