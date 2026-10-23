@@ -143,10 +143,11 @@ class CaregiverFeedbackViewModel(
                 current.repository.observeOverview(current.elderId, current.range).collect { cached ->
                     if (!isCurrent(token)) return@collect
                     emitted = true
-                    if (cached.value.elder.id != current.elderId) {
-                        mutableState.update { it.copy(isLoading = false, observationFailed = true) }
-                    } else if (cached.access == AccessState.REVOKED) {
+                    // Access belongs to this trusted subscription, not the payload's Elder ID.
+                    if (cached.access == AccessState.REVOKED) {
                         revoke(current)
+                    } else if (cached.value.elder.id != current.elderId) {
+                        mutableState.update { it.copy(isLoading = false, observationFailed = true) }
                     } else {
                         mutableState.update {
                             it.copy(

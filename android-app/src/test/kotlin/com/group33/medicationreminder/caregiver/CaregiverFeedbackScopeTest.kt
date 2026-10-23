@@ -176,44 +176,69 @@ class CaregiverFeedbackScopeTest {
     }
 
     @Test fun `old observer callback is ignored even if its source ignores cancellation`() = runTest(dispatcher) {
-        val a = repository("A")
-        val late = LateObservation()
-        a.source = late
-        val b = repository("B")
-        val model = model(a)
-        runCurrent()
-        late.emit(a.updates.value)
-        model.selectContext(b, scope, "B", dates)
-        runCurrent()
-        late.emit(a.updates.value)
-        assertSame(b.updates.value, model.state.value.overview)
-        late.finish()
-        runCurrent()
+        val replacements = listOf("B" to scope, "A" to scope.copy(userId = "other-test-user"), "A" to scope)
+        for ((elder, replacementScope) in replacements) {
+            val a = repository("A")
+            val late = LateObservation()
+            a.source = late
+            val current = repository(elder, replacementScope)
+            val model = model(a)
+            runCurrent()
+            late.emit(a.updates.value)
+            model.selectContext(current, replacementScope, elder, dates)
+            runCurrent()
+            try {
+                for (access in listOf(AccessState.AUTHORIZED, AccessState.REVOKED)) {
+                    late.emit(a.updates.value.copy(access = access))
+                    assertSame(current.updates.value, model.state.value.overview)
+                    assertEquals(AccessState.AUTHORIZED, model.state.value.access)
+                    assertEquals(elder, model.state.value.elderId)
+                    assertEquals(replacementScope, model.state.value.scope)
+                }
+            } finally {
+                late.finish()
+                runCurrent()
+            }
+        }
     }
 
     @Test fun `revocation hides cache and late success or authorized callbacks cannot restore it`() = runTest(dispatcher) {
-        val a = repository("A")
-        val late = LateObservation()
-        a.source = late
-        val reply = pendingReply(a)
-        val model = model(a)
-        runCurrent()
-        late.emit(a.updates.value)
-        model.refresh()
-        runCurrent()
-        late.emit(a.updates.value.copy(access = AccessState.REVOKED))
+        for (payloadElder in listOf("A", "B")) {
+            val a = repository("A")
+            val late = LateObservation()
+            a.source = late
+            val reply = pendingReply(a)
+            val model = model(a)
+            var replied = false
+            runCurrent()
+            late.emit(a.updates.value)
+            model.refresh()
+            runCurrent()
+            assertTrue(model.state.value.isRefreshing)
+            try {
+                late.emit(cached(payloadElder).copy(access = AccessState.REVOKED))
 
-        assertEquals(AccessState.REVOKED, model.state.value.access)
-        assertNull(model.state.value.overview)
-        assertFalse(model.state.value.isRefreshing)
-        reply.await().resume(Outcome.Success(summary("A")))
-        late.emit(a.updates.value)
-        runCurrent()
-        assertNull(model.state.value.overview)
-        assertNull(model.state.value.refreshResult)
-        assertFalse(model.state.value.isRefreshComplete)
-        late.finish()
-        runCurrent()
+                assertEquals(AccessState.REVOKED, model.state.value.access)
+                assertEquals("A", model.state.value.elderId)
+                assertNull(model.state.value.overview)
+                assertFalse(model.state.value.isRefreshing)
+                model.refresh()
+                runCurrent()
+                assertEquals(listOf("A" to dates), a.refreshes)
+                replied = true
+                reply.await().resume(Outcome.Success(summary("A")))
+                late.emit(a.updates.value)
+                runCurrent()
+                assertEquals(AccessState.REVOKED, model.state.value.access)
+                assertNull(model.state.value.overview)
+                assertNull(model.state.value.refreshResult)
+                assertFalse(model.state.value.isRefreshComplete)
+            } finally {
+                if (!replied) reply.await().resume(Outcome.Success(summary("A")))
+                late.finish()
+                runCurrent()
+            }
+        }
     }
 
     @Test fun `return to revoked Elder retains denial across date changes without blocking other scope`() = runTest(dispatcher) {
@@ -257,18 +282,16 @@ class CaregiverFeedbackScopeTest {
         assertSame(a.updates.value, model.state.value.overview)
     }
 
-    @Test fun `foreign Elder cache including a revocation is not applied to the current Elder`() = runTest(dispatcher) {
+    @Test fun `foreign authorized Elder cache is not applied to the current Elder`() = runTest(dispatcher) {
         val a = repository("A")
         val correct = a.updates.value
         val model = model(a)
         runCurrent()
-        for (access in listOf(AccessState.AUTHORIZED, AccessState.REVOKED)) {
-            a.updates.value = cached("B").copy(access = access)
-            runCurrent()
-            assertSame(correct, model.state.value.overview)
-            assertEquals(AccessState.AUTHORIZED, model.state.value.access)
-            assertTrue(model.state.value.observationFailed)
-        }
+        a.updates.value = cached("B")
+        runCurrent()
+        assertSame(correct, model.state.value.overview)
+        assertEquals(AccessState.AUTHORIZED, model.state.value.access)
+        assertTrue(model.state.value.observationFailed)
     }
 
     @Test fun `mismatched summary Elder or scope is rejected without replacing the correct cache`() = runTest(dispatcher) {
