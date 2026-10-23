@@ -1,41 +1,225 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="32dp">
+    android:background="@color/group33_surface">
 
-    <TextView
-        android:id="@+id/elder_title"
-        style="@style/TextAppearance.Material3.HeadlineLarge"
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/elder_scroll"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:text="@string/elder_home_title"
-        android:textStyle="bold"
+        android:layout_height="0dp"
+        android:clipToPadding="false"
+        android:fillViewport="true"
+        android:paddingStart="@dimen/group33_space_lg"
+        android:paddingTop="@dimen/group33_space_lg"
+        android:paddingEnd="@dimen/group33_space_lg"
+        android:paddingBottom="@dimen/group33_space_md"
+        app:layout_constraintBottom_toTopOf="@id/elder_bottom_nav"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent">
 
-    <TextView
-        android:id="@+id/today_schedule_count"
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/elder_exit_button"
+                    style="@style/Widget.Group33.Elder.SecondaryButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="@dimen/group33_space_sm"
+                    android:minWidth="@dimen/group33_elder_touch_min"
+                    android:text="@string/elder_exit" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/elder_title"
+                        style="@style/TextAppearance.Group33.Elder.Title"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/elder_home_title" />
+
+                    <TextView
+                        android:id="@+id/elder_subtitle"
+                        style="@style/TextAppearance.Group33.Elder.Subtitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/group33_space_xs"
+                        android:text="@string/elder_home_subtitle" />
+                </LinearLayout>
+
+                <ImageButton
+                    android:id="@+id/elder_settings_button"
+                    android:layout_width="@dimen/group33_elder_touch_min"
+                    android:layout_height="@dimen/group33_elder_touch_min"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/elder_settings"
+                    android:padding="@dimen/group33_space_sm"
+                    android:scaleType="centerInside"
+                    android:src="@drawable/ic_settings_24" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/elder_preview_notice"
+                style="@style/TextAppearance.Group33.Elder.Subtitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/group33_space_md"
+                android:text="@string/elder_preview_notice" />
+
+            <LinearLayout
+                android:id="@+id/due_card"
+                style="@style/Widget.Group33.Elder.DueCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/group33_space_lg"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/due_now_label"
+                        style="@style/TextAppearance.Group33.Elder.Body"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:drawablePadding="@dimen/group33_space_sm"
+                        android:text="@string/elder_due_now_label"
+                        android:textColor="@color/group33_status_due"
+                        app:drawableStartCompat="@drawable/ic_schedule_24" />
+
+                    <TextView
+                        android:id="@+id/due_status_chip"
+                        style="@style/TextAppearance.Group33.Elder.Emphasis"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_status_pending_chip"
+                        android:paddingStart="@dimen/group33_space_md"
+                        android:paddingTop="@dimen/group33_space_xs"
+                        android:paddingEnd="@dimen/group33_space_md"
+                        android:paddingBottom="@dimen/group33_space_xs"
+                        android:text="@string/elder_status_pending"
+                        android:textColor="@color/group33_status_due"
+                        android:textSize="@dimen/group33_elder_emphasis_text" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/due_time"
+                    style="@style/TextAppearance.Group33.Elder.Time"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/group33_space_md"
+                    tools:text="08:00" />
+
+                <TextView
+                    android:id="@+id/due_medication_name"
+                    style="@style/TextAppearance.Group33.Elder.Emphasis"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/group33_space_sm"
+                    tools:text="示例药物 A" />
+
+                <TextView
+                    android:id="@+id/due_dosage"
+                    style="@style/TextAppearance.Group33.Elder.Body"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/group33_space_sm"
+                    android:textColor="@color/group33_text_secondary"
+                    tools:text="剂量：1 片" />
+
+                <TextView
+                    android:id="@+id/due_instructions"
+                    style="@style/TextAppearance.Group33.Elder.Subtitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/group33_space_xs"
+                    tools:text="说明：按照照护者设置的计划服用" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/due_taken_button"
+                    style="@style/Widget.Group33.Elder.PrimaryButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/group33_space_lg"
+                    android:text="@string/elder_action_taken" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/due_remind_later_button"
+                    style="@style/Widget.Group33.Elder.SecondaryButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/group33_space_md"
+                    android:text="@string/elder_action_remind_later" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/due_empty"
+                style="@style/TextAppearance.Group33.Elder.Body"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/group33_space_lg"
+                android:text="@string/elder_no_due_item"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/today_section_title"
+                style="@style/TextAppearance.Group33.Elder.Emphasis"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/group33_space_xl"
+                android:text="@string/elder_today_section" />
+
+            <LinearLayout
+                android:id="@+id/upcoming_list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/group33_space_md"
+                android:orientation="vertical" />
+
+            <TextView
+                android:id="@+id/action_feedback"
+                style="@style/TextAppearance.Group33.Elder.Body"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/group33_space_lg"
+                android:textColor="@color/group33_status_taken"
+                android:visibility="gone"
+                tools:text="已在本机记录"
+                tools:visibility="visible" />
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/elder_bottom_nav"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
-        android:text="@string/no_today_schedules"
-        android:textSize="24sp"
+        android:background="@color/group33_white"
+        app:itemIconTint="@color/elder_bottom_nav_color"
+        app:itemTextColor="@color/elder_bottom_nav_color"
+        app:labelVisibilityMode="labeled"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/elder_title" />
-
-    <TextView
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:text="@string/elder_home_hint"
-        android:textSize="18sp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/today_schedule_count" />
+        app:menu="@menu/elder_bottom_nav" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
-
