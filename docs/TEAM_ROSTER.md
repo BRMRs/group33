@@ -4,7 +4,7 @@ This file is the authoritative mapping from the six responsibility slots to peop
 
 The project lead is **Rui Zheng (`BRMRs`)**. The lead owns integration, build health, release decisions, and backup assignment.
 
-The project lead confirmed the assignments below on **2026-10-22**. The same assignments are recorded in [Issue #24](https://github.com/BRMRs/group33/issues/24). This table is published for review in [Draft PR #25](https://github.com/BRMRs/group33/pull/25); it is not yet the merged main roster. An assignment records who owns the work; it does not record a completed review, approval, or Gate 1 signature.
+The project lead confirmed the assignments below on **2026-10-22**. The same assignments are recorded in [Issue #24](https://github.com/BRMRs/group33/issues/24). This table is published for review in [PR #25 (Ready for review)](https://github.com/BRMRs/group33/pull/25); it is not yet the merged main roster. An assignment records who owns the work; it does not record a completed review, approval, or Gate 1 signature.
 
 Under [ADR-0009](adr/0009-two-stage-baseline-and-gate1-acceptance.md), the earlier Stage A onboarding rehearsals used role slots without named members. Those rehearsals are not reviews or signatures by the people now assigned. Ordinary feature Ready requirements and all Stage B member contributions remain unchanged.
 

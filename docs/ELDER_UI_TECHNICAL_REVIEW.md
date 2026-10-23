@@ -35,7 +35,7 @@
 
 ## 4. 当前代码与证据入口
 
-S1独立代码见[Draft PR #37](https://github.com/BRMRs/group33/pull/37)，受检提交`375d37ef62f820594766fbb5cd087fb95773c15c`的[CI已通过](https://github.com/BRMRs/group33/actions/runs/39775915425)。它新增34个纯策略测试方法，连同原有检查共160次执行（含Debug/Release）；不是完整V201–V206、真实Room/HTTP/推送或双设备通过。该代码尚未合入main，不包含在本PR #25内。
+S1独立代码见[PR #37（Ready for review）](https://github.com/BRMRs/group33/pull/37)，受检提交`d5ede24f1024514f1affe6a34b742faf0351b446`的[CI已通过](https://github.com/BRMRs/group33/actions/runs/39940384682)。它新增38个纯策略测试方法（含四个回拨回归），连同原有检查共168次执行（含Debug/Release）；不是完整V201–V206、真实Room/HTTP/推送或双设备通过。该代码尚未合入main，不包含在本PR #25内。
 
 演示设备A实读为MI PAD 4 PLUS / Android8.1(API27) / MIUI10；负责人确认B同型号，系统/权限/版本仍需分别核对。当前只有设备读取，不是业务/后台送达验收。
 

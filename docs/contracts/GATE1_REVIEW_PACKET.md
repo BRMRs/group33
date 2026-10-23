@@ -62,7 +62,7 @@ Per the closed [delivery-gate decision](https://github.com/BRMRs/group33/issues/
 
 ## Six-role formal review queue
 
-All formal review rows remain **PENDING**. Current named assignments are in [TEAM_ROSTER.md](../TEAM_ROSTER.md); the earlier deferral below is historical. See [separate S1 Draft PR #37](https://github.com/BRMRs/group33/pull/37) for tested local policy boundaries; it is not included in #25 or a signature.
+All formal review rows remain **PENDING**. Current named assignments are in [TEAM_ROSTER.md](../TEAM_ROSTER.md); the earlier deferral below is historical. See [separate S1 PR #37 (Ready for review)](https://github.com/BRMRs/group33/pull/37) for tested local policy boundaries; it is not included in #25 or a signature.
 
 | Role | Concrete review/code surface | Required next evidence |
 |---|---|---|
