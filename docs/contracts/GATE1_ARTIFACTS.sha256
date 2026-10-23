@@ -115,6 +115,6 @@ d24edcbde87bdb4b0c65aa86476c254d559a0a15c30ce29cff5135c57e09090c  shared/src/mai
 992a61adc49c5c3482ed855b53215d219c283f04eaff19ae5b818d3b74d9e45c  shared/src/main/kotlin/com/group33/shared/model/LegacyScheduleRules.kt
 a70e442434be5139c638aad013119b65667dc3d943e778f2932666f0b03644b7  shared/src/main/kotlin/com/group33/shared/model/MedicationModels.kt
 4aa8a8d34786650fe906a2a0d0309af256c0545a58e680a5c5824a7748cdbcd2  shared/src/main/kotlin/com/group33/shared/model/UserModels.kt
-ab7536a3e9f96256f14126243064ae1cfe00a5bf3503a79e5a70690c27dfdf9f  shared/src/test/kotlin/com/group33/shared/contract/WireContractTest.kt
+58047e1a97f40b3ceeedbc5a2094b0c9474b9e8108ae04ef364c2037c48a1781  shared/src/test/kotlin/com/group33/shared/contract/WireContractTest.kt
 61bc6283f5548f72fe14befca498ac1825efd7990aa4207ef65b6de99e679700  shared/src/test/kotlin/com/group33/shared/model/ApiErrorSerializationTest.kt
 4d9cc95a2b5b401567b282be5bdaf72cd1f6441089613595b1371f4a928693ec  shared/src/test/kotlin/com/group33/shared/model/LegacyScheduleRulesTest.kt
