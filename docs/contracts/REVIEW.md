@@ -1,8 +1,8 @@
 # Android and Server contract consistency review
 
-Current status: compiled Gate 1 common contracts and local checks are ready for team review. Earlier document-only/source-hash records below are historical evidence of those earlier turns, not claims that source is still unchanged now.
+Current status: [ELDER_REMINDER_V2 / ADR-0008](../adr/0008-photo-first-elder-reminders-and-caregiver-handoff.md) is the sole product baseline. The r1 compiled artifacts/checks below are historical structural evidence; affected contracts cannot freeze or complete #12 until [V2 technical review](../ELDER_UI_TECHNICAL_REVIEW.md) and coordinated migration. Earlier document-only/source-hash records below are historical evidence of those earlier turns, not claims that source is still unchanged now.
 
-Scope: API contract, Shared models, Android Repository proposals, test plan and example JSON for [Implement shared HTTP contracts, feature Repository interfaces, and contract tests](https://github.com/BRMRs/group33/issues/12). The initial agent review was document-only, not teammate sign-off. Later scaffold corrections and the current Gate 1 contract-code/test delivery are recorded separately; see [current review packet](GATE1_REVIEW_PACKET.md). All six formal role reviews and Android/Server sign-off remain outstanding; account mapping is deferred by the project lead.
+Scope: API contract, Shared models, Android Repository proposals, test plan and example JSON for [Implement shared HTTP contracts, feature Repository interfaces, and contract tests](https://github.com/BRMRs/group33/issues/12). The initial agent review was document-only, not teammate sign-off. Later scaffold corrections and the current Gate 1 contract-code/test delivery are recorded separately; see [current review packet](GATE1_REVIEW_PACKET.md). All six formal role reviews and Android/Server sign-off remain outstanding; current assignments are in [TEAM_ROSTER.md](../TEAM_ROSTER.md), without fabricated signatures.
 
 ## Gate 1 code/test delivery — 2026-10-16
 
@@ -32,7 +32,7 @@ The corrections above align representations with confirmed behavior. The subsequ
 
 ## Resolved technical confirmations — 2026-10-16
 
-The project lead explicitly approved T01–T07 as recommended, baseline `T01-T07/2026-10-16-r1`; [the decision record](TECHNICAL_RECOMMENDATIONS.md) preserves rationale and trade-offs. The earlier pending list is resolved, not superseded by an agent's assumption. No closed product decision is reopened.
+The project lead explicitly approved T01–T07 as recommended, baseline `T01-T07/2026-10-16-r1`; [the decision record](TECHNICAL_RECOMMENDATIONS.md) preserves rationale and trade-offs. The earlier pending list is resolved, not superseded by an agent's assumption. Unaffected choices remain; ADR-0008 explicitly supersedes the affected presentation/follow-up rules, with the 2026-10-17 clarification retaining two-hour response, adding thirty-minute Caregiver notification and T−5/T+5 two-failure checks (not continuous monitoring).
 
 | ID | Approved choice | Formal reviewers / verification still required |
 |---|---|---|
@@ -47,6 +47,10 @@ The project lead explicitly approved T01–T07 as recommended, baseline `T01-T07
 ### Formal review is not waived
 
 All six roles must be named and submit/review their own contract/model/mapping/tests under [Submission matrix](SUBMISSION_MATRIX.md). A named Android reviewer and Server reviewer must sign the same baseline/fixture/commit. Parameter approval is complete; the full P0 declarations, overlap/time-zone algorithms, production adapters and their acceptance remain unverified. The limited scaffold tests below do not complete Issue #12 or its downstream implementation Issues.
+
+## V2 verification limits
+
+This documentation PR does not alter production declarations/resources or JSON/tests. Their r1 two-hour duration assertion matches the clarified response window, but does not prove the separate thirty-minute notification, scheduled connection checks or the rest of V2. The current plan adds V201–V206 for group/closure/contact/delivery/photo behavior; technical sign-off and actual adapter/device proof remain open.
 
 ## Verification limits
 

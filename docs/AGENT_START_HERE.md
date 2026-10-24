@@ -2,7 +2,7 @@
 
 目标：让每个人知道自己负责什么、第一步改哪里、怎样验证、何时交给别人。本文是任务导航，不是新的产品规范或自动实施许可。职责依据[六人分工](TEAM_BRIEFING.md)与[贡献矩阵](contracts/SUBMISSION_MATRIX.md)，流程依据[工程手册](ENGINEERING_PLAYBOOK.md)。
 
-2026-10-17 负责人已批准[两阶段验收 ADR-0009](adr/0009-two-stage-baseline-and-gate1-acceptance.md)：Stage A 发布可开发基线，Stage B 才完成六人真实贡献/正式审查并关闭 Gate 1。PR #22 的当前状态从 GitHub 核验；其一次性发布例外仅适用于本次负责人的发布授权，不适用于新人任务。先看[现行产品 #23](https://github.com/BRMRs/group33/issues/23)、[独立文档 PR #25](https://github.com/BRMRs/group33/pull/25) 与[技术收口 #24](https://github.com/BRMRs/group33/issues/24)。三十分钟通知、两小时退出与T−5/T+5检查已经确定；具体探测等待/协议仍待收口。r1的两小时字段与最新窗口一致，但旧代码/JSON/测试不能证明完整V2。
+2026-10-17 负责人已批准[两阶段验收 ADR-0009](adr/0009-two-stage-baseline-and-gate1-acceptance.md)：Stage A 发布可开发基线，Stage B 才完成六人真实贡献/正式审查并关闭 Gate 1。PR #22 的当前状态从 GitHub 核验；其一次性发布例外仅适用于本次负责人的发布授权，不适用于新人任务。先看[现行产品 #23](https://github.com/BRMRs/group33/issues/23)、[独立文档 PR #25](https://github.com/BRMRs/group33/pull/25) 与[技术收口 #24](https://github.com/BRMRs/group33/issues/24)。三十分钟通知、两小时退出与T−5/T+5检查已经确定；初版探测等待60秒等参数已授权，实际调度/协议/投递仍待收口，见[当前技术清单](ELDER_UI_TECHNICAL_REVIEW.md)。r1的两小时字段与最新窗口一致，但旧代码/JSON/测试不能证明完整V2。
 
 ## 1. 组员只需要先给 agent 这一段
 
@@ -34,7 +34,7 @@ docs/contracts/ROLE_REVIEW_HANDOFF.md 中我的角色卡。
 5. **证据**：环境齐备时运行适用的只读/构建检查；实际缺 JDK/SDK/网络/设备就记录原因，不抹掉测试、不放宽授权。本地构建会生成被忽略的产物，不属于功能源码改动。
 6. **交接**：输出下面的开工单，然后等待人明确要求实现某个有边界的小任务。涉及产品/共享行为冲突只暂停受影响部分，按手册记录，不自行改契约。
 
-规则中的 account mapping 暂缓，不妨碍只读学习和已授权的共同 Gate 1 准备；但不能据此绕过 roster/DoR，把未指定负责人/reviewer 的 feature Issue 标 Ready。本文不改变已有这个前提。
+人员映射已由负责人于2026-10-22确认，见[六人分工](TEAM_ROSTER.md)。这不自动指定每个Issue的owner/reviewer，也不意味着六角色审查已完成；逐票Ready仍须满足DoR。
 
 ## 3. agent 必须交出的开工单
 
