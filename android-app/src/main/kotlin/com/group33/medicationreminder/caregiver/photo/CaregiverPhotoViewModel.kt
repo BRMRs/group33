@@ -67,7 +67,9 @@ class CaregiverPhotoViewModel : ViewModel() {
     /** Reopens failed local observation; does not claim a server refresh. */
     @MainThread
     fun retryObservation() {
-        if (selection == null || state.value.observationError == null || state.value.access == AccessState.REVOKED) return
+        val current = selection ?: return
+        if ((current.scope to current.elderId) in revoked ||
+            state.value.observationError == null || state.value.access == AccessState.REVOKED) return
         generation = Any()
         observation?.cancel()
         mutableState.value = state.value.copy(loading = true, observationError = null)
@@ -101,7 +103,9 @@ class CaregiverPhotoViewModel : ViewModel() {
             } catch (_: Exception) {
                 if (token === generation) {
                     invalidateContent()
-                    mutableState.value = state.value.copy(loading = false, access = AccessState.UNKNOWN,
+                    // A storage/observation failure cannot erase an established revocation.
+                    val access = if ((current.scope to current.elderId) in revoked) AccessState.REVOKED else AccessState.UNKNOWN
+                    mutableState.value = state.value.copy(loading = false, access = access,
                         photos = emptyList(), hasLocalData = false, selectedPhotoId = null,
                         content = null, contentStatus = PhotoContentStatus.NONE, contentError = null,
                         observationError = RepositoryError.Local(LocalFailureCode.STORAGE_UNAVAILABLE))

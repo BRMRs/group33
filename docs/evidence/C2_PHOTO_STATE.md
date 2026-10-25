@@ -18,7 +18,7 @@ The trusted host must supply a repository bound to the supplied RepositoryScope.
 ## Verification
 
 - Initial targeted debug test run: 8 methods passed; two additional cases were then added.
-- Final `gradlew.bat gate1Check test --console=plain`: BUILD SUCCESSFUL (21 tasks executed, 71 up-to-date; includes lintDebug, assembleDebug and bootJar). Shared/Server test tasks were UP-TO-DATE; new test XML reports contain 10 passing methods in each Android variant, with zero failures/errors/skips.
+- Final `gradlew.bat gate1Check test --console=plain`: BUILD SUCCESSFUL (21 tasks executed, 71 up-to-date; includes lintDebug, assembleDebug and bootJar). Shared/Server test tasks were UP-TO-DATE; initial test XML reports contain 10 passing methods in each Android variant, with zero failures/errors/skips.
 - `python scripts/check_repository_policy.py` and whitespace validation passed.
 - Tests cover metadata/empty state, same-photo retry, duplicate clicks, account/Elder switch, revoked/unknown access, foreign metadata, local observation retry, logout/photo removal, newer photo selection and unexpected content errors.
 - Deliberately non-cooperative suspended content calls test late completions after invalidation. Test-only adapters throw if upload or server refresh is called.
@@ -27,3 +27,9 @@ The trusted host must supply a repository bound to the supplied RepositoryScope.
 ## Next integration gates
 
 Confirm the bounded scope/reviewers in #50 before formal submission. Then connect the team's approved screen and C1 host, implement protected content reading and refresh with S1/S2, add bilingual/accessibility/device evidence, and verify real photo visibility before plan confirmation. Keep #50 open until its broader acceptance is demonstrated.
+
+## S2 review correction — 2026-10-25
+
+The revoked-then-observation-error regression failed before the fix. Exception handling now preserves the recorded scope/Elder revocation, and retryObservation checks that same record before resubscribing. The regression also checks that reselecting the revoked context does not subscribe. Ordinary observation failures remain retryable. Final results and new CI are recorded in PR #55; no formal approval or real-adapter acceptance is asserted.
+
+Correction validation: `gradlew.bat gate1Check test --console=plain` passed (23 executed / 69 up-to-date); 11 photo methods passed in each Android variant. Shared/Server tests were UP-TO-DATE. Policy and whitespace checks passed.

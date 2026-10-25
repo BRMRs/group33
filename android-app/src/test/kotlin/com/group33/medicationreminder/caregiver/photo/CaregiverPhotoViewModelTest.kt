@@ -33,13 +33,17 @@ class CaregiverPhotoViewModelTest {
     private inner class Repo : MedicationPhotoRepository {
         val cache = MutableStateFlow(cached())
         var failObservation = false
+        var failAfterEmission = false
         var observations = 0
         val loads = mutableListOf<String>()
         var response: suspend () -> Outcome<PhotoContent> = { Outcome.Success(handle) }
         override fun observePhotos(elderId: String): Flow<Cached<List<MedicationPhotoView>>> = flow {
             observations++
             if (failObservation) error("private adapter diagnostic")
-            cache.collect { emit(it) }
+            cache.collect {
+                emit(it)
+                if (failAfterEmission) error("local observation failed after snapshot")
+            }
         }
         override suspend fun loadContent(photoId: String): Outcome<PhotoContent> {
             loads += photoId
@@ -138,6 +142,27 @@ class CaregiverPhotoViewModelTest {
         vm.selectPhoto(photo.id)
         assertEquals(AccessState.REVOKED, vm.state.value.access)
         assertEquals(1, repo.loads.size)
+    }
+
+    @Test fun `observation failure after revocation preserves denial and blocks retry`() = runTest(dispatcher) {
+        val repo = Repo().apply {
+            cache.value = cached(access = AccessState.REVOKED)
+            failAfterEmission = true
+        }
+        val vm = model(repo)
+        runCurrent()
+        assertEquals(AccessState.REVOKED, vm.state.value.access)
+        assertNotNull(vm.state.value.observationError)
+        assertTrue(vm.state.value.photos.isEmpty())
+        assertNull(vm.state.value.content)
+        vm.retryObservation()
+        runCurrent()
+        assertEquals(1, repo.observations)
+        assertEquals(AccessState.REVOKED, vm.state.value.access)
+        vm.selectContext(repo, scope, "elder-a")
+        runCurrent()
+        assertEquals(1, repo.observations)
+        assertEquals(AccessState.REVOKED, vm.state.value.access)
     }
 
     @Test fun `unknown access and foreign metadata cannot request content`() = runTest(dispatcher) {
