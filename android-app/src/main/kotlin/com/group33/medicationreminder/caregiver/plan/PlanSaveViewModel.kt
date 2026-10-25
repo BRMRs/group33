@@ -54,7 +54,10 @@ class PlanSaveViewModel(
                 return
             }
             val fields = checkNotNull(form.state.value.validatedFields)
-            val request = ConfirmReminderPlanRequest(checkNotNull(photo).id, fields.medication, fields.plan, acknowledgement)
+            // P0_CANONICAL_V1: validate duplicates first, then sort times for intent equality.
+            // Preserve medication text exactly; the form still retains the user's display order.
+            val canonicalPlan = fields.plan.copy(localTimes = fields.plan.localTimes.sorted())
+            val request = ConfirmReminderPlanRequest(checkNotNull(photo).id, fields.medication, canonicalPlan, acknowledgement)
             val previous = state.value
             // Unchanged rejections need the journal's explicit retryRejected flow, not another confirm call.
             if (previous.status == PlanSaveStatus.REJECTED && previous.request == request) return

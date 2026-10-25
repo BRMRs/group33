@@ -132,6 +132,31 @@ class PlanSaveViewModelTest {
         assertEquals(f.calls[0], f.calls[1])
     }
 
+    @Test fun `time reordering after not submitted preserves original intent`() = runTest {
+        val f = Fixture().apply { resultState = OnlineCommandState.NOT_SUBMITTED }
+        val original = input.copy(localTimes = listOf("20:00", "08:00"), instructions = " \t ")
+        f.model.save(original, photo, ack)
+        f.model.save(original.copy(localTimes = original.localTimes.reversed()), photo, ack)
+        assertEquals(1, f.begins)
+        assertEquals(2, f.calls.size)
+        assertEquals(f.calls[0].operationId, f.calls[1].operationId)
+        assertEquals(" \t ", f.captured!!.medication.instructions)
+    }
+
+    @Test fun `time reordering cannot replay a rejected intent`() = runTest {
+        val f = Fixture().apply { resultState = OnlineCommandState.REJECTED }
+        val original = input.copy(localTimes = listOf("08:00", "20:00"))
+        f.model.save(original, photo, ack)
+        f.model.save(original.copy(localTimes = original.localTimes.reversed()), photo, ack)
+        assertEquals(1, f.begins)
+        assertEquals(1, f.calls.size)
+        assertEquals(PlanSaveStatus.REJECTED, f.model.state.value.status)
+        // Changing an actual time remains a new intent, unlike permutation alone.
+        f.model.save(original.copy(localTimes = listOf("08:00", "21:00")), photo, ack)
+        assertEquals(2, f.begins)
+        assertNotEquals(f.calls[0].operationId, f.calls[1].operationId)
+    }
+
     @Test fun `rejected payload is not replayed and corrected content gets new intent`() = runTest {
         val f = Fixture().apply { resultState = OnlineCommandState.REJECTED }
         f.model.save(input, photo, ack)
