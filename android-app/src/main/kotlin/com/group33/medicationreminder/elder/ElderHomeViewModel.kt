@@ -96,7 +96,12 @@ class ElderHomeViewModel(
             mutableState.update { it.copy(actionsEnabled = false, feedback = null) }
             when (val result = doseRepository.recordAction(due.occurrence, kind)) {
                 is Outcome.Failure -> mutableState.update {
-                    it.copy(actionsEnabled = true, feedback = ElderFeedback.NotRecorded)
+                    val expired = clock.millis() >= due.responseDeadlineEpochMillis
+                    it.copy(
+                        due = if (expired) due.copy(status = DoseStatus.MISSED) else it.due,
+                        actionsEnabled = !expired,
+                        feedback = if (expired) ElderFeedback.WindowClosed else ElderFeedback.NotRecorded,
+                    )
                 }
                 is Outcome.Success -> {
                     val nextStatus = when (kind) {

@@ -177,6 +177,38 @@ class ElderHomeViewModelTest {
         assertTrue(viewModel.uiState.value.feedback is ElderFeedback.RemindLaterNext)
     }
 
+    @Test
+    fun `taken crossing deadline before coroutine runs is not recorded`() = runTest {
+        assertCrossDeadline(taken = true)
+    }
+
+    @Test
+    fun `remind later crossing deadline before coroutine runs is not recorded`() = runTest {
+        assertCrossDeadline(taken = false)
+    }
+
+    private suspend fun kotlinx.coroutines.test.TestScope.assertCrossDeadline(taken: Boolean) {
+        val deadline = Instant.parse("2026-10-22T02:00:00Z")
+        val clock = MutableClock(deadline.minusMillis(1), zone)
+        val doses = PreviewElderDoseRepository(clock)
+        val viewModel = ElderHomeViewModel(FakeAuthRepository(), doses, clock, "Elder", "A", "B", "1 tablet")
+        advanceUntilIdle()
+        val occurrence = viewModel.uiState.value.due!!.occurrence
+        if (taken) viewModel.onTaken() else viewModel.onRemindLater()
+        clock.current = deadline
+        advanceUntilIdle()
+        assertEquals(null, doses.statusOf(occurrence))
+        assertEquals(DoseStatus.MISSED, viewModel.uiState.value.due?.status)
+        assertEquals(ElderFeedback.WindowClosed, viewModel.uiState.value.feedback)
+        assertFalse(viewModel.uiState.value.actionsEnabled)
+    }
+
+    private class MutableClock(var current: Instant, private val timeZone: ZoneId) : Clock() {
+        override fun instant(): Instant = current
+        override fun getZone(): ZoneId = timeZone
+        override fun withZone(zone: ZoneId): Clock = MutableClock(current, zone)
+    }
+
     private class FakeAuthRepository : AuthRepository {
         var lastLoginRole: UserRole? = null
         private val session = MutableStateFlow(SessionView(AuthReadiness.SIGNED_OUT, null))

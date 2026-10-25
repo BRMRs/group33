@@ -16,6 +16,8 @@ import com.group33.shared.contract.DoseActionKind
 import com.group33.shared.contract.OccurrenceKey
 import com.group33.shared.model.DoseStatus
 import java.time.Clock
+import java.time.LocalDate
+import java.time.LocalTime
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.flow.Flow
@@ -59,6 +61,17 @@ class PreviewElderDoseRepository(
             return Outcome.Failure(RepositoryError.Local(LocalFailureCode.STORAGE_UNAVAILABLE))
         }
         val recordedAt = clock.millis()
+        // Resolve the original occurrence, never today's date: queued work may cross midnight.
+        val plannedAt = runCatching {
+            LocalDate.parse(occurrence.localDate).atTime(LocalTime.parse(occurrence.localTime))
+                .atZone(clock.zone).toInstant().toEpochMilli()
+        }.getOrNull() ?: return Outcome.Failure(RepositoryError.Local(LocalFailureCode.INVALID_INPUT))
+        if (!ElderDuePreviewCatalog.isWithinResponseWindow(
+                recordedAt, plannedAt, plannedAt + ElderDuePreviewCatalog.RESPONSE_WINDOW_MILLIS,
+            )
+        ) {
+            return Outcome.Failure(RepositoryError.Local(LocalFailureCode.INVALID_INPUT))
+        }
         val actionId = UUID.randomUUID().toString()
         val classification = when (kind) {
             DoseActionKind.TAKEN -> LocalActionClassification.TIMELY_TAKEN
