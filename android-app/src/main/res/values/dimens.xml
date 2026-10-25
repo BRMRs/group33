@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="group33_screen_padding">24dp</dimen>
+    <dimen name="group33_action_min_height">64dp</dimen>
+    <dimen name="group33_touch_min_height">56dp</dimen>
+</resources>

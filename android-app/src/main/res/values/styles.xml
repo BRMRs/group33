@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="TextAppearance.Group33.Title" parent="TextAppearance.Material3.HeadlineMedium">
+        <item name="android:textColor">@color/group33_text_primary</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="TextAppearance.Group33.Body" parent="TextAppearance.Material3.BodyLarge">
+        <item name="android:textColor">@color/group33_text_secondary</item>
+    </style>
+    <style name="Widget.Group33.PrimaryAction" parent="Widget.Material3.Button">
+        <item name="android:minHeight">@dimen/group33_action_min_height</item>
+        <item name="backgroundTint">@color/group33_action</item>
+    </style>
+    <style name="Widget.Group33.SecondaryAction" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="android:minHeight">@dimen/group33_action_min_height</item>
+    </style>
+</resources>

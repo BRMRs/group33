@@ -15,6 +15,10 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        binding.sharedLoginPreviewButton.setOnClickListener {
+            startActivity(Intent(this, SharedLoginActivity::class.java))
+        }
+
         binding.elderButton.setOnClickListener {
             startActivity(Intent(this, ElderHomeActivity::class.java))
         }

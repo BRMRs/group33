@@ -5,10 +5,14 @@
 
     <application
         android:allowBackup="true"
+        android:name=".Group33Application"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.Group33">
 
+        <activity
+            android:name=".SharedLoginActivity"
+            android:exported="false" />
         <activity
             android:name=".caregiver.CaregiverHomeActivity"
             android:exported="false" />
