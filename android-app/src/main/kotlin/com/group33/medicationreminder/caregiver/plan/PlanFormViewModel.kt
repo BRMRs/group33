@@ -61,7 +61,8 @@ class PlanFormViewModel : ViewModel() {
             if (input.executionTimeZoneId.isBlank()) PlanFormError.REQUIRED else PlanFormError.INVALID_ZONE
 
         val fields = if (errors.isEmpty()) ValidatedPlanFields(
-            MedicationText(input.displayName, input.dosageText, input.instructions.takeIf { it.isNotBlank() }),
+            // Only an empty editor means no instructions; preserve all supplied text for intent identity.
+            MedicationText(input.displayName, input.dosageText, input.instructions.takeIf { it.isNotEmpty() }),
             ReminderPlanDraft(input.localTimes.toList(), input.startDate, input.executionTimeZoneId,
                 input.endDate.takeIf { it.isNotEmpty() }),
         ) else null

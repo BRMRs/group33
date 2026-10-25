@@ -145,6 +145,23 @@ class PlanSaveViewModelTest {
         assertNotEquals(f.calls[0].operationId, f.calls[1].operationId)
     }
 
+    @Test fun `corrected instruction text starts a new intent after rejection`() = runTest {
+        val f = Fixture().apply { resultState = OnlineCommandState.REJECTED }
+        val original = input.copy(instructions = " ")
+        f.model.save(original, photo, ack)
+        assertEquals(PlanSaveStatus.REJECTED, f.model.state.value.status)
+        f.model.save(original, photo, ack)
+        assertEquals(1, f.begins)
+        assertEquals(1, f.calls.size)
+
+        f.model.save(input.copy(instructions = "\t"), photo, ack)
+        assertEquals(2, f.begins)
+        assertEquals(2, f.calls.size)
+        assertNotEquals(f.calls[0].operationId, f.calls[1].operationId)
+        assertEquals("\t", f.captured!!.medication.instructions)
+        assertEquals("\t", f.model.state.value.request!!.medication.instructions)
+    }
+
     @Test fun `unexpected dispatch failure stays unknown and foreign recovery is ignored`() = runTest {
         val f = Fixture().apply { throws = true }
         f.model.save(input, photo, ack)

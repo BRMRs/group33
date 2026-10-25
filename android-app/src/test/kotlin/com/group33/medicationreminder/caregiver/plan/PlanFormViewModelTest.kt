@@ -23,6 +23,15 @@ class PlanFormViewModelTest {
         assertNull(result.plan.endDate)
     }
 
+    @Test fun `whitespace instructions remain exact user text`() {
+        for (instructions in listOf(" ", "\t", " \t ", "  With meal\t")) {
+            val result = check(valid.copy(instructions = instructions)).state.value
+            assertTrue(result.errors.isEmpty())
+            assertEquals(instructions, result.validatedFields!!.medication.instructions)
+            assertEquals(instructions, result.input.instructions)
+        }
+    }
+
     @Test fun `required fields produce errors and preserve input`() {
         val input = PlanFormInput(displayName = " ", dosageText = "\t")
         val state = check(input).state.value
