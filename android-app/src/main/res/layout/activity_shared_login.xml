@@ -7,22 +7,25 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center_vertical"
+        android:gravity="top"
         android:orientation="vertical"
         android:padding="@dimen/group33_screen_padding">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/language_button"
-            style="@style/Widget.Material3.Button.TextButton"
+            style="@style/Widget.Group33.LanguageAction"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:minWidth="@dimen/group33_touch_min_height"
             android:minHeight="@dimen/group33_touch_min_height"
-            android:text="@string/language_title" />
+            android:text="@string/language_english"
+            android:textSize="16sp" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
+            android:layout_marginTop="56dp"
             android:text="@string/login_title"
             android:textAppearance="@style/TextAppearance.Group33.Title" />
 
@@ -40,7 +43,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="48dp"
             android:text="@string/login_one_tap"
-            android:textSize="18sp" />
+            android:textSize="20sp" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/sms_button"
@@ -49,13 +52,13 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:text="@string/login_sms"
-            android:textSize="18sp" />
+            android:textSize="20sp" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:text="@string/login_preview_notice"
-            android:textAppearance="@style/TextAppearance.Group33.Body" />
+            android:textAppearance="@style/TextAppearance.Group33.Supporting" />
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>
