@@ -32,6 +32,7 @@
     <string name="caregiver_home_title">照护者首页</string>
     <string name="caregiver_navigation_title">照护者</string>
     <string name="caregiver_navigation_demo">本地预览 · 这里的长者只是示例数据，并非真实有效的照护关系。</string>
+    <string name="caregiver_navigation_preview_action">预览小辈导航（示例数据）</string>
     <string name="caregiver_current_elder">当前长者</string>
     <string name="caregiver_no_current_elder">尚未选择长者</string>
     <string name="caregiver_context_unavailable">请先登录并与长者配对，再查看计划或记录。</string>
