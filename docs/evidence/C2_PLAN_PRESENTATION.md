@@ -58,6 +58,15 @@ Lint has no errors; it reports unused-resource warnings (including prepared fiel
 labels not yet bound to a page) and a missing application icon warning. No lint
 warnings are suppressed by this change.
 
+Review follow-up (2026-10-26): added exact description/action/action-label
+assertions for CONFIRMED with APPLIED, REFRESH_REQUIRED and unknown cache,
+addressing the non-blocking S1 suggestion on PR #58. Production mapping and
+resources are unchanged. All 6 presentation tests pass in both variants;
+`gate1Check test` passed (10 executed, 82 up-to-date). Android debug/release
+each executed 46 tests with zero failures/errors/skips; Shared/Server tasks
+were up-to-date. Policy, whitespace and artifact hashes were verified.
+This adds no page, device or human accessibility acceptance.
+
 Run from repository root:
 
 ```powershell

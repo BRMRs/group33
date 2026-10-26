@@ -36,6 +36,24 @@ class PlanSavePresentationTest {
     }
 
     @Test
+    fun confirmedCacheBranchesBindTheirExactExplanationAndActionLabel() {
+        val applied = PlanSavePresentations.forCommand(OnlineCommandState.CONFIRMED, CacheState.APPLIED)
+        assertEquals(R.string.c2_plan_saved_description, applied.description)
+        assertEquals(PlanDisplayAction.NONE, applied.action)
+        assertNull(applied.actionLabel)
+
+        val pending = PlanSavePresentations.forCommand(OnlineCommandState.CONFIRMED, CacheState.REFRESH_REQUIRED)
+        assertEquals(R.string.c2_plan_cache_pending_description, pending.description)
+        assertEquals(PlanDisplayAction.REFRESH_CACHE, pending.action)
+        assertEquals(R.string.c2_plan_refresh_cache, pending.actionLabel)
+
+        val unknown = PlanSavePresentations.forCommand(OnlineCommandState.CONFIRMED)
+        assertEquals(R.string.c2_plan_cache_unknown_description, unknown.description)
+        assertEquals(PlanDisplayAction.NONE, unknown.action)
+        assertNull(unknown.actionLabel)
+    }
+
+    @Test
     fun rejectionRequiresReviewWhileUnsentRequestCanOfferRetry() {
         caches.forEach {
             assertEquals(PlanDisplayAction.REVIEW_INPUT,
