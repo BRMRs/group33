@@ -1,13 +1,15 @@
 # Medication Reminder
 
-> Reading status (2026-10-17): the definitions below describe the compiled r1 scaffold where they conflict with [accepted ELDER_REMINDER_V2 / #23](https://github.com/BRMRs/group33/issues/23). Its two-hour response duration is retained; separate thirty-minute follow-up, scheduled probes and changed interaction/reporting are not proved by legacy types. Read [the version-aware onboarding entry](docs/AGENT_START_HERE.md) before implementation; the full product-document update remains in separate PR #25 and affected protocol work in #24. This notice changes no term definition or implementation.
+Current product baseline: **ELDER_REMINDER_V2**, [ADR-0008](docs/adr/0008-photo-first-elder-reminders-and-caregiver-handoff.md). Timing clarification 2026-10-17 controls: thirty-minute Caregiver notification, two-hour Elder response cutoff, T−5/T+5 connection probes. Retired behavior is not an alternative implementation contract.
+
+For role-scoped startup read [the onboarding entry](docs/AGENT_START_HERE.md); current definitions follow the accepted 2026-10-17 timing clarification, while compiled r1 declarations remain incomplete V2 evidence.
 
 This context describes how a caregiver and an elder coordinate medication reminders and record user-reported outcomes without making medical decisions.
 
 ## Language
 
 **Caregiver**:
-A person who is authorized through pairing to create reminder plans for an elder and view the elder's reported reminder outcomes.
+A person who is authorized through pairing to create reminder plans for an elder, view reported reminder outcomes, and record separate caregiver-authored follow-up outcomes after contact.
 _Avoid_: Admin, doctor, account owner
 
 **Elder**:
@@ -55,7 +57,7 @@ Caregiver-confirmed display information for one medication associated with an el
 _Avoid_: Prescription, drug order, treatment decision
 
 **Medication photo**:
-An elder-provided image of a fictional medication that the caregiver uses as a visual reference before confirming the P0 reminder plan; it is not proof of identity, dosage, prescription, or ingestion, and it does not make OCR output authoritative.
+An elder-provided original-box image used for recognition and caregiver confirmation; development/demonstrations use fictional regimens and approved fixtures; it is not proof of identity, dosage, prescription, or ingestion, and it does not make OCR output authoritative.
 _Avoid_: Prescription image, proof of medication, verified medication record
 
 **Elder execution time zone**:
@@ -79,11 +81,11 @@ The state of a dose event whose reminder time has arrived and is awaiting an eld
 _Avoid_: Overdue medication, medical alert
 
 **Taken**:
-The elder's terminal report, recorded before a dose event's response window ends, that they took the associated medication; it supersedes Remind later for the same dose event. It is not independently verified, and a report recorded offline remains timely even if it synchronizes later.
+The elder's terminal report, recorded before a dose event's response window ends, that they took the associated medication(s) represented by the frozen reminder group; it supersedes Remind later for the same dose event. It is not independently verified, and a report recorded offline remains timely even if it synchronizes later.
 _Avoid_: Verified dose, confirmed ingestion
 
 **Late taken report**:
-An elder's report, recorded at or after a dose event's response deadline, that they took the associated medication. It is retained and shared with the caregiver but does not replace the event's Missed state or prove ingestion.
+A retained Elder report from legacy/delayed evidence, recorded at or after the two-hour deadline, stating that they took the associated medication. The current Elder UI does not offer post-cutoff reporting. The fact is shared with the caregiver but does not replace the event's Missed state or prove ingestion.
 _Avoid_: Taken, corrected dose, verified dose
 
 **Remind later**:
@@ -99,19 +101,19 @@ The system-derived state of a dose event for which no timely Taken report is cur
 _Avoid_: Verified missed dose, proof of non-adherence, notification failure
 
 **Response window**:
-The fixed two-hour interval beginning at a dose event's original planned time during which the elder may report Taken or request Remind later.
+The fixed two-hour interval [plannedAt, plannedAt + 7_200_000ms) beginning at a dose event's original planned time during which the elder may report Taken, request Remind later or ask for help. The exact cutoff withdraws this reminder and its old actions, while existing unresolved follow-up remains. A separate thirty-minute threshold notifies the Caregiver without closing this response window or deriving Missed. Help or acknowledged takeover stops this occurrence's repeated prompting earlier.
 _Avoid_: Dosage window, medically safe interval, snooze extension
 
 **Pending sync**:
-A user-visible state meaning an elder action has been recorded on the elder's device but is not yet available to the caregiver.
+An internal synchronization state, not an ordinary Elder Home/reminder label, meaning an elder action has been recorded on the elder's device but is not yet available to the caregiver.
 _Avoid_: Failed, lost, caregiver notified
 
 **Sync needs attention**:
-A user-visible state meaning an elder action remains recorded on the elder's device but the shared service rejected or could not complete its synchronization. It is not a dose-event outcome and does not mean the caregiver received the action.
+An internal synchronization state, not an ordinary Elder Home/reminder label, meaning an elder action remains recorded on the elder's device but the shared service rejected or could not complete its synchronization. It is not a dose-event outcome and does not mean the caregiver received the action.
 _Avoid_: Synced, lost action, missed dose
 
 **Synced**:
-A user-visible state meaning a recorded action is available to the caregiver through the shared service.
+A synchronization state available to appropriate caregiver/diagnostic presentation, not an ordinary Elder Home/reminder label, meaning a recorded action is available to the caregiver through the shared service.
 _Avoid_: Medically verified, delivered notification
 
 **Reminder delivery degraded**:
@@ -121,3 +123,18 @@ _Avoid_: Exact reminder, on-time guarantee, synchronization failure
 **Reminder delivery unavailable**:
 A user-visible condition meaning the elder device cannot currently present reminder notifications, such as when notification permission is denied or the relevant notification channel is disabled. It is not a dose-event status and does not by itself imply Missed.
 _Avoid_: Missed, no medication taken, synchronization failure
+
+**Reminder group**:
+The frozen set of confirmed same-time occurrences presented together in stable photo order; one Elder action applies to this whole set without per-medicine selection. The whole group is accepted or rejected; grouping does not infer medication compatibility.
+
+**Caregiver follow-up**:
+An actionable case raised immediately by Help, at thirty minutes without known medication confirmation, or by the scheduled two-probe connection check failing twice. Contact made alone does not complete an outcome-entry case; medication uncertainty and device recovery are closed independently.
+
+**Caregiver outcome entry**:
+An authorized, auditable Caregiver report of Taken / Not taken / Unable to confirm after contact, retaining actor/source, actual time or explicit unknown, entry/receipt times and prior entries. It determines the current follow-up conclusion when reports disagree, while original Elder reports and entry history remain preserved; it is not an Elder Taken action or verified ingestion.
+
+**Device contact lost**:
+No valid response to either scheduled probe for the same reminder: first at T−5 minutes, recheck at T+5 minutes, after their response waits. Only both failing triggers the Caregiver connection alert; either valid response prevents it. It does not identify cause or prove non-intake. Cached sync/old reports are not current probe responses. All-day heartbeat/real-time loss detection is not required.
+
+**Nonresponse notification threshold**:
+Thirty minutes from the original planned time without a known medication confirmation; creates/updates Caregiver follow-up, not Elder expiry or Missed. Snooze does not reset it; existing Help/case notifications are deduplicated. The Elder response window remains two hours unless Taken, Help or acknowledged takeover ends prompting earlier.
