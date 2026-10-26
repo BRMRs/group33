@@ -81,6 +81,7 @@ class ElderHomeActivity : AppCompatActivity() {
                 ?: getString(R.string.elder_instructions_default)
             binding.dueInstructions.text = getString(R.string.elder_instructions_format, instructions)
             binding.dueStatusChip.text = statusLabel(due.status)
+            binding.dueNowLabel.isVisible = due.status != DoseStatus.TAKEN
             val showActions = state.actionsEnabled &&
                 (due.status == DoseStatus.DUE || due.status == DoseStatus.SNOOZED)
             binding.dueTakenButton.isEnabled = showActions
