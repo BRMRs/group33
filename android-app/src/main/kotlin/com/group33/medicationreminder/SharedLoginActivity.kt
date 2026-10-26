@@ -92,6 +92,16 @@ class SharedLoginActivity : AppCompatActivity() {
         binding.passwordButton.visibility = View.VISIBLE
         binding.registrationPasswordField.visibility = View.VISIBLE
 
+        // Debug builds can enter caregiver navigation without phone authentication.
+        if ((applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            binding.caregiverNavigationPreviewButton.visibility = View.VISIBLE
+            binding.caregiverNavigationPreviewButton.setOnClickListener {
+                startActivity(Intent(this, CaregiverHomeActivity::class.java).apply {
+                    putExtra("com.group33.medicationreminder.LOCAL_NAV_DEMO", true)
+                })
+            }
+        }
+
         binding.oneTapButton.setOnClickListener { startPhoneSignIn { viewModel.oneTap() } }
         binding.otherMethodsButton.setOnClickListener { viewModel.toggleAlternatives() }
         binding.smsButton.setOnClickListener {
