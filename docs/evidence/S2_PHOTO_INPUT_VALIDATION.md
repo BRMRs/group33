@@ -1,7 +1,7 @@
 # S2 photo file validation preparation — #13 / T06
 
-Local preparation on main `64ddd4e26440d60a60f209dd7eb12d102e2a55dd` (2026-10-25).
-This is not a published commit, a new HTTP route, or completion/Ready of #13.
+Historical preparation record on main `64ddd4e26440d60a60f209dd7eb12d102e2a55dd` (2026-10-25).
+The original preparation below later became [Draft PR #61](https://github.com/BRMRs/group33/pull/61). It is not completion/Ready of #13.
 The current #56 branch is unchanged. The local patch contains two Kotlin files
 and necessary evidence/contribution/manifest records only.
 
@@ -46,3 +46,32 @@ References: [API/T06](../API_CONTRACT.md#photo-to-plan-transaction),
 [PNG ordering](https://www.w3.org/TR/png-3/#5ChunkOrdering),
 [JDK ImageReader](https://docs.oracle.com/en/java/javase/17/docs/api/java.desktop/javax/imageio/ImageReader.html),
 [memory stream](https://docs.oracle.com/en/java/javase/17/docs/api/java.desktop/javax/imageio/stream/MemoryCacheImageInputStream.html).
+
+## PR #61 review correction — 2026-10-27
+
+Responding to [the blocking PNG review](https://github.com/BRMRs/group33/pull/61#issuecomment-6438778318)
+on original head `a900f42c90e465158572edfa7ea9a05709994705`:
+
+- Added and actually ran two CRC-correct, zero-length chunks immediately after IHDR
+  in a programmatically generated RGB PNG: critical `AbCD` and ancillary `abCd`.
+  Before the production change, 2 cases executed: the critical rejection assertion
+  FAILED because the validator returned Accepted; the ancillary case PASSED.
+- Local runtime: JetBrains OpenJDK/JBR `17.0.14+1-b1367.22`, built-in PNG provider
+  `com.sun.imageio.plugins.png.PNGImageReader`. This is actual local reproduction,
+  not a claim to have executed on CI's different JDK build.
+- Independently reject unknown critical chunks while retaining recognized IHDR,
+  PLTE, IDAT and IEND. The decoder and its warning listener remain unchanged.
+  Unknown ancillary chunks retain existing handling. The ancillary control verifies
+  byte-for-byte original content, SHA-256 and decoded dimensions.
+- After the fix, all 24 photo validator tests actually executed and passed, including
+  the original 22 cases unchanged. Full `gate1Check test --offline --console=plain`
+  passed: Server 64, Shared 18, Android Debug/Release 40 each (162 reports, zero
+  failures/errors/skips). Server and both Android test variants executed; Shared
+  came from cache. Lint had 0 errors and 16 existing warnings; bootJar/APK,
+  repository policy, whitespace diff and all 130 artifact hashes passed.
+  Exact final commit and its independent CI are recorded in the PR after push.
+  No upload/HTTP/Storage scope is added.
+
+Reference: [PNG §13.1 error handling](https://www.w3.org/TR/png-3/#13Error-handling).
+This targeted correction is not full PNG conformance, actual-device acceptance,
+formal review approval or a merge.
