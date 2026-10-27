@@ -1,6 +1,11 @@
 package com.group33.server.pairing
 
 import com.group33.server.photo.*
+import com.group33.server.plan.*
+import com.group33.shared.contract.MedicationView
+import com.group33.shared.contract.ReminderPlanView
+import com.group33.shared.contract.PlanRevisionView
+import com.group33.shared.contract.ConfirmReminderPlanResponse
 import com.group33.shared.contract.CareRelationshipStatus
 import com.group33.shared.contract.CareRelationshipView
 import com.group33.shared.contract.PairingCodeView
@@ -53,7 +58,7 @@ internal interface PairingCodeTransaction {
 internal class CodeStoreBusy : RuntimeException("Pairing code store is busy")
 
 /** Process-local prototype. A bounded global lock and copy-on-write staging provide real rollback. */
-internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000) : PhotoMetadataStore {
+internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000) : PlanConfirmationStore {
     init { require(lockWaitMillis >= 0) }
     private val lock = ReentrantLock()
     private var operations = mutableMapOf<CodeIssueKey, CodeIssueOperation>()
@@ -81,7 +86,14 @@ internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000
 
     override fun <T> directoryTransaction(work: (PairingDirectoryTransaction) -> T): T = photoTransaction { work(it) }
 
-    override fun <T> photoTransaction(work: (PhotoMetadataTransaction) -> T): T {
+    override fun <T> photoTransaction(work: (PhotoMetadataTransaction) -> T): T = confirmationTransaction { work(it) }
+
+    private var confirmations = mutableMapOf<PlanConfirmationKey, PlanConfirmationOperation>()
+    private var medications = mutableMapOf<String, MedicationView>()
+    private var plans = mutableMapOf<String, ReminderPlanView>()
+    private var revisions = mutableMapOf<Pair<String, Long>, PlanRevisionView>()
+
+    override fun <T> confirmationTransaction(work: (PlanConfirmationTransaction) -> T): T {
         if (!lock.tryLock(lockWaitMillis, TimeUnit.MILLISECONDS)) throw CodeStoreBusy()
         try {
             val stagedOperations = operations.toMutableMap()
@@ -97,7 +109,45 @@ internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000
             val stagedDeletions = deletions.toMutableMap()
             val stagedPhotoOperations = photoOperations.toMutableMap()
             val stagedPhotos = photos.toMutableMap()
-            val result = work(object : PhotoMetadataTransaction {
+            val stagedConfirmations = confirmations.toMutableMap()
+            val stagedMedications = medications.toMutableMap()
+            val stagedPlans = plans.toMutableMap()
+            val stagedRevisions = revisions.toMutableMap()
+            val result = work(object : PlanConfirmationTransaction {
+                override fun confirmationOperation(key: PlanConfirmationKey) = stagedConfirmations[key]?.let(PlanConfirmationCopies::operation)
+                override fun putConfirmationOperation(key: PlanConfirmationKey, value: PlanConfirmationOperation) {
+                    stagedConfirmations[key]?.let { old ->
+                        check(old.installationId == value.installationId && old.elderId == value.elderId && old.fingerprint == value.fingerprint)
+                        if (old.receipt != null) check(old.receipt == value.receipt)
+                    }
+                    value.receipt?.let { receipt ->
+                        check(receipt.medication.elderId == value.elderId && receipt.plan.elderId == value.elderId)
+                        check(receipt.plan.medicationId == receipt.medication.id)
+                        check(stagedMedications[receipt.medication.id] == receipt.medication && stagedPlans[receipt.plan.id] == receipt.plan)
+                        check(stagedRevisions[receipt.plan.id to receipt.plan.revision] == PlanConfirmationCopies.initialRevision(receipt))
+                    }
+                    stagedConfirmations[key] = PlanConfirmationCopies.operation(value)
+                }
+                override fun insertMedication(value: MedicationView) {
+                    check(value.id !in stagedMedications && value.active)
+                    check(stagedPhotos[value.photoId]?.view?.elderId == value.elderId)
+                    stagedMedications[value.id] = value
+                }
+                override fun insertPlan(value: ReminderPlanView) {
+                    check(value.id !in stagedPlans && value.revision == 1L && value.active)
+                    check(stagedMedications[value.medicationId]?.elderId == value.elderId)
+                    stagedPlans[value.id] = PlanConfirmationCopies.plan(value)
+                }
+                override fun insertRevision(value: PlanRevisionView) {
+                    check((value.id to value.revision) !in stagedRevisions)
+                    val plan = checkNotNull(stagedPlans[value.id]); val medication = checkNotNull(stagedMedications[value.medicationId])
+                    check(value == PlanConfirmationCopies.initialRevision(ConfirmReminderPlanResponse(medication, plan)))
+                    stagedRevisions[value.id to value.revision] = PlanConfirmationCopies.revision(value)
+                }
+                override fun medications(elderId: String) = stagedMedications.values.filter { it.elderId == elderId }.sortedBy { it.id }
+                override fun plans(elderId: String) = stagedPlans.values.filter { it.elderId == elderId }.sortedBy { it.id }.map(PlanConfirmationCopies::plan)
+                override fun revisions(elderId: String) = stagedRevisions.values.filter { it.elderId == elderId }.sortedBy { it.id }.map(PlanConfirmationCopies::revision)
+
                 override fun photoOperation(key: PhotoUploadKey) = stagedPhotoOperations[key]
                 override fun putPhotoOperation(key: PhotoUploadKey, value: PhotoUploadOperation) {
                     stagedPhotoOperations[key]?.let { old ->
@@ -230,6 +280,17 @@ internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000
                 override fun addressAttempts(hash: String) = stagedAddressAttempts[hash].orEmpty().toList()
                 override fun putAddressAttempts(hash: String, times: List<Long>) { stagedAddressAttempts[hash] = times.toList() }
             })
+            // This first-confirmation seam cannot commit a new orphan Medication/plan or omit its receipt.
+            for (id in stagedMedications.keys - medications.keys) {
+                check(stagedConfirmations.values.any { it.receipt?.medication?.id == id })
+            }
+            for (id in stagedPlans.keys - plans.keys) {
+                check(stagedConfirmations.values.any { it.receipt?.plan?.id == id })
+            }
+            confirmations = stagedConfirmations
+            medications = stagedMedications
+            plans = stagedPlans
+            revisions = stagedRevisions
             photoOperations = stagedPhotoOperations
             photos = stagedPhotos
             deletions = stagedDeletions
