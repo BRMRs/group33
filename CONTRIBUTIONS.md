@@ -11,3 +11,5 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 
 
 2026-10-22：负责人已确认的产品规则、初版参数及六人分工随文档PR #25统一；独立S1代码在[PR #37](https://github.com/BRMRs/group33/pull/37)，不计入本PR的代码贡献。各人正式review/同版签署仍待完成。
+
+| 1 | XinyanXue — S2 | [#10](https://github.com/BRMRs/group33/issues/10): pairing-code issuance service and process-local atomic store | [PR #47](https://github.com/BRMRs/group33/pull/47) | 17 service tests: role/replay/binding/expiry/collision/rotation/quota/concurrency/rollback; gate1Check test, lint/build/policy/hash evidence in PR #47 | Implemented; non-author review and HTTP/persistence acceptance pending |
