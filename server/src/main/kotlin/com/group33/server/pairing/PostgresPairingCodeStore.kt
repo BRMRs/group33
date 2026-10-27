@@ -19,14 +19,16 @@ internal class PostgresPairingCodeStore(
     private val dataSource: DataSource,
     private val receiptCipher: PairingReceiptCipher,
     private val lockWaitMillis: Long = 1_000,
-) : PairingDecisionStore {
+) : PairingDirectoryStore {
     init { require(lockWaitMillis in 0..30_000) }
 
     override fun <T> transaction(work: (PairingCodeTransaction) -> T): T = requestTransaction { work(it) }
 
     override fun <T> requestTransaction(work: (PairingRequestTransaction) -> T): T = decisionTransaction { work(it) }
 
-    override fun <T> decisionTransaction(work: (PairingDecisionTransaction) -> T): T = dataSource.connection.use { connection ->
+    override fun <T> decisionTransaction(work: (PairingDecisionTransaction) -> T): T = directoryTransaction { work(it) }
+
+    override fun <T> directoryTransaction(work: (PairingDirectoryTransaction) -> T): T = dataSource.connection.use { connection ->
         connection.transactionIsolation = Connection.TRANSACTION_READ_COMMITTED
         connection.autoCommit = false
         try {
@@ -51,7 +53,7 @@ internal class PostgresPairingCodeStore(
         }
     }
 
-    private class Transaction(private val db: Connection, private val cipher: PairingReceiptCipher) : PairingDecisionTransaction {
+    private class Transaction(private val db: Connection, private val cipher: PairingReceiptCipher) : PairingDirectoryTransaction {
         override fun operation(key: CodeIssueKey): CodeIssueOperation? = query(
             "SELECT * FROM pairing_issue_operation WHERE actor_id = ? AND operation_id = ?",
             listOf(key.actorId, key.operationId),
@@ -191,13 +193,46 @@ internal class PostgresPairingCodeStore(
         }
 
         private fun rawRequest(id: String): PairingRequestView? = query(
-            "SELECT * FROM pairing_request WHERE id = ?", listOf(id),
-        ) {
-            PairingRequestView(it.getString("id"), it.getString("elder_id"),
-                User(it.getString("caregiver_id"), it.getString("caregiver_name"), UserRole.CAREGIVER),
-                PairingRequestStatus.valueOf(it.getString("status")), it.getLong("expires_at"),
-                it.getString("closed_reason")?.let(PairingClosedReason::valueOf), it.getString("relationship_id"))
-        }.singleOrNull()
+            "SELECT * FROM pairing_request WHERE id = ?", listOf(id), ::readRequest,
+        ).singleOrNull()
+        private fun readRequest(row: ResultSet) = PairingRequestView(row.getString("id"), row.getString("elder_id"),
+            User(row.getString("caregiver_id"), row.getString("caregiver_name"), UserRole.CAREGIVER),
+            PairingRequestStatus.valueOf(row.getString("status")), row.getLong("expires_at"),
+            row.getString("closed_reason")?.let(PairingClosedReason::valueOf), row.getString("relationship_id"))
+
+        override fun participantRequests(actorId: String, role: UserRole, now: Long, status: PairingRequestStatus?): List<PairingRequestView> {
+            val owner = if (role == UserRole.ELDER) "elder_id" else "caregiver_id"
+            update("UPDATE pairing_request SET status = 'EXPIRED', closed_reason = 'CODE_EXPIRED' WHERE $owner = ? AND status = 'PENDING' AND expires_at <= ?", listOf(actorId, now))
+            val filter = if (status == null) "" else " AND status = ?"
+            return query("SELECT * FROM pairing_request WHERE $owner = ?$filter ORDER BY id",
+                if (status == null) listOf(actorId) else listOf(actorId, status.name), ::readRequest)
+        }
+        override fun participantRelationships(actorId: String, role: UserRole): List<CareRelationshipView> {
+            val owner = if (role == UserRole.ELDER) "elder_id" else "caregiver_id"
+            return query("SELECT * FROM pairing_relationship WHERE $owner = ? ORDER BY id", listOf(actorId), ::readRelationship)
+        }
+        override fun codeDeletion(key: CodeDeletionKey) = query(
+            "SELECT * FROM pairing_code_deletion WHERE actor_id = ? AND operation_id = ?", listOf(key.actorId, key.operationId),
+        ) { CodeDeletionReceipt(it.getString("installation_id"), it.getString("fingerprint"), it.getString("code_id")) }.singleOrNull()
+        override fun putCodeDeletion(key: CodeDeletionKey, value: CodeDeletionReceipt) {
+            check(update("""
+                INSERT INTO pairing_code_deletion AS current (actor_id, operation_id, installation_id, fingerprint, code_id)
+                VALUES (?, ?, ?, ?, ?) ON CONFLICT (actor_id, operation_id) DO UPDATE SET code_id = EXCLUDED.code_id
+                WHERE current.installation_id = EXCLUDED.installation_id AND current.fingerprint = EXCLUDED.fingerprint
+                  AND current.code_id = EXCLUDED.code_id
+            """.trimIndent(), listOf(key.actorId, key.operationId, value.installationId, value.fingerprint, value.codeId)) == 1) {
+                "Code deletion receipt binding cannot be replaced"
+            }
+        }
+        override fun invalidateCode(elderId: String, codeId: String, now: Long): Boolean {
+            if (activeCode(elderId)?.id != codeId) return false
+            update("""
+                UPDATE pairing_request SET status = CASE WHEN expires_at <= ? THEN 'EXPIRED' ELSE 'CANCELLED' END,
+                  closed_reason = CASE WHEN expires_at <= ? THEN 'CODE_EXPIRED' ELSE 'ELDER_CANCELLED' END
+                WHERE code_id = ? AND elder_id = ? AND status = 'PENDING'
+            """.trimIndent(), listOf(now, now, codeId, elderId))
+            return update("DELETE FROM pairing_active_code WHERE elder_id = ? AND code_id = ?", listOf(elderId, codeId)) == 1
+        }
 
         override fun relationship(id: String) = query("SELECT * FROM pairing_relationship WHERE id = ?", listOf(id), ::readRelationship).singleOrNull()
         override fun activeRelationship(elderId: String) = query(
