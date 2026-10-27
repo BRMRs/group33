@@ -121,6 +121,9 @@ internal class PhotoInputValidator {
                 value in 65..90 || value in 97..122
             }) return false
             val type = buffer.getInt(cursor + 4)
+            // Unknown critical chunks can change pixel interpretation. ImageIO's metadata-ignoring
+            // path may silently skip them; enforce this independently of decoder warnings.
+            if (bytes[cursor + 4].toInt() and 0x20 == 0 && type != IHDR && type != PLTE && type != IDAT && type != IEND) return false
             if (!sawHeader && (type != IHDR || length != 13L)) return false
             if (sawHeader && type == IHDR) return false
             val crc = CRC32().apply { update(bytes, cursor + 4, length.toInt() + 4) }.value
@@ -144,6 +147,7 @@ internal class PhotoInputValidator {
         const val MAX_PIXELS = 20_000_000L
         private val PNG_SIGNATURE = byteArrayOf(137.toByte(), 80, 78, 71, 13, 10, 26, 10)
         private const val IHDR = 0x49484452
+        private const val PLTE = 0x504c5445
         private const val IDAT = 0x49444154
         private const val IEND = 0x49454e44
     }

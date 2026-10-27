@@ -157,6 +157,24 @@ class PhotoInputValidatorTest {
         rejected(bytes, "image/png", PhotoInputRejection.INVALID_IMAGE)
     }
 
+    @Test fun `unknown critical PNG chunk after IHDR is rejected even if ImageIO ignores it`() {
+        val original = encoded("PNG", 2, 2, BufferedImage.TYPE_INT_RGB)
+        val bytes = original.copyOfRange(0, 33) + chunk("AbCD", byteArrayOf()) + original.copyOfRange(33, original.size)
+        // CRC-correct and structurally bounded; rejection must not depend on decoder warnings.
+        println("PNG regression runtime: " + System.getProperty("java.runtime.version") + "; provider=" +
+            ImageIO.getImageReadersByFormatName("PNG").next().javaClass.name)
+        rejected(bytes, "image/png", PhotoInputRejection.INVALID_IMAGE)
+    }
+
+    @Test fun `legal unknown ancillary PNG chunk after IHDR preserves exact bytes and hash`() {
+        val original = encoded("PNG", 2, 2, BufferedImage.TYPE_INT_RGB)
+        val bytes = original.copyOfRange(0, 33) + chunk("abCd", byteArrayOf()) + original.copyOfRange(33, original.size)
+        val photo = accepted(bytes, "image/png")
+        assertArrayEquals(bytes, photo.copyBytes())
+        assertEquals(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)), photo.sha256)
+        assertEquals(2, photo.width); assertEquals(2, photo.height)
+    }
+
     @Test fun `PNG pixel-data chunks cannot resume after an intervening ancillary chunk`() {
         val original = encoded("PNG", 2, 2)
         val consecutive = original.copyOf(original.size - 12) + chunk("IDAT", byteArrayOf()) +
