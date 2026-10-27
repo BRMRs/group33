@@ -1,0 +1,8 @@
+en entry/actions/08:40/completion/dialogs/exit PASS
+Traceback (most recent call last):
+  File "/tmp/group33-largefont-fixed/verify.py", line 30, in <module>
+    seek('due_taken_button',False);tap('due_taken_button');r=snap(lang+'-done-feedback')
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/group33-largefont-fixed/verify.py", line 19, in seek
+    raise Exception('Not reachable: '+id)
+Exception: Not reachable: due_taken_button
