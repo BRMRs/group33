@@ -11,3 +11,5 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 
 
 2026-10-22：负责人已确认的产品规则、初版参数及六人分工随文档PR #25统一；独立S1代码在[PR #37](https://github.com/BRMRs/group33/pull/37)，不计入本PR的代码贡献。各人正式review/同版签署仍待完成。
+
+| 1 | XinyanXue — S2 | [#13](https://github.com/BRMRs/group33/issues/13): T06 photo-file validation preparation | Local main-based patch; PR pending scope/reviewer confirmation | `PhotoInputValidatorTest`: 22 real-image/boundary tests; PNG structural counterexamples fail before the local fix, pass afterward; [scope/evidence](docs/evidence/S2_PHOTO_INPUT_VALIDATION.md) | Local preparation; no HTTP/Storage/device acceptance or formal approval |
