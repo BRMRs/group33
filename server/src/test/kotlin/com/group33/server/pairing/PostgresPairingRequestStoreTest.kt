@@ -39,7 +39,7 @@ class PostgresPairingRequestStoreTest {
         cipherKey = Files.readAllBytes(Path.of(PostgresPairingCodeStoreTest.required("S2_PG_RECEIPT_KEY_FILE")))
         source = PostgresPairingCodeStoreTest.dataSource(schema)
         PostgresPairingCodeStoreTest.dataSource().connection.use { it.createStatement().use { s -> s.execute("CREATE SCHEMA $schema") } }
-        install("pairing-code-store-v1.sql", "pairing-request-store-v2.sql")
+        install("pairing-code-store-v1.sql", "pairing-request-store-v2.sql", "pairing-decision-store-v3.sql")
     }
     @AfterEach fun cleanup() {
         PostgresPairingCodeStoreTest.dataSource().connection.use { it.createStatement().use { s -> s.execute("DROP SCHEMA IF EXISTS $schema CASCADE") } }
@@ -99,7 +99,7 @@ class PostgresPairingRequestStoreTest {
         val code = issue()
         val view = success(submit(code.code))
         val failure = assertThrows(SQLException::class.java) {
-            execute("INSERT INTO pairing_request SELECT 'different-request', code_id, elder_id, caregiver_id, caregiver_name, status, expires_at, closed_reason FROM pairing_request")
+            execute("INSERT INTO pairing_request (id, code_id, elder_id, caregiver_id, caregiver_name, status, expires_at, closed_reason) SELECT 'different-request', code_id, elder_id, caregiver_id, caregiver_name, status, expires_at, closed_reason FROM pairing_request")
         }
         assertEquals("23505", failure.sqlState)
         assertEquals(view, success(detail(view.id)))
@@ -299,10 +299,10 @@ class PostgresPairingRequestStoreTest {
 
     @Test fun `additive v2 installation preserves prior v1 code and encrypted receipt rows`() {
         val op = UUID.randomUUID(); val code = issue(operation = op)
-        execute("DROP TABLE pairing_request_attempt, pairing_request_operation, pairing_request")
+        execute("DROP TABLE pairing_decision_operation, pairing_request_attempt, pairing_request_operation, pairing_request, pairing_relationship")
         assertEquals(1, scalar("SELECT count(*) FROM pairing_issue_operation").toInt())
-        install("pairing-request-store-v2.sql")
-        install("pairing-code-store-v1.sql", "pairing-request-store-v2.sql")
+        install("pairing-request-store-v2.sql", "pairing-decision-store-v3.sql")
+        install("pairing-code-store-v1.sql", "pairing-request-store-v2.sql", "pairing-decision-store-v3.sql")
         assertEquals(code, issue(operation = op))
         success(submit(code.code))
     }

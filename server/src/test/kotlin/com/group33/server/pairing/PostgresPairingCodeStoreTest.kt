@@ -45,7 +45,7 @@ class PostgresPairingCodeStoreTest {
     }
 
     private fun installSchema() {
-        val ddl = listOf("pairing-code-store-v1.sql", "pairing-request-store-v2.sql")
+        val ddl = listOf("pairing-code-store-v1.sql", "pairing-request-store-v2.sql", "pairing-decision-store-v3.sql")
             .joinToString("\n") { checkNotNull(javaClass.getResource("/db/prototypes/$it")).readText() }
         source.connection.use { c ->
             c.autoCommit = false
