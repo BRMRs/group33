@@ -29,12 +29,12 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
-    runtimeOnly("org.postgresql:postgresql:42.7.14")
+    implementation(libs.postgresql)
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
     testImplementation(libs.kotlinx.serialization.json)
-    testImplementation("org.postgresql:postgresql:42.7.14")
+    testImplementation(libs.postgresql)
 }
 
 tasks.withType<Test> {
