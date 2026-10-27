@@ -1,6 +1,13 @@
 package com.group33.server.pairing
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.group33.server.plan.*
+import com.group33.shared.contract.ConfirmReminderPlanResponse
+import com.group33.shared.contract.MedicationView
+import com.group33.shared.contract.MedicationText
+import com.group33.shared.contract.ReminderPlanDraft
+import com.group33.shared.contract.ReminderPlanView
+import com.group33.shared.contract.PlanRevisionView
 import com.group33.server.photo.PhotoInputRejection
 import com.group33.server.photo.PhotoMetadataStore
 import com.group33.server.photo.PhotoMetadataTransaction
@@ -29,7 +36,7 @@ internal class PostgresPairingCodeStore(
     private val dataSource: DataSource,
     private val receiptCipher: PairingReceiptCipher,
     private val lockWaitMillis: Long = 1_000,
-) : PhotoMetadataStore {
+) : PlanConfirmationStore {
     init { require(lockWaitMillis in 0..30_000) }
 
     override fun <T> transaction(work: (PairingCodeTransaction) -> T): T = requestTransaction { work(it) }
@@ -40,7 +47,9 @@ internal class PostgresPairingCodeStore(
 
     override fun <T> directoryTransaction(work: (PairingDirectoryTransaction) -> T): T = photoTransaction { work(it) }
 
-    override fun <T> photoTransaction(work: (PhotoMetadataTransaction) -> T): T = dataSource.connection.use { connection ->
+    override fun <T> photoTransaction(work: (PhotoMetadataTransaction) -> T): T = confirmationTransaction { work(it) }
+
+    override fun <T> confirmationTransaction(work: (PlanConfirmationTransaction) -> T): T = dataSource.connection.use { connection ->
         connection.transactionIsolation = Connection.TRANSACTION_READ_COMMITTED
         connection.autoCommit = false
         try {
@@ -65,7 +74,7 @@ internal class PostgresPairingCodeStore(
         }
     }
 
-    private class Transaction(private val db: Connection, private val cipher: PairingReceiptCipher) : PhotoMetadataTransaction {
+    private class Transaction(private val db: Connection, private val cipher: PairingReceiptCipher) : PlanConfirmationTransaction {
         override fun operation(key: CodeIssueKey): CodeIssueOperation? = query(
             "SELECT * FROM pairing_issue_operation WHERE actor_id = ? AND operation_id = ?",
             listOf(key.actorId, key.operationId),
@@ -341,6 +350,110 @@ internal class PostgresPairingCodeStore(
                 kind, payload, relation?.id, request?.id, rejected?.reason?.name, rejected?.retryAfterSeconds))
             check(count == 1) { "Decision operation binding or accepted receipt cannot be replaced" }
         }
+
+        override fun confirmationOperation(key: PlanConfirmationKey): PlanConfirmationOperation? = query(
+            "SELECT * FROM plan_confirmation_operation WHERE actor_id = ? AND operation_id = ?", listOf(key.actorId, key.operationId),
+        ) { row ->
+            val payload = row.getString("receipt_payload")
+            val receipt = payload?.let { PlanConfirmationCopies.receipt(mapper.readValue(it, ConfirmReminderPlanResponse::class.java)) }
+            val rejection = row.getString("rejection_reason")?.let { reason ->
+                PlanConfirmationResult.Rejected(PlanConfirmationRejection.valueOf(reason),
+                    mapper.readValue(row.getString("violations"), Array<ConfirmationViolation>::class.java).toList())
+            }
+            PlanConfirmationOperation(row.getString("installation_id"), row.getString("elder_id"), row.getString("fingerprint"), receipt, rejection)
+        }.singleOrNull()
+
+        override fun putConfirmationOperation(key: PlanConfirmationKey, value: PlanConfirmationOperation) {
+            val receipt = value.receipt
+            var receiptId: UUID? = null
+            if (receipt != null) {
+                check(receipt.medication.elderId == value.elderId && receipt.plan.elderId == value.elderId)
+                check(receipt.plan.medicationId == receipt.medication.id && receipt.plan.revision == 1L)
+                check(medication(receipt.medication.id) == receipt.medication && plan(receipt.plan.id) == receipt.plan)
+                check(revision(receipt.plan.id, 1) == PlanConfirmationCopies.initialRevision(receipt))
+                receiptId = query("SELECT initial_receipt_id FROM medication WHERE id = ?", listOf(UUID.fromString(receipt.medication.id))) {
+                    it.getObject(1, UUID::class.java)
+                }.single()
+            }
+            val count = update("""
+                INSERT INTO plan_confirmation_operation AS current
+                    (actor_id, operation_id, installation_id, elder_id, fingerprint, receipt_id, medication_id, plan_id,
+                     receipt_revision, receipt_payload, rejection_reason, violations)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?, CAST(? AS jsonb))
+                ON CONFLICT (actor_id, operation_id) DO UPDATE SET
+                    receipt_id = EXCLUDED.receipt_id, medication_id = EXCLUDED.medication_id, plan_id = EXCLUDED.plan_id,
+                    receipt_revision = EXCLUDED.receipt_revision, receipt_payload = EXCLUDED.receipt_payload,
+                    rejection_reason = EXCLUDED.rejection_reason, violations = EXCLUDED.violations
+                WHERE current.installation_id = EXCLUDED.installation_id AND current.elder_id = EXCLUDED.elder_id
+                  AND current.fingerprint = EXCLUDED.fingerprint AND
+                    (current.receipt_id IS NULL OR (current.receipt_id = EXCLUDED.receipt_id
+                     AND current.medication_id = EXCLUDED.medication_id AND current.plan_id = EXCLUDED.plan_id
+                     AND current.receipt_revision = EXCLUDED.receipt_revision AND current.receipt_payload = EXCLUDED.receipt_payload
+                     AND EXCLUDED.rejection_reason IS NULL AND EXCLUDED.violations = '[]'::jsonb))
+            """.trimIndent(), listOf(key.actorId, key.operationId, value.installationId, value.elderId, value.fingerprint,
+                receiptId, receipt?.medication?.id?.let(UUID::fromString), receipt?.plan?.id?.let(UUID::fromString),
+                receipt?.plan?.revision, receipt?.let(mapper::writeValueAsString), value.rejection?.reason?.name,
+                mapper.writeValueAsString(value.rejection?.violations.orEmpty())))
+            check(count == 1) { "Plan confirmation binding or accepted receipt cannot be replaced" }
+        }
+
+        override fun insertMedication(value: MedicationView) {
+            val photoId = checkNotNull(value.photoId)
+            check(value.active && readyPhoto(photoId)?.view?.elderId == value.elderId)
+            update("""
+                INSERT INTO medication (id, elder_id, display_name, dosage_text, instructions, photo_id, active, initial_receipt_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """.trimIndent(), listOf(UUID.fromString(value.id), value.elderId, value.displayName, value.dosageText,
+                value.instructions, UUID.fromString(photoId), value.active, UUID.randomUUID()))
+        }
+
+        override fun insertPlan(value: ReminderPlanView) {
+            check(value.revision == 1L && value.active && medication(value.medicationId)?.elderId == value.elderId)
+            check(ReminderPlanInputValidator.validate(ReminderPlanDraft(value.localTimes, value.startDate, value.executionTimeZoneId, value.endDate)).isEmpty())
+            update("""
+                INSERT INTO reminder_plan (id, elder_id, medication_id, revision, local_times, start_date, end_date,
+                    execution_time_zone_id, active, effective_from, confirmed_at, initial_receipt_id)
+                SELECT ?, ?, ?, ?, CAST(? AS text[]), ?, ?, ?, ?, ?, ?, initial_receipt_id FROM medication WHERE id = ?
+            """.trimIndent(), listOf(UUID.fromString(value.id), value.elderId, UUID.fromString(value.medicationId), value.revision,
+                arrayLiteral(value.localTimes), value.startDate, value.endDate, value.executionTimeZoneId, value.active,
+                value.effectiveFromEpochMillis, value.confirmedAtEpochMillis, UUID.fromString(value.medicationId)))
+        }
+
+        override fun insertRevision(value: PlanRevisionView) {
+            val currentPlan = checkNotNull(plan(value.id)); val currentMedication = checkNotNull(medication(value.medicationId))
+            check(value == PlanConfirmationCopies.initialRevision(ConfirmReminderPlanResponse(currentMedication, currentPlan)))
+            update("""
+                INSERT INTO reminder_plan_revision (plan_id, revision, elder_id, medication_id, local_times, start_date,
+                    end_date, execution_time_zone_id, active, effective_from, confirmed_at, display_name, dosage_text, instructions)
+                VALUES (?, ?, ?, ?, CAST(? AS text[]), ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """.trimIndent(), listOf(UUID.fromString(value.id), value.revision, value.elderId, UUID.fromString(value.medicationId),
+                arrayLiteral(value.localTimes), value.startDate, value.endDate, value.executionTimeZoneId, value.active,
+                value.effectiveFromEpochMillis, value.confirmedAtEpochMillis, value.medicationSnapshot.displayName,
+                value.medicationSnapshot.dosageText, value.medicationSnapshot.instructions))
+        }
+
+        override fun medications(elderId: String): List<MedicationView> = query("SELECT * FROM medication WHERE elder_id = ? ORDER BY id", listOf(elderId), ::readMedication)
+        override fun plans(elderId: String): List<ReminderPlanView> = query("SELECT * FROM reminder_plan WHERE elder_id = ? ORDER BY id", listOf(elderId), ::readPlan)
+        override fun revisions(elderId: String): List<PlanRevisionView> = query("SELECT * FROM reminder_plan_revision WHERE elder_id = ? ORDER BY plan_id, revision", listOf(elderId), ::readRevision)
+        private fun medication(id: String) = query("SELECT * FROM medication WHERE id = ?", listOf(UUID.fromString(id)), ::readMedication).singleOrNull()
+        private fun plan(id: String) = query("SELECT * FROM reminder_plan WHERE id = ?", listOf(UUID.fromString(id)), ::readPlan).singleOrNull()
+        private fun revision(id: String, revision: Long) = query("SELECT * FROM reminder_plan_revision WHERE plan_id = ? AND revision = ?", listOf(UUID.fromString(id), revision), ::readRevision).singleOrNull()
+        private fun arrayLiteral(times: List<String>): String {
+            check(times.isNotEmpty() && times.all { it.matches(Regex("(?:[01][0-9]|2[0-3]):[0-5][0-9]")) })
+            return times.joinToString(",", "{", "}") // bound as one text parameter, never interpolated SQL
+        }
+        private fun readTimes(row: ResultSet): List<String> = row.getArray("local_times").let { values ->
+            try { (values.array as Array<*>).map { it as String } } finally { values.free() }
+        }
+        private fun readMedication(row: ResultSet) = MedicationView(row.getString("id"), row.getString("elder_id"),
+            row.getString("display_name"), row.getString("dosage_text"), row.getBoolean("active"), row.getString("instructions"), row.getString("photo_id"))
+        private fun readPlan(row: ResultSet) = PlanConfirmationCopies.plan(ReminderPlanView(row.getString("id"), row.getString("elder_id"),
+            row.getString("medication_id"), row.getLong("revision"), readTimes(row), row.getString("start_date"), row.getString("execution_time_zone_id"),
+            row.getBoolean("active"), row.getLong("effective_from"), row.getLong("confirmed_at"), row.getString("end_date")))
+        private fun readRevision(row: ResultSet) = PlanConfirmationCopies.revision(PlanRevisionView(row.getString("plan_id"), row.getString("elder_id"),
+            row.getString("medication_id"), row.getLong("revision"), readTimes(row), row.getString("start_date"), row.getString("execution_time_zone_id"),
+            row.getBoolean("active"), row.getLong("effective_from"), row.getLong("confirmed_at"),
+            MedicationText(row.getString("display_name"), row.getString("dosage_text"), row.getString("instructions")), row.getString("end_date")))
 
         override fun photoOperation(key: PhotoUploadKey): PhotoUploadOperation? = query(
             "SELECT * FROM photo_upload_operation WHERE actor_id = ? AND operation_id = ?",
