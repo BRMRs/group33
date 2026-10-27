@@ -1,0 +1,35 @@
+# PostgreSQL pairing decisions — local candidate
+
+Refs #16 and #10. Verified main `64ddd4e26440d60a60f209dd7eb12d102e2a55dd` and open PR/task scope on 2026-10-27. This combines eighteen source/test/build dependencies from the prior local request PostgreSQL and decision-service candidates. Fifteen remain byte-identical. The PostgreSQL adapter and two earlier database-test fixtures change; the 35 decision unit tests, 32 request tests, 17 issuance tests, service interfaces, driver configuration and v1/v2 SQL remain unchanged. This is a prepared local patch, not a commit, PR, formal migration or GitHub CI result.
+
+## Behavior
+
+PostgresPairingCodeStore now implements PairingDecisionStore. Issuance, consumption, request transitions, relationship creation/revocation and decision receipts all use the same database guard row under READ COMMITTED with a bounded lock wait. This is a cross-connection/process transaction, not a JVM lock. SQL errors and deferred COMMIT failures roll back all staged effects; lock contention maps to CodeStoreBusy for existing service retry handling. A partial unique index additionally enforces one ACTIVE relationship per Elder, including direct competing database writes. Multiple Elders per Caregiver remain valid.
+
+Accepted requests carry their relationship ID; foreign keys bind that relationship to the same Elder and Caregiver. A unique request-to-relationship link prevents multiple request histories from sharing one accepted result. State checks enforce PENDING/ACCEPTED without a closed reason and the appropriate explicit reason for REJECTED/CANCELLED/EXPIRED. Checks use IS TRUE so SQL NULL cannot bypass terminal-state constraints. Revocation preserves the first revoked timestamp and never deletes evidence.
+
+Decision operations are keyed by actor/action/UUID and bind installation plus the existing canonical fingerprint. Successful views are complete immutable JSONB snapshots, decoded only as fixed CareRelationshipView or PairingRequestView classes; no polymorphic typing or new wire DTO is introduced. The existing Jackson dependency is reused. Receipt references have foreign keys and result-kind/action constraints. Conditional UPSERT permits rejected same-intent re-evaluation, but rejects changing a binding, downgrading a success, or overwriting its payload. Current participant/role checks remain in the unchanged service before replay. Relationship authorization reads current status, never a stored receipt. An old ACTIVE acceptance receipt remains replayable after revocation without restoring authorization.
+
+The old request POST receipt reconstruction now explicitly clears relationshipId as well as status/reason, so the original PENDING view remains exact after acceptance. Current participant detail still returns ACCEPTED and its relationship ID. Existing requests never reopen consumed codes after rejection/cancellation or original issuance replay.
+
+## Forward schema and review boundary
+
+`db/prototypes/pairing-decision-store-v3.sql` is an additive local prototype after v1/v2. It creates relationship and decision-operation tables, extends the existing request row, replaces only named earlier state checks and adds relational constraints/indexes. Run the entire script in one transaction. Existing codes, encrypted issuance receipts, PENDING/terminal requests and consumption receipts are retained. The tests cover a populated v2 upgrade and repeat application after acceptance. No old SQL file is edited.
+
+This is not a production migration framework choice. Formal migration numbering/tooling, runtime schema version checks, DataSource/pooling/TLS/least-privilege grants, deployment and rollback are still pending review. New adapter reads require v3; do not deploy it against v2. No automatic downgrade or destructive rollback script is provided. Formal rollout must use a verified backup and a coordinated compatible application/schema plan; the local candidate may simply remain undeployed. Test fixture schemas are disposable and uniquely named, distinct from application schemas.
+
+Display identities and receipt snapshots reside in private database rows, not encrypted by the issuance-only code cipher. No credentials or real people/medical data appear in fixtures. Production database access and retention controls remain required. No automatic 24-hour or 30-day deletion is added. Persistent records survive the tested restarts, but full production retention/recovery has not been accepted.
+
+## Evidence
+
+25 new real PostgreSQL cases cover lifecycle reconstruction, role/participant isolation, first-revocation timestamp, active-Elder uniqueness and composite ownership constraints, SQL NULL rejection, immutable accepted and rejected binding, eight-connection same/different-operation races, accept/cancel, renewal/accept and revoke/replay races, immediate SQL and deferred COMMIT failure rollback for all four decisions, pg_stat_activity-confirmed lock wait crossing expiry, NOWAIT retry, populated v2-to-v3 upgrade, separate child JVM acceptance/replay, and actual PostgreSQL stop/start with ACTIVE/REVOKED relations, original accepted receipts, reject and cancel replay.
+
+The previous 44 real database cases retain their assertions. Their setup now applies v3; the request duplicate-row probe explicitly lists its original columns, and its v2 reinstallation fixture includes the new dependent test tables. Unit service tests remain unchanged. All database integration tests execute against the dedicated local PostgreSQL 17 instance (no H2 substitutes or silent skips); credentials are loaded privately. Test-only subprocess helpers are excluded from bootJar.
+
+Commands: `python3 .../run_checks.py postgres`, `python3 .../run_checks.py full` with JDK 17. Full tasks are Shared/Server, gate1Check and test (including Android JVM, lint, APK and bootJar). Evidence bundle records report totals, executed/cache modes, policy/diff, complete source hashes and layered-patch reconstruction. Prototype SQL is packaged but not automatically executed or wired by Spring.
+
+## Remaining work
+
+No HTTP/identity/session integration, phone authentication choice, production Spring authorization Bean, participant lists or unused-code deletion, clinical data write authorization transaction, cloud deployment or two-device proof is added. StoredCareRelationshipAccess remains explicitly constructed; production deny-all is unchanged. A separate permission read followed by a business write is insufficient: future protected writes must serialize their own transaction with revocation. Current tests prove the relationship Store and decisions, not that unrelated medication services are already safe to enable.
+
+Formal PR dependency sequence, new follow-up scope and non-author Server/security/persistence plus Android review must be recorded. The #47 issuance backup does not automatically cover this database/authorization slice. This cohesive adapter/schema/fault-test patch exceeds 500 lines because tests exercise real atomicity/restart boundaries; splitting evidence away from the state/schema change would obscure correctness. #10/#16 remain open.

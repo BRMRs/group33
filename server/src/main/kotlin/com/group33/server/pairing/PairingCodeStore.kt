@@ -1,5 +1,7 @@
 package com.group33.server.pairing
 
+import com.group33.shared.contract.CareRelationshipStatus
+import com.group33.shared.contract.CareRelationshipView
 import com.group33.shared.contract.PairingCodeView
 import com.group33.shared.contract.PairingClosedReason
 import com.group33.shared.contract.PairingRequestStatus
@@ -50,7 +52,7 @@ internal interface PairingCodeTransaction {
 internal class CodeStoreBusy : RuntimeException("Pairing code store is busy")
 
 /** Process-local prototype. A bounded global lock and copy-on-write staging provide real rollback. */
-internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000) : PairingRequestStore {
+internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000) : PairingDecisionStore {
     init { require(lockWaitMillis >= 0) }
     private val lock = ReentrantLock()
     private var operations = mutableMapOf<CodeIssueKey, CodeIssueOperation>()
@@ -62,9 +64,14 @@ internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000
     private var installationAttempts = mutableMapOf<String, List<Long>>()
     private var addressAttempts = mutableMapOf<String, List<Long>>()
 
+    private var relationships = mutableMapOf<String, CareRelationshipView>()
+    private var decisions = mutableMapOf<PairingDecisionKey, PairingDecisionOperation>()
+
     override fun <T> transaction(work: (PairingCodeTransaction) -> T): T = requestTransaction { work(it) }
 
-    override fun <T> requestTransaction(work: (PairingRequestTransaction) -> T): T {
+    override fun <T> requestTransaction(work: (PairingRequestTransaction) -> T): T = decisionTransaction { work(it) }
+
+    override fun <T> decisionTransaction(work: (PairingDecisionTransaction) -> T): T {
         if (!lock.tryLock(lockWaitMillis, TimeUnit.MILLISECONDS)) throw CodeStoreBusy()
         try {
             val stagedOperations = operations.toMutableMap()
@@ -75,7 +82,53 @@ internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000
             val stagedRequestOperations = requestOperations.toMutableMap()
             val stagedInstallationAttempts = installationAttempts.toMutableMap()
             val stagedAddressAttempts = addressAttempts.toMutableMap()
-            val result = work(object : PairingRequestTransaction {
+            val stagedRelationships = relationships.toMutableMap()
+            val stagedDecisions = decisions.toMutableMap()
+            val result = work(object : PairingDecisionTransaction {
+                override fun decisionOperation(key: PairingDecisionKey) = stagedDecisions[key]
+                override fun putDecisionOperation(key: PairingDecisionKey, value: PairingDecisionOperation) {
+                    stagedDecisions[key]?.let { old ->
+                        check(old.installationId == value.installationId && old.fingerprint == value.fingerprint)
+                        check(old.result is PairingDecisionResult.Rejected || old.result === value.result)
+                    }
+                    stagedDecisions[key] = value
+                }
+                override fun relationship(id: String) = stagedRelationships[id]
+                override fun activeRelationship(elderId: String) = stagedRelationships.values.singleOrNull {
+                    it.elderId == elderId && it.status == CareRelationshipStatus.ACTIVE
+                }
+                override fun insertRelationship(value: CareRelationshipView) {
+                    check(value.id !in stagedRelationships && activeRelationship(value.elderId) == null)
+                    check(value.status == CareRelationshipStatus.ACTIVE && value.revokedAtEpochMillis == null)
+                    check(value.elder.id == value.elderId && value.caregiver.id == value.caregiverId)
+                    check(value.elder.role == com.group33.shared.model.UserRole.ELDER)
+                    check(value.caregiver.role == com.group33.shared.model.UserRole.CAREGIVER)
+                    stagedRelationships[value.id] = value
+                }
+                override fun revokeRelationship(id: String, now: Long): CareRelationshipView {
+                    val old = checkNotNull(stagedRelationships[id])
+                    val revoked = if (old.status == CareRelationshipStatus.REVOKED) old
+                        else old.copy(status = CareRelationshipStatus.REVOKED, revokedAtEpochMillis = now)
+                    stagedRelationships[id] = revoked
+                    return revoked
+                }
+                override fun closeRequest(value: PairingRequestView) {
+                    val old = checkNotNull(stagedRequests[value.id])
+                    check(old.status == PairingRequestStatus.PENDING)
+                    check(old == value.copy(status = old.status, closedReason = old.closedReason, relationshipId = old.relationshipId))
+                    when (value.status) {
+                        PairingRequestStatus.ACCEPTED -> {
+                            val relation = checkNotNull(stagedRelationships[value.relationshipId])
+                            check(relation.status == CareRelationshipStatus.ACTIVE && relation.elderId == old.elderId)
+                            check(relation.caregiverId == old.caregiver.id && value.closedReason == null)
+                        }
+                        PairingRequestStatus.REJECTED -> check(value.closedReason == PairingClosedReason.ELDER_REJECTED && value.relationshipId == null)
+                        PairingRequestStatus.CANCELLED -> check(value.closedReason in setOf(PairingClosedReason.ELDER_CANCELLED,
+                            PairingClosedReason.CAREGIVER_CANCELLED) && value.relationshipId == null)
+                        else -> error("Unsupported explicit pairing decision")
+                    }
+                    stagedRequests[value.id] = value
+                }
                 override fun operation(key: CodeIssueKey) = stagedOperations[key]
                 override fun putOperation(key: CodeIssueKey, value: CodeIssueOperation) { stagedOperations[key] = value }
                 override fun activeCode(elderId: String) = stagedCodes[elderId]
@@ -123,6 +176,8 @@ internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000
                 override fun addressAttempts(hash: String) = stagedAddressAttempts[hash].orEmpty().toList()
                 override fun putAddressAttempts(hash: String, times: List<Long>) { stagedAddressAttempts[hash] = times.toList() }
             })
+            relationships = stagedRelationships
+            decisions = stagedDecisions
             operations = stagedOperations
             codes = stagedCodes
             times = stagedTimes

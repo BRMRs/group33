@@ -1,5 +1,8 @@
 package com.group33.server.pairing
 
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.group33.shared.contract.CareRelationshipStatus
+import com.group33.shared.contract.CareRelationshipView
 import com.group33.shared.contract.PairingClosedReason
 import com.group33.shared.contract.PairingRequestStatus
 import com.group33.shared.contract.PairingRequestView
@@ -16,12 +19,14 @@ internal class PostgresPairingCodeStore(
     private val dataSource: DataSource,
     private val receiptCipher: PairingReceiptCipher,
     private val lockWaitMillis: Long = 1_000,
-) : PairingRequestStore {
+) : PairingDecisionStore {
     init { require(lockWaitMillis in 0..30_000) }
 
     override fun <T> transaction(work: (PairingCodeTransaction) -> T): T = requestTransaction { work(it) }
 
-    override fun <T> requestTransaction(work: (PairingRequestTransaction) -> T): T = dataSource.connection.use { connection ->
+    override fun <T> requestTransaction(work: (PairingRequestTransaction) -> T): T = decisionTransaction { work(it) }
+
+    override fun <T> decisionTransaction(work: (PairingDecisionTransaction) -> T): T = dataSource.connection.use { connection ->
         connection.transactionIsolation = Connection.TRANSACTION_READ_COMMITTED
         connection.autoCommit = false
         try {
@@ -46,7 +51,7 @@ internal class PostgresPairingCodeStore(
         }
     }
 
-    private class Transaction(private val db: Connection, private val cipher: PairingReceiptCipher) : PairingRequestTransaction {
+    private class Transaction(private val db: Connection, private val cipher: PairingReceiptCipher) : PairingDecisionTransaction {
         override fun operation(key: CodeIssueKey): CodeIssueOperation? = query(
             "SELECT * FROM pairing_issue_operation WHERE actor_id = ? AND operation_id = ?",
             listOf(key.actorId, key.operationId),
@@ -131,7 +136,7 @@ internal class PostgresPairingCodeStore(
             val receipt = row.getString("receipt_request_id")?.let { id ->
                 // Immutable request identity/display/expiry columns preserve the original success.
                 // Current terminal status is deliberately not replayed as the original POST result.
-                checkNotNull(rawRequest(id)).copy(status = PairingRequestStatus.PENDING, closedReason = null)
+                checkNotNull(rawRequest(id)).copy(status = PairingRequestStatus.PENDING, closedReason = null, relationshipId = null)
             }
             val rejection = row.getString("rejection_reason")?.let {
                 PairingRequestResult.Rejected(PairingRequestRejection.valueOf(it),
@@ -143,7 +148,7 @@ internal class PostgresPairingCodeStore(
         override fun putRequestOperation(key: PairingRequestKey, value: PairingRequestOperation) {
             value.receipt?.let { receipt ->
                 check(receipt.caregiver.id == key.actorId && value.rejection == null)
-                check(rawRequest(receipt.id)?.copy(status = PairingRequestStatus.PENDING, closedReason = null) == receipt)
+                check(rawRequest(receipt.id)?.copy(status = PairingRequestStatus.PENDING, closedReason = null, relationshipId = null) == receipt)
             }
             val count = update("""
                 INSERT INTO pairing_request_operation AS current
@@ -191,8 +196,106 @@ internal class PostgresPairingCodeStore(
             PairingRequestView(it.getString("id"), it.getString("elder_id"),
                 User(it.getString("caregiver_id"), it.getString("caregiver_name"), UserRole.CAREGIVER),
                 PairingRequestStatus.valueOf(it.getString("status")), it.getLong("expires_at"),
-                it.getString("closed_reason")?.let(PairingClosedReason::valueOf))
+                it.getString("closed_reason")?.let(PairingClosedReason::valueOf), it.getString("relationship_id"))
         }.singleOrNull()
+
+        override fun relationship(id: String) = query("SELECT * FROM pairing_relationship WHERE id = ?", listOf(id), ::readRelationship).singleOrNull()
+        override fun activeRelationship(elderId: String) = query(
+            "SELECT * FROM pairing_relationship WHERE elder_id = ? AND status = 'ACTIVE'", listOf(elderId), ::readRelationship,
+        ).singleOrNull()
+
+        private fun readRelationship(row: ResultSet) = CareRelationshipView(
+            row.getString("id"), row.getString("elder_id"), row.getString("caregiver_id"),
+            User(row.getString("elder_id"), row.getString("elder_name"), UserRole.ELDER),
+            User(row.getString("caregiver_id"), row.getString("caregiver_name"), UserRole.CAREGIVER),
+            CareRelationshipStatus.valueOf(row.getString("status")), row.getLong("created_at"),
+            row.getObject("revoked_at", java.lang.Long::class.java)?.toLong(),
+        )
+
+        override fun insertRelationship(value: CareRelationshipView) {
+            check(value.status == CareRelationshipStatus.ACTIVE && value.revokedAtEpochMillis == null)
+            check(value.elder.id == value.elderId && value.elder.role == UserRole.ELDER)
+            check(value.caregiver.id == value.caregiverId && value.caregiver.role == UserRole.CAREGIVER)
+            update("""
+                INSERT INTO pairing_relationship (id, elder_id, caregiver_id, elder_name, caregiver_name, status, created_at)
+                VALUES (?, ?, ?, ?, ?, 'ACTIVE', ?)
+            """.trimIndent(), listOf(value.id, value.elderId, value.caregiverId, value.elder.displayName,
+                value.caregiver.displayName, value.createdAtEpochMillis))
+        }
+
+        override fun revokeRelationship(id: String, now: Long): CareRelationshipView {
+            update("UPDATE pairing_relationship SET status = 'REVOKED', revoked_at = ? WHERE id = ? AND status = 'ACTIVE'", listOf(now, id))
+            return checkNotNull(relationship(id))
+        }
+
+        override fun closeRequest(value: PairingRequestView) {
+            val old = checkNotNull(rawRequest(value.id))
+            check(old.status == PairingRequestStatus.PENDING)
+            check(old == value.copy(status = old.status, closedReason = old.closedReason, relationshipId = old.relationshipId))
+            when (value.status) {
+                PairingRequestStatus.ACCEPTED -> {
+                    val relation = checkNotNull(value.relationshipId?.let(::relationship))
+                    check(relation.status == CareRelationshipStatus.ACTIVE && relation.elderId == old.elderId)
+                    check(relation.caregiverId == old.caregiver.id && value.closedReason == null)
+                }
+                PairingRequestStatus.REJECTED -> check(value.closedReason == PairingClosedReason.ELDER_REJECTED && value.relationshipId == null)
+                PairingRequestStatus.CANCELLED -> check(value.closedReason in setOf(PairingClosedReason.ELDER_CANCELLED,
+                    PairingClosedReason.CAREGIVER_CANCELLED) && value.relationshipId == null)
+                else -> error("Unsupported explicit pairing decision")
+            }
+            check(update("UPDATE pairing_request SET status = ?, closed_reason = ?, relationship_id = ? WHERE id = ? AND status = 'PENDING'",
+                listOf(value.status.name, value.closedReason?.name, value.relationshipId, value.id)) == 1)
+        }
+
+        override fun decisionOperation(key: PairingDecisionKey): PairingDecisionOperation? = query(
+            "SELECT * FROM pairing_decision_operation WHERE actor_id = ? AND action = ? AND operation_id = ?",
+            listOf(key.actorId, key.action.name, key.operationId),
+        ) { row ->
+            // Explicit fixed DTO classes only. No polymorphic/default typing or current-row reconstruction.
+            val result = when (row.getString("result_kind")) {
+                "RELATIONSHIP" -> PairingDecisionResult.Relationship(mapper.readValue(row.getString("result_payload"), CareRelationshipView::class.java))
+                "REQUEST" -> PairingDecisionResult.Request(mapper.readValue(row.getString("result_payload"), PairingRequestView::class.java))
+                "CANCELLED" -> PairingDecisionResult.Cancelled
+                "REJECTED" -> PairingDecisionResult.Rejected(PairingDecisionRejection.valueOf(row.getString("rejection_reason")),
+                    row.getObject("retry_after", java.lang.Long::class.java)?.toLong())
+                else -> error("Invalid stored pairing decision kind")
+            }
+            PairingDecisionOperation(row.getString("installation_id"), row.getString("fingerprint"), result)
+        }.singleOrNull()
+
+        override fun putDecisionOperation(key: PairingDecisionKey, value: PairingDecisionOperation) {
+            val result = value.result
+            val relation = (result as? PairingDecisionResult.Relationship)?.view
+            val request = (result as? PairingDecisionResult.Request)?.view
+            val rejected = result as? PairingDecisionResult.Rejected
+            val kind = when (result) {
+                is PairingDecisionResult.Relationship -> "RELATIONSHIP"
+                is PairingDecisionResult.Request -> "REQUEST"
+                PairingDecisionResult.Cancelled -> "CANCELLED"
+                is PairingDecisionResult.Rejected -> "REJECTED"
+            }
+            val payload = (relation ?: request)?.let(mapper::writeValueAsString)
+            val count = update("""
+                INSERT INTO pairing_decision_operation AS current
+                    (actor_id, action, operation_id, installation_id, fingerprint, result_kind, result_payload,
+                     relationship_id, request_id, rejection_reason, retry_after)
+                VALUES (?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?, ?, ?, ?)
+                ON CONFLICT (actor_id, action, operation_id) DO UPDATE SET
+                    result_kind = EXCLUDED.result_kind, result_payload = EXCLUDED.result_payload,
+                    relationship_id = EXCLUDED.relationship_id, request_id = EXCLUDED.request_id,
+                    rejection_reason = EXCLUDED.rejection_reason, retry_after = EXCLUDED.retry_after
+                WHERE current.installation_id = EXCLUDED.installation_id AND current.fingerprint = EXCLUDED.fingerprint
+                  AND (current.result_kind = 'REJECTED' OR
+                    (current.result_kind = EXCLUDED.result_kind AND current.result_payload IS NOT DISTINCT FROM EXCLUDED.result_payload
+                     AND current.relationship_id IS NOT DISTINCT FROM EXCLUDED.relationship_id
+                     AND current.request_id IS NOT DISTINCT FROM EXCLUDED.request_id
+                     AND EXCLUDED.rejection_reason IS NULL AND EXCLUDED.retry_after IS NULL))
+            """.trimIndent(), listOf(key.actorId, key.action.name, key.operationId, value.installationId, value.fingerprint,
+                kind, payload, relation?.id, request?.id, rejected?.reason?.name, rejected?.retryAfterSeconds))
+            check(count == 1) { "Decision operation binding or accepted receipt cannot be replaced" }
+        }
+
+        private companion object { val mapper = jacksonObjectMapper() }
 
         override fun installationAttempts(id: String) = attempts("INSTALLATION", id)
         override fun addressAttempts(hash: String) = attempts("ADDRESS", hash)
