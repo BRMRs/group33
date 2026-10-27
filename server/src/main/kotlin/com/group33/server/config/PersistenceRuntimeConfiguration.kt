@@ -2,7 +2,7 @@ package com.group33.server.config
 
 import com.group33.server.auth.*
 import com.group33.server.pairing.*
-import com.group33.server.photo.PhotoMetadataStore
+import com.group33.server.plan.PlanConfirmationStore
 import org.postgresql.ds.PGSimpleDataSource
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -14,7 +14,7 @@ import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermission
 
-internal class PersistenceRuntime(val identities: AnonymousIdentityStore, val pairing: PhotoMetadataStore) {
+internal class PersistenceRuntime(val identities: AnonymousIdentityStore, val pairing: PlanConfirmationStore) {
     override fun toString() = "PersistenceRuntime(REDACTED)"
 }
 
@@ -25,6 +25,10 @@ internal class PersistenceRuntimeConfiguration {
     @Bean fun anonymousIdentityStore(runtime: PersistenceRuntime): AnonymousIdentityStore = runtime.identities
 
     internal fun create(env: Environment): PersistenceRuntime {
+        val plansEnabled = env.getProperty("app.plan.enabled", Boolean::class.java, false)
+        require(!plansEnabled || env.getProperty("app.photo.enabled", Boolean::class.java, false)) {
+            "Plan confirmation requires the private photo runtime"
+        }
         val mode = env.getProperty("app.persistence.mode", "memory")
         if (mode == "memory") return PersistenceRuntime(InMemoryAnonymousIdentityStore(), InMemoryPairingCodeStore())
         require(mode == "postgres-local") { "app.persistence.mode must be memory or postgres-local" }
@@ -65,6 +69,13 @@ internal class PersistenceRuntimeConfiguration {
                     if (env.getProperty("app.photo.enabled", Boolean::class.java, false)) {
                         s.executeQuery("SELECT photo_id, state, receipt_photo_id FROM photo_upload_operation LIMIT 0").close()
                         s.executeQuery("SELECT object_id, sha256 FROM medication_photo LIMIT 0").close()
+                    }
+                    if (plansEnabled) {
+                        listOf("SELECT id, elder_id, initial_receipt_id, photo_id FROM medication LIMIT 0",
+                            "SELECT id, medication_id, revision, initial_receipt_id FROM reminder_plan LIMIT 0",
+                            "SELECT plan_id, revision, display_name, instructions FROM reminder_plan_revision LIMIT 0",
+                            "SELECT actor_id, operation_id, receipt_payload, rejection_reason, violations FROM plan_confirmation_operation LIMIT 0")
+                            .forEach { sql -> s.executeQuery(sql).close() }
                     }
                 }
             }

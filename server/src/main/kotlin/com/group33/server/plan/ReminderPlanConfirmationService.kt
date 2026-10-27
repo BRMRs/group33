@@ -23,7 +23,7 @@ internal sealed interface PlanConfirmationResult {
     data class Rejected(val reason: PlanConfirmationRejection, val violations: List<ConfirmationViolation> = emptyList()) : PlanConfirmationResult
 }
 
-/** Plain local application candidate. No HTTP bean or PostgreSQL plan adapter is registered in this slice. */
+/** Initial confirmation transaction shared by the opt-in HTTP and local PostgreSQL adapters. */
 internal class ReminderPlanConfirmationService(private val store: PlanConfirmationStore, private val objects: PhotoObjectStore,
     private val clock: Clock = Clock.systemUTC()) {
     fun confirm(actor: AnonymousUser, elderId: String, operationId: UUID, request: ConfirmReminderPlanRequest): PlanConfirmationResult {
