@@ -33,6 +33,7 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
     testImplementation(libs.kotlinx.serialization.json)
+    testImplementation("org.postgresql:postgresql:42.7.14")
 }
 
 tasks.withType<Test> {
@@ -41,4 +42,23 @@ tasks.withType<Test> {
 
 tasks.processTestResources {
     from(rootProject.file("docs/contracts/examples.json")) { into("contracts") }
+}
+
+// This dedicated suite requires an explicitly selected disposable local database.
+tasks.test { useJUnitPlatform { excludeTags("postgres") } }
+tasks.register<Test>("postgresIntegrationTest") {
+    description = "Run capability persistence tests against an explicit private PostgreSQL database"
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform { includeTags("postgres") }
+    maxParallelForks = 1
+    outputs.upToDateWhen { false }
+    outputs.cacheIf { false }
+    doFirst {
+        require(!System.getenv("S2_PG_INTEGRATION_URL").isNullOrBlank()) {
+            "Set explicit local PostgreSQL integration settings; tests do not silently skip"
+        }
+        systemProperty("s2.postgres.test.classpath", sourceSets.test.get().runtimeClasspath.asPath)
+    }
 }

@@ -11,3 +11,5 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 
 
 2026-10-22：负责人已确认的产品规则、初版参数及六人分工随文档PR #25统一；独立S1代码在[PR #37](https://github.com/BRMRs/group33/pull/37)，不计入本PR的代码贡献。各人正式review/同版签署仍待完成。
+
+2026-10-27 — XinyanXue / S2, Refs #16 / #17: standalone PostgreSQL capability Store, retained original observations/receipts and atomic monotonic current state, real database fault/concurrency/restart and independent-JVM tests. Original #56 service/Store/21 tests remain unchanged. [Evidence and remaining integration](docs/evidence/S2_CAPABILITY_POSTGRES.md); not HTTP, cloud/device delivery, formal review or complete #17 acceptance.
