@@ -1,4 +1,6 @@
 server:
+  # Local direct-peer limiter. Trusted proxy support requires a separate reviewed configuration.
+  forward-headers-strategy: none
   port: ${PORT:8080}
 
 app:

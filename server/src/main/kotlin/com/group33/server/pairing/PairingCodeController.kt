@@ -52,7 +52,8 @@ internal class PairingCodeController(
 
         val result = try {
             service.issue(actor, UUID.fromString(key))
-        } catch (_: RuntimeException) {
+        } catch (failure: Exception) {
+            if (failure is InterruptedException) Thread.currentThread().interrupt()
             // A store/generator failure may be unknown to the caller. Never return private exception details.
             return error(HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE", retryable = true)
         }
