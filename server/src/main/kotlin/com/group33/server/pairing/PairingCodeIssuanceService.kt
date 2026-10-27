@@ -75,7 +75,7 @@ internal class PairingCodeIssuanceService(
                 }
                 if (raw == null) return@transaction reject(CodeIssueRejection.CODE_GENERATION_UNAVAILABLE)
                 val view = PairingCodeView(UUID.randomUUID().toString(), raw, Math.addExact(now, VALIDITY_MILLIS))
-                tx.replaceActiveCode(StoredPairingCode(view.id, actor.id, checkNotNull(codeHash), view.expiresAtEpochMillis))
+                tx.replaceActiveCode(StoredPairingCode(view.id, actor.id, checkNotNull(codeHash), view.expiresAtEpochMillis), now)
                 tx.putIssuanceTimes(actor.id, recent + now)
                 tx.putOperation(key, CodeIssueOperation(binding, receipt = CodeIssueReceipt(view)))
                 CodeIssuanceResult.Issued(view)
