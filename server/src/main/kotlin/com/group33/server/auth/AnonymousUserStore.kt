@@ -12,6 +12,9 @@ import java.util.concurrent.ConcurrentHashMap
 class AnonymousUserStore {
     private val usersByInstallationId = ConcurrentHashMap<String, AnonymousUser>()
 
+    /** Read-only resolution after JWT verification; never creates a user for a missing subject. */
+    fun findById(id: String): AnonymousUser? = usersByInstallationId.values.firstOrNull { it.id == id }
+
     fun getOrCreate(installationId: String, displayName: String, role: UserRole): AnonymousUser =
         usersByInstallationId.compute(installationId) { _, existing ->
             if (existing != null && existing.role != role) {
