@@ -1,7 +1,7 @@
 package com.group33.server.pairing
 
 import com.group33.server.config.PersistenceRuntime
-import com.group33.server.photo.PhotoMetadataStore
+import com.group33.server.plan.PlanConfirmationStore
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import java.time.Clock
@@ -10,7 +10,7 @@ import java.time.Clock
 internal class PairingCodeHttpConfiguration {
     @Bean fun pairingCodeClock(): Clock = Clock.systemUTC()
     @Bean fun pairingCodeGenerator(): PairingCodeGenerator = SecurePairingCodeGenerator()
-    @Bean fun pairingCodeStore(runtime: PersistenceRuntime): PhotoMetadataStore = runtime.pairing
+    @Bean fun pairingCodeStore(runtime: PersistenceRuntime): PlanConfirmationStore = runtime.pairing
     @Bean fun pairingDirectoryService(store: PairingDirectoryStore, clock: Clock) = PairingDirectoryService(store, clock)
     @Bean fun pairingRequestService(store: PairingRequestStore, clock: Clock) = PairingRequestService(store, clock)
     @Bean fun pairingDecisionService(store: PairingDecisionStore, clock: Clock) = PairingDecisionService(store, clock)

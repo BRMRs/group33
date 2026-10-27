@@ -1,5 +1,7 @@
 # Contribution log
 
+2026-10-27 publication update: the earlier local-candidate entries below describe their preparation time. Those prepared slices are now visible as Draft PRs [#60–#73](https://github.com/BRMRs/group33/pull/60); required scope/reviewer/dependency confirmation and formal acceptance remain open.
+
 Update this file weekly. Use links to GitHub issues and pull requests after the repository has its first commit.
 
 | Week | Member | Issue or responsibility | Pull request or commit | Verification evidence | Status |
@@ -29,3 +31,5 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 2026-10-26 — XinyanXue (S2), Refs #14: local Server plan input validator and boundary tests; [scope/evidence](docs/evidence/S2_PLAN_INPUT_VALIDATION.md). Local candidate only; no PR, formal review, HTTP or plan save completion.
 2026-10-27 — XinyanXue / S2: local initial photo-to-Medication/plan/revision/receipt confirmation service and shared in-memory transaction (Refs #14). 69 new tests: 51 service/rollback/concurrency/binding and 18 full-range time-collision tests. Earlier plan-input 62 tests and pairing/photo/runtime dependencies retain their original attribution. See `docs/evidence/S2_PLAN_CONFIRMATION.md` and the external S2-plan-confirmation-local packet. No HTTP/plan PostgreSQL adapter or formal branch/PR/review/acceptance is implied.
 2026-10-27 — XinyanXue / S2: local initial plan confirmation PostgreSQL adapter and additive v7 schema (Refs #14/#16). 26 new real database executions, including SQL/COMMIT rollback, deferred orphan protection, concurrency, authorization, original receipt isolation, actual database restart and independent JVM recovery. Earlier services/tests retain prior attribution. See `docs/evidence/S2_PLAN_CONFIRMATION_POSTGRES.md` and the external S2-plan-confirmation-postgres-local packet for exact results and remaining HTTP/runtime/migration/cloud boundaries. No formal PR/CI, approval or acceptance is implied.
+
+2026-10-27 — XinyanXue / S2, Refs #14 / #16: initial-confirmation POST and Medication/plan GET adapters, explicit opt-in, shared store wiring and v7 startup validation. 26 new HTTP/runtime test executions and 112 packaged real TCP/PostgreSQL/filesystem checks passed; 131 existing database cases rerun unchanged. Fixed three confirmed route-local scalar-coercion failures; prior services and tests keep their existing attribution. [Scope and reproduction](docs/evidence/S2_PLAN_HTTP.md). Candidate `feature/14-plan-confirmation-http`, based on PR #73; named review/dependency confirmation, plan editing, cloud and Android/two-device acceptance remain open.

@@ -13,6 +13,8 @@ server:
   port: ${PORT:8080}
 
 app:
+  plan:
+    enabled: ${PLAN_ENABLED:false}
   photo:
     enabled: ${PHOTO_ENABLED:false}
     root: ${PHOTO_OBJECT_ROOT:}

@@ -1,0 +1,23 @@
+# S2 initial plan confirmation HTTP and runtime
+
+Refs #14 / #16. Extends the initial-confirmation service and v7 PostgreSQL candidate in PR #73. It exposes only the three existing request/response shapes: `POST /api/v1/elders/{elderId}/reminder-plan-confirmations`, `GET /api/v1/elders/{elderId}/medications`, and `GET /api/v1/elders/{elderId}/reminder-plans`.
+
+## Runtime and authorization
+
+The default remains disabled. Explicit `PLAN_ENABLED=true` / `app.plan.enabled=true` requires the existing private photo runtime (`PHOTO_ENABLED=true` and a private object root). Memory and local PostgreSQL use the same PlanConfirmationStore instance as pairing and photo metadata. PostgreSQL startup checks the four v7 tables and required receipt columns, failing before serving if a prerequisite is missing; it never creates schema or silently falls back to memory. Initialize v1–v7 explicitly in a dedicated local schema before enabling this candidate. Existing demo schemas are not upgraded by tests.
+
+Identity comes from a verified JWT resolved against the current identity store. The Elder can read their own resources; only the currently paired Caregiver can confirm. Pending, unrelated and revoked callers cannot read resources or replay an accepted receipt. Service validation remains inside the current-relationship transaction. The read response separates current plans from retained `planRevisions`. Resource identities, revision and confirmation timestamps come from the service.
+
+POST requires one complete UUID Idempotency-Key, exact existing DTO fields and no query override. The route-local reader rejects duplicate/trailing JSON, missing/null required values and numeric/Boolean coercion across wire types. Three real failing transport cases (Boolean medication name, string acknowledgement and numeric acknowledgement) were retained and fixed with a copied mapper used only by this controller. Shared DTOs, the application mapper and earlier transport assertions are unchanged. Malformed wire input returns 400 before domain validation and does not create an operation. Validly decoded unauthorized inputs return generic 404 before field-level validation; authorized business failures retain the service's original payload binding.
+
+Accepted and replayed confirmations return the existing 201 response; reads return existing 200 collections. Errors keep the existing request-ID envelope and no-store headers: role 403, inaccessible 404, changed intent 409, validation/overlap 422, transient failure 503 retryable, and busy transaction 409 retryable with Retry-After 1. No request fields, object paths or database diagnostics are returned in error messages.
+
+## Verification
+
+`ReminderPlanHttpTest` runs full Spring Boot security, real signed anonymous sessions, real consent services and local photo IO. It covers empty/saved Shared-compatible views, canonical replay, changed intent, pending/unrelated/revoked access, absent/invalid JWT, authorization before business errors, photo ownership, DST collision, missing object and repair, malformed/ambiguous JSON, operation headers and eight concurrent HTTP retries. `ReminderPlanRuntimeTest` checks disabled registration and photo prerequisites. The separate packaged loopback test uses real PostgreSQL and TCP for SQL/COMMIT rollback, the whole server/database restart, immutable original receipts after current-row changes, concurrency and startup failures. Exact execution counts and cache modes are recorded in the external S2-plan-http-local packet, separately from ordinary CI.
+
+With JDK 17 and Android SDK 35: run `./gradlew :server:test --tests '*ReminderPlanHttpTest' --tests '*ReminderPlanRuntimeTest' :server:bootJar`, then the repository's `gate1Check test`. The existing explicit private PostgreSQL settings are required for `:server:postgresIntegrationTest`; these tests fail rather than skip if configuration is missing. Use a disposable schema/database for trigger faults, restart and cleanup. The packaged probe retains private fixture values only in process memory; its result records contain check labels rather than credentials, JWTs or payloads.
+
+## Remaining boundaries
+
+This is initial confirmation and reads. Editing, deactivation, cross-plan overlap, occurrence/action/history, snapshot synchronization, production migration/pooling/TLS, cloud deployment and Android/device integration remain separate. SQL row changes in recovery tests are not an edit API. A loopback HTTP pass does not demonstrate the Android screen or two-device delivery. Full issue/Gate acceptance and formal human review remain open; the lead must confirm the expanded scope, dependencies and named non-author Server/persistence and C2/S1 review perspectives before Ready.
