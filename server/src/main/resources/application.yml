@@ -4,6 +4,13 @@ server:
   port: ${PORT:8080}
 
 app:
+  persistence:
+    mode: ${PERSISTENCE_MODE:memory}
+    jdbc-url: ${PERSISTENCE_JDBC_URL:}
+    schema: ${PERSISTENCE_SCHEMA:}
+    username: ${PERSISTENCE_USERNAME:}
+    password: ${PERSISTENCE_PASSWORD:}
+    receipt-key-file: ${PERSISTENCE_RECEIPT_KEY_FILE:}
   jwt:
     issuer: group33-server
     expires-in-seconds: 86400

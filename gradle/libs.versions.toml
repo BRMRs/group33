@@ -1,4 +1,5 @@
 [versions]
+postgresql = "42.7.14"
 agp = "8.7.3"
 kotlin = "2.1.21"
 springBoot = "3.5.16"
@@ -16,6 +17,7 @@ espresso = "3.6.1"
 desugar = "2.1.5"
 
 [libraries]
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 desugar-jdk-libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugar" }
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
 androidx-activity-ktx = { module = "androidx.activity:activity-ktx", version.ref = "activity" }
