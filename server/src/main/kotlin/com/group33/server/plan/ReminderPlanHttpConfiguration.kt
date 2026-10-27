@@ -10,6 +10,7 @@ import java.time.Clock
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty(name = ["app.plan.enabled"], havingValue = "true")
 internal class ReminderPlanHttpConfiguration {
+    @Bean fun reminderPlanMutationService(store: PlanMutationStore, clock: Clock) = ReminderPlanMutationService(store, clock)
     @Bean fun reminderPlanConfirmationService(store: PlanConfirmationStore, objects: PhotoObjectStore, clock: Clock) =
         ReminderPlanConfirmationService(store, objects, clock)
 }

@@ -58,7 +58,7 @@ internal interface PairingCodeTransaction {
 internal class CodeStoreBusy : RuntimeException("Pairing code store is busy")
 
 /** Process-local prototype. A bounded global lock and copy-on-write staging provide real rollback. */
-internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000) : PlanConfirmationStore {
+internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000) : PlanMutationStore {
     init { require(lockWaitMillis >= 0) }
     private val lock = ReentrantLock()
     private var operations = mutableMapOf<CodeIssueKey, CodeIssueOperation>()
@@ -93,7 +93,10 @@ internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000
     private var plans = mutableMapOf<String, ReminderPlanView>()
     private var revisions = mutableMapOf<Pair<String, Long>, PlanRevisionView>()
 
-    override fun <T> confirmationTransaction(work: (PlanConfirmationTransaction) -> T): T {
+    override fun <T> confirmationTransaction(work: (PlanConfirmationTransaction) -> T): T = mutationTransaction { work(it) }
+
+    private var mutations = mutableMapOf<PlanMutationKey, PlanMutationOperation>()
+    override fun <T> mutationTransaction(work: (PlanMutationTransaction) -> T): T {
         if (!lock.tryLock(lockWaitMillis, TimeUnit.MILLISECONDS)) throw CodeStoreBusy()
         try {
             val stagedOperations = operations.toMutableMap()
@@ -109,11 +112,38 @@ internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000
             val stagedDeletions = deletions.toMutableMap()
             val stagedPhotoOperations = photoOperations.toMutableMap()
             val stagedPhotos = photos.toMutableMap()
+            val stagedMutations = mutations.toMutableMap()
             val stagedConfirmations = confirmations.toMutableMap()
             val stagedMedications = medications.toMutableMap()
             val stagedPlans = plans.toMutableMap()
             val stagedRevisions = revisions.toMutableMap()
-            val result = work(object : PlanConfirmationTransaction {
+            val result = work(object : PlanMutationTransaction {
+                override fun plan(id: String) = stagedPlans[id]?.let(PlanConfirmationCopies::plan)
+                override fun medication(id: String) = stagedMedications[id]
+                override fun mutationOperation(key: PlanMutationKey) = stagedMutations[key]?.detached()
+                override fun putMutationOperation(key: PlanMutationKey, value: PlanMutationOperation) {
+                    stagedMutations[key]?.let { old ->
+                        check(old.installationId == value.installationId && old.elderId == value.elderId && old.planId == value.planId && old.fingerprint == value.fingerprint)
+                        if (old.receipt != null) check(old.receipt == value.receipt)
+                    }
+                    value.receipt?.let {
+                        check(it.plan.id == value.planId && it.plan.elderId == value.elderId && it.plan.medicationId == it.medication.id)
+                        check(stagedPlans[it.plan.id] == it.plan && stagedMedications[it.medication.id] == it.medication)
+                        check(stagedRevisions[it.plan.id to it.plan.revision] == PlanConfirmationCopies.initialRevision(ConfirmReminderPlanResponse(it.medication, it.plan)))
+                    }
+                    stagedMutations[key] = value.detached()
+                }
+                override fun updateMedication(value: MedicationView) {
+                    val old = checkNotNull(stagedMedications[value.id])
+                    check(old.elderId == value.elderId && old.photoId == value.photoId && old.active == value.active)
+                    stagedMedications[value.id] = value
+                }
+                override fun updatePlan(value: ReminderPlanView, expectedRevision: Long) {
+                    val old = checkNotNull(stagedPlans[value.id])
+                    check(old.revision == expectedRevision && expectedRevision < Long.MAX_VALUE && value.revision == expectedRevision + 1)
+                    check(old.elderId == value.elderId && old.medicationId == value.medicationId && (!value.active || old.active))
+                    stagedPlans[value.id] = PlanConfirmationCopies.plan(value)
+                }
                 override fun confirmationOperation(key: PlanConfirmationKey) = stagedConfirmations[key]?.let(PlanConfirmationCopies::operation)
                 override fun putConfirmationOperation(key: PlanConfirmationKey, value: PlanConfirmationOperation) {
                     stagedConfirmations[key]?.let { old ->
@@ -287,6 +317,14 @@ internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000
             for (id in stagedPlans.keys - plans.keys) {
                 check(stagedConfirmations.values.any { it.receipt?.plan?.id == id })
             }
+            for ((id, old) in plans) if (stagedPlans[id] != old) {
+                val plan = checkNotNull(stagedPlans[id])
+                check(stagedRevisions[id to plan.revision] == PlanConfirmationCopies.initialRevision(ConfirmReminderPlanResponse(checkNotNull(stagedMedications[plan.medicationId]), plan)))
+                check(stagedMutations.values.any { it.receipt?.plan == plan })
+            }
+            for ((id, old) in medications) if (stagedMedications[id] != old)
+                check(stagedMutations.values.any { operation -> operation.receipt?.let { it.medication == stagedMedications[id] && it.plan == stagedPlans[it.plan.id] } == true })
+            mutations = stagedMutations
             confirmations = stagedConfirmations
             medications = stagedMedications
             plans = stagedPlans

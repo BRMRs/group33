@@ -36,7 +36,7 @@ internal class PostgresPairingCodeStore(
     private val dataSource: DataSource,
     private val receiptCipher: PairingReceiptCipher,
     private val lockWaitMillis: Long = 1_000,
-) : PlanConfirmationStore {
+) : PlanMutationStore {
     init { require(lockWaitMillis in 0..30_000) }
 
     override fun <T> transaction(work: (PairingCodeTransaction) -> T): T = requestTransaction { work(it) }
@@ -49,7 +49,9 @@ internal class PostgresPairingCodeStore(
 
     override fun <T> photoTransaction(work: (PhotoMetadataTransaction) -> T): T = confirmationTransaction { work(it) }
 
-    override fun <T> confirmationTransaction(work: (PlanConfirmationTransaction) -> T): T = dataSource.connection.use { connection ->
+    override fun <T> confirmationTransaction(work: (PlanConfirmationTransaction) -> T): T = mutationTransaction { work(it) }
+
+    override fun <T> mutationTransaction(work: (PlanMutationTransaction) -> T): T = dataSource.connection.use { connection ->
         connection.transactionIsolation = Connection.TRANSACTION_READ_COMMITTED
         connection.autoCommit = false
         try {
@@ -74,7 +76,7 @@ internal class PostgresPairingCodeStore(
         }
     }
 
-    private class Transaction(private val db: Connection, private val cipher: PairingReceiptCipher) : PlanConfirmationTransaction {
+    private class Transaction(private val db: Connection, private val cipher: PairingReceiptCipher) : PlanMutationTransaction {
         override fun operation(key: CodeIssueKey): CodeIssueOperation? = query(
             "SELECT * FROM pairing_issue_operation WHERE actor_id = ? AND operation_id = ?",
             listOf(key.actorId, key.operationId),
@@ -351,6 +353,59 @@ internal class PostgresPairingCodeStore(
             check(count == 1) { "Decision operation binding or accepted receipt cannot be replaced" }
         }
 
+        override fun mutationOperation(key: PlanMutationKey): PlanMutationOperation? = query(
+            "SELECT * FROM plan_mutation_operation WHERE actor_id = ? AND action = ? AND operation_id = ?",
+            listOf(key.actorId, key.action.name, key.operationId),
+        ) { row ->
+            PlanMutationOperation(row.getString("installation_id"), row.getString("elder_id"), row.getString("plan_id"), row.getString("fingerprint"),
+                row.getString("receipt_payload")?.let { mapper.readValue(it, com.group33.shared.contract.UpdateReminderPlanResponse::class.java) },
+                row.getString("rejection_reason")?.let { PlanMutationResult.Rejected(PlanMutationRejection.valueOf(it),
+                    mapper.readValue(row.getString("violations"), Array<ConfirmationViolation>::class.java).toList()) }).detached()
+        }.singleOrNull()
+
+        override fun putMutationOperation(key: PlanMutationKey, value: PlanMutationOperation) {
+            val receipt = value.receipt
+            receipt?.let {
+                check(it.plan.id == value.planId && it.plan.elderId == value.elderId && it.medication.elderId == value.elderId)
+                check(it.plan.medicationId == it.medication.id && plan(value.planId) == it.plan && medication(it.medication.id) == it.medication)
+                check(revision(value.planId, it.plan.revision) == PlanConfirmationCopies.initialRevision(ConfirmReminderPlanResponse(it.medication, it.plan)))
+            }
+            val count = update("""
+                INSERT INTO plan_mutation_operation AS current
+                    (actor_id, action, operation_id, installation_id, elder_id, plan_id, fingerprint,
+                     receipt_revision, receipt_payload, rejection_reason, violations)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?, CAST(? AS jsonb))
+                ON CONFLICT (actor_id, action, operation_id) DO UPDATE SET
+                    receipt_revision = EXCLUDED.receipt_revision, receipt_payload = EXCLUDED.receipt_payload,
+                    rejection_reason = EXCLUDED.rejection_reason, violations = EXCLUDED.violations
+                WHERE current.installation_id = EXCLUDED.installation_id AND current.elder_id = EXCLUDED.elder_id
+                  AND current.plan_id = EXCLUDED.plan_id AND current.fingerprint = EXCLUDED.fingerprint
+                  AND (current.receipt_payload IS NULL OR (current.receipt_revision = EXCLUDED.receipt_revision
+                       AND current.receipt_payload = EXCLUDED.receipt_payload AND EXCLUDED.rejection_reason IS NULL
+                       AND EXCLUDED.violations = '[]'::jsonb))
+            """.trimIndent(), listOf(key.actorId, key.action.name, key.operationId, value.installationId, value.elderId,
+                UUID.fromString(value.planId), value.fingerprint, receipt?.plan?.revision, receipt?.let(mapper::writeValueAsString),
+                value.rejection?.reason?.name, mapper.writeValueAsString(value.rejection?.violations.orEmpty())))
+            check(count == 1) { "Plan mutation binding or accepted receipt cannot be replaced" }
+        }
+        override fun updateMedication(value: MedicationView) {
+            val old = checkNotNull(medication(value.id))
+            check(old.elderId == value.elderId && old.photoId == value.photoId && old.active == value.active)
+            check(update("UPDATE medication SET display_name = ?, dosage_text = ?, instructions = ? WHERE id = ?",
+                listOf(value.displayName, value.dosageText, value.instructions, UUID.fromString(value.id))) == 1)
+        }
+        override fun updatePlan(value: ReminderPlanView, expectedRevision: Long) {
+            val old = checkNotNull(plan(value.id))
+            check(old.revision == expectedRevision && expectedRevision < Long.MAX_VALUE && value.revision == expectedRevision + 1)
+            check(old.elderId == value.elderId && old.medicationId == value.medicationId && (!value.active || old.active))
+            check(update("""
+                UPDATE reminder_plan SET revision = ?, local_times = CAST(? AS text[]), start_date = ?, end_date = ?,
+                    execution_time_zone_id = ?, active = ?, effective_from = ?, confirmed_at = ? WHERE id = ? AND revision = ?
+            """.trimIndent(), listOf(value.revision, arrayLiteral(value.localTimes), value.startDate, value.endDate,
+                value.executionTimeZoneId, value.active, value.effectiveFromEpochMillis, value.confirmedAtEpochMillis,
+                UUID.fromString(value.id), expectedRevision)) == 1)
+        }
+
         override fun confirmationOperation(key: PlanConfirmationKey): PlanConfirmationOperation? = query(
             "SELECT * FROM plan_confirmation_operation WHERE actor_id = ? AND operation_id = ?", listOf(key.actorId, key.operationId),
         ) { row ->
@@ -435,8 +490,8 @@ internal class PostgresPairingCodeStore(
         override fun medications(elderId: String): List<MedicationView> = query("SELECT * FROM medication WHERE elder_id = ? ORDER BY id", listOf(elderId), ::readMedication)
         override fun plans(elderId: String): List<ReminderPlanView> = query("SELECT * FROM reminder_plan WHERE elder_id = ? ORDER BY id", listOf(elderId), ::readPlan)
         override fun revisions(elderId: String): List<PlanRevisionView> = query("SELECT * FROM reminder_plan_revision WHERE elder_id = ? ORDER BY plan_id, revision", listOf(elderId), ::readRevision)
-        private fun medication(id: String) = query("SELECT * FROM medication WHERE id = ?", listOf(UUID.fromString(id)), ::readMedication).singleOrNull()
-        private fun plan(id: String) = query("SELECT * FROM reminder_plan WHERE id = ?", listOf(UUID.fromString(id)), ::readPlan).singleOrNull()
+        override fun medication(id: String) = query("SELECT * FROM medication WHERE id = ?", listOf(UUID.fromString(id)), ::readMedication).singleOrNull()
+        override fun plan(id: String) = query("SELECT * FROM reminder_plan WHERE id = ?", listOf(UUID.fromString(id)), ::readPlan).singleOrNull()
         private fun revision(id: String, revision: Long) = query("SELECT * FROM reminder_plan_revision WHERE plan_id = ? AND revision = ?", listOf(UUID.fromString(id), revision), ::readRevision).singleOrNull()
         private fun arrayLiteral(times: List<String>): String {
             check(times.isNotEmpty() && times.all { it.matches(Regex("(?:[01][0-9]|2[0-3]):[0-5][0-9]")) })

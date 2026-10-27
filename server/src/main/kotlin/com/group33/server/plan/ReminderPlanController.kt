@@ -10,6 +10,8 @@ import com.fasterxml.jackson.databind.type.LogicalType
 import com.group33.server.pairing.VerifiedPairingActorResolver
 import com.group33.server.web.ApiErrors
 import com.group33.server.web.ApiException
+import com.group33.shared.contract.UpdateReminderPlanRequest
+import com.group33.shared.contract.DeactivateReminderPlanRequest
 import com.group33.shared.contract.ConfirmReminderPlanRequest
 import com.group33.shared.contract.ContractProtocol
 import com.group33.shared.contract.ItemsResponse
@@ -28,18 +30,23 @@ import org.springframework.web.bind.annotation.*
 import java.util.Collections
 import java.util.UUID
 
-/** Three existing wire routes only. Authenticated actors and resource IDs never come from the body. */
+/** Existing plan wire routes only. Authenticated actors and resource IDs never come from the body. */
 @RestController
 @ConditionalOnProperty(name = ["app.plan.enabled"], havingValue = "true")
 internal class ReminderPlanController(private val actors: VerifiedPairingActorResolver,
-    private val service: ReminderPlanConfirmationService, mapper: ObjectMapper) {
+    private val service: ReminderPlanConfirmationService, private val mutations: ReminderPlanMutationService, mapper: ObjectMapper) {
     // These coercions belong only to this route; never change the shared application mapper.
-    private val reader = mapper.copy().apply {
+    private val strictMapper = mapper.copy().apply {
+        for (shape in listOf(CoercionInputShape.String, CoercionInputShape.Float, CoercionInputShape.Boolean))
+            coercionConfigFor(LogicalType.Integer).setCoercion(shape, CoercionAction.Fail)
+        coercionConfigFor(LogicalType.Integer).setCoercion(CoercionInputShape.EmptyString, CoercionAction.Fail)
         coercionConfigFor(String::class.java).setCoercion(CoercionInputShape.Boolean, CoercionAction.Fail)
         for (shape in listOf(CoercionInputShape.String, CoercionInputShape.Integer, CoercionInputShape.Float))
             coercionConfigFor(LogicalType.Boolean).setCoercion(shape, CoercionAction.Fail)
-    }.readerFor(ConfirmReminderPlanRequest::class.java)
+    }
+    private fun reader(type: Class<*>) = strictMapper.readerFor(type)
         .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+        .with(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
         .with(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
 
     @PostMapping("/api/v1/elders/{elderId}/reminder-plan-confirmations", consumes = [MediaType.APPLICATION_JSON_VALUE])
@@ -52,9 +59,42 @@ internal class ReminderPlanController(private val actors: VerifiedPairingActorRe
         noQuery(request)
         val key = Collections.list(request.getHeaders(ContractProtocol.IDEMPOTENCY_HEADER))
             .singleOrNull()?.takeIf { UUID_PATTERN.matches(it) } ?: malformed()
-        val input: ConfirmReminderPlanRequest = try { reader.readValue<ConfirmReminderPlanRequest?>(body) ?: malformed() }
+        val input: ConfirmReminderPlanRequest = try { reader(ConfirmReminderPlanRequest::class.java).readValue<ConfirmReminderPlanRequest?>(body) ?: malformed() }
             catch (_: JsonProcessingException) { malformed() }
         return result(service.confirm(actor, elderId, UUID.fromString(key), input))
+    }
+
+    @PatchMapping("/api/v1/reminder-plans/{planId}", consumes = [MediaType.APPLICATION_JSON_VALUE])
+    fun update(@AuthenticationPrincipal jwt: Jwt, @PathVariable planId: String,
+        @RequestBody body: String, request: HttpServletRequest): ResponseEntity<*> {
+        val actor = actors.resolve(jwt); noQuery(request)
+        val input = decode<UpdateReminderPlanRequest>(body, UpdateReminderPlanRequest::class.java)
+        return mutationResult(mutations.update(actor, planId, operation(request), input))
+    }
+
+    @PostMapping("/api/v1/reminder-plans/{planId}/deactivate", consumes = [MediaType.APPLICATION_JSON_VALUE])
+    fun deactivate(@AuthenticationPrincipal jwt: Jwt, @PathVariable planId: String,
+        @RequestBody body: String, request: HttpServletRequest): ResponseEntity<*> {
+        val actor = actors.resolve(jwt); noQuery(request)
+        val input = decode<DeactivateReminderPlanRequest>(body, DeactivateReminderPlanRequest::class.java)
+        return mutationResult(mutations.deactivate(actor, planId, operation(request), input), true)
+    }
+    private fun <T> decode(body: String, type: Class<T>): T = try { reader(type).readValue<T?>(body) ?: malformed() }
+        catch (_: JsonProcessingException) { malformed() }
+    private fun operation(request: HttpServletRequest): UUID = UUID.fromString(Collections.list(request.getHeaders(ContractProtocol.IDEMPOTENCY_HEADER))
+        .singleOrNull()?.takeIf { UUID_PATTERN.matches(it) } ?: malformed())
+    private fun mutationResult(value: PlanMutationResult, deactivate: Boolean = false): ResponseEntity<*> = when (value) {
+        is PlanMutationResult.Accepted -> ResponseEntity.ok().cacheControl(CacheControl.noStore())
+            .body(if (deactivate) value.view.plan else value.view)
+        is PlanMutationResult.Rejected -> when (value.reason) {
+            PlanMutationRejection.RESOURCE_NOT_ACCESSIBLE -> error(HttpStatus.NOT_FOUND, value.reason.name)
+            PlanMutationRejection.ROLE_NOT_ALLOWED -> error(HttpStatus.FORBIDDEN, value.reason.name)
+            PlanMutationRejection.PLAN_VERSION_CONFLICT, PlanMutationRejection.IDEMPOTENCY_KEY_REUSED -> error(HttpStatus.CONFLICT, value.reason.name)
+            PlanMutationRejection.OPERATION_IN_PROGRESS -> error(HttpStatus.CONFLICT, value.reason.name, true, 1)
+            PlanMutationRejection.SERVICE_UNAVAILABLE -> error(HttpStatus.SERVICE_UNAVAILABLE, value.reason.name, true)
+            PlanMutationRejection.VALIDATION_FAILED, PlanMutationRejection.OVERLAPPING_PLAN -> error(HttpStatus.UNPROCESSABLE_ENTITY,
+                value.reason.name, fields = value.violations.map { FieldError(it.field, it.code) }.takeIf { it.isNotEmpty() })
+        }
     }
 
     @GetMapping("/api/v1/elders/{elderId}/medications")
