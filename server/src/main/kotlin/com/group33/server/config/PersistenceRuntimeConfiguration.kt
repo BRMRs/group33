@@ -2,7 +2,7 @@ package com.group33.server.config
 
 import com.group33.server.auth.*
 import com.group33.server.pairing.*
-import com.group33.server.plan.PlanConfirmationStore
+import com.group33.server.plan.PlanMutationStore
 import org.postgresql.ds.PGSimpleDataSource
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -14,7 +14,7 @@ import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermission
 
-internal class PersistenceRuntime(val identities: AnonymousIdentityStore, val pairing: PlanConfirmationStore) {
+internal class PersistenceRuntime(val identities: AnonymousIdentityStore, val pairing: PlanMutationStore) {
     override fun toString() = "PersistenceRuntime(REDACTED)"
 }
 
@@ -74,7 +74,8 @@ internal class PersistenceRuntimeConfiguration {
                         listOf("SELECT id, elder_id, initial_receipt_id, photo_id FROM medication LIMIT 0",
                             "SELECT id, medication_id, revision, initial_receipt_id FROM reminder_plan LIMIT 0",
                             "SELECT plan_id, revision, display_name, instructions FROM reminder_plan_revision LIMIT 0",
-                            "SELECT actor_id, operation_id, receipt_payload, rejection_reason, violations FROM plan_confirmation_operation LIMIT 0")
+                            "SELECT actor_id, operation_id, receipt_payload, rejection_reason, violations FROM plan_confirmation_operation LIMIT 0",
+                            "SELECT actor_id, action, operation_id, receipt_revision, receipt_payload, violations FROM plan_mutation_operation LIMIT 0")
                             .forEach { sql -> s.executeQuery(sql).close() }
                     }
                 }
