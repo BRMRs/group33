@@ -1,8 +1,17 @@
 package com.group33.server.pairing
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.group33.server.photo.PhotoInputRejection
+import com.group33.server.photo.PhotoMetadataStore
+import com.group33.server.photo.PhotoMetadataTransaction
+import com.group33.server.photo.PhotoUploadKey
+import com.group33.server.photo.PhotoUploadOperation
+import com.group33.server.photo.PhotoUploadState
+import com.group33.server.photo.ReadyMedicationPhoto
+import com.group33.server.photo.storage.PhotoObjectKey
 import com.group33.shared.contract.CareRelationshipStatus
 import com.group33.shared.contract.CareRelationshipView
+import com.group33.shared.contract.MedicationPhotoView
 import com.group33.shared.contract.PairingClosedReason
 import com.group33.shared.contract.PairingRequestStatus
 import com.group33.shared.contract.PairingRequestView
@@ -12,6 +21,7 @@ import java.sql.Connection
 import java.sql.PreparedStatement
 import java.sql.ResultSet
 import java.sql.SQLException
+import java.util.UUID
 import javax.sql.DataSource
 
 /** Explicitly constructed adapter; no HTTP/security/Boot configuration is registered here. */
@@ -19,7 +29,7 @@ internal class PostgresPairingCodeStore(
     private val dataSource: DataSource,
     private val receiptCipher: PairingReceiptCipher,
     private val lockWaitMillis: Long = 1_000,
-) : PairingDirectoryStore {
+) : PhotoMetadataStore {
     init { require(lockWaitMillis in 0..30_000) }
 
     override fun <T> transaction(work: (PairingCodeTransaction) -> T): T = requestTransaction { work(it) }
@@ -28,7 +38,9 @@ internal class PostgresPairingCodeStore(
 
     override fun <T> decisionTransaction(work: (PairingDecisionTransaction) -> T): T = directoryTransaction { work(it) }
 
-    override fun <T> directoryTransaction(work: (PairingDirectoryTransaction) -> T): T = dataSource.connection.use { connection ->
+    override fun <T> directoryTransaction(work: (PairingDirectoryTransaction) -> T): T = photoTransaction { work(it) }
+
+    override fun <T> photoTransaction(work: (PhotoMetadataTransaction) -> T): T = dataSource.connection.use { connection ->
         connection.transactionIsolation = Connection.TRANSACTION_READ_COMMITTED
         connection.autoCommit = false
         try {
@@ -53,7 +65,7 @@ internal class PostgresPairingCodeStore(
         }
     }
 
-    private class Transaction(private val db: Connection, private val cipher: PairingReceiptCipher) : PairingDirectoryTransaction {
+    private class Transaction(private val db: Connection, private val cipher: PairingReceiptCipher) : PhotoMetadataTransaction {
         override fun operation(key: CodeIssueKey): CodeIssueOperation? = query(
             "SELECT * FROM pairing_issue_operation WHERE actor_id = ? AND operation_id = ?",
             listOf(key.actorId, key.operationId),
@@ -329,6 +341,87 @@ internal class PostgresPairingCodeStore(
                 kind, payload, relation?.id, request?.id, rejected?.reason?.name, rejected?.retryAfterSeconds))
             check(count == 1) { "Decision operation binding or accepted receipt cannot be replaced" }
         }
+
+        override fun photoOperation(key: PhotoUploadKey): PhotoUploadOperation? = query(
+            "SELECT * FROM photo_upload_operation WHERE actor_id = ? AND operation_id = ?",
+            listOf(key.actorId, key.operationId),
+        ) { row ->
+            // These receipt columns retain the original POST result, independently of resource reads.
+            val receipt = row.getString("receipt_photo_id")?.let { id ->
+                MedicationPhotoView(id, row.getString("receipt_elder_id"), row.getString("receipt_content_type"),
+                    row.getLong("receipt_created_at"))
+            }
+            PhotoUploadOperation(row.getString("installation_id"), row.getString("elder_id"),
+                row.getString("fingerprint"), row.getObject("photo_id", UUID::class.java),
+                PhotoUploadState.valueOf(row.getString("state")), receipt,
+                row.getString("rejection_reason")?.let { PhotoInputRejection.valueOf(it) })
+        }.singleOrNull()
+
+        override fun putPhotoOperation(key: PhotoUploadKey, value: PhotoUploadOperation) {
+            val receipt = value.receipt
+            when (value.state) {
+                PhotoUploadState.STAGING -> check(receipt == null && value.rejection == null)
+                PhotoUploadState.REJECTED -> check(receipt == null && value.rejection != null)
+                PhotoUploadState.READY -> {
+                    check(receipt != null && value.rejection == null)
+                    check(receipt.id == value.photoId.toString() && receipt.elderId == value.elderId)
+                    check(readyPhoto(receipt.id)?.view == receipt)
+                }
+            }
+            val count = update("""
+                INSERT INTO photo_upload_operation AS current
+                    (actor_id, operation_id, installation_id, elder_id, fingerprint, photo_id, state,
+                     receipt_photo_id, receipt_elder_id, receipt_content_type, receipt_created_at, rejection_reason)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (actor_id, operation_id) DO UPDATE SET
+                    state = EXCLUDED.state, receipt_photo_id = EXCLUDED.receipt_photo_id,
+                    receipt_elder_id = EXCLUDED.receipt_elder_id, receipt_content_type = EXCLUDED.receipt_content_type,
+                    receipt_created_at = EXCLUDED.receipt_created_at, rejection_reason = EXCLUDED.rejection_reason
+                WHERE current.installation_id = EXCLUDED.installation_id AND current.elder_id = EXCLUDED.elder_id
+                  AND current.fingerprint = EXCLUDED.fingerprint AND current.photo_id = EXCLUDED.photo_id
+                  AND (current.state <> 'READY' OR
+                    (EXCLUDED.state = 'READY' AND current.receipt_photo_id = EXCLUDED.receipt_photo_id
+                     AND current.receipt_elder_id = EXCLUDED.receipt_elder_id
+                     AND current.receipt_content_type = EXCLUDED.receipt_content_type
+                     AND current.receipt_created_at = EXCLUDED.receipt_created_at
+                     AND EXCLUDED.rejection_reason IS NULL))
+            """.trimIndent(), listOf(key.actorId, key.operationId, value.installationId, value.elderId,
+                value.fingerprint, value.photoId, value.state.name, receipt?.let { value.photoId }, receipt?.elderId,
+                receipt?.contentType, receipt?.createdAtEpochMillis, value.rejection?.name))
+            check(count == 1) { "Photo operation binding or accepted receipt cannot be replaced" }
+        }
+
+        override fun readyPhoto(id: String): ReadyMedicationPhoto? {
+            val photoId = try { UUID.fromString(id) } catch (_: IllegalArgumentException) { return null }
+            return query("SELECT * FROM medication_photo WHERE id = ?", listOf(photoId)) { row ->
+                ReadyMedicationPhoto(readPhoto(row), PhotoObjectKey(row.getObject("object_id", UUID::class.java),
+                    row.getLong("byte_count"), row.getString("sha256")))
+            }.singleOrNull()
+        }
+
+        override fun readyPhotos(elderId: String): List<MedicationPhotoView> = query(
+            "SELECT * FROM medication_photo WHERE elder_id = ? ORDER BY created_at, id", listOf(elderId), ::readPhoto,
+        )
+
+        override fun publishPhoto(value: ReadyMedicationPhoto) {
+            val view = value.view
+            val objectKey = value.objectKey
+            check(view.id == objectKey.objectId.toString())
+            val count = update("""
+                INSERT INTO medication_photo AS current
+                    (id, elder_id, content_type, created_at, object_id, byte_count, sha256)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (id) DO UPDATE SET id = EXCLUDED.id
+                WHERE current.elder_id = EXCLUDED.elder_id AND current.content_type = EXCLUDED.content_type
+                  AND current.created_at = EXCLUDED.created_at AND current.object_id = EXCLUDED.object_id
+                  AND current.byte_count = EXCLUDED.byte_count AND current.sha256 = EXCLUDED.sha256
+            """.trimIndent(), listOf(objectKey.objectId, view.elderId, view.contentType, view.createdAtEpochMillis,
+                objectKey.objectId, objectKey.byteCount, objectKey.sha256))
+            check(count == 1) { "Published photo cannot be replaced" }
+        }
+
+        private fun readPhoto(row: ResultSet) = MedicationPhotoView(row.getString("id"), row.getString("elder_id"),
+            row.getString("content_type"), row.getLong("created_at"))
 
         private companion object { val mapper = jacksonObjectMapper() }
 

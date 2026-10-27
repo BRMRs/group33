@@ -1,9 +1,21 @@
+spring:
+  servlet:
+    multipart:
+      # Transport safety caps allow complete near-boundary rejected files to bind their original hash/key.
+      # The business validator still enforces exactly 5,242,880 file bytes.
+      max-file-size: 6291456B
+      max-request-size: 7340032B
+      file-size-threshold: 0B
+
 server:
   # Local direct-peer limiter. Trusted proxy support requires a separate reviewed configuration.
   forward-headers-strategy: none
   port: ${PORT:8080}
 
 app:
+  photo:
+    enabled: ${PHOTO_ENABLED:false}
+    root: ${PHOTO_OBJECT_ROOT:}
   persistence:
     mode: ${PERSISTENCE_MODE:memory}
     jdbc-url: ${PERSISTENCE_JDBC_URL:}

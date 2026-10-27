@@ -1,5 +1,6 @@
 package com.group33.server.pairing
 
+import com.group33.server.photo.*
 import com.group33.shared.contract.CareRelationshipStatus
 import com.group33.shared.contract.CareRelationshipView
 import com.group33.shared.contract.PairingCodeView
@@ -52,7 +53,7 @@ internal interface PairingCodeTransaction {
 internal class CodeStoreBusy : RuntimeException("Pairing code store is busy")
 
 /** Process-local prototype. A bounded global lock and copy-on-write staging provide real rollback. */
-internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000) : PairingDirectoryStore {
+internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000) : PhotoMetadataStore {
     init { require(lockWaitMillis >= 0) }
     private val lock = ReentrantLock()
     private var operations = mutableMapOf<CodeIssueKey, CodeIssueOperation>()
@@ -69,13 +70,18 @@ internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000
 
     private var deletions = mutableMapOf<CodeDeletionKey, CodeDeletionReceipt>()
 
+    private var photoOperations = mutableMapOf<PhotoUploadKey, PhotoUploadOperation>()
+    private var photos = mutableMapOf<String, ReadyMedicationPhoto>()
+
     override fun <T> transaction(work: (PairingCodeTransaction) -> T): T = requestTransaction { work(it) }
 
     override fun <T> requestTransaction(work: (PairingRequestTransaction) -> T): T = decisionTransaction { work(it) }
 
     override fun <T> decisionTransaction(work: (PairingDecisionTransaction) -> T): T = directoryTransaction { work(it) }
 
-    override fun <T> directoryTransaction(work: (PairingDirectoryTransaction) -> T): T {
+    override fun <T> directoryTransaction(work: (PairingDirectoryTransaction) -> T): T = photoTransaction { work(it) }
+
+    override fun <T> photoTransaction(work: (PhotoMetadataTransaction) -> T): T {
         if (!lock.tryLock(lockWaitMillis, TimeUnit.MILLISECONDS)) throw CodeStoreBusy()
         try {
             val stagedOperations = operations.toMutableMap()
@@ -89,7 +95,25 @@ internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000
             val stagedRelationships = relationships.toMutableMap()
             val stagedDecisions = decisions.toMutableMap()
             val stagedDeletions = deletions.toMutableMap()
-            val result = work(object : PairingDirectoryTransaction {
+            val stagedPhotoOperations = photoOperations.toMutableMap()
+            val stagedPhotos = photos.toMutableMap()
+            val result = work(object : PhotoMetadataTransaction {
+                override fun photoOperation(key: PhotoUploadKey) = stagedPhotoOperations[key]
+                override fun putPhotoOperation(key: PhotoUploadKey, value: PhotoUploadOperation) {
+                    stagedPhotoOperations[key]?.let { old ->
+                        check(old.installationId == value.installationId && old.elderId == value.elderId && old.fingerprint == value.fingerprint && old.photoId == value.photoId)
+                        if (old.state == PhotoUploadState.READY) check(value.state == PhotoUploadState.READY && old.receipt == value.receipt)
+                    }
+                    if (value.state == PhotoUploadState.READY) check(stagedPhotos[value.photoId.toString()]?.view == value.receipt)
+                    stagedPhotoOperations[key] = value
+                }
+                override fun readyPhoto(id: String) = stagedPhotos[id]
+                override fun readyPhotos(elderId: String) = stagedPhotos.values.filter { it.view.elderId == elderId }.map { it.view }.sortedBy { it.id }
+                override fun publishPhoto(value: ReadyMedicationPhoto) {
+                    check(value.view.id == value.objectKey.objectId.toString())
+                    stagedPhotos[value.view.id]?.let { check(it.view == value.view && it.objectKey == value.objectKey) }
+                    stagedPhotos[value.view.id] = value
+                }
                 override fun participantRequests(actorId: String, role: com.group33.shared.model.UserRole, now: Long, status: PairingRequestStatus?) =
                     stagedRequests.values.filter {
                         if (role == com.group33.shared.model.UserRole.ELDER) it.elderId == actorId else it.caregiver.id == actorId
@@ -206,6 +230,8 @@ internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000
                 override fun addressAttempts(hash: String) = stagedAddressAttempts[hash].orEmpty().toList()
                 override fun putAddressAttempts(hash: String, times: List<Long>) { stagedAddressAttempts[hash] = times.toList() }
             })
+            photoOperations = stagedPhotoOperations
+            photos = stagedPhotos
             deletions = stagedDeletions
             relationships = stagedRelationships
             decisions = stagedDecisions

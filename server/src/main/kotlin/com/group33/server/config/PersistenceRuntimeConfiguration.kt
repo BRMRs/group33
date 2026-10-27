@@ -2,6 +2,7 @@ package com.group33.server.config
 
 import com.group33.server.auth.*
 import com.group33.server.pairing.*
+import com.group33.server.photo.PhotoMetadataStore
 import org.postgresql.ds.PGSimpleDataSource
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -13,7 +14,7 @@ import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermission
 
-internal class PersistenceRuntime(val identities: AnonymousIdentityStore, val pairing: PairingDirectoryStore) {
+internal class PersistenceRuntime(val identities: AnonymousIdentityStore, val pairing: PhotoMetadataStore) {
     override fun toString() = "PersistenceRuntime(REDACTED)"
 }
 
@@ -61,6 +62,10 @@ internal class PersistenceRuntimeConfiguration {
                         "SELECT scope FROM pairing_request_attempt LIMIT 0", "SELECT revoked_at FROM pairing_relationship LIMIT 0",
                         "SELECT result_payload FROM pairing_decision_operation LIMIT 0", "SELECT code_id FROM pairing_code_deletion LIMIT 0")
                         .forEach { sql -> s.executeQuery(sql).use { rows -> if (sql.contains("WHERE id = 1")) check(rows.next()) } }
+                    if (env.getProperty("app.photo.enabled", Boolean::class.java, false)) {
+                        s.executeQuery("SELECT photo_id, state, receipt_photo_id FROM photo_upload_operation LIMIT 0").close()
+                        s.executeQuery("SELECT object_id, sha256 FROM medication_photo LIMIT 0").close()
+                    }
                 }
             }
             source.connection.use { c -> c.createStatement().use { statement ->
