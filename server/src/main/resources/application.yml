@@ -4,6 +4,8 @@ server:
   port: ${PORT:8080}
 
 app:
+  capability:
+    enabled: ${CAPABILITY_ENABLED:false}
   persistence:
     mode: ${PERSISTENCE_MODE:memory}
     jdbc-url: ${PERSISTENCE_JDBC_URL:}

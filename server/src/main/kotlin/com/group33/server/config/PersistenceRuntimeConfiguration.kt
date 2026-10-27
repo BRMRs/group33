@@ -2,6 +2,7 @@ package com.group33.server.config
 
 import com.group33.server.auth.*
 import com.group33.server.pairing.*
+import com.group33.server.capability.*
 import org.postgresql.ds.PGSimpleDataSource
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -13,7 +14,8 @@ import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermission
 
-internal class PersistenceRuntime(val identities: AnonymousIdentityStore, val pairing: PairingDirectoryStore) {
+internal class PersistenceRuntime(val identities: AnonymousIdentityStore, val pairing: PairingDirectoryStore,
+    val capability: CapabilityStore? = null) {
     override fun toString() = "PersistenceRuntime(REDACTED)"
 }
 
@@ -25,7 +27,9 @@ internal class PersistenceRuntimeConfiguration {
 
     internal fun create(env: Environment): PersistenceRuntime {
         val mode = env.getProperty("app.persistence.mode", "memory")
-        if (mode == "memory") return PersistenceRuntime(InMemoryAnonymousIdentityStore(), InMemoryPairingCodeStore())
+        val capabilityEnabled = env.getProperty("app.capability.enabled", Boolean::class.java, false)
+        if (mode == "memory") return PersistenceRuntime(InMemoryAnonymousIdentityStore(), InMemoryPairingCodeStore(),
+            if (capabilityEnabled) InMemoryCapabilityStore() else null)
         require(mode == "postgres-local") { "app.persistence.mode must be memory or postgres-local" }
         fun setting(name: String) = env.getProperty(name)?.takeIf { it.isNotBlank() }
             ?: throw IllegalStateException("Required local persistence setting is missing: $name")
@@ -70,7 +74,15 @@ internal class PersistenceRuntimeConfiguration {
                         rows.getString("receipt_id"), rows.getLong("receipt_expiry"), rows.getBytes("receipt_cipher"))
                 }
             } }
-            return PersistenceRuntime(PostgresAnonymousIdentityStore(source), PostgresPairingCodeStore(source, cipher))
+            if (capabilityEnabled) source.connection.use { c -> c.createStatement().use { statement ->
+                listOf("SELECT id FROM capability_guard WHERE id = 1",
+                    "SELECT elder_id, installation_id, observation_sequence, report_payload FROM capability_observation LIMIT 0",
+                    "SELECT elder_id, installation_id, observation_sequence, view_payload FROM capability_current LIMIT 0",
+                    "SELECT actor_id, operation_id, report_payload, receipt_payload, rejection_reason FROM capability_operation LIMIT 0")
+                    .forEach { sql -> statement.executeQuery(sql).use { rows -> if (sql.contains("WHERE id = 1")) check(rows.next()) } }
+            } }
+            return PersistenceRuntime(PostgresAnonymousIdentityStore(source), PostgresPairingCodeStore(source, cipher),
+                if (capabilityEnabled) PostgresCapabilityStore(source) else null)
         } catch (_: Exception) {
             // Connection/property/key failures can contain credentials. Deliberately omit values and the private cause.
             throw IllegalStateException("Local PostgreSQL persistence initialization failed; verify private settings and initialized schema")
