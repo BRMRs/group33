@@ -38,3 +38,5 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 
 
 2026-10-27 — XinyanXue / S2, [PR #61](https://github.com/BRMRs/group33/pull/61): reproduced the unknown-critical PNG acceptance counterexample, added a legal ancillary byte/hash control, fixed the critical-chunk check and retained the original 22 tests. The two new tests failed/passed as expected before the fix; all 24 passed afterward. See [review correction evidence](docs/evidence/S2_PHOTO_INPUT_VALIDATION.md#pr-61-review-correction--2026-10-27). Full final-commit checks and CI are recorded in the PR; no formal approval or device/HTTP/Storage acceptance is claimed.
+
+2026-10-28 — XinyanXue / S2, Refs #16 / #13: unregistered Supabase private object adapter behind unchanged #60 Store seam, modern server-key transport, no-overwrite/readback integrity, stable-key unknown completion recovery, bounded HTTPS/body handling and safe errors. 51 new local HTTPS protocol-stand-in executions; [scope and evidence](docs/evidence/S2_SUPABASE_PHOTO_STORAGE.md). Not real Supabase account/RLS, business authorization, READY database atomicity, cloud runtime/deployment or full-Issue acceptance.
