@@ -2,6 +2,7 @@ package com.group33.server.pairing
 
 import com.group33.server.photo.*
 import com.group33.server.plan.*
+import com.group33.server.occurrence.*
 import com.group33.shared.contract.MedicationView
 import com.group33.shared.contract.ReminderPlanView
 import com.group33.shared.contract.PlanRevisionView
@@ -58,7 +59,7 @@ internal interface PairingCodeTransaction {
 internal class CodeStoreBusy : RuntimeException("Pairing code store is busy")
 
 /** Process-local prototype. A bounded global lock and copy-on-write staging provide real rollback. */
-internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000) : PlanMutationStore {
+internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000) : OccurrenceRegistrationStore {
     init { require(lockWaitMillis >= 0) }
     private val lock = ReentrantLock()
     private var operations = mutableMapOf<CodeIssueKey, CodeIssueOperation>()
@@ -96,7 +97,11 @@ internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000
     override fun <T> confirmationTransaction(work: (PlanConfirmationTransaction) -> T): T = mutationTransaction { work(it) }
 
     private var mutations = mutableMapOf<PlanMutationKey, PlanMutationOperation>()
-    override fun <T> mutationTransaction(work: (PlanMutationTransaction) -> T): T {
+    override fun <T> mutationTransaction(work: (PlanMutationTransaction) -> T): T = registrationTransaction { work(it) }
+
+    private var registrations = mutableMapOf<RegistrationKey, RegistrationOperation>()
+    private var occurrences = mutableMapOf<com.group33.shared.contract.OccurrenceKey, RegisteredOccurrence>()
+    override fun <T> registrationTransaction(work: (OccurrenceRegistrationTransaction) -> T): T {
         if (!lock.tryLock(lockWaitMillis, TimeUnit.MILLISECONDS)) throw CodeStoreBusy()
         try {
             val stagedOperations = operations.toMutableMap()
@@ -112,12 +117,44 @@ internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000
             val stagedDeletions = deletions.toMutableMap()
             val stagedPhotoOperations = photoOperations.toMutableMap()
             val stagedPhotos = photos.toMutableMap()
+            val stagedRegistrations = registrations.toMutableMap()
+            val stagedOccurrences = occurrences.toMutableMap()
             val stagedMutations = mutations.toMutableMap()
             val stagedConfirmations = confirmations.toMutableMap()
             val stagedMedications = medications.toMutableMap()
             val stagedPlans = plans.toMutableMap()
             val stagedRevisions = revisions.toMutableMap()
-            val result = work(object : PlanMutationTransaction {
+            val result = work(object : OccurrenceRegistrationTransaction {
+                override fun registrationOperation(key: RegistrationKey) = stagedRegistrations[key]?.let(RegistrationCopies::operation)
+                override fun putRegistrationOperation(key: RegistrationKey, value: RegistrationOperation) {
+                    check(key.actorId == value.binding.elderId)
+                    stagedRegistrations[key]?.let { old ->
+                        check(old.binding.matches(value.binding))
+                        if (old.response != null) check(old.response == value.response)
+                    }
+                    value.response?.let { response ->
+                        check(response.items.map { it.event.generationEvidence } == value.binding.request.items)
+                        response.items.forEach { receipt ->
+                            val stored = checkNotNull(stagedOccurrences[receipt.event.occurrence])
+                            check(stored.installationId == value.binding.installationId && stored.receipt == receipt && receipt.event.elderId == key.actorId)
+                        }
+                    }
+                    stagedRegistrations[key] = RegistrationCopies.operation(value)
+                }
+                override fun occurrence(key: com.group33.shared.contract.OccurrenceKey) = stagedOccurrences[key]?.let(RegistrationCopies::occurrence)
+                override fun generation(actorId: String, generationId: UUID) = stagedOccurrences.values.singleOrNull {
+                    it.receipt.event.elderId == actorId && it.receipt.generationId == generationId.toString()
+                }?.let(RegistrationCopies::occurrence)
+                override fun insertOccurrence(value: RegisteredOccurrence) {
+                    val event = value.receipt.event
+                    check(value.origin.actorId == event.elderId && value.receipt.generationId == event.generationEvidence.generationId)
+                    check(event.occurrence == event.generationEvidence.occurrence && event.planRevision == event.generationEvidence.planRevision)
+                    val revision = checkNotNull(stagedRevisions[event.occurrence.planId to event.planRevision])
+                    check(revision.elderId == event.elderId && revision.medicationId == event.medicationId && revision.medicationSnapshot == event.medicationSnapshot)
+                    check(event.occurrence !in stagedOccurrences && stagedOccurrences.values.none {
+                        it.receipt.event.id == event.id || it.receipt.event.elderId == event.elderId && it.receipt.generationId == value.receipt.generationId })
+                    stagedOccurrences[event.occurrence] = RegistrationCopies.occurrence(value)
+                }
                 override fun plan(id: String) = stagedPlans[id]?.let(PlanConfirmationCopies::plan)
                 override fun medication(id: String) = stagedMedications[id]
                 override fun mutationOperation(key: PlanMutationKey) = stagedMutations[key]?.detached()
@@ -324,6 +361,12 @@ internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000
             }
             for ((id, old) in medications) if (stagedMedications[id] != old)
                 check(stagedMutations.values.any { operation -> operation.receipt?.let { it.medication == stagedMedications[id] && it.plan == stagedPlans[it.plan.id] } == true })
+            for (value in stagedOccurrences.values) {
+                val origin = checkNotNull(stagedRegistrations[value.origin]?.response)
+                check(origin.items.any { it == value.receipt })
+            }
+            registrations = stagedRegistrations
+            occurrences = stagedOccurrences
             mutations = stagedMutations
             confirmations = stagedConfirmations
             medications = stagedMedications

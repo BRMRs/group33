@@ -2,6 +2,8 @@ package com.group33.server.pairing
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.group33.server.plan.*
+import com.group33.server.occurrence.*
+import com.group33.shared.contract.*
 import com.group33.shared.contract.ConfirmReminderPlanResponse
 import com.group33.shared.contract.MedicationView
 import com.group33.shared.contract.MedicationText
@@ -36,7 +38,7 @@ internal class PostgresPairingCodeStore(
     private val dataSource: DataSource,
     private val receiptCipher: PairingReceiptCipher,
     private val lockWaitMillis: Long = 1_000,
-) : PlanMutationStore {
+) : OccurrenceRegistrationStore {
     init { require(lockWaitMillis in 0..30_000) }
 
     override fun <T> transaction(work: (PairingCodeTransaction) -> T): T = requestTransaction { work(it) }
@@ -51,7 +53,9 @@ internal class PostgresPairingCodeStore(
 
     override fun <T> confirmationTransaction(work: (PlanConfirmationTransaction) -> T): T = mutationTransaction { work(it) }
 
-    override fun <T> mutationTransaction(work: (PlanMutationTransaction) -> T): T = dataSource.connection.use { connection ->
+    override fun <T> mutationTransaction(work: (PlanMutationTransaction) -> T): T = registrationTransaction { work(it) }
+
+    override fun <T> registrationTransaction(work: (OccurrenceRegistrationTransaction) -> T): T = dataSource.connection.use { connection ->
         connection.transactionIsolation = Connection.TRANSACTION_READ_COMMITTED
         connection.autoCommit = false
         try {
@@ -76,7 +80,63 @@ internal class PostgresPairingCodeStore(
         }
     }
 
-    private class Transaction(private val db: Connection, private val cipher: PairingReceiptCipher) : PlanMutationTransaction {
+    private class Transaction(private val db: Connection, private val cipher: PairingReceiptCipher) : OccurrenceRegistrationTransaction {
+        override fun registrationOperation(key: RegistrationKey) = query(
+            "SELECT * FROM occurrence_registration_operation WHERE actor_id = ? AND operation_id = ?", listOf(key.actorId, key.operationId),
+        ) { row -> RegistrationOperation(
+            RegistrationBinding(row.getString("installation_id"), row.getString("elder_id"),
+                mapper.readValue(row.getString("request_payload"), OccurrenceRegistrationRequest::class.java)),
+            row.getString("response_payload")?.let { mapper.readValue(it, OccurrenceRegistrationResponse::class.java) },
+            row.getString("rejection_payload")?.let { mapper.readValue(it, RegistrationResult.Rejected::class.java) },
+        ) }.singleOrNull()?.let(RegistrationCopies::operation)
+
+        override fun putRegistrationOperation(key: RegistrationKey, value: RegistrationOperation) {
+            check(key.actorId == value.binding.elderId)
+            value.response?.let { response ->
+                check(response.items.map { it.event.generationEvidence } == value.binding.request.items)
+                response.items.forEach { receipt ->
+                    val stored = checkNotNull(occurrence(receipt.event.occurrence))
+                    check(stored.installationId == value.binding.installationId && stored.receipt == receipt && receipt.event.elderId == key.actorId)
+                }
+            }
+            check(update("""
+                INSERT INTO occurrence_registration_operation AS current
+                    (actor_id, operation_id, installation_id, elder_id, canonicalization_version, request_payload, response_payload, rejection_payload)
+                VALUES (?, ?, ?, ?, ?, CAST(? AS jsonb), CAST(? AS jsonb), CAST(? AS jsonb))
+                ON CONFLICT (actor_id, operation_id) DO UPDATE SET response_payload = EXCLUDED.response_payload, rejection_payload = EXCLUDED.rejection_payload
+                WHERE current.installation_id = EXCLUDED.installation_id AND current.elder_id = EXCLUDED.elder_id
+                  AND current.canonicalization_version = EXCLUDED.canonicalization_version AND current.request_payload = EXCLUDED.request_payload
+                  AND (current.response_payload IS NULL OR current.response_payload = EXCLUDED.response_payload)
+            """.trimIndent(), listOf(key.actorId, key.operationId, value.binding.installationId, value.binding.elderId,
+                ContractProtocol.CANONICALIZATION_VERSION, mapper.writeValueAsString(value.binding.request),
+                value.response?.let(mapper::writeValueAsString), value.rejection?.let(mapper::writeValueAsString))) == 1) {
+                "Registration binding or accepted receipt cannot be replaced"
+            }
+        }
+
+        override fun occurrence(key: OccurrenceKey) = query(
+            "SELECT * FROM registered_occurrence WHERE plan_id = ? AND local_date = ? AND local_time = ?",
+            listOf(UUID.fromString(key.planId), key.localDate, key.localTime), ::readOccurrence,
+        ).singleOrNull()
+        override fun generation(actorId: String, generationId: UUID) = query(
+            "SELECT * FROM registered_occurrence WHERE elder_id = ? AND generation_id = ?", listOf(actorId, generationId), ::readOccurrence,
+        ).singleOrNull()
+        override fun insertOccurrence(value: RegisteredOccurrence) {
+            val event = value.receipt.event
+            check(value.origin.actorId == event.elderId)
+            check(update("""
+                INSERT INTO registered_occurrence
+                    (id, plan_id, local_date, local_time, plan_revision, elder_id, medication_id, installation_id,
+                     generation_id, origin_operation_id, receipt_payload)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb))
+            """.trimIndent(), listOf(UUID.fromString(event.id), UUID.fromString(event.occurrence.planId), event.occurrence.localDate,
+                event.occurrence.localTime, event.planRevision, event.elderId, UUID.fromString(event.medicationId), value.installationId,
+                UUID.fromString(value.receipt.generationId), value.origin.operationId, mapper.writeValueAsString(value.receipt))) == 1)
+        }
+        private fun readOccurrence(row: ResultSet) = RegistrationCopies.occurrence(RegisteredOccurrence(row.getString("installation_id"),
+            RegistrationKey(row.getString("elder_id"), row.getObject("origin_operation_id", UUID::class.java)),
+            mapper.readValue(row.getString("receipt_payload"), OccurrenceRegistrationReceipt::class.java)))
+
         override fun operation(key: CodeIssueKey): CodeIssueOperation? = query(
             "SELECT * FROM pairing_issue_operation WHERE actor_id = ? AND operation_id = ?",
             listOf(key.actorId, key.operationId),
