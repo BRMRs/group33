@@ -37,6 +37,9 @@ internal class SupabaseStorageFixture(directory: Path) : AutoCloseable {
     @Volatile var metadataDelay = 0L
     @Volatile var getStatus: Int? = null
     @Volatile var getCode = "NoSuchKey"
+    @Volatile var getBody: String? = null
+    @Volatile var missingStatus = 404
+    @Volatile var missingBody = """{"code":"NoSuchKey"}"""
     @Volatile var getDelay = 0L
     @Volatile var postMode = "normal"
     @Volatile var postDelay = 0L
@@ -70,7 +73,8 @@ internal class SupabaseStorageFixture(directory: Path) : AutoCloseable {
     fun privateBucket() = """{"id":"$bucket","public":false,"name":"Private fixture"}"""
     fun reset() {
         awaitIdle(); objects.clear(); calls.clear(); metadata = privateBucket(); metadataStatus = 200; metadataDelay = 0
-        getStatus = null; getCode = "NoSuchKey"; getDelay = 0; postMode = "normal"; postDelay = 0; stallBody = false
+        getStatus = null; getCode = "NoSuchKey"; getBody = null; missingStatus = 404; missingBody = """{"code":"NoSuchKey"}"""
+        getDelay = 0; postMode = "normal"; postDelay = 0; stallBody = false
     }
     fun awaitIdle() {
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
@@ -91,9 +95,9 @@ internal class SupabaseStorageFixture(directory: Path) : AutoCloseable {
         if (method == "GET" && path.startsWith("/storage/v1/object/authenticated/$bucket/")) {
             val status = getStatus; val code = getCode; val delay = getDelay; val stall = stallBody
             Thread.sleep(delay)
-            if (status != null) { reply(exchange, status, """{"code":"$code","message":"PRIVATE diagnostic"}"""); return }
+            if (status != null) { reply(exchange, status, getBody ?: """{"code":"$code","message":"PRIVATE diagnostic"}"""); return }
             val bytes = objects[name]
-            if (bytes == null) reply(exchange, 404, """{"code":"NoSuchKey"}""")
+            if (bytes == null) reply(exchange, missingStatus, missingBody)
             else if (stall) {
                 exchange.responseHeaders.set("Content-Type", "application/octet-stream")
                 exchange.sendResponseHeaders(200, bytes.size.toLong())
