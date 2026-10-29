@@ -34,6 +34,14 @@ internal class SessionDiskRecord(
     fun cleared() = SessionDiskRecord(installationId, UUID.randomUUID().toString())
 }
 
+/** Private scheduling identity; equal public metadata does not imply equal expiry. */
+internal data class SessionObservation(
+    val view: SessionView,
+    val generation: String?,
+    val expiresAtMillis: Long,
+    val epoch: String,
+)
+
 /** Call read/write only inside locked. No unencrypted fallback or corruption reset. */
 internal class EncryptedSessionFile(context: Context, private val environmentId: String, namespace: String) {
     init {
@@ -60,7 +68,7 @@ internal class EncryptedSessionFile(context: Context, private val environmentId:
 
     fun storageFailure() = synchronized(runtime.monitor) {
         runtime.epoch = UUID.randomUUID().toString()
-        state.value = SessionView(AuthReadiness.SIGNED_OUT, null)
+        state.value = SessionObservation(SessionView(AuthReadiness.SIGNED_OUT, null), null, 0, runtime.epoch)
     }
 
     fun <T> locked(block: () -> T): T = synchronized(runtime.monitor) {
@@ -154,8 +162,8 @@ internal class EncryptedSessionFile(context: Context, private val environmentId:
     companion object {
         private class Runtime {
             val monitor = Any()
-            val state = MutableStateFlow(SessionView(AuthReadiness.RESTORING, null))
             var epoch = UUID.randomUUID().toString()
+            val state = MutableStateFlow(SessionObservation(SessionView(AuthReadiness.RESTORING, null), null, 0, epoch))
             var clearRequested = false
         }
         private val runtimes = ConcurrentHashMap<String, Runtime>()

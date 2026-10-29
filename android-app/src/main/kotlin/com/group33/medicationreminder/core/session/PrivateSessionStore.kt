@@ -48,18 +48,18 @@ internal class PrivateSessionStore(
     @OptIn(ExperimentalCoroutinesApi::class)
     fun observeSession(): Flow<SessionView> = flow {
         restore()
-        emitAll(file.state.transformLatest { view ->
-            emit(view)
-            if (view.readiness == AuthReadiness.READY) {
+        emitAll(file.state.transformLatest { observation ->
+            emit(observation.view)
+            while (observation.view.readiness == AuthReadiness.READY && file.state.value == observation) {
                 val expiry = access {
                     val record = current()
                     publish(record)
                     record.expiresAtMillis
                 }
-                if (expiry is Outcome.Success && expiry.value > 0) {
-                    delay((expiry.value - clock.millis()).coerceAtLeast(1))
-                    restore()
-                }
+                if (expiry !is Outcome.Success || expiry.value <= 0 || file.state.value != observation) break
+                delay((expiry.value - clock.millis()).coerceAtLeast(1))
+                // Re-arm if wall-clock adjustment wakes us before the current expiry.
+                restore()
             }
         })
     }
@@ -159,7 +159,9 @@ internal class PrivateSessionStore(
         lease.generation == record.generation && lease.epoch == file.epoch
 
     private fun publish(record: SessionDiskRecord) {
-        file.state.value = SessionView(if (record.user == null) AuthReadiness.SIGNED_OUT else AuthReadiness.READY, record.user)
+        file.state.value = SessionObservation(
+            SessionView(if (record.user == null) AuthReadiness.SIGNED_OUT else AuthReadiness.READY, record.user),
+            record.generation, record.expiresAtMillis, file.epoch)
     }
 
     private suspend fun <T> access(block: () -> T): Outcome<T> = withContext(Dispatchers.IO) {

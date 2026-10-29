@@ -15,9 +15,16 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.After
@@ -214,10 +221,69 @@ class PrivateSessionStoreTest {
         localFailure(s.acquire(), LocalFailureCode.SESSION_NOT_READY)
     }
 
-    private class TestClock(var now: Long = 1_800_000_000_000L) : Clock() {
+    @Test fun same_user_reauthentication_rearms_expiry_when_public_metadata_is_conflated() = runBlocking {
+        val s = store(); login(s)
+        val armed = CompletableDeferred<Unit>()
+        val reads = AtomicInteger()
+        val release = CountDownLatch(1)
+        Executors.newSingleThreadExecutor().asCoroutineDispatcher().use { dispatcher ->
+            val expired = async(dispatcher) {
+                s.observeSession().first { view ->
+                    if (view.readiness == AuthReadiness.READY && !armed.isCompleted) {
+                        clock.onRead = { if (reads.incrementAndGet() == 2) armed.complete(Unit) }
+                    }
+                    view.readiness == AuthReadiness.SIGNED_OUT
+                }
+            }
+            try {
+                withTimeout(2_000) { armed.await() }
+                clock.onRead = null
+                val blocked = CompletableDeferred<Unit>()
+                val blocker = launch(dispatcher) { blocked.complete(Unit); release.await() }
+                withTimeout(2_000) { blocked.await() }
+                val attempt = success(store().beginAuthentication())
+                success(s.completeAuthentication(attempt, user, "RENEWED_TOKEN", 1))
+                clock.now += 1_000
+                release.countDown()
+                blocker.join()
+                assertNull(withTimeout(2_000) { expired.await() }.user)
+            } finally {
+                release.countDown()
+                expired.cancel()
+            }
+        }
+    }
+
+    @Test fun clock_rollback_rearms_observed_expiry_after_early_wakeup() = runBlocking {
+        val s = store()
+        val issued = clock.now
+        success(s.completeAuthentication(success(s.beginAuthentication()), user, secret, 1))
+        clock.now = issued + 500
+        val armed = CompletableDeferred<Unit>()
+        val reads = AtomicInteger()
+        val expired = async {
+            s.observeSession().first { view ->
+                if (view.readiness == AuthReadiness.READY && !armed.isCompleted) {
+                    clock.onRead = { if (reads.incrementAndGet() == 2) armed.complete(Unit) }
+                }
+                view.readiness == AuthReadiness.SIGNED_OUT
+            }
+        }
+        try {
+            withTimeout(2_000) { armed.await() }
+            clock.onRead = null
+            clock.now = issued + 250
+            delay(650)
+            clock.now = issued + 1_000
+            assertNull(withTimeout(2_000) { expired.await() }.user)
+        } finally { expired.cancel() }
+    }
+
+    private class TestClock(@Volatile var now: Long = 1_800_000_000_000L) : Clock() {
+        @Volatile var onRead: (() -> Unit)? = null
         override fun getZone(): ZoneId = ZoneOffset.UTC
         override fun withZone(zone: ZoneId): Clock = this
         override fun instant(): Instant = Instant.ofEpochMilli(now)
-        override fun millis(): Long = now
+        override fun millis(): Long = now.also { onRead?.invoke() }
     }
 }
