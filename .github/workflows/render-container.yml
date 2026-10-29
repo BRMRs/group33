@@ -1,0 +1,40 @@
+name: Render container
+on:
+  pull_request:
+    paths: ["deploy/render/**", ".dockerignore", "server/**", "shared/**", "gradle/**", "scripts/cloud/*render*", ".github/workflows/render-container.yml"]
+permissions:
+  contents: read
+jobs:
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Verify private configuration bootstrap with fictional input
+        run: python3 -m unittest discover -s scripts/cloud -p 'test_render*.py' -v
+      - name: Build and test the actual server container without private build arguments
+        run: docker build --tag group33-render-test --file deploy/render/Dockerfile .
+      - name: Verify unprivileged image and fail-closed startup without configuration
+        shell: bash
+        run: |
+          test "$(docker image inspect --format '{{.Config.User}}' group33-render-test)" = "10001:10001"
+          set +e
+          docker run --rm --network none --memory 512m group33-render-test > missing-config.log 2>&1
+          result=$?
+          set -e
+          test "$result" = 64
+          grep -q 'Render private configuration is invalid' missing-config.log
+      - name: Exercise final JRE and 512MiB container with a fictional memory fixture
+        shell: bash
+        run: |
+          name="group33-render-test-${GITHUB_RUN_ID}"
+          trap 'docker rm -f "$name" >/dev/null 2>&1 || true' EXIT
+          docker run -d --name "$name" --memory 512m -p 127.0.0.1:18087:10000 --entrypoint java group33-render-test \
+            -XX:InitialRAMPercentage=10.0 -XX:MaxRAMPercentage=50.0 -XX:+ExitOnOutOfMemoryError \
+            -jar /app/server.jar --server.address=0.0.0.0 --server.port=10000 \
+            --app.photo.enabled=true --app.photo.root=/tmp/fictional-photos --app.plan.enabled=true
+          python3 scripts/cloud/smoke_render_image.py http://127.0.0.1:18087
