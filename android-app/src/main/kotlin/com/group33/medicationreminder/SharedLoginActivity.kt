@@ -1,5 +1,6 @@
 package com.group33.medicationreminder
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
@@ -68,6 +69,9 @@ class SharedLoginActivity : AppCompatActivity() {
         binding.forgotPasswordButton.setOnClickListener { showForm(LoginMode.RESET) }
         binding.requestCodeButton.setOnClickListener { showStatus(R.string.login_code_preview_only) }
         binding.formSubmitButton.setOnClickListener { showStatus(R.string.login_preview_only) }
+        binding.rolePreviewButton.setOnClickListener {
+            startActivity(Intent(this, MainActivity::class.java))
+        }
         render()
     }
 

@@ -5,6 +5,7 @@
     <string name="elder_role">Elder</string>
     <string name="caregiver_role">Caregiver</string>
     <string name="shared_login_preview">Preview shared login</string>
+    <string name="login_open_role_preview">Open role preview (not signed in)</string>
     <string name="login_title">Welcome</string>
     <string name="login_description">Sign in with your phone number.</string>
     <string name="login_one_tap">One-tap phone sign-in</string>
