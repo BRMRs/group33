@@ -36,6 +36,12 @@ Cases include create/read, private wire paths/headers, no overwrite/redirect/pub
 
 ## Reproduce / remaining acceptance
 
+### Integration compatibility backport — 2026-10-29
+
+The project lead backported the original #80 missing-object repair into this adapter slice. A hosted provider can return outer HTTP400 with `code=NoSuchKey` and an explicit integral or textual inner404. Treat only that proven shape as missing so first upload can proceed. Bucket/auth errors, malformed or duplicate JSON, ambiguous statuses and server failures remain unavailable and never permit a write. This preserves the existing outer404 behavior and byte-verified, no-overwrite publication.
+
+`SupabaseLegacyMissingTest` adds 15 fixture cases, including first upload/readback/retry and denied or unproven error shapes. The implementation and fixture changes are copied unchanged from #80; this is integration work, not a new Storage implementation. These local HTTPS tests do not repeat the original author's real-provider run or establish new cloud acceptance.
+
 JDK17 (including keytool)/SDK35: `./gradlew :server:test --tests '*SupabasePhotoObjectStoreTest' :server:bootJar`, then `./gradlew gate1Check test`, repository policy and artifact hashes. Fixture HTTPS/keytool resources are created in disposable JUnit directories, servers/executors are stopped and certificate files removed. No network cloud key or Supabase account is required for these tests.
 
 Before real cloud enablement, select the project origin/private bucket, provision server-only secret key through private settings, verify grants/RLS, configure object MIME/size, wire this adapter behind the unchanged authenticated business service and durable staging/READY metadata, then execute a separate real-provider suite including authorized/revoked callers and restart/unknown completion. Never send a secret key to an Android client or post it in an Issue/PR/chat. Real Supabase PostgreSQL/Storage integration, runtime configuration, production migrations/Render, cloud-vs-local isolation and two-device/offline acceptance remain separate. Local fallback continues to use the unchanged private file adapter. No tablet is needed for this code/test slice.
