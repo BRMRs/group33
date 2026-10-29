@@ -1,0 +1,7 @@
+ERROR: null root node returned by UiTestAutomationBridge.
+en one tap Sign-in is not connected yet. No request was sent.
+en SMS status Sign-in is not connected yet. No request was sent.
+en password/reset without IME PASS
+zh one tap 登录尚未接入，没有发送请求。
+zh SMS status 登录尚未接入，没有发送请求。
+zh password/reset without IME PASS
