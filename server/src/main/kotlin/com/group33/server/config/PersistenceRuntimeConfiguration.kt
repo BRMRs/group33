@@ -26,6 +26,8 @@ internal class PersistenceRuntimeConfiguration {
 
     internal fun create(env: Environment): PersistenceRuntime {
         val plansEnabled = env.getProperty("app.plan.enabled", Boolean::class.java, false)
+        val occurrencesEnabled = env.getProperty("app.occurrence.enabled", Boolean::class.java, false)
+        require(!occurrencesEnabled || plansEnabled) { "Occurrence registration requires the plan runtime" }
         require(!plansEnabled || env.getProperty("app.photo.enabled", Boolean::class.java, false)) {
             "Plan confirmation requires the private photo runtime"
         }
@@ -76,6 +78,11 @@ internal class PersistenceRuntimeConfiguration {
                             "SELECT plan_id, revision, display_name, instructions FROM reminder_plan_revision LIMIT 0",
                             "SELECT actor_id, operation_id, receipt_payload, rejection_reason, violations FROM plan_confirmation_operation LIMIT 0",
                             "SELECT actor_id, action, operation_id, receipt_revision, receipt_payload, violations FROM plan_mutation_operation LIMIT 0")
+                            .forEach { sql -> s.executeQuery(sql).close() }
+                    }
+                    if (occurrencesEnabled) {
+                        listOf("SELECT actor_id, operation_id, installation_id, elder_id, canonicalization_version, request_payload, response_payload, rejection_payload FROM occurrence_registration_operation LIMIT 0",
+                            "SELECT id, plan_id, local_date, local_time, plan_revision, elder_id, medication_id, installation_id, generation_id, origin_operation_id, receipt_payload FROM registered_occurrence LIMIT 0")
                             .forEach { sql -> s.executeQuery(sql).close() }
                     }
                 }
