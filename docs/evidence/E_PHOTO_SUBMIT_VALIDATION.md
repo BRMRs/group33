@@ -36,3 +36,16 @@ Required checks: `python3 scripts/check_repository_policy.py`, `./gradlew gate1C
 - Non-author feature review, S1 infrastructure/privacy review and S2 security/contract perspective. No agent approval/signature, no #13 closure.
 
 Rollback the added Activity/provider/resources and feature entry; do not delete unresolved private source/journal data as a rollback shortcut.
+
+
+## Main synchronization and validation — 2026-10-29
+
+Merge input: feature `1ba7af22bf7b55527ed2415eafd19a22e425fb3c` plus main `999e1826ebca07998eaa9e150c0e47b5b05921fa` (#45/#55). Only CONTRIBUTIONS and the artifact manifest conflicted. Both contribution rows and both file inventories are retained; hashes were recomputed after resolution. Room journal/C2 photo source equals main; E photo source equals the pre-merge feature head. No Room/C2 implementation is counted as new E work. The whole issue remains incomplete and this PR remains Draft.
+
+On the resolved merge tree, `gate1Check test :android-app:lintDebug :android-app:assembleDebug --offline` passed: 100 tasks, 75 executed/18 FROM-CACHE/7 UP-TO-DATE. Reports: Shared18, Server40, Android Debug67/Release67, total192 report executions, zero failures/errors/skips. Baseline tasks may reuse results. Lint0 errors/9 warnings; repository policy, hashes and diff checks passed.
+
+All19 instrumentation tests actually passed on the API37 test emulator: inherited Room journal12 plus E private-source/recovery/isolation5 and bilingual layout2. A repository-external Gradle init changed only the device-test applicationId to `com.group33.medicationreminder.pr82merge` to protect the existing development installation; source/resources were unchanged. This is not API23/35 or physical-device evidence.
+
+Actual normal launcher → Elder → photo entry → system camera → preview → explicit not-sent feedback passed; system document picker → generated PNG → private preview also passed after merging. No real personal/medical images or network upload were used. Device density420dpi/font1.0 remained/restored, the isolated package and public fixture were removed, and the original development package was retained. No TalkBack/grayscale claim.
+
+These results supersede the old unintegrated-main warning for #45/#55 only. Real authenticated adapters, metadata refresh, terminal cleanup, full journal/upload restart, shared #35/#59 UI integration and two-device authorization remain pending. Local gradle.properties was backed up/stashed for checks and is restored byte-for-byte without entering the merge commit.
