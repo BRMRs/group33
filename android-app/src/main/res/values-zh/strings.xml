@@ -5,6 +5,7 @@
     <string name="elder_role">长者</string>
     <string name="caregiver_role">照护者</string>
     <string name="shared_login_preview">预览共用登录页</string>
+    <string name="login_open_role_preview">查看角色预览（未登录）</string>
     <string name="login_title">欢迎使用</string>
     <string name="login_description">使用手机号轻松登录。</string>
     <string name="login_one_tap">本机号码一键登录</string>

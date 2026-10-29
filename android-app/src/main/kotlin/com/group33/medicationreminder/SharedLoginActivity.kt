@@ -35,7 +35,7 @@ import kotlinx.coroutines.launch
 internal fun nextLanguageChoice(displayedLanguage: String): LanguageChoice =
     if (displayedLanguage == "zh") LanguageChoice.ENGLISH else LanguageChoice.SIMPLIFIED_CHINESE
 
-/** Shared entry. Real phone verification awaits the coordinated #10 authentication contract. */
+/** Shared phone-auth entry; the server verifies Fusion results before account or session creation. */
 class SharedLoginActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySharedLoginBinding
     private val localDemo by lazy {
@@ -97,6 +97,9 @@ class SharedLoginActivity : AppCompatActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.state.collect(::render)
             }
+        }
+        binding.rolePreviewButton.setOnClickListener {
+            startActivity(Intent(this, MainActivity::class.java))
         }
     }
 

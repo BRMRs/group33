@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.kapt)
 }
 
 android {
@@ -48,6 +49,12 @@ android {
     sourceSets.getByName("test").resources.srcDir(rootProject.file("docs"))
 }
 
+kapt {
+    arguments {
+        arg("room.schemaLocation", "$projectDir/schemas")
+    }
+}
+
 kotlin {
     jvmToolchain(17)
 }
@@ -66,6 +73,10 @@ dependencies {
     implementation(files("libs/fusionauth-1.2.16-online-release.aar"))
     implementation(files("libs/umeng-common-9.5.6.aar"))
     implementation(files("libs/umeng-asms-v1.8.0.aar"))
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    kapt(libs.androidx.room.compiler)
 
     testImplementation(libs.junit4)
     testImplementation(libs.kotlinx.coroutines.test)
