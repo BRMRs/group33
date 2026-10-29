@@ -2,7 +2,10 @@ package com.group33.medicationreminder.core.data.journal
 
 import com.group33.medicationreminder.core.data.contract.*
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -73,6 +76,10 @@ internal class CommandRecoveryCoordinator(
         if (!current(session)) return@storage failure(LocalFailureCode.SESSION_NOT_READY)
         val reply = try {
             withTimeoutOrNull(HTTP_MILLIS) { adapter.execute(claim, session) } ?: RecoveryReply.Unknown
+        } catch (_: TimeoutCancellationException) {
+            // An adapter-local timeout is unknown completion; parent timeout is cancellation.
+            currentCoroutineContext().ensureActive()
+            RecoveryReply.Unknown
         } catch (cancelled: CancellationException) {
             // May already have reached the server. Persisted AWAITING and claim survive cancellation.
             throw cancelled
@@ -96,7 +103,12 @@ internal class CommandRecoveryCoordinator(
         }
         if (!current(session)) return@storage failure(LocalFailureCode.SESSION_NOT_READY)
         if (!journal.finish(claim, completion)) return@storage latest(id)
-        val finished = journal.find(id) ?: return@storage failure(LocalFailureCode.STORAGE_UNAVAILABLE)
+        // finish returned true: this receipt is already durable. A later read/cache failure
+        // must not erase known confirmation from the caller's result.
+        val finished = if (completion is CommandCompletion.Confirmed) record.copy(
+            state = OnlineCommandState.CONFIRMED, resultRef = completion.resultRef,
+            cacheState = CacheState.REFRESH_REQUIRED, error = null)
+        else journal.find(id) ?: return@storage failure(LocalFailureCode.STORAGE_UNAVAILABLE)
         if (finished.state == OnlineCommandState.CONFIRMED) reconcile(finished, adapter, session)
         else Outcome.Success(finished)
     }
@@ -109,13 +121,22 @@ internal class CommandRecoveryCoordinator(
         if (!current(session)) return failure(LocalFailureCode.SESSION_NOT_READY)
         val applied = try {
             adapter.reconcile(record, session) is Outcome.Success
+        } catch (_: TimeoutCancellationException) {
+            currentCoroutineContext().ensureActive()
+            false
         } catch (cancelled: CancellationException) { throw cancelled }
         catch (_: Exception) { false }
         if (!current(session)) return failure(LocalFailureCode.SESSION_NOT_READY)
         // Never turn an accepted server receipt into a failed save when cache application fails.
-        if (applied) journal.markCacheApplied(CommandContext(record.operationId, record.scope,
-            record.commandKind, record.targetId))
-        return latest(record.operationId)
+        return try {
+            if (applied) journal.markCacheApplied(CommandContext(record.operationId, record.scope,
+                record.commandKind, record.targetId))
+            when (val readback = latest(record.operationId)) {
+                is Outcome.Success -> readback
+                is Outcome.Failure -> Outcome.Success(record)
+            }
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { Outcome.Success(record) }
     }
 
     private suspend fun current(session: RecoverySession) = session.scope == journal.scope && session.isCurrent()

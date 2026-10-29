@@ -9,8 +9,12 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.*
@@ -80,6 +84,29 @@ class CommandRecoveryCoordinatorTest {
         assertEquals(0, reconciliations)
     }
 
+    @Test fun fresh_independent_writer_notifies_active_observer_on_first_commit() = runBlocking {
+        repeat(20) { count ->
+            val observer = open()
+            val updates = Channel<List<OnlineCommandRecord>>(Channel.UNLIMITED)
+            val job = launch { observer.observe().collect { updates.send(it) } }
+            try {
+                withTimeout(3_000) {
+                    assertEquals(count, updates.receive().size)
+                    val writer = open()
+                    val command = success(coordinator(writer).begin(OnlineCommandKind.UPDATE_PLAN, "fictional-plan"))
+                    var rows = updates.receive()
+                    while (rows.none { it.operationId == command.operationId }) rows = updates.receive()
+                    assertEquals(OnlineCommandState.NOT_SUBMITTED, rows.single { it.operationId == command.operationId }.state)
+                    writer.close()
+                }
+            } finally {
+                job.cancelAndJoin()
+                updates.close()
+                observer.close()
+            }
+        }
+    }
+
     @Test fun reopen_unknown_response_loss_reuses_original_key_payload_and_result() = runBlocking {
         val j = open(); val command = awaiting(j)
         j.close()
@@ -109,6 +136,45 @@ class CommandRecoveryCoordinatorTest {
         reopened.resume(command.operationId)
         assertEquals(1, calls.get())
         assertEquals(2, reconciliations)
+    }
+
+    @Test fun journal_cache_ack_failure_returns_known_confirmation_and_reopens_for_cache_only() = runBlocking {
+        val j = open(); val command = awaiting(j)
+        apply = { j.close(); Outcome.Success(Unit) }
+        val receipt = success(coordinator(j).resume(command.operationId))
+        assertEquals(OnlineCommandState.CONFIRMED, receipt.state)
+        assertEquals(result, receipt.resultRef)
+        assertEquals(CacheState.REFRESH_REQUIRED, receipt.cacheState)
+        val reopened = open()
+        assertEquals(OnlineCommandState.CONFIRMED, reopened.find(command.operationId)?.state)
+        apply = { Outcome.Success(Unit) }
+        assertEquals(CacheState.APPLIED, success(coordinator(reopened).resume(command.operationId)).cacheState)
+        assertEquals(1, calls.get())
+    }
+
+    @Test fun cache_local_timeout_retains_confirmed_receipt_for_later_reconciliation() = runBlocking {
+        val j = open(); val command = awaiting(j)
+        apply = { withTimeout(1) { delay(1_000); Outcome.Success(Unit) } }
+        val receipt = success(coordinator(j).resume(command.operationId))
+        assertEquals(OnlineCommandState.CONFIRMED, receipt.state)
+        assertEquals(CacheState.REFRESH_REQUIRED, receipt.cacheState)
+        assertEquals(result, j.find(command.operationId)?.resultRef)
+        assertEquals(1, calls.get())
+    }
+
+    @Test fun parent_cancellation_during_cache_keeps_receipt_and_propagates_cancellation() = runBlocking {
+        val j = open(); val command = awaiting(j)
+        val entered = CompletableDeferred<Unit>(); val never = CompletableDeferred<Unit>()
+        apply = { entered.complete(Unit); never.await(); Outcome.Success(Unit) }
+        val job = async { coordinator(j).resume(command.operationId) }
+        withTimeout(2_000) { entered.await() }
+        job.cancelAndJoin()
+        assertTrue(job.isCancelled)
+        assertEquals(OnlineCommandState.CONFIRMED, j.find(command.operationId)?.state)
+        assertEquals(CacheState.REFRESH_REQUIRED, j.find(command.operationId)?.cacheState)
+        apply = { Outcome.Success(Unit) }
+        assertEquals(CacheState.APPLIED, success(coordinator(j).resume(command.operationId)).cacheState)
+        assertEquals(1, calls.get())
     }
 
     @Test fun rejected_requires_explicit_online_retry_and_preserves_original_intent() = runBlocking {
@@ -189,6 +255,15 @@ class CommandRecoveryCoordinatorTest {
         assertEquals(OnlineCommandState.CONFIRMED, success(coordinator(open()).resume(command.operationId)).state)
         assertEquals(2, calls.get())
         assertArrayEquals(received[0].second, received[1].second)
+    }
+
+    @Test fun transport_local_timeout_returns_unknown_without_cancelling_active_caller() = runBlocking {
+        val j = open(); val command = awaiting(j)
+        execute = { withTimeout(1) { delay(1_000); RecoveryReply.Confirmed(result) } }
+        assertEquals(OnlineCommandState.AWAITING_CONFIRMATION,
+            success(coordinator(j).resume(command.operationId)).state)
+        assertEquals(OnlineCommandState.AWAITING_CONFIRMATION, j.find(command.operationId)?.state)
+        assertEquals(0, reconciliations)
     }
 
     @Test fun operation_in_progress_holds_claim_during_retry_after_and_stays_unknown() = runBlocking {
