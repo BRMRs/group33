@@ -1,0 +1,94 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "664b20f487e3a04ab8b55a98143ea960",
+    "entities": [
+      {
+        "tableName": "commands",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`operationId` TEXT NOT NULL, `kind` TEXT NOT NULL, `targetId` TEXT, `canonicalVersion` TEXT NOT NULL, `payload` BLOB, `state` TEXT NOT NULL, `claimToken` TEXT, `claimBoot` TEXT, `claimUntil` INTEGER, `resultKind` TEXT, `resultId` TEXT, `cacheState` TEXT, `rejectionJson` TEXT, PRIMARY KEY(`operationId`))",
+        "fields": [
+          {
+            "fieldPath": "operationId",
+            "columnName": "operationId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "targetId",
+            "columnName": "targetId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "canonicalVersion",
+            "columnName": "canonicalVersion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payload",
+            "columnName": "payload",
+            "affinity": "BLOB"
+          },
+          {
+            "fieldPath": "state",
+            "columnName": "state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "claimToken",
+            "columnName": "claimToken",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "claimBoot",
+            "columnName": "claimBoot",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "claimUntil",
+            "columnName": "claimUntil",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "resultKind",
+            "columnName": "resultKind",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "resultId",
+            "columnName": "resultId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "cacheState",
+            "columnName": "cacheState",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "rejectionJson",
+            "columnName": "rejectionJson",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "operationId"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '664b20f487e3a04ab8b55a98143ea960')"
+    ]
+  }
+}
