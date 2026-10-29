@@ -18,6 +18,14 @@ app:
   photo:
     enabled: ${PHOTO_ENABLED:false}
     root: ${PHOTO_OBJECT_ROOT:}
+    storage-mode: ${PHOTO_STORAGE_MODE:local-file}
+    supabase:
+      origin: ${SUPABASE_STORAGE_ORIGIN:}
+      bucket: ${SUPABASE_STORAGE_BUCKET:}
+      secret-key-file: ${SUPABASE_STORAGE_SECRET_KEY_FILE:}
+      request-budget-ms: ${SUPABASE_STORAGE_REQUEST_BUDGET_MS:30000}
+  supabase:
+    project-ref: ${SUPABASE_PROJECT_REF:}
   persistence:
     mode: ${PERSISTENCE_MODE:memory}
     jdbc-url: ${PERSISTENCE_JDBC_URL:}
@@ -25,6 +33,7 @@ app:
     username: ${PERSISTENCE_USERNAME:}
     password: ${PERSISTENCE_PASSWORD:}
     receipt-key-file: ${PERSISTENCE_RECEIPT_KEY_FILE:}
+    ssl-root-cert: ${PERSISTENCE_SSL_ROOT_CERT:}
   jwt:
     issuer: group33-server
     expires-in-seconds: 86400
