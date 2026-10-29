@@ -207,7 +207,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/group33_space_lg"
-                android:textColor="@color/group33_status_taken"
+                android:textColor="@color/group33_text_primary"
                 android:visibility="gone"
                 tools:text="已在本机记录"
                 tools:visibility="visible" />
