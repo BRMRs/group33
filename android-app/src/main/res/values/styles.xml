@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <style name="TextAppearance.Group33.Navigation" parent="TextAppearance.Material3.LabelLarge">
+        <item name="android:textSize">14sp</item>
+    </style>
     <style name="TextAppearance.Group33.Title" parent="TextAppearance.Material3.HeadlineMedium">
         <item name="android:textColor">@color/group33_text_primary</item>
         <item name="android:textStyle">bold</item>

@@ -27,11 +27,11 @@ object UnavailableCaregiverContextSource : CaregiverNavigationContextSource {
     override fun observe(): Flow<CaregiverNavigationContext> = flowOf(CaregiverNavigationContext.Unavailable)
 }
 
-enum class CaregiverDestination { HOME, PLANS, RECORDS, SETTINGS }
+enum class CaregiverDestination { PLANS, RECORDS, SETTINGS }
 
 data class CaregiverNavigationState(
     val context: CaregiverNavigationContext = CaregiverNavigationContext.Unavailable,
-    val destination: CaregiverDestination = CaregiverDestination.HOME,
+    val destination: CaregiverDestination = CaregiverDestination.PLANS,
 )
 
 class CaregiverNavigationViewModel(source: CaregiverNavigationContextSource) : ViewModel() {
