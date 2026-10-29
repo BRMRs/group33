@@ -29,9 +29,8 @@
     <string name="language_save_failed">未能保存语言设置，请重试。</string>
     <string name="elder_home_title">今日用药</string>
     <string name="elder_home_hint">此页仅显示本机示例长者的计划（按上海时区统计），尚未登录或同步。服药提醒与确认功能待实现。</string>
-    <string name="caregiver_home_title">照护者首页</string>
     <string name="caregiver_navigation_title">照护者</string>
-    <string name="caregiver_navigation_demo">本地预览 · 这里的长者只是示例数据，并非真实有效的照护关系。</string>
+    <string name="caregiver_navigation_demo">本地预览 · 示例数据</string>
     <string name="caregiver_navigation_preview_action">预览小辈导航（示例数据）</string>
     <string name="caregiver_current_elder">当前长者</string>
     <string name="caregiver_no_current_elder">尚未选择长者</string>
@@ -40,13 +39,11 @@
     <string name="caregiver_active_relationship">有效的照护关系</string>
     <string name="caregiver_preview_relationship">仅用于导航预览的示例长者</string>
     <string name="caregiver_choose_or_pair_elder">请与长者配对，或从有效关系中选择一位长者。</string>
-    <string name="caregiver_home_nav">首页</string>
     <string name="caregiver_plans_title">计划</string>
     <string name="caregiver_records_title">记录</string>
     <string name="caregiver_settings_title">设置</string>
-    <string name="caregiver_home_intro">请选择计划、记录或设置。</string>
     <string name="caregiver_settings_intro">可在下方切换语言，选择会保存到下次使用。</string>
-    <string name="caregiver_feature_pending">此页面尚未接通，暂不显示长者资料。</string>
+    <string name="caregiver_feature_pending">此区域待接入，尚未加载记录。</string>
     <string name="add_demo_schedule">添加示例提醒计划</string>
     <string name="demo_data_notice">此页仅为本机示例预览，使用上海时区，尚未登录、配对或同步。数据只保存在内存中，不构成医疗建议。</string>
     <string name="no_schedules">暂无计划</string>
