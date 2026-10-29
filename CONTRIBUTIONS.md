@@ -45,3 +45,7 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 ### S2 Supabase test runtime candidate — 2026-10-28
 
 XinyanXue prepared explicit project-scoped PostgreSQL TLS and private Storage runtime configuration, hardened private isolated-schema/settings preparation and regression tests. Real Supabase photo/plan business HTTP passed78 assertions through a complete local backend JVM restart, with one503 recovered using the original edit operation; failed earlier network attempts are retained. Refs #16; see docs/evidence/S2_SUPABASE_RUNTIME.md. Existing business adapters and dependency contributions retain their authorship. Render/device acceptance and expanded non-author review remain pending; this is not #16/#20 completion.
+
+### S2 Render test deployment candidate — 2026-10-29
+
+XinyanXue prepared the isolated server/Shared Docker build, pinned Java17 images, private runtime export/bootstrap and fail-closed/exec regressions. Refs #16; [scope/evidence](docs/evidence/S2_RENDER_TEST_DEPLOYMENT.md) and [setup](docs/RENDER_TEST_DEPLOYMENT.md). Retains #80 and the merged S1 Room contribution without claiming their authorship. Actual Render/device acceptance and non-author deployment/security review remain pending.
