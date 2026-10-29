@@ -32,7 +32,13 @@
     <string name="login_back_to_role">Back to role selection</string>
     <string name="login_signed_in_as">%1$s · %2$s</string>
     <string name="login_demo_no_real_session">Local UI demo only. No phone number was verified and no server session exists.</string>
-    <string name="login_real_session_pending">Authentication is not connected to the server yet.</string>
+    <string name="login_real_session_pending">Phone sign-in complete. The home screen is still a preview.</string>
+    <string name="login_privacy_title">Phone verification and privacy</string>
+    <string name="login_privacy_message">Phone sign-in uses Alibaba Cloud Fusion Authentication and may collect device and network information. Read the privacy policy before continuing.</string>
+    <string name="login_view_privacy">View privacy policy</string>
+    <string name="login_agree_continue">Agree and continue</string>
+    <string name="login_trial_privacy_title">Local authentication trial</string>
+    <string name="login_trial_privacy_message">This private trial uses Alibaba Cloud Fusion Authentication. Device, network and phone information may be sent to Alibaba Cloud. The local server stores a keyed phone digest and the selected role; an encrypted app session is kept on this device. Continue only if you agree to this test.</string>
     <string name="login_open_home_preview">Open home preview</string>
     <string name="login_sign_out">Sign out</string>
     <string name="login_local_demo_notice">LOCAL DEMO · No real phone verification.</string>

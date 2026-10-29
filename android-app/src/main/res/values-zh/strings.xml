@@ -32,7 +32,13 @@
     <string name="login_back_to_role">返回选择身份</string>
     <string name="login_signed_in_as">%1$s · %2$s</string>
     <string name="login_demo_no_real_session">仅为本机界面演示：没有验证真实手机号，也没有服务端登录会话。</string>
-    <string name="login_real_session_pending">尚未接入服务端认证。</string>
+    <string name="login_real_session_pending">手机号登录已完成，首页目前仍是预览。</string>
+    <string name="login_privacy_title">手机号验证与隐私</string>
+    <string name="login_privacy_message">手机号登录使用阿里云融合认证，可能收集设备和网络信息。请阅读隐私政策后继续。</string>
+    <string name="login_view_privacy">查看隐私政策</string>
+    <string name="login_agree_continue">同意并继续</string>
+    <string name="login_trial_privacy_title">本地认证测试说明</string>
+    <string name="login_trial_privacy_message">本次私人测试使用阿里云融合认证，设备、网络和手机号信息可能发送给阿里云。本机服务端保存手机号的带密钥摘要和所选身份，设备保存加密登录会话。同意本次测试后再继续。</string>
     <string name="login_open_home_preview">打开首页预览</string>
     <string name="login_sign_out">退出登录</string>
     <string name="login_local_demo_notice">本地演示 · 不会验证真实手机号。</string>

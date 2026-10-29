@@ -15,6 +15,13 @@ android {
         versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        val authUrl = providers.gradleProperty("phoneAuthBaseUrl").orElse("").get()
+        val privacyUrl = providers.gradleProperty("phoneAuthPrivacyPolicyUrl").orElse("").get()
+        require(!authUrl.contains('"') && !authUrl.contains('\\') && !authUrl.contains('\n'))
+        require(!privacyUrl.contains('"') && !privacyUrl.contains('\\') && !privacyUrl.contains('\n'))
+        buildConfigField("String", "PHONE_AUTH_BASE_URL", "\"$authUrl\"")
+        buildConfigField("String", "PHONE_AUTH_PRIVACY_POLICY_URL", "\"$privacyUrl\"")
+        buildConfigField("boolean", "PHONE_AUTH_LOCAL_TRIAL", providers.gradleProperty("phoneAuthLocalTrial").orElse("false").get())
     }
 
     buildTypes {
@@ -35,6 +42,7 @@ android {
 
     buildFeatures {
         viewBinding = true
+        buildConfig = true
     }
 
     sourceSets.getByName("test").resources.srcDir(rootProject.file("docs"))
@@ -54,6 +62,10 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.material)
     implementation(libs.kotlinx.coroutines.android)
+    // Alibaba's downloaded Fusion Auth bundle includes these local Android SDK artifacts.
+    implementation(files("libs/fusionauth-1.2.16-online-release.aar"))
+    implementation(files("libs/umeng-common-9.5.6.aar"))
+    implementation(files("libs/umeng-asms-v1.8.0.aar"))
 
     testImplementation(libs.junit4)
     testImplementation(libs.kotlinx.coroutines.test)

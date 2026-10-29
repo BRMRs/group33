@@ -28,7 +28,10 @@ class SecurityConfig {
         .csrf { it.disable() }
         .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
         .authorizeHttpRequests {
-            it.requestMatchers("/health", "/api/v1/auth/anonymous").permitAll()
+            it.requestMatchers(
+                "/health", "/api/v1/auth/anonymous", "/api/v1/auth/fusion/token",
+                "/api/v1/auth/fusion/verify", "/api/v1/auth/phone/register",
+            ).permitAll()
             it.anyRequest().authenticated()
         }
         .exceptionHandling {

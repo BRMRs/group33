@@ -2,6 +2,17 @@ server:
   port: ${PORT:8080}
 
 app:
+  fusion:
+    enabled: ${PHONE_AUTH_ENABLED:false}
+    access-key-id: ${ALIBABA_CLOUD_ACCESS_KEY_ID:}
+    access-key-secret: ${ALIBABA_CLOUD_ACCESS_KEY_SECRET:}
+    scheme-code: ${PHONE_AUTH_SCHEME_CODE:}
+    package-name: ${PHONE_AUTH_PACKAGE_NAME:com.group33.medicationreminder}
+    package-sign: ${PHONE_AUTH_PACKAGE_SIGN:}
+    database-url: ${PHONE_AUTH_DATABASE_URL:}
+    database-user: ${PHONE_AUTH_DATABASE_USER:}
+    database-password: ${PHONE_AUTH_DATABASE_PASSWORD:}
+    phone-hash-key: ${PHONE_AUTH_HASH_KEY:}
   jwt:
     issuer: group33-server
     expires-in-seconds: 86400

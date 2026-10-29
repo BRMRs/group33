@@ -1,15 +1,26 @@
 package com.group33.medicationreminder.auth
 
 import com.group33.shared.model.UserRole
+import android.content.Context
+import com.group33.medicationreminder.BuildConfig
 import java.security.MessageDigest
 
-internal fun createPhoneAuthRepository(localDemoRequested: Boolean): PhoneAuthRepository =
-    if (localDemoRequested) LocalDemoPhoneAuthRepository else UnconfiguredPhoneAuthRepository
+internal fun createPhoneAuthRepository(localDemoRequested: Boolean, context: Context): PhoneAuthRepository =
+    if (localDemoRequested) LocalDemoPhoneAuthRepository else createFusionRepository(context)
+
+internal fun createFusionRepository(context: Context): PhoneAuthRepository = try {
+    val localTrial = BuildConfig.PHONE_AUTH_LOCAL_TRIAL && BuildConfig.PHONE_AUTH_BASE_URL.startsWith("http://10.0.2.2:")
+    if (BuildConfig.PHONE_AUTH_BASE_URL.isBlank() || (!localTrial && !BuildConfig.PHONE_AUTH_PRIVACY_POLICY_URL.startsWith("https://"))) {
+        UnconfiguredPhoneAuthRepository
+    } else {
+        FusionPhoneAuthRepository(context, BuildConfig.PHONE_AUTH_BASE_URL, allowHttp = localTrial)
+    }
+} catch (_: Exception) { UnconfiguredPhoneAuthRepository }
 
 /** Debug-only, in-memory UI rehearsal. It never verifies a real phone number or sends an SMS. */
 internal object LocalDemoPhoneAuthRepository : PhoneAuthRepository {
-    const val ELDER_PHONE = "13800000000"
-    const val CAREGIVER_PHONE = "13900000000"
+    // Represents the SIM number returned by the carrier SDK in the local preview.
+    const val ONE_TAP_PHONE = "13800000000"
     const val CODE = "123456"
 
     private data class DemoAccount(val account: PhoneAccount, var passwordDigest: String?)
@@ -20,10 +31,12 @@ internal object LocalDemoPhoneAuthRepository : PhoneAuthRepository {
 
     override suspend fun restore(): PhoneAccount? = currentPhone?.let { accounts[it]?.account }
 
-    override suspend fun oneTap(): PhoneAuthResult = verified(ELDER_PHONE)
+    override suspend fun oneTap(): PhoneAuthResult = verified(ONE_TAP_PHONE)
 
     override suspend fun requestSms(phone: String): PhoneActionResult {
-        if (!samplePhone(phone)) return PhoneActionResult.Failed(PhoneAuthError.INVALID_PHONE)
+        if (!phone.matches(Regex("\\+?[0-9]{8,15}"))) {
+            return PhoneActionResult.Failed(PhoneAuthError.INVALID_PHONE)
+        }
         codePhone = phone
         return PhoneActionResult.Success
     }
@@ -78,8 +91,6 @@ internal object LocalDemoPhoneAuthRepository : PhoneAuthRepository {
             PhoneAuthResult.SignedIn(record.account)
         }
     }
-
-    private fun samplePhone(phone: String) = phone == ELDER_PHONE || phone == CAREGIVER_PHONE
 
     private fun digest(value: String): String = MessageDigest.getInstance("SHA-256")
         .digest(value.toByteArray(Charsets.UTF_8))

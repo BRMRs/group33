@@ -1,6 +1,7 @@
 package com.group33.medicationreminder.auth
 
 import androidx.lifecycle.ViewModel
+import android.app.Activity
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.group33.shared.model.UserRole
@@ -35,6 +36,10 @@ class LoginFlowViewModel(private val repository: PhoneAuthRepository) : ViewMode
     private val mutableState = MutableStateFlow(LoginFlowState(busy = true))
     val state = mutableState.asStateFlow()
     private var generation = 0
+
+    internal fun attachActivity(activity: Activity) {
+        (repository as? ActivityBoundPhoneAuth)?.attach(activity)
+    }
 
     init {
         val request = ++generation

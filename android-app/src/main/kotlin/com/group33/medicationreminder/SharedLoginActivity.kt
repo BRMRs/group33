@@ -2,11 +2,13 @@ package com.group33.medicationreminder
 
 import android.content.Intent
 import android.content.pm.ApplicationInfo
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AlertDialog
 import androidx.core.os.ConfigurationCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -41,7 +43,7 @@ class SharedLoginActivity : AppCompatActivity() {
             intent.getBooleanExtra(EXTRA_LOCAL_AUTH_DEMO, false)
     }
     private val viewModel: LoginFlowViewModel by viewModels {
-        LoginFlowViewModel.Factory(createPhoneAuthRepository(localDemo))
+        LoginFlowViewModel.Factory(createPhoneAuthRepository(localDemo, applicationContext))
     }
     private var announcedNotice: LoginNotice? = null
 
@@ -49,6 +51,7 @@ class SharedLoginActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivitySharedLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        viewModel.attachActivity(this)
         WindowCompat.getInsetsController(window, binding.root).isAppearanceLightStatusBars = true
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -63,10 +66,15 @@ class SharedLoginActivity : AppCompatActivity() {
         binding.languageButton.contentDescription = getString(R.string.language_switch_action)
         binding.languageButton.setOnClickListener { switchLanguage(displayedLanguage) }
         binding.localDemoNotice.visibility = if (localDemo) View.VISIBLE else View.GONE
+        binding.otherMethodsButton.visibility = View.VISIBLE
+        binding.passwordButton.visibility = if (localDemo) View.VISIBLE else View.GONE
+        binding.registrationPasswordField.visibility = if (localDemo) View.VISIBLE else View.GONE
 
-        binding.oneTapButton.setOnClickListener { viewModel.oneTap() }
+        binding.oneTapButton.setOnClickListener { startPhoneSignIn() }
         binding.otherMethodsButton.setOnClickListener { viewModel.toggleAlternatives() }
-        binding.smsButton.setOnClickListener { viewModel.showMethod(LoginMethod.SMS) }
+        binding.smsButton.setOnClickListener {
+            if (localDemo) viewModel.showMethod(LoginMethod.SMS) else startPhoneSignIn()
+        }
         binding.passwordButton.setOnClickListener { viewModel.showMethod(LoginMethod.PASSWORD) }
         binding.backToMethodsButton.setOnClickListener { viewModel.showMethod(LoginMethod.CHOICE) }
         binding.forgotPasswordButton.setOnClickListener { viewModel.showMethod(LoginMethod.RESET) }
@@ -130,7 +138,7 @@ class SharedLoginActivity : AppCompatActivity() {
             val role = getString(if (account.role == UserRole.ELDER) R.string.elder_role else R.string.caregiver_role)
             binding.signedInTitle.text = getString(R.string.login_signed_in_as, account.displayName, role)
         }
-        binding.openHomeButton.visibility = if (localDemo) View.VISIBLE else View.GONE
+        binding.openHomeButton.visibility = View.VISIBLE
         binding.signedInDescription.setText(
             if (localDemo) R.string.login_demo_no_real_session else R.string.login_real_session_pending,
         )
@@ -191,10 +199,37 @@ class SharedLoginActivity : AppCompatActivity() {
     }
 
     private fun openDemoHome() {
-        if (!localDemo) return
         val role = viewModel.state.value.account?.role ?: return
         val destination = if (role == UserRole.ELDER) ElderHomeActivity::class.java else CaregiverHomeActivity::class.java
         startActivity(Intent(this, destination))
+    }
+
+    private fun startPhoneSignIn() {
+        val policyUrl = BuildConfig.PHONE_AUTH_PRIVACY_POLICY_URL
+        val localTrial = BuildConfig.DEBUG && BuildConfig.PHONE_AUTH_LOCAL_TRIAL &&
+            BuildConfig.PHONE_AUTH_BASE_URL.startsWith("http://10.0.2.2:")
+        if (localTrial && !localDemo) {
+            AlertDialog.Builder(this)
+                .setTitle(R.string.login_trial_privacy_title)
+                .setMessage(R.string.login_trial_privacy_message)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.login_agree_continue) { _, _ -> viewModel.oneTap() }
+                .show()
+            return
+        }
+        if (localDemo || BuildConfig.PHONE_AUTH_BASE_URL.isBlank() || !policyUrl.startsWith("https://")) {
+            viewModel.oneTap()
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.login_privacy_title)
+            .setMessage(R.string.login_privacy_message)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setNeutralButton(R.string.login_view_privacy) { _, _ ->
+                runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(policyUrl))) }
+            }
+            .setPositiveButton(R.string.login_agree_continue) { _, _ -> viewModel.oneTap() }
+            .show()
     }
 
     private fun switchLanguage(displayedLanguage: String) {
