@@ -13,6 +13,8 @@ server:
   port: ${PORT:8080}
 
 app:
+  occurrence:
+    enabled: ${OCCURRENCE_ENABLED:false}
   plan:
     enabled: ${PLAN_ENABLED:false}
   photo:
