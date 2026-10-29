@@ -51,3 +51,29 @@ end-to-end acceptance. See C2_PLAN_PRESENTATION.md for the pending matrix.
 User feedback (2026-10-29): the C2 owner reported that the Debug page looked
 okay and authorized the next delivery step. This is a basic trial report, not
 a claim that every scenario, locale, TalkBack or production flow was accepted.
+
+## Follow-up verification, 2026-10-29
+
+PR #86 initial CI passed; #43 and #58 remain open. New device tests bring
+PlanEditorViewTest to 6 passing tests on both API27 tablet and API37.1 emulator:
+unknown/cache-pending reconciles the original operation without another confirm;
+unsent retry keeps its ID; unchanged rejection is not replayed and corrected
+input creates a new intent; invalid name/time/date and unacknowledged zone
+prevent submission while preserving input. These remain repository-double tests.
+`gate1Check test :android-app:assembleDebugAndroidTest` passed (129 tasks).
+
+Screenshot check: emulator 840x1680 px at 420dpi (320dp width), font scale 2.0,
+English and zh-CN. The page scrolls to the complete save button in both locales.
+Debug notice occupies substantial vertical space at this scale; this is not a
+finished production layout. Locale, font scale and screen size restored after
+capture. Images contain synthetic test data only; image pixels are a fixed
+English debug fixture, not translated production photo content.
+
+| Locale | Top | Bottom / save action |
+|---|---|---|
+| English | [Top](c2-editor/en-320dp-200-top.png) | [Bottom](c2-editor/en-320dp-200-bottom.png) |
+| Simplified Chinese | [Top](c2-editor/zh-CN-320dp-200-top.png) | [Bottom](c2-editor/zh-CN-320dp-200-bottom.png) |
+
+Not yet verified: full focus/keyboard and TalkBack traversal, grayscale,
+360dp matrix, lifecycle/scope switching and actual authorized photos/network.
+Screenshots show editing state, not all result-state variants. #51 remains open.

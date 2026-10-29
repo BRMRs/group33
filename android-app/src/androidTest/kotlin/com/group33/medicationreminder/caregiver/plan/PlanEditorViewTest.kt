@@ -79,6 +79,107 @@ class PlanEditorViewTest {
         }
     }
 
+    @Test fun unknownAndCachePendingOnlyReconcileOriginalOperation() {
+        for (pendingCache in listOf(false, true)) withBoundEditor { host, editor, fixture ->
+            fixture.resultState = if (pendingCache) com.group33.medicationreminder.core.data.contract.OnlineCommandState.CONFIRMED
+                else com.group33.medicationreminder.core.data.contract.OnlineCommandState.AWAITING_CONFIRMATION
+            fixture.cache = com.group33.medicationreminder.core.data.contract.CacheState.REFRESH_REQUIRED
+            onUi { checks(editor).first().isChecked = true; action(editor).performClick() }
+            onUi {
+                assertEquals(host.getString(if (pendingCache) R.string.c2_plan_refresh_cache else R.string.c2_plan_check_result), action(editor).text.toString())
+                assertTrue(edits(editor).none { it.isEnabled })
+                action(editor).performClick()
+            }
+            onUi {
+                assertEquals(1, fixture.begins)
+                assertEquals(1, fixture.calls.size)
+                assertEquals(listOf(fixture.calls.single().operationId), fixture.resumes)
+                assertFalse(action(editor).isEnabled)
+            }
+        }
+    }
+
+    @Test fun unsentRetryRetainsIntentAndRejectedRequiresChangedInput() {
+        for (rejected in listOf(false, true)) withBoundEditor { _, editor, fixture ->
+            fixture.resultState = if (rejected) com.group33.medicationreminder.core.data.contract.OnlineCommandState.REJECTED
+                else com.group33.medicationreminder.core.data.contract.OnlineCommandState.NOT_SUBMITTED
+            onUi { checks(editor).first().isChecked = true; action(editor).performClick() }
+            onUi {
+                assertTrue(edits(editor).all { it.isEnabled })
+                assertEquals("Test name", edits(editor).first().text.toString())
+                action(editor).performClick()
+            }
+            if (rejected) {
+                onUi { action(editor).performClick() }
+                onUi {
+                    assertEquals(1, fixture.calls.size)
+                    edits(editor).first().setText("Corrected name")
+                    action(editor).performClick()
+                }
+                onUi { assertEquals(2, fixture.begins); assertEquals(2, fixture.calls.size) }
+            } else onUi {
+                assertEquals(1, fixture.begins)
+                assertEquals(2, fixture.calls.size)
+                assertEquals(fixture.calls[0].operationId, fixture.calls[1].operationId)
+            }
+        }
+    }
+
+    @Test fun invalidFieldsAndUnacknowledgedZoneDoNotSubmit() = withBoundEditor { _, editor, fixture ->
+        onUi {
+            checks(editor).first().isChecked = true
+            edits(editor)[0].setText("")
+            edits(editor)[3].setText("25:00")
+            edits(editor)[5].setText("2026-01-01")
+            action(editor).performClick()
+        }
+        onUi {
+            assertEquals(0, fixture.begins)
+            for (index in listOf(0, 3, 5)) assertNotNull(edits(editor)[index].error)
+            assertEquals("25:00", edits(editor)[3].text.toString())
+            edits(editor)[0].setText("Test name")
+            edits(editor)[3].setText("08:00")
+            edits(editor)[5].setText("")
+            edits(editor)[6].setText("Europe/London")
+            action(editor).performClick()
+        }
+        onUi {
+            assertEquals(0, fixture.begins)
+            assertEquals(View.VISIBLE, checks(editor).last().visibility)
+            checks(editor).last().isChecked = true
+            action(editor).performClick()
+        }
+        onUi { assertEquals(1, fixture.begins) }
+    }
+
+    private fun onUi(block: () -> Unit) {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        instrumentation.runOnMainSync(block)
+        instrumentation.waitForIdleSync()
+    }
+    private fun edits(editor: PlanEditorView) = descendants(editor).filterIsInstance<EditText>()
+    private fun checks(editor: PlanEditorView) = descendants(editor).filterIsInstance<CheckBox>()
+    private fun action(editor: PlanEditorView) = descendants(editor).filterIsInstance<Button>().filterNot { it is CheckBox }.single()
+
+    private fun withBoundEditor(test: (PlanEditorDebugActivity, PlanEditorView, PlanEditorFixture) -> Unit) {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val host = instrumentation.startActivitySync(android.content.Intent(instrumentation.targetContext,
+            PlanEditorDebugActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) as PlanEditorDebugActivity
+        val fixture = PlanEditorFixture()
+        val bitmap = android.graphics.Bitmap.createBitmap(20, 20, android.graphics.Bitmap.Config.ARGB_8888)
+        lateinit var editor: PlanEditorView
+        try {
+            onUi {
+                editor = descendants(host.window.decorView).filterIsInstance<PlanEditorView>().single()
+                val form = PlanFormViewModel().apply { updateInput(PlanFormInput("Test name", "Test dose",
+                    localTimes = listOf("08:00"), startDate = "2026-10-29", executionTimeZoneId = "Asia/Shanghai")) }
+                editor.bind(host, "Test Elder", com.group33.shared.contract.MedicationPhotoView("test-photo", "elder", "image/png", 1),
+                    bitmap, "Asia/Shanghai", "Asia/Shanghai", form, fixture.model)
+            }
+            test(host, editor, fixture)
+        } finally { onUi { editor.clear(); host.finish() }; bitmap.recycle() }
+    }
+
     private fun descendants(view: View): List<View> = listOf(view) +
         if (view is ViewGroup) (0 until view.childCount).flatMap { descendants(view.getChildAt(it)) } else emptyList()
 }
