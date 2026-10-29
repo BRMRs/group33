@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="c3_history_window_hint">按事件原定的当地日期筛选。默认 30 个日期，最多 90 个日期（含首尾）；筛选不会删除更早的记录。点击记录查看详情。</string>
+  <string name="c3_history_from">开始日期（YYYY-MM-DD）</string>
+  <string name="c3_history_through">结束日期（YYYY-MM-DD）</string>
+  <string name="c3_history_apply">读取所选日期的记录</string>
+  <string name="c3_history_applied_range">当前已应用日期：%1$s 至 %2$s</string>
+  <string name="c3_history_invalid_date">请输入 YYYY-MM-DD 格式的真实日期；此前已应用的日期不变。</string>
+  <string name="c3_history_reversed">结束日期不能早于开始日期；已应用的日期不变。</string>
+  <string name="c3_history_too_long">最多选择 90 个日期（含首尾）。本次未发送查询，也未删除记录。</string>
+  <string name="c3_history_read_error">未能完整读取记录，如有最后已知记录将继续保留；这不是历史记录为空的结果。</string>
+  <string name="c3_history_retry">重新读取本地记录</string>
+  <string name="c3_history_details">事件详情</string>
+  <string name="c3_history_instructions">该事件记录的用药说明：%1$s</string>
+  <string name="c3_history_no_instructions">该事件没有记录用药说明。</string>
+  <string name="c3_history_close_details">关闭详情</string>
+  <string name="c3_history">查看事件历史</string>
+  <string name="c3_history_pick_range">选择日期</string>
+  <string name="c3_history_use_dates">使用这些日期</string>
+  <string name="c3_history_cancel_dates">取消</string>
+  <string name="c3_history_previous_month">上个月</string>
+  <string name="c3_history_next_month">下个月</string>
+  <string name="c3_history_scroll_calendar">左右滑动日历可查看全部日期。</string>
+  <string name="c3_history_calendar_from">开始日期：%1$s</string>
+  <string name="c3_history_calendar_through">结束日期：%1$s</string>
+  <string name="c3_history_date_not_selected">未选择</string>
+  <string name="c3_history_same_day">%1$s。开始及结束日期，已选中。</string>
+  <string name="c3_history_start_day">%1$s。开始日期，已选中。</string>
+  <string name="c3_history_end_day">%1$s。结束日期，已选中。</string>
+  <string name="c3_history_between_days">%1$s。在所选日期内。</string>
+  <string name="c3_history_unselected_day">%1$s。未选中。</string>
+  <string-array name="c3_history_weekdays">
+    <item>一</item>
+    <item>二</item>
+    <item>三</item>
+    <item>四</item>
+    <item>五</item>
+    <item>六</item>
+    <item>日</item>
+  </string-array>
+</resources>
