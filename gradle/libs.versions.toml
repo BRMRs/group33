@@ -14,10 +14,12 @@ junit4 = "4.13.2"
 androidxJunit = "1.2.1"
 espresso = "3.6.1"
 desugar = "2.1.5"
+aliyunDypns = "2.0.0"
 room = "2.7.2"
 
 [libraries]
 desugar-jdk-libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugar" }
+aliyun-dypns = { module = "com.aliyun:dypnsapi20170525", version.ref = "aliyunDypns" }
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
 androidx-activity-ktx = { module = "androidx.activity:activity-ktx", version.ref = "activity" }
 androidx-constraintlayout = { module = "androidx.constraintlayout:constraintlayout", version.ref = "constraintlayout" }

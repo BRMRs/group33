@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
 
     <application
         android:allowBackup="true"
@@ -27,6 +29,32 @@
         <activity
             android:name=".MainActivity"
             android:exported="false" />
+        <activity android:name="com.alicom.fusion.auth.numberauth.FusionNumberAuthActivity"
+            android:exported="false" android:configChanges="orientation|keyboardHidden|screenSize"
+            android:screenOrientation="behind" android:theme="@style/NumberAuthTheme" />
+        <activity android:name="com.alicom.fusion.auth.smsauth.FusionSmsActivity"
+            android:exported="false" android:configChanges="orientation|keyboardHidden|screenSize"
+            android:screenOrientation="behind" />
+        <activity android:name="com.alicom.fusion.auth.graphauth.FusionGraphAuthActivity"
+            android:exported="false" android:configChanges="orientation|keyboardHidden|screenSize"
+            android:screenOrientation="behind" />
+        <activity android:name="com.alicom.fusion.auth.upsms.AlicomFusionUpSmsActivity"
+            android:exported="false" android:configChanges="orientation|keyboardHidden|screenSize"
+            android:screenOrientation="behind" />
+        <activity android:name="com.mobile.auth.gatewayauth.LoginAuthActivity"
+            android:exported="false" android:configChanges="orientation|keyboardHidden|screenSize"
+            android:launchMode="singleTop" android:screenOrientation="behind"
+            android:theme="@style/authsdk_activity_dialog" />
+        <activity android:name="com.mobile.auth.gatewayauth.PrivacyDialogActivity"
+            android:exported="false" android:configChanges="orientation|keyboardHidden|screenSize"
+            android:launchMode="singleTop" android:screenOrientation="behind"
+            android:theme="@style/authsdk_activity_dialog" />
+        <activity android:name=".auth.FusionProtocolActivity" android:exported="false">
+            <intent-filter>
+                <action android:name="com.fusion.auth" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
     </application>
 
 </manifest>
