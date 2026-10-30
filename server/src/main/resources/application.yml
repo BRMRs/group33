@@ -22,6 +22,7 @@ app:
     root: ${PHOTO_OBJECT_ROOT:}
   persistence:
     mode: ${PERSISTENCE_MODE:memory}
+    require-versioned-schema: ${PERSISTENCE_REQUIRE_VERSIONED_SCHEMA:false}
     jdbc-url: ${PERSISTENCE_JDBC_URL:}
     schema: ${PERSISTENCE_SCHEMA:}
     username: ${PERSISTENCE_USERNAME:}
