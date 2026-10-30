@@ -1,0 +1,23 @@
+# Authorized plan collection snapshots
+
+2026-10-31 — XinyanXue / S2, Refs #14 / #16. Child of exact Draft #93 `909e506249dd43f06b0c0070bd9c69ec50eab6c4`; actual main observed as `b2aeb492a97ea1e17ced4da22972f34cae44ea73`. Existing Shared DTOs and GET routes are preserved.
+
+## Behavior and boundary
+
+Medication GET and plan/revision GET now use a server-private `PlanReadTransaction` exposing only current relationship and resource reads. The PostgreSQL adapter opens one primary connection, sets JDBC/server read-only and Repeatable Read, and reads current relationship plus all requested plan/revision tables in that same transaction. It rolls back to end a successful read and closes on success/failure. The existing data source remains responsible for bounded connection/socket configuration. A transaction-local five-second statement timeout and the existing lock-wait setting bound database statements; zero lock-wait retains PostgreSQL's disabled lock timeout but the statement limit still applies. SQLSTATE 55P03 maps to the existing retryable OPERATION_IN_PROGRESS response; other database failures retain the existing SERVICE_UNAVAILABLE mapping.
+
+Reads do not take the pairing issuance write guard. A read already in progress may return the coherent state authorized in its snapshot while an edit/revocation commits; every subsequent request checks a new snapshot and denies the revoked caregiver. This is snapshot authorization, not a claim that revocation cancels an already executing response. Independent HTTP requests do not share a snapshot. This is not the full `GET /elders/{elderId}/snapshot` endpoint or V2 history projection. Photo-content authorization still holds its original guard through private object reading. Write-side authorization, revisions, receipts, transactions and schema remain unchanged.
+
+The old read path used the global guard and READ COMMITTED and already serialized compliant writes. This change adds database-enforced read-only snapshots and prevents unrelated guard contention from blocking GET; it does not claim a previously demonstrated mixed-version disclosure. In-memory reads retain the existing copy-on-write guard through the default read seam. The internal type is not a new Android Repository or public contract.
+
+## Meaningful verification
+
+The initial seven new real PostgreSQL cases were run before the persistent read implementation: five failed (read-only/isolation, accidental write rejection, write-guard independence and two concurrent edit/revocation cases). Existing mutation cases passed. The same seven assertions passed after the adapter change. An eighth case additionally executes a real long PostgreSQL statement to verify cancellation, controlled unavailable handling, connection closure and later recovery.
+
+The concurrent service tests pause immediately after current relationship lookup, commit a real edit and revocation on another connection before continuing the read, and require the old coherent resources/revisions. A subsequent caregiver request must be denied and an elder request must see the new revision. Other cases exercise a real held write guard, a real table lock and recovery, actual server read-only/isolation settings, SQLSTATE 25006 for an attempted write, and callback rollback/connection closure. Fixtures use the dedicated loopback practice database and fictional identities.
+
+Reproduce with JDK17/SDK35: `./gradlew gate1Check test --console=plain`; dedicated local PostgreSQL settings and `./gradlew :server:postgresIntegrationTest --console=plain`. Final local validation passed: 747 ordinary test report instances (Server 627, Shared 18, Android Debug/Release 51 each), 269 real PostgreSQL cases (261 inherited plus eight new), Gate1/lint/build and repository policy. Server and both Android test variants executed; Shared was FROM-CACHE. The complete dedicated PostgreSQL task executed uncached. Exact candidate source hashes and logs are recorded in the external delivery packet and PR. PostgreSQL tests deliberately fail rather than silently skip without explicit local settings.
+
+## Remaining work
+
+Named Server/persistence and C2/S1 review, real prerequisite integration into main and normal authenticated Android consumption remain required. This does not finalize #96 phone/installation/JWT/P0 actor binding, #24 group/actions/follow-up/probe contracts, formal manual cloud-schema adoption, orphan cleanup or real device/two-device acceptance. No Supabase/Render/provider/SMS/device access or schema migration is performed by this change. Parent implementation and test attribution are retained.

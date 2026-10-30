@@ -78,13 +78,13 @@ internal class ReminderPlanConfirmationService(private val store: PlanConfirmati
     }
 
     fun medications(actor: AnonymousUser, elderId: String): PlanConfirmationResult = safely {
-        store.confirmationTransaction { tx -> if (canRead(tx, actor, elderId)) PlanConfirmationResult.Medications(tx.medications(elderId)) else inaccessible() }
+        store.planReadTransaction { tx -> if (canRead(tx, actor, elderId)) PlanConfirmationResult.Medications(tx.medications(elderId)) else inaccessible() }
     }
     fun plans(actor: AnonymousUser, elderId: String): PlanConfirmationResult = safely {
-        store.confirmationTransaction { tx -> if (canRead(tx, actor, elderId))
+        store.planReadTransaction { tx -> if (canRead(tx, actor, elderId))
             PlanConfirmationResult.Plans(ReminderPlanCollection(tx.plans(elderId), tx.revisions(elderId))) else inaccessible() }
     }
-    private fun canRead(tx: PlanConfirmationTransaction, actor: AnonymousUser, elderId: String) =
+    private fun canRead(tx: PlanReadTransaction, actor: AnonymousUser, elderId: String) =
         actor.role == UserRole.ELDER && actor.id == elderId || actor.role == UserRole.CAREGIVER && tx.activeRelationship(elderId)?.caregiverId == actor.id
     private fun safely(work: () -> PlanConfirmationResult): PlanConfirmationResult = try { work() }
         catch (_: CodeStoreBusy) { rejected(PlanConfirmationRejection.OPERATION_IN_PROGRESS) }

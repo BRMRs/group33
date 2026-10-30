@@ -53,6 +53,27 @@ internal class PostgresPairingCodeStore(
 
     override fun <T> confirmationTransaction(work: (PlanConfirmationTransaction) -> T): T = mutationTransaction { work(it) }
 
+    /** Current relation, plan rows and retained revisions share one primary MVCC snapshot. */
+    override fun <T> planReadTransaction(work: (PlanReadTransaction) -> T): T = dataSource.connection.use { connection ->
+        connection.isReadOnly = true
+        connection.transactionIsolation = Connection.TRANSACTION_REPEATABLE_READ
+        connection.autoCommit = false
+        try {
+            connection.prepareStatement("SELECT set_config('lock_timeout', ?, true), set_config('statement_timeout', '5000ms', true)").use {
+                it.setString(1, "${lockWaitMillis}ms")
+                it.execute()
+            }
+            // No FOR UPDATE/issuance guard and no receipt or metadata writes on collection reads.
+            val result = work(Transaction(connection, receiptCipher))
+            connection.rollback()
+            result
+        } catch (failure: Throwable) {
+            try { connection.rollback() } catch (rollback: SQLException) { failure.addSuppressed(rollback) }
+            if (failure is SQLException && failure.sqlState == "55P03") throw CodeStoreBusy()
+            throw failure
+        }
+    }
+
     override fun <T> mutationTransaction(work: (PlanMutationTransaction) -> T): T = registrationTransaction { work(it) }
 
     override fun <T> registrationTransaction(work: (OccurrenceRegistrationTransaction) -> T): T = dataSource.connection.use { connection ->

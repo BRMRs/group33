@@ -16,16 +16,24 @@ internal class PlanConfirmationOperation(val installationId: String, val elderId
 /** First-confirmation seam only; current relation, ready photo, resources, revision and receipt share one guard. */
 internal interface PlanConfirmationStore : PhotoMetadataStore {
     fun <T> confirmationTransaction(work: (PlanConfirmationTransaction) -> T): T
+    /** In-memory adapters retain their guard; persistent adapters provide a single read-only snapshot. */
+    fun <T> planReadTransaction(work: (PlanReadTransaction) -> T): T = confirmationTransaction { work(it) }
 }
-internal interface PlanConfirmationTransaction : PhotoMetadataTransaction {
+
+/** Collection reads need current authorization and retained versions, never publication or receipt writes. */
+internal interface PlanReadTransaction {
+    fun activeRelationship(elderId: String): CareRelationshipView?
+    fun medications(elderId: String): List<MedicationView>
+    fun plans(elderId: String): List<ReminderPlanView>
+    fun revisions(elderId: String): List<PlanRevisionView>
+}
+
+internal interface PlanConfirmationTransaction : PhotoMetadataTransaction, PlanReadTransaction {
     fun confirmationOperation(key: PlanConfirmationKey): PlanConfirmationOperation?
     fun putConfirmationOperation(key: PlanConfirmationKey, value: PlanConfirmationOperation)
     fun insertMedication(value: MedicationView)
     fun insertPlan(value: ReminderPlanView)
     fun insertRevision(value: PlanRevisionView)
-    fun medications(elderId: String): List<MedicationView>
-    fun plans(elderId: String): List<ReminderPlanView>
-    fun revisions(elderId: String): List<PlanRevisionView>
 }
 
 /** Shared wire DTOs contain List, so the process-local store must detach and freeze caller-owned lists. */
