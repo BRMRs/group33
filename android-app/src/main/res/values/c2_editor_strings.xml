@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="c2_editor_photo_viewed">I have inspected the displayed medication photo</string>
+    <string name="c2_editor_photo_description">Medication photo for %1$s</string>
+    <string name="c2_editor_times_hint">One HH:mm time per line, for example 08:00</string>
+    <string name="c2_editor_zone_required">Check the time zone comparison and confirm before saving.</string>
+    <string name="c2_editor_no_context">Select an authorized Elder to edit a plan.</string>
+    <string name="c2_editor_zone_example">First reminder example: %1$s. Caregiver: %2$s. Elder: %3$s.</string>
+    <string name="c2_editor_example_pending">Enter a valid start date, time and time zone to see an example.</string>
+</resources>

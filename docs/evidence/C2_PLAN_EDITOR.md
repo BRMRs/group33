@@ -1,0 +1,104 @@
+# C2 editor component — local development
+
+Refs #51. Role: C2 / Iris-wly. Branch: feature/51-c2-plan-editor.
+
+The lead approved a scrollable local form component in issue #51 (comment
+6494008780). This branch explicitly includes PR #43 at 724e8fe and PR #58 at
+1cb156f, with main 999e182. These are multiple unmerged dependencies, not a
+main-ready isolated PR. Publish only as a dependency-explicit Draft, not an independent completed delivery;
+rebase/reconcile the dependency scope after upstream integration or record an
+explicit publishing arrangement. No production fake or navigation is registered.
+
+PlanEditorView binds the existing form/save ViewModels. The trusted caller supplies
+scope-bound models, selected Elder, photo metadata, matching decoded bitmap and
+observed time zones. Invalidating access or changing context requires clear/new
+models. Lifecycle destruction cancels bindings/operations. Input and image are
+cleared on context removal. Actual decoded content plus explicit user inspection
+is required before submitting; metadata or a content handle cannot satisfy this.
+The host still owns authorization, photo decoding and secure content disposal.
+
+The form provides persistent labels, field errors, multiline HH:mm input,
+inclusive date fields, time-zone comparison and an example from the first time
+and start date. Different/unknown zones require acknowledgement. Inputs remain
+for validation/rejection. Rejected state first focuses review; a subsequent Save
+uses the ViewModel guard against replaying the unchanged rejected request.
+Unknown saves only reconcile; confirmed/cache-pending only refreshes the original
+operation. Input fields lock during unresolved or confirmed saves.
+
+Debug host (2026-10-29): run Debug, choose Caregiver, then Open C2 form test
+(Debug). Select a response scenario and press Reset to apply. Inspect the
+synthetic image and check its box, edit fields, then scroll down to Save.
+Scenarios: saved, cache pending, unknown, not submitted, rejected. Query/refresh
+resolves the original operation. Responses are in memory; no login, server save
+or Elder delivery. Leaving/rotation resets the fixture. Activity is non-exported.
+Release contains only a no-op entry hook, no test Activity, fixture or resources.
+Existing debug cleartext-development configuration is preserved.
+
+Verification on 2026-10-29:
+- gate1Check test :android-app:assembleRelease :android-app:assembleDebugAndroidTest passed.
+- PlanEditorViewTest: 3 passed on emulator-5554 and Xiaomi Mi Pad 4 Plus
+  (Android 8.1): entry opening/binding and simulated save, unbound submission,
+  sensitive-input/image cleanup, persistent labels and minimum heights.
+- Release APK DEX/resources and merged manifest exclude the debug Activity,
+  fixture and c2_debug_open; Debug contains them.
+- English emulator screenshot inspected; system-bar/keyboard insets added.
+
+Remaining: interactive coverage for all response scenarios and context switches,
+both locales at 320/360dp and 200% font, TalkBack and actual-photo tests, and real
+C1/S1 host integration. Synthetic fixtures do not establish actual-photo or
+end-to-end acceptance. See C2_PLAN_PRESENTATION.md for the pending matrix.
+
+User feedback (2026-10-29): the C2 owner reported that the Debug page looked
+okay and authorized the next delivery step. This is a basic trial report, not
+a claim that every scenario, locale, TalkBack or production flow was accepted.
+
+## Follow-up verification, 2026-10-29
+
+PR #86 initial CI passed; #43 and #58 remain open. New device tests bring
+PlanEditorViewTest to 6 passing tests on both API27 tablet and API37.1 emulator:
+unknown/cache-pending reconciles the original operation without another confirm;
+unsent retry keeps its ID; unchanged rejection is not replayed and corrected
+input creates a new intent; invalid name/time/date and unacknowledged zone
+prevent submission while preserving input. These remain repository-double tests.
+`gate1Check test :android-app:assembleDebugAndroidTest` passed (129 tasks).
+
+Screenshot check: emulator 840x1680 px at 420dpi (320dp width), font scale 2.0,
+English and zh-CN. The page scrolls to the complete save button in both locales.
+Debug notice occupies substantial vertical space at this scale; this is not a
+finished production layout. Locale, font scale and screen size restored after
+capture. Images contain synthetic test data only; image pixels are a fixed
+English debug fixture, not translated production photo content.
+
+| Locale | Top | Bottom / save action |
+|---|---|---|
+| English | [Top](c2-editor/en-320dp-200-top.png) | [Bottom](c2-editor/en-320dp-200-bottom.png) |
+| Simplified Chinese | [Top](c2-editor/zh-CN-320dp-200-top.png) | [Bottom](c2-editor/zh-CN-320dp-200-bottom.png) |
+
+Not yet verified: full focus/keyboard and TalkBack traversal, grayscale,
+360dp matrix, lifecycle/scope switching and actual authorized photos/network.
+Screenshots show editing state, not all result-state variants. #51 remains open.
+
+## Manual keyboard and TalkBack checklist
+
+Use fictional Debug data only. On the tablet, open the form and focus the last
+(time-zone) field with the software keyboard visible. Check that the focused
+field and its error can be reached by scrolling; dismiss the keyboard and verify
+Save remains reachable and input is retained. Repeat after returning to the home
+and reopening the debug editor (a fresh fixture is expected).
+
+With TalkBack enabled by the tester, swipe through the photo confirmation,
+medication name, dosage, instructions, times, dates, zone and Save. Confirm each
+field label is spoken, checked/disabled states are announced, focus order follows
+the form, and validation/status changes are understandable. Record language,
+device, build and any missing/duplicate speech. Disable TalkBack afterward if
+normally unused. Installed TalkBack is not evidence of completed speech testing.
+
+2026-10-30: API27 tablet now passes all 8 PlanEditorViewTest cases. Added
+pending-save cancellation/rebinding and actual Activity destruction cleanup.
+Rebinding without a photo now explicitly removes the Drawable rather than
+installing an empty BitmapDrawable. Initial destruction assertion was corrected
+to wait for actual destruction, with a 5-second bound. Initial screen-off launch
+timeout is excluded; final run after wake passed in 6.287 seconds.
+`gate1Check :android-app:assembleDebugAndroidTest` passed (99 tasks).
+Keyboard occlusion and actual TalkBack speech remain NOT RUN; use the checklist
+above. This update does not claim real C1 account/Elder integration.
