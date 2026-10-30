@@ -205,6 +205,30 @@ internal class PostgresPlanMutationTest : PlanMutationStoreContract() {
         sql("DROP TRIGGER fail_mutation ON $table; DROP FUNCTION fail_mutation_write();")
         accepted(update(id=id)); assertEquals(2,state().third.size)
     }
+
+    @ParameterizedTest @ValueSource(strings = ["medication", "commit"])
+    fun `slow edit or deferred commit is cancelled without partial resources and original intent replays once`(point: String) {
+        val saved = state(); val operation = key()
+        val table = if (point == "commit") "plan_mutation_operation" else "medication"
+        sql("CREATE FUNCTION slow_plan_write() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(30); RETURN NEW; END $$")
+        val trigger = if (point == "commit")
+            "CREATE CONSTRAINT TRIGGER slow_plan_write AFTER INSERT ON $table DEFERRABLE INITIALLY DEFERRED"
+        else "CREATE TRIGGER slow_plan_write BEFORE UPDATE ON $table"
+        sql("$trigger FOR EACH ROW EXECUTE FUNCTION slow_plan_write()")
+        val started = System.nanoTime()
+        rejected(update(id = operation), PlanMutationRejection.SERVICE_UNAVAILABLE)
+        assertTrue(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started) in 3_500..8_000)
+        assertEquals(saved, state())
+        assertNull(store.mutationTransaction { it.mutationOperation(PlanMutationKey(caregiver.id, PlanMutationAction.UPDATE, operation)) })
+        assertEquals(original, store.confirmationTransaction {
+            it.confirmationOperation(PlanConfirmationKey(caregiver.id, confirmKey))!!.receipt
+        })
+        sql("DROP TRIGGER slow_plan_write ON $table")
+        val recovered = accepted(update(id = operation))
+        assertEquals(recovered, accepted(update(id = operation)))
+        assertEquals(2L, recovered.plan.revision)
+        assertEquals(2, state().third.size)
+    }
     @Test fun `database forbids current version without mutation receipt and retained history rewrite`() {
         val saved=state()
         assertThrows(SQLException::class.java) { sql("UPDATE reminder_plan SET revision=2 WHERE id='${original.plan.id}'") }

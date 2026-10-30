@@ -80,7 +80,7 @@ internal class PostgresPairingCodeStore(
         connection.transactionIsolation = Connection.TRANSACTION_READ_COMMITTED
         connection.autoCommit = false
         try {
-            connection.prepareStatement("SELECT set_config('lock_timeout', ?, true)").use {
+            connection.prepareStatement("SELECT set_config('lock_timeout', ?, true), set_config('statement_timeout', '5000ms', true)").use {
                 it.setString(1, "${lockWaitMillis}ms")
                 it.execute()
             }
@@ -92,6 +92,9 @@ internal class PostgresPairingCodeStore(
                 }
             }
             val result = work(Transaction(connection, receiptCipher))
+            // Run deferred validation under the SQL budget after every business/receipt write.
+            // A lost final COMMIT response still requires original-operation reconciliation.
+            connection.createStatement().use { it.execute("SET CONSTRAINTS ALL IMMEDIATE") }
             connection.commit()
             result
         } catch (failure: Throwable) {

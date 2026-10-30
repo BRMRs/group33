@@ -13,6 +13,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.postgresql.ds.PGSimpleDataSource
 
 @Tag("postgres")
@@ -28,6 +30,59 @@ internal class PostgresAnonymousIdentityTest {
     private fun store() = PostgresAnonymousIdentityStore(PostgresPairingCodeStoreTest.dataSource(schema))
     private fun sql(value: String) { source.connection.use { it.createStatement().use { s -> s.execute(value) } } }
     private fun scalar(value: String) = source.connection.use { it.createStatement().use { s -> s.executeQuery(value).use { r -> check(r.next()); r.getString(1) } } }
+
+    @Test fun `identity insert reaches PostgreSQL with an enabled statement budget`() {
+        sql("""CREATE FUNCTION require_identity_budget() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+            IF (SELECT setting FROM pg_settings WHERE name = 'statement_timeout') <> '5000' THEN
+              RAISE EXCEPTION 'fictional missing statement limit'; END IF; RETURN NEW; END $$""")
+        sql("CREATE TRIGGER require_identity_budget BEFORE INSERT ON anonymous_identity FOR EACH ROW EXECUTE FUNCTION require_identity_budget()")
+        assertEquals(UserRole.ELDER, store().getOrCreate("fixture-budget-installation", "Fixture", UserRole.ELDER).role)
+    }
+
+    @ParameterizedTest @ValueSource(strings = ["insert", "update", "deferred-insert", "deferred-update"])
+    fun `slow identity writes fail safely and original registration or profile can recover`(kind: String) {
+        val action = kind.removePrefix("deferred-")
+        val original = if (action == "update") store().getOrCreate("fixture-budget-installation", "Original", UserRole.ELDER) else null
+        sql("CREATE FUNCTION slow_identity() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(30); RETURN NEW; END $$")
+        val trigger = if (kind.startsWith("deferred-"))
+            "CREATE CONSTRAINT TRIGGER slow_identity AFTER ${action.uppercase()} ON anonymous_identity DEFERRABLE INITIALLY DEFERRED"
+        else "CREATE TRIGGER slow_identity BEFORE ${action.uppercase()} ON anonymous_identity"
+        sql("$trigger FOR EACH ROW EXECUTE FUNCTION slow_identity()")
+        val started = System.nanoTime()
+        val failure = assertThrows(IdentityStoreUnavailable::class.java) {
+            store().getOrCreate("fixture-budget-installation", "Changed", UserRole.ELDER)
+        }
+        assertTrue(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started) in 3_500..8_000)
+        assertNull(failure.cause)
+        assertFalse(failure.toString().contains(schema))
+        if (original == null) assertEquals("0", scalar("SELECT count(*) FROM anonymous_identity"))
+        else assertEquals(original, store().findById(original.id))
+        sql("DROP TRIGGER slow_identity ON anonymous_identity")
+        val recovered = store().getOrCreate("fixture-budget-installation", "Changed", UserRole.ELDER)
+        if (original != null) assertEquals(original.id, recovered.id)
+        assertEquals("Changed", recovered.displayName)
+        assertEquals(recovered, store().getOrCreate("fixture-budget-installation", "Changed", UserRole.ELDER))
+        assertEquals("1", scalar("SELECT count(*) FROM anonymous_identity"))
+        assertThrows(ApiException::class.java) {
+            store().getOrCreate("fixture-budget-installation", "Wrong role", UserRole.CAREGIVER)
+        }
+    }
+
+    @Test fun `locked current identity lookup is cancelled safely and the same identity is available after release`() {
+        val original = store().getOrCreate("fixture-budget-installation", "Original", UserRole.ELDER)
+        source.connection.use { blocking ->
+            blocking.autoCommit = false
+            blocking.createStatement().use { it.execute("LOCK TABLE anonymous_identity IN ACCESS EXCLUSIVE MODE") }
+            try {
+                val started = System.nanoTime()
+                val failure = assertThrows(IdentityStoreUnavailable::class.java) { store().findById(original.id) }
+                assertTrue(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started) in 3_500..8_000)
+                assertNull(failure.cause)
+                assertFalse(failure.toString().contains(schema))
+            } finally { blocking.rollback() }
+        }
+        assertEquals(original, store().findById(original.id))
+    }
     @Test fun `identity survives repository reconstruction with same role and exact updated display name`() {
         val first = store().getOrCreate("fixture-installation", "虚构用户", UserRole.ELDER)
         val restored = store().getOrCreate("fixture-installation", "更新后的虚构用户", UserRole.ELDER)

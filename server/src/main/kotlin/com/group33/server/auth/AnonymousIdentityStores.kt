@@ -26,6 +26,7 @@ internal class InMemoryAnonymousIdentityStore : AnonymousIdentityStore {
 internal class PostgresAnonymousIdentityStore(private val source: DataSource) : AnonymousIdentityStore {
     override fun findById(id: String): AnonymousUser? = try {
         source.connection.use { c -> c.prepareStatement("SELECT * FROM anonymous_identity WHERE id = ?").use {
+            it.queryTimeout = 5
             it.setString(1, id); it.executeQuery().use { rows -> if (rows.next()) read(rows) else null }
         } }
     } catch (_: SQLException) { throw IdentityStoreUnavailable() }
@@ -34,7 +35,10 @@ internal class PostgresAnonymousIdentityStore(private val source: DataSource) : 
         source.connection.use { c ->
             c.autoCommit = false
             try {
-                c.createStatement().use { it.execute("SET LOCAL lock_timeout = '1000ms'") }
+                c.createStatement().use {
+                    it.execute("SET LOCAL lock_timeout = '1000ms'")
+                    it.execute("SET LOCAL statement_timeout = '5000ms'")
+                }
                 val result = c.prepareStatement("""
                     INSERT INTO anonymous_identity AS current (id, installation_id, display_name, role)
                     VALUES (?, ?, ?, ?) ON CONFLICT (installation_id) DO UPDATE SET display_name = EXCLUDED.display_name
@@ -44,6 +48,7 @@ internal class PostgresAnonymousIdentityStore(private val source: DataSource) : 
                     it.setString(3, displayName); it.setString(4, role.name)
                     it.executeQuery().use { rows -> if (rows.next()) read(rows) else roleConflict() }
                 }
+                c.createStatement().use { it.execute("SET CONSTRAINTS ALL IMMEDIATE") }
                 c.commit(); result
             } catch (failure: Throwable) {
                 try { c.rollback() } catch (_: SQLException) { /* retain only the private original failure */ }
