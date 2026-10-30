@@ -77,3 +77,28 @@ English debug fixture, not translated production photo content.
 Not yet verified: full focus/keyboard and TalkBack traversal, grayscale,
 360dp matrix, lifecycle/scope switching and actual authorized photos/network.
 Screenshots show editing state, not all result-state variants. #51 remains open.
+
+## Manual keyboard and TalkBack checklist
+
+Use fictional Debug data only. On the tablet, open the form and focus the last
+(time-zone) field with the software keyboard visible. Check that the focused
+field and its error can be reached by scrolling; dismiss the keyboard and verify
+Save remains reachable and input is retained. Repeat after returning to the home
+and reopening the debug editor (a fresh fixture is expected).
+
+With TalkBack enabled by the tester, swipe through the photo confirmation,
+medication name, dosage, instructions, times, dates, zone and Save. Confirm each
+field label is spoken, checked/disabled states are announced, focus order follows
+the form, and validation/status changes are understandable. Record language,
+device, build and any missing/duplicate speech. Disable TalkBack afterward if
+normally unused. Installed TalkBack is not evidence of completed speech testing.
+
+2026-10-30: API27 tablet now passes all 8 PlanEditorViewTest cases. Added
+pending-save cancellation/rebinding and actual Activity destruction cleanup.
+Rebinding without a photo now explicitly removes the Drawable rather than
+installing an empty BitmapDrawable. Initial destruction assertion was corrected
+to wait for actual destruction, with a 5-second bound. Initial screen-off launch
+timeout is excluded; final run after wake passed in 6.287 seconds.
+`gate1Check :android-app:assembleDebugAndroidTest` passed (99 tasks).
+Keyboard occlusion and actual TalkBack speech remain NOT RUN; use the checklist
+above. This update does not claim real C1 account/Elder integration.

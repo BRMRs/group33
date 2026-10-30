@@ -95,7 +95,7 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
         photo.contentDescription = context.getString(R.string.c2_editor_photo_description, elderName)
         val usablePhoto = metadata != null && decodedPhoto != null && !decodedPhoto.isRecycled
         photoMetadata = metadata.takeIf { usablePhoto }
-        photo.setImageBitmap(decodedPhoto.takeIf { usablePhoto })
+        if (usablePhoto) photo.setImageBitmap(decodedPhoto) else photo.setImageDrawable(null)
         viewed.isEnabled = usablePhoto
         val initial = formModel.state.value.input
         updating = true

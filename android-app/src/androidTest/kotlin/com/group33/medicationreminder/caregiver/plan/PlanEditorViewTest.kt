@@ -152,6 +152,47 @@ class PlanEditorViewTest {
         onUi { assertEquals(1, fixture.begins) }
     }
 
+    @Test fun rebindingCancelsOldSaveAndClearsPhotoConfirmation() = withBoundEditor { host, editor, old ->
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        old.gate = gate
+        onUi { checks(editor).first().isChecked = true; action(editor).performClick() }
+        onUi { assertEquals(1, old.calls.size) }
+        val replacement = PlanEditorFixture()
+        onUi {
+            val form = PlanFormViewModel().apply { updateInput(PlanFormInput("New context", "New dose",
+                localTimes = listOf("09:00"), startDate = "2026-10-30", executionTimeZoneId = "Asia/Shanghai")) }
+            editor.bind(host, "Another context", null, null, "Asia/Shanghai", "Asia/Shanghai", form, replacement.model)
+            gate.complete(Unit)
+        }
+        onUi {
+            assertEquals("New context", edits(editor).first().text.toString())
+            assertTrue(edits(editor).all { it.isEnabled })
+            assertFalse(checks(editor).first().isChecked)
+            assertFalse(checks(editor).first().isEnabled)
+            assertNull(descendants(editor).filterIsInstance<ImageView>().single().drawable)
+            action(editor).performClick()
+        }
+        onUi { assertEquals(0, replacement.begins); assertEquals(1, old.calls.size) }
+    }
+
+    @Test fun destroyingHostClearsDraftAndDisablesActions() = withBoundEditor { host, editor, fixture ->
+        onUi { edits(editor).first().setText("Private draft"); host.finish() }
+        val deadline = android.os.SystemClock.uptimeMillis() + 5000
+        var destroyed = false
+        while (!destroyed && android.os.SystemClock.uptimeMillis() < deadline) {
+            onUi { destroyed = host.isDestroyed }
+            if (!destroyed) android.os.SystemClock.sleep(50)
+        }
+        assertTrue("Host destruction must finish before checking cleanup", destroyed)
+        onUi {
+            assertTrue(edits(editor).all { it.text.isEmpty() && !it.isEnabled })
+            assertNull(descendants(editor).filterIsInstance<ImageView>().single().drawable)
+            assertFalse(action(editor).isEnabled)
+            action(editor).performClick()
+            assertEquals(0, fixture.begins)
+        }
+    }
+
     private fun onUi(block: () -> Unit) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         instrumentation.runOnMainSync(block)
