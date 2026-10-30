@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import android.app.Activity
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
 import com.group33.shared.model.UserRole
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -126,11 +127,13 @@ class LoginFlowViewModel(private val repository: PhoneAuthRepository) : ViewMode
         mutableState.value = LoginFlowState(busy = true)
         val request = generation
         viewModelScope.launch {
-            try { repository.signOut() } catch (_: Exception) {
-                // Local presentation must still be cleared even if remote sign-out fails.
-            } finally {
-                if (request == generation) mutableState.value = LoginFlowState()
+            try { repository.signOut() }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) {
+                if (request == generation) mutableState.value = LoginFlowState(notice = LoginNotice.AuthFailure(PhoneAuthError.STORAGE))
+                return@launch
             }
+            if (request == generation) mutableState.value = LoginFlowState()
         }
     }
 

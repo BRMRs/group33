@@ -8,7 +8,7 @@
 2. The app starts Fusion Auth scene `100001`. Alibaba performs one-tap number verification and follows the configured SMS authentication path when one-tap times out or fails.
 3. On SDK success, Android sends the opaque verification token to the App Server. The app never treats a client-supplied phone number as proof of identity.
 4. The App Server verifies the token with Alibaba. An existing phone account receives its stored role and an app session. A new phone account receives a short-lived registration ticket; the user selects Elder or Caregiver, then the server creates the account and returns an app session.
-5. Android stores only the app session using the S1 session storage boundary. Alibaba credentials and verification tokens are not persisted or logged.
+5. Android stores only the app session using this branch's experimental `PhoneSessionStore`. Integration with S1's common session foundation in PR #84 is still pending; the two stores must not become parallel production session sources. Alibaba credentials and verification tokens are not persisted or logged.
 
 The proposed identity rule is one verified phone number per account with a role fixed at first registration. Existing accounts never choose a role during sign-in. Changing that role or using one phone for both roles needs an explicit product decision.
 
@@ -81,6 +81,21 @@ The Fusion scene provides automatic SMS fallback and an explicit switch from the
 - It does not verify carrier one-tap on an emulator, an existing-account sign-in after restart/reinstall, incorrect/expired codes, registration-ticket expiry/replay, multi-device database persistence, PostgreSQL, public HTTPS deployment, or authorization on protected business endpoints. Those require separate checks before production.
 
 Sign-out clears the local encrypted session; the server JWT remains valid until its expiration. Other feature repositories are not yet wired to this session, so entering a home screen remains a preview and does not demonstrate authenticated business operations.
+
+### S1 lifecycle correction and integration boundary — 2026-10-30
+
+The lead/S1 has added generation fencing at the actual repository completion/private-file boundary. One attempt follows the verified response through first registration; a successful save consumes it. Logout invalidates older attempts before filesystem I/O, and same-profile store instances serialize save/clear. A late/duplicate response cannot re-save an obsolete account even if its ViewModel callback is ignored.
+
+Clear now verifies that AtomicFile's base/backup/new files were removed. Failed deletion retains an in-process clear intent, blocks old restores/completions and retries durable clear before further restoration/authentication. The UI clears account presentation but explicitly reports that logout could not be saved. If the process dies before a failed deletion can be retried, durable logout cannot be promised; surface/retry that failure. This is local token removal, not server revocation.
+
+S1 confirms these existing integration constraints for C1/S2:
+
+- Server-returned stable account `userId` and first registered role remain authoritative. `UserView` is already a type alias of existing `User`; no second user-response shape is needed merely to map this UI account into the common model.
+- Installation identity is a separate stable, environment-scoped device identity supplied by S1. Never substitute `userId` for it, trust a client-selected actor, or automatically merge old anonymous data. C1's SDK/role UI remains feature-owned; public business repositories consume the verified common session.
+- Use the common session's original attempt/lease for auth completion, HTTP credentials, and stale-401 invalidation. An old 401 must not clear a newer login. Temporary 503/429 preserves the local session and original recovery evidence; it is not proof that an account expired.
+- The production phone verification/registration ticket and JWT must carry the agreed account/installation binding into the existing P0 actor resolver. S1 accepts the separate installation model; S2 still needs to record exact request/claim/storage/error details for joint Android/Server review before those wire fields are implemented/frozen. This patch does not invent that contract or claim that `/schedules` proves phone access to pairing/photo/plan.
+
+Verification added here uses fictional verified-response inputs through the real repository completion and encrypted Keystore/file path. It checks late response after logout, old registration/duplicate completion, real filesystem deletion failure/recovery, environment isolation and absence of plaintext token bytes. It does not contact Alibaba or send SMS. Final counts and checks are recorded in the PR; original provider-trial evidence remains attributed to its author.
 
 ## Local flow preview
 

@@ -18,7 +18,7 @@ data class PhoneAccount(val id: String, val role: UserRole, val displayName: Str
 
 enum class PhoneAuthError {
     NOT_CONFIGURED, INVALID_PHONE, INVALID_CODE, CODE_EXPIRED, WRONG_PASSWORD,
-    PASSWORD_NOT_SET, ACCOUNT_NOT_FOUND, NETWORK, TOO_MANY_REQUESTS, UNKNOWN,
+    PASSWORD_NOT_SET, ACCOUNT_NOT_FOUND, NETWORK, TOO_MANY_REQUESTS, STORAGE, UNKNOWN,
 }
 
 sealed interface PhoneAuthResult {

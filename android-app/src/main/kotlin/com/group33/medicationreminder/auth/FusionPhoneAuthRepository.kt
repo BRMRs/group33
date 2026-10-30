@@ -28,7 +28,8 @@ internal class FusionPhoneAuthRepository(
     private val client = FusionServerClient(baseUrl, allowHttp)
     private val sessions = PhoneSessionStore(context.applicationContext, baseUrl)
     private var activity = WeakReference<Activity>(null)
-    private var pendingTicket: String? = null
+    private class PendingRegistration(val ticket: String, val attempt: PhoneSessionAttempt)
+    private val pendingTicket = AtomicReference<PendingRegistration?>(null)
 
     override fun attach(activity: Activity) { this.activity = WeakReference(activity) }
 
@@ -38,24 +39,33 @@ internal class FusionPhoneAuthRepository(
         return try {
         val host = activity.get()?.takeUnless { it.isFinishing || it.isDestroyed }
             ?: return PhoneAuthResult.Failed(PhoneAuthError.UNKNOWN)
+        val attempt = beginAuthentication()
         val grant = withContext(Dispatchers.IO) { client.grant() }
         // SDK token renewal is synchronous; prefetch so its callback never blocks the UI.
         val replacement = withContext(Dispatchers.IO) { client.grant() }
         val verified = runScene(host, grant, replacement.token)
             ?: return PhoneAuthResult.Failed(PhoneAuthError.UNKNOWN)
-        when (verified) {
-            is VerifiedPhone.New -> {
-                pendingTicket = verified.ticket
-                PhoneAuthResult.RegistrationRequired
-            }
-            is VerifiedPhone.Existing -> signedIn(verified.session)
-        }
+        completeVerifiedResponse(attempt, verified)
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
             PhoneAuthResult.Failed(error.asPhoneError())
         }
     }
+
+    /** Called only with a verified server response; the original attempt fences disk writes. */
+    internal suspend fun beginAuthentication(): PhoneSessionAttempt = withContext(Dispatchers.IO) { sessions.beginAttempt() }
+
+    internal suspend fun completeVerifiedResponse(attempt: PhoneSessionAttempt, verified: VerifiedPhone): PhoneAuthResult =
+        when (verified) {
+            is VerifiedPhone.New -> {
+                if (sessions.isCurrent(attempt)) {
+                    pendingTicket.set(PendingRegistration(verified.ticket, attempt))
+                    PhoneAuthResult.RegistrationRequired
+                } else PhoneAuthResult.Failed(PhoneAuthError.CODE_EXPIRED)
+            }
+            is VerifiedPhone.Existing -> signedIn(attempt, verified.session)
+        }
 
     private suspend fun runScene(host: Activity, grant: FusionSdkGrant, replacement: String): VerifiedPhone? =
         coroutineScope {
@@ -106,12 +116,13 @@ internal class FusionPhoneAuthRepository(
 
     override suspend fun register(role: UserRole, displayName: String?, password: String?): PhoneAuthResult {
         if (!password.isNullOrBlank()) return PhoneAuthResult.Failed(PhoneAuthError.NOT_CONFIGURED)
-        val ticket = pendingTicket ?: return PhoneAuthResult.Failed(PhoneAuthError.CODE_EXPIRED)
+        val pending = pendingTicket.get() ?: return PhoneAuthResult.Failed(PhoneAuthError.CODE_EXPIRED)
+        if (!sessions.isCurrent(pending.attempt)) return PhoneAuthResult.Failed(PhoneAuthError.CODE_EXPIRED)
         return try {
-            when (val result = withContext(Dispatchers.IO) { client.register(ticket, role, displayName) }) {
+            when (val result = withContext(Dispatchers.IO) { client.register(pending.ticket, role, displayName) }) {
                 is VerifiedPhone.Existing -> {
-                    pendingTicket = null
-                    signedIn(result.session)
+                    pendingTicket.compareAndSet(pending, null)
+                    completeVerifiedResponse(pending.attempt, result)
                 }
                 is VerifiedPhone.New -> PhoneAuthResult.Failed(PhoneAuthError.UNKNOWN)
             }
@@ -122,13 +133,13 @@ internal class FusionPhoneAuthRepository(
         }
     }
 
-    private suspend fun signedIn(session: AppSession): PhoneAuthResult {
-        withContext(Dispatchers.IO) { sessions.save(session) }
-        return PhoneAuthResult.SignedIn(session.account)
+    private suspend fun signedIn(attempt: PhoneSessionAttempt, session: AppSession): PhoneAuthResult {
+        val saved = withContext(Dispatchers.IO) { sessions.save(attempt, session) }
+        return if (saved) PhoneAuthResult.SignedIn(session.account) else PhoneAuthResult.Failed(PhoneAuthError.CODE_EXPIRED)
     }
 
     override suspend fun signOut() {
-        pendingTicket = null
+        pendingTicket.set(null)
         withContext(Dispatchers.IO) { sessions.clear() }
     }
 

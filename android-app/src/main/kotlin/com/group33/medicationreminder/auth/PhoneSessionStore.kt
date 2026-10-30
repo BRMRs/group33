@@ -9,10 +9,14 @@ import org.json.JSONObject
 import java.io.File
 import java.security.KeyStore
 import java.security.MessageDigest
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
+
+internal class PhoneSessionAttempt internal constructor(internal val epoch: String)
 
 /** The app JWT stays encrypted in no-backup private storage and is never returned to the UI. */
 internal class PhoneSessionStore(context: Context, baseUrl: String) {
@@ -20,9 +24,20 @@ internal class PhoneSessionStore(context: Context, baseUrl: String) {
         .digest(baseUrl.trimEnd('/').toByteArray(Charsets.UTF_8))
         .joinToString("") { "%02x".format(it) }
     private val file = AtomicFile(File(context.noBackupFilesDir, "phone-auth-session-$environment"))
+    private val runtime = profiles.getOrPut(file.baseFile.absolutePath) { Runtime() }
 
-    @Synchronized
-    fun save(session: AppSession) {
+    fun beginAttempt(): PhoneSessionAttempt = synchronized(runtime) {
+        if (runtime.clearRequested) clearFile()
+        runtime.epoch = UUID.randomUUID().toString()
+        PhoneSessionAttempt(runtime.epoch)
+    }
+
+    fun isCurrent(attempt: PhoneSessionAttempt): Boolean = synchronized(runtime) {
+        attempt.epoch == runtime.epoch && !runtime.clearRequested
+    }
+
+    fun save(attempt: PhoneSessionAttempt, session: AppSession): Boolean = synchronized(runtime) {
+        if (!isCurrent(attempt) || session.expiresAt <= System.currentTimeMillis()) return@synchronized false
         val body = JSONObject().put("id", session.account.id).put("role", session.account.role.name)
             .put("name", session.account.displayName).put("token", session.token).put("expiresAt", session.expiresAt)
             .toString().toByteArray(Charsets.UTF_8)
@@ -37,12 +52,14 @@ internal class PhoneSessionStore(context: Context, baseUrl: String) {
             file.failWrite(stream)
             throw error
         }
+        runtime.epoch = UUID.randomUUID().toString()
+        true
     }
 
-    @Synchronized
-    fun restore(): AppSession? {
-        if (!file.baseFile.exists()) return null
-        return try {
+    fun restore(): AppSession? = synchronized(runtime) {
+        if (runtime.clearRequested) clearFile()
+        if (!file.baseFile.exists()) return@synchronized null
+        try {
             require(file.baseFile.length() in 29..32_768)
             val bytes = file.readFully()
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
@@ -64,8 +81,18 @@ internal class PhoneSessionStore(context: Context, baseUrl: String) {
         }
     }
 
-    @Synchronized
-    fun clear() = file.delete()
+    fun clear() = synchronized(runtime) {
+        // Invalidate late responses before attempting I/O; failure must not restore old bytes.
+        runtime.epoch = UUID.randomUUID().toString()
+        runtime.clearRequested = true
+        clearFile()
+    }
+
+    private fun clearFile() {
+        file.delete()
+        check(listOf(file.baseFile, File(file.baseFile.path + ".bak"), File(file.baseFile.path + ".new")).none { it.exists() })
+        runtime.clearRequested = false
+    }
 
     private fun key(): SecretKey {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
@@ -81,5 +108,12 @@ internal class PhoneSessionStore(context: Context, baseUrl: String) {
         }
     }
 
-    private companion object { const val KEY_ALIAS = "group33.phone-auth.session.v1" }
+    private class Runtime {
+        var epoch = UUID.randomUUID().toString()
+        var clearRequested = false
+    }
+    private companion object {
+        const val KEY_ALIAS = "group33.phone-auth.session.v1"
+        val profiles = ConcurrentHashMap<String, Runtime>()
+    }
 }
