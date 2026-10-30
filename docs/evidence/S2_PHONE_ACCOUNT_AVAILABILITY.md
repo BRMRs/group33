@@ -4,7 +4,7 @@
 
 ## Trigger and behavior
 
-The current-account JWT lookup already used bounded, read-only PostgreSQL access. The other existing phone-account paths still used unbounded DriverManager connections, SQL and an unbounded local initialization monitor. A verified phone login or first registration with an unavailable database returned generic500, although the account check distinguished temporary503 from invalid401.
+The current-account JWT lookup already used bounded, read-only PostgreSQL access. The other existing phone-account paths had no explicit per-path connection/socket or SQL limits and used an unbounded local initialization monitor. A verified phone login or first registration with an unavailable database returned generic500, although the account check distinguished temporary503 from invalid401.
 
 The existing lookup, ticket creation and registration paths now share the current lookup's PostgreSQL connect5s/socket10s and per-statement5s budgets. Local trial initialization waits at most5s for its per-store lock; its two retained trial DDL statements have the same SQL budget. A waiting initializer interrupted locally retains the thread interruption and fails closed. These are connection/statement/initialization bounds, not an end-to-end HTTP or supplier deadline.
 
