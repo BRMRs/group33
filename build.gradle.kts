@@ -16,6 +16,7 @@ tasks.register("gate1Check") {
         ":shared:test",
         ":server:test",
         ":server:bootJar",
+        ":server:schemaMigrationDist",
         ":android-app:testDebugUnitTest",
         ":android-app:lintDebug",
         ":android-app:assembleDebug",
