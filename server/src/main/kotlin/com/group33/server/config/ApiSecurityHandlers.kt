@@ -2,6 +2,7 @@ package com.group33.server.config
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.group33.server.web.ApiErrors
+import com.group33.server.auth.PhoneAccountReadUnavailable
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.http.HttpStatus
@@ -18,6 +19,12 @@ class ApiSecurityHandlers(private val mapper: ObjectMapper) : AuthenticationEntr
         response: HttpServletResponse,
         exception: AuthenticationException,
     ) {
+        if (exception is PhoneAccountReadUnavailable) {
+            response.setHeader("Cache-Control", "no-store")
+            ApiErrors.write(response, mapper, HttpStatus.SERVICE_UNAVAILABLE,
+                ApiErrors.body("SERVICE_UNAVAILABLE", "Authentication is temporarily unavailable", retryable = true))
+            return
+        }
         response.setHeader("WWW-Authenticate", "Bearer")
         ApiErrors.write(
             response, mapper, HttpStatus.UNAUTHORIZED,

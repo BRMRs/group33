@@ -13,3 +13,5 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 
 
 2026-10-22：负责人已确认的产品规则、初版参数及六人分工随文档PR #25统一；独立S1代码在[PR #37](https://github.com/BRMRs/group33/pull/37)，不计入本PR的代码贡献。各人正式review/同版签署仍待完成。
+
+2026-10-30 — XinyanXue / S2, Refs #10/#16: current persisted phone-account validation after verified JWT checks, read-only account-id lookup, generic missing/role-mismatch authentication denial and retryable temporary database failure handling. C1 retains phone SDK/UI/provider/registration; existing BRMRs #81 private signing-key repair is retained with its original attribution. Tests, exact results and remaining installation/migration/business integration boundaries: [evidence](docs/evidence/S2_CURRENT_PHONE_ACCOUNT.md). No Shared/wire freeze, provider/SMS/cloud/device run or formal review is claimed.
