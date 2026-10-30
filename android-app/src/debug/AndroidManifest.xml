@@ -4,6 +4,11 @@
         <activity
             android:name=".caregiver.CaregiverEventRowTestActivity"
             android:exported="false" />
+        <activity
+            android:name=".caregiver.CaregiverOverviewTestActivity"
+            android:exported="true"
+            android:permission="android.permission.DUMP"
+            android:label="C3 Overview Preview (Debug)" />
     </application>
 </manifest>
 
