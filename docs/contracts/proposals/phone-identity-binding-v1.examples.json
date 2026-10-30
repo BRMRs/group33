@@ -1,0 +1,177 @@
+{
+  "status": "DRAFT",
+  "reviewOnly": true,
+  "baseline": "b2aeb492a97ea1e17ced4da22972f34cae44ea73",
+  "proposal": "phone-identity-binding-v1",
+  "notImplemented": true,
+  "tokensAreFictional": true,
+  "sdkToken": {
+    "method": "POST",
+    "path": "/api/v1/auth/fusion/token",
+    "request": {
+      "installationId": "10000000-0000-4000-8000-000000000001"
+    },
+    "response": {
+      "status": 200,
+      "body": {
+        "fusionAuthToken": "FICTIONAL_SDK_TOKEN",
+        "schemeCode": "FICTIONAL_SCHEME",
+        "expiresInSeconds": 900,
+        "authenticationAttemptToken": "RklDVElPTkFMX0FUVEVNUFRfVE9LRU5fRklYVFVSRTE"
+      }
+    }
+  },
+  "verify": {
+    "method": "POST",
+    "path": "/api/v1/auth/fusion/verify",
+    "request": {
+      "installationId": "10000000-0000-4000-8000-000000000001",
+      "authenticationAttemptToken": "RklDVElPTkFMX0FUVEVNUFRfVE9LRU5fRklYVFVSRTE",
+      "verifyToken": "FICTIONAL_PROVIDER_PROOF"
+    },
+    "registrationRequired": {
+      "status": 200,
+      "body": {
+        "status": "REGISTRATION_REQUIRED",
+        "registrationTicket": "RklDVElPTkFMX1JFR0lTVFJBVElPTl9USUNLRVRfMDE",
+        "registrationTicketExpiresInSeconds": 300,
+        "installationId": "10000000-0000-4000-8000-000000000001"
+      }
+    }
+  },
+  "register": {
+    "method": "POST",
+    "path": "/api/v1/auth/phone/register",
+    "request": {
+      "registrationTicket": "RklDVElPTkFMX1JFR0lTVFJBVElPTl9USUNLRVRfMDE",
+      "installationId": "10000000-0000-4000-8000-000000000001",
+      "role": "CAREGIVER",
+      "displayName": "Fictional caregiver"
+    }
+  },
+  "signedIn": {
+    "status": 200,
+    "body": {
+      "status": "SIGNED_IN",
+      "accessToken": "FICTIONAL_UNSIGNED_SESSION_PLACEHOLDER",
+      "expiresInSeconds": 86400,
+      "user": {
+        "id": "20000000-0000-4000-8000-000000000001",
+        "displayName": "Fictional caregiver",
+        "role": "CAREGIVER"
+      },
+      "installationId": "10000000-0000-4000-8000-000000000001"
+    }
+  },
+  "decodedClaimsOnly": {
+    "protectedHeader": {
+      "alg": "HS256",
+      "typ": "group33-phone+jwt"
+    },
+    "claims": {
+      "iss": "https://cloud-test.invalid",
+      "aud": "group33-api:cloud-test",
+      "sub": "20000000-0000-4000-8000-000000000001",
+      "type": "phone",
+      "authVersion": 1,
+      "installationId": "10000000-0000-4000-8000-000000000001",
+      "jti": "30000000-0000-4000-8000-000000000001",
+      "iat": 1893456000,
+      "exp": 1893542400,
+      "role": "CAREGIVER"
+    }
+  },
+  "counterexamples": [
+    {
+      "id": "other-installation-ticket",
+      "request": {
+        "registrationTicket": "RklDVElPTkFMX1JFR0lTVFJBVElPTl9USUNLRVRfMDE",
+        "installationId": "10000000-0000-4000-8000-000000000002",
+        "role": "CAREGIVER",
+        "displayName": "Fictional caregiver"
+      },
+      "expected": {
+        "http": 422,
+        "code": "REGISTRATION_INVALID",
+        "retryable": false
+      }
+    },
+    {
+      "id": "unbound-old-phone-profile",
+      "claims": {
+        "sub": "20000000-0000-4000-8000-000000000001",
+        "type": "phone",
+        "role": "CAREGIVER"
+      },
+      "expected": {
+        "http": 401,
+        "code": "UNAUTHENTICATED",
+        "retryable": false
+      }
+    },
+    {
+      "id": "current-database-outage",
+      "expected": {
+        "http": 503,
+        "code": "SERVICE_UNAVAILABLE",
+        "retryable": true,
+        "invalidTokenChallenge": false,
+        "client": "retain-session-and-original-command"
+      }
+    },
+    {
+      "id": "live-attempt",
+      "expected": {
+        "http": 409,
+        "code": "OPERATION_IN_PROGRESS",
+        "retryable": true,
+        "retryAfterSeconds": 1
+      }
+    },
+    {
+      "id": "revoked-target",
+      "expected": {
+        "http": 404,
+        "code": "RESOURCE_NOT_ACCESSIBLE",
+        "retryable": false,
+        "client": "clear-target-display-retain-session"
+      }
+    },
+    {
+      "id": "other-installation-original-operation",
+      "original": {
+        "userId": "20000000-0000-4000-8000-000000000001",
+        "installationId": "10000000-0000-4000-8000-000000000001",
+        "operationId": "40000000-0000-4000-8000-000000000001"
+      },
+      "retry": {
+        "userId": "20000000-0000-4000-8000-000000000001",
+        "installationId": "10000000-0000-4000-8000-000000000002",
+        "operationId": "40000000-0000-4000-8000-000000000001"
+      },
+      "expected": {
+        "http": 409,
+        "code": "IDEMPOTENCY_KEY_REUSED",
+        "retryable": false,
+        "receiptDisclosed": false
+      }
+    },
+    {
+      "id": "expired-server-attempt",
+      "expected": {
+        "http": 401,
+        "code": "PHONE_VERIFICATION_FAILED",
+        "retryable": false
+      }
+    },
+    {
+      "id": "auth-rate-limit",
+      "expected": {
+        "http": 429,
+        "code": "TOO_MANY_REQUESTS",
+        "retryable": true,
+        "retryAfterSeconds": 1
+      }
+    }
+  ]
+}
