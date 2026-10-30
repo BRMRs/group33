@@ -1,11 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">第 33 组服药提醒</string>
-    <string name="role_prompt">请选择开发原型中的用户角色。</string>
-    <string name="elder_role">长者</string>
+    <string name="role_prompt">请选择角色。长者使用匿名安装登录（非微信）。</string>
+    <string name="elder_role">以长者身份继续</string>
     <string name="caregiver_role">照护者</string>
-    <string name="elder_home_title">今日用药</string>
+    <string name="elder_home_title">用药提醒</string>
+    <string name="elder_home_subtitle">今天的用药安排</string>
     <string name="elder_home_hint">此页仅显示本机示例长者的计划（按上海时区统计），尚未登录或同步。服药提醒与确认功能待实现。</string>
+    <string name="elder_settings">设置</string>
+    <string name="elder_exit">退出</string>
+    <string name="elder_due_now_label">现在需要服药</string>
+    <string name="elder_status_pending">待服用</string>
+    <string name="elder_status_taken">已完成</string>
+    <string name="elder_status_snoozed">稍后提醒</string>
+    <string name="elder_status_missed">已截止</string>
+    <string name="elder_dosage_format">剂量：%1$s</string>
+    <string name="elder_instructions_format">说明：%1$s</string>
+    <string name="elder_instructions_default">按照照护者设置的用药提醒计划服用</string>
+    <string name="elder_action_taken">我已服用</string>
+    <string name="elder_action_remind_later">稍后提醒我</string>
+    <string name="elder_today_section">今日用药</string>
+    <string name="elder_upcoming_meta_format">%1$s · %2$s</string>
+    <string name="elder_status_not_due_yet">未到时间</string>
+    <string name="elder_nav_home">首页</string>
+    <string name="elder_nav_history">记录</string>
+    <string name="elder_nav_profile">我的</string>
+    <string name="elder_nav_history_pending">记录页尚未在此预览中提供。</string>
+    <string name="elder_nav_profile_format">匿名长者会话\n本机已恢复安装身份。\n显示名：%1$s</string>
+    <string name="elder_anonymous_display_name">长者</string>
+    <string name="elder_login_failed">无法恢复匿名登录，请重试。</string>
+    <string name="elder_action_completed">操作完成，已记录。</string>
+    <string name="elder_remind_later_next_format">将在 %1$s 再次提醒。</string>
+    <string name="elder_remind_later_window_ending">截止前不会再提醒；在此之前仍可点“我已服用”。</string>
+    <string name="elder_action_not_recorded">本次没有记录，请重试。</string>
+    <string name="elder_window_closed">此提醒已截止，不能再确认或延后。</string>
+    <string name="elder_no_due_item">当前没有需要处理的用药。</string>
+    <string name="elder_preview_notice">仅预览（#19 / Refs #14）：模拟时间 2026-10-22 08:30（上海）。不代表 Room、AlarmManager 或服务端已接受。</string>
+    <string name="elder_demo_medication_a">示例药物 A</string>
+    <string name="elder_demo_medication_b">示例药物 B</string>
+    <string name="elder_demo_dosage_one_tablet">1 片</string>
     <string name="caregiver_home_title">用药提醒计划</string>
     <string name="add_demo_schedule">添加示例提醒计划</string>
     <string name="demo_data_notice">此页仅为本机示例预览，使用上海时区，尚未登录、配对或同步。数据只保存在内存中，不构成医疗建议。</string>
@@ -37,4 +70,3 @@
         <item quantity="other">今天有 %d 个用药计划</item>
     </plurals>
 </resources>
-

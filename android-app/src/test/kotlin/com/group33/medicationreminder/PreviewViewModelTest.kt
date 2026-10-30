@@ -3,20 +3,27 @@ package com.group33.medicationreminder
 import com.group33.medicationreminder.caregiver.CaregiverHomeViewModel
 import com.group33.medicationreminder.core.data.DemoPreview
 import com.group33.medicationreminder.core.data.InMemoryMedicationRepository
+import com.group33.medicationreminder.core.data.contract.AuthReadiness
+import com.group33.medicationreminder.core.data.contract.AuthRepository
+import com.group33.medicationreminder.core.data.contract.Outcome
+import com.group33.medicationreminder.core.data.contract.SessionView
 import com.group33.medicationreminder.elder.ElderHomeViewModel
+import com.group33.medicationreminder.elder.PreviewElderDoseRepository
+import com.group33.shared.contract.UserView
 import com.group33.shared.model.LegacyScheduleRules
-import com.group33.shared.model.MedicationSchedule
+import com.group33.shared.model.User
+import com.group33.shared.model.UserRole
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
-import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.Assert.assertEquals
@@ -49,28 +56,28 @@ class PreviewViewModelTest {
     }
 
     @Test
-    fun todayRefreshesAcrossMidnightWhileScreenIsObserved() = runTest {
-        var instant = Instant.parse("2026-10-20T15:59:30Z")
-        val clock = object : Clock() {
-            override fun getZone(): ZoneId = ZoneId.of("Asia/Shanghai")
-            override fun withZone(zone: ZoneId): Clock = Clock.fixed(instant, zone)
-            override fun instant(): Instant = instant
+    fun elderDuePreviewLoadsAfterAnonymousElderLogin() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        try {
+            val clock = Clock.fixed(Instant.parse("2026-10-22T01:00:00Z"), ZoneId.of("Asia/Shanghai"))
+            val auth = object : AuthRepository {
+                private val session = MutableStateFlow(SessionView(AuthReadiness.SIGNED_OUT, null))
+                override fun observeSession(): Flow<SessionView> = session
+                override suspend fun login(role: UserRole, displayName: String): Outcome<UserView> {
+                    val user = User("install:preview", displayName, role)
+                    session.value = SessionView(AuthReadiness.READY, user)
+                    return Outcome.Success(user)
+                }
+            }
+            val viewModel = ElderHomeViewModel(
+                auth, PreviewElderDoseRepository(clock), clock, "Elder",
+                "Sample medication A", "Sample medication B", "1 tablet",
+            )
+            advanceUntilIdle()
+            assertEquals("08:00", viewModel.uiState.value.due?.plannedTimeText)
+            assertEquals("Elder", viewModel.uiState.value.sessionDisplayName)
+        } finally {
+            Dispatchers.resetMain()
         }
-        val repository = InMemoryMedicationRepository()
-        repository.saveSchedule(MedicationSchedule(
-            "plan-1", "medication-1", DemoPreview.ELDER_ID, DemoPreview.CAREGIVER_ID,
-            listOf("08:00"), "2026-10-20", "2026-10-20", updatedAtEpochMillis = 1L,
-        ))
-        var displayed = emptyList<MedicationSchedule>()
-        val viewModel = ElderHomeViewModel(repository, clock)
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            viewModel.schedules.collect { displayed = it }
-        }
-        runCurrent()
-        assertEquals(1, displayed.size)
-        instant = Instant.parse("2026-10-20T16:00:30Z")
-        advanceTimeBy(60_000)
-        runCurrent()
-        assertTrue(displayed.isEmpty())
     }
 }

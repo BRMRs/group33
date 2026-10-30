@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Base.Theme.Group33" parent="Theme.Material3.Light.NoActionBar" />
+    <style name="Base.Theme.Group33" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/group33_primary</item>
+        <item name="colorOnPrimary">@color/group33_on_primary</item>
+        <item name="android:statusBarColor">@color/group33_surface</item>
+        <item name="android:navigationBarColor">@color/group33_white</item>
+        <item name="android:windowBackground">@color/group33_surface</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
     <style name="Theme.Group33" parent="Base.Theme.Group33" />
 </resources>

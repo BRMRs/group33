@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="@dimen/group33_space_md"
+    android:background="@drawable/bg_upcoming_row"
+    android:minHeight="@dimen/group33_elder_touch_min"
+    android:orientation="vertical"
+    android:padding="@dimen/group33_space_md">
+
+    <TextView
+        android:id="@+id/upcoming_name"
+        style="@style/TextAppearance.Group33.Elder.Body"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textStyle="bold"
+        tools:text="示例药物 B" />
+
+    <TextView
+        android:id="@+id/upcoming_meta"
+        style="@style/TextAppearance.Group33.Elder.Subtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/group33_space_xs"
+        tools:text="12:00 · 1 片" />
+
+    <TextView
+        android:id="@+id/upcoming_status"
+        style="@style/TextAppearance.Group33.Elder.Subtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/group33_space_sm"
+        android:textColor="@color/group33_status_scheduled"
+        tools:text="未到时间" />
+</LinearLayout>
