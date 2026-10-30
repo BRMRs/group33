@@ -32,6 +32,8 @@ internal class PersistenceRuntimeConfiguration {
             "Plan confirmation requires the private photo runtime"
         }
         val mode = env.getProperty("app.persistence.mode", "memory")
+        val requireVersioned = env.getProperty("app.persistence.require-versioned-schema", Boolean::class.java, false)
+        require(!requireVersioned || mode == "postgres-local") { "Versioned schema startup validation requires postgres-local persistence" }
         if (mode == "memory") return PersistenceRuntime(InMemoryAnonymousIdentityStore(), InMemoryPairingCodeStore())
         require(mode == "postgres-local") { "app.persistence.mode must be memory or postgres-local" }
         fun setting(name: String) = env.getProperty(name)?.takeIf { it.isNotBlank() }
@@ -57,6 +59,7 @@ internal class PersistenceRuntimeConfiguration {
                 setURL(url); user = setting("app.persistence.username"); password = setting("app.persistence.password")
                 currentSchema = schema; connectTimeout = 5; socketTimeout = 15
             }
+            if (requireVersioned) RuntimeSchemaHistory.validate(source, schema)
             source.connection.use { c ->
                 // No DDL at startup. All expected prototype tables/columns must already be initialized.
                 c.createStatement().use { s ->

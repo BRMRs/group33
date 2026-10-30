@@ -38,6 +38,8 @@ For a new installation the schema must be empty. For an upgrade it must already 
 
 ## Failure, rollout and rollback
 
+The follow-up [read-only startup gate](SCHEMA_STARTUP_GATE.md) can explicitly require matching release history for `postgres-local`; its flag defaults off and it never executes migrations or changes existing cloud configuration. The administrative tool remains separate. Supabase/Render branch integration and manual-schema adoption remain independent reviewed work.
+
 Before rollout record the tool revision, database/schema and current history using private operator records; take and test a database backup. Validate with the matching release before/after a reviewed maintenance migration. An unsuccessful pending transaction leaves previously applied versions and business receipts intact; resolve the cause and retry the same immutable tool. Never repair checksums merely to make validation green. A checksum failure or future history requires the matching reviewed release or investigation.
 
 There are no destructive down migrations. Application rollback is permitted only after compatibility is demonstrated for that application/schema pair; otherwise use a reviewed forward correction or tested backup restoration. The initial sequence does not remove old prototype data, alter the deployed test project or complete phone authentication, V2 actions/snapshot/alerts, full Android integration or formal Gate acceptance.
