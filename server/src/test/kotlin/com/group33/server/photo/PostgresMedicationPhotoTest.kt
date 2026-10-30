@@ -126,6 +126,29 @@ class PostgresMedicationPhotoTest {
 
     @Test fun `actual deferred commit failure rolls back ready metadata and receipt together`() = checkPublicationRollback(true)
 
+    @Test fun `slow ready receipt write is cancelled while original private staging object remains recoverable`() {
+        val id = UUID.randomUUID(); val bytes = image()
+        execute("""CREATE FUNCTION slow_photo_ready() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+            IF NEW.state = 'READY' THEN PERFORM pg_sleep(30); END IF; RETURN NEW; END $$""")
+        execute("CREATE TRIGGER slow_photo_ready AFTER INSERT OR UPDATE ON photo_upload_operation FOR EACH ROW EXECUTE FUNCTION slow_photo_ready()")
+        val started = System.nanoTime()
+        rejected(service().upload(elder, elder.id, id, bytes, "image/png"), PhotoBusinessRejection.SERVICE_UNAVAILABLE)
+        assertTrue(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started) in 3_500..8_000)
+        val staging = operation(id)
+        assertEquals(PhotoUploadState.STAGING, staging.state)
+        assertNull(staging.receipt)
+        assertEquals(listOf(0, 1), counts())
+        assertEquals(listOf("${staging.photoId}.blob"), objectNames())
+        assertArrayEquals(bytes, objects().read(objectKey(staging.photoId, bytes)))
+        assertTrue(listed(service().list(elder, elder.id)).isEmpty())
+        execute("DROP TRIGGER slow_photo_ready ON photo_upload_operation")
+        val recovered = upload(id, bytes)
+        assertEquals(staging.photoId.toString(), recovered.id)
+        assertEquals(recovered, upload(id, bytes))
+        assertEquals(listOf(1, 1), counts())
+        assertArrayEquals(bytes, content(service().content(elder, recovered.id)).bytes)
+    }
+
     private fun checkPublicationRollback(deferred: Boolean) {
         val operation = UUID.randomUUID()
         val bytes = image()
