@@ -7,6 +7,8 @@ import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.*
@@ -85,6 +87,27 @@ class ElderPhotoSubmitViewModelTest {
         photos.action = { throw IOException() }
         val model = selected(); model.submit(); runCurrent()
         assertEquals(PhotoStage.AWAITING, stage(model))
+    }
+    @Test fun `adapter local timeout retains original photo and permits reconciliation`() = runTest(dispatcher) {
+        photos.action = { withTimeout(1) { delay(10); OnlineCommandResult.AwaitingConfirmation(it.operationId) } }
+        val model = selected(); model.submit(); advanceUntilIdle()
+        assertEquals(PhotoStage.AWAITING, stage(model))
+        assertSame(draft, model.state.value.draft)
+        commands.resumeResult = Outcome.Success(record(CommandResultKind.PHOTO))
+        model.reconcile(); runCurrent()
+        assertEquals(PhotoStage.CONFIRMED, stage(model))
+        assertEquals(1, photos.calls)
+        assertEquals(1, commands.begins)
+    }
+    @Test fun `explicit rejected retry local timeout does not strand submitting`() = runTest(dispatcher) {
+        photos.action = { OnlineCommandResult.Rejected(it.operationId, RepositoryError.Remote(com.group33.shared.model.ApiError("INVALID_PHOTO", "unused", false, "test"))) }
+        val model = selected(); model.submit(); runCurrent()
+        commands.retryAction = { withTimeout(1) { delay(10); commands.resumeResult } }
+        model.submit(); advanceUntilIdle()
+        assertEquals(PhotoStage.AWAITING, stage(model))
+        assertEquals(context.operationId, commands.retried)
+        assertEquals(1, photos.calls)
+        assertSame(draft, model.state.value.draft)
     }
     @Test fun `source retention failure prevents adapter call`() = runTest(dispatcher) {
         store.failMark = true
@@ -194,9 +217,10 @@ class ElderPhotoSubmitViewModelTest {
         var retried: String? = null
         var beginResult: Outcome<CommandContext> = Outcome.Success(context)
         var resumeResult: Outcome<OnlineCommandRecord> = Outcome.Failure(RepositoryError.Local(LocalFailureCode.OFFLINE))
+        var retryAction: (suspend () -> Outcome<OnlineCommandRecord>)? = null
         override suspend fun begin(kind: OnlineCommandKind, targetId: String?): Outcome<CommandContext> { begins++; return beginResult }
         override fun observeCommands() = flowOf(emptyList<OnlineCommandRecord>())
         override suspend fun resume(operationId: String): Outcome<OnlineCommandRecord> { resumed = operationId; return resumeResult }
-        override suspend fun retryRejected(operationId: String): Outcome<OnlineCommandRecord> { retried = operationId; return resumeResult }
+        override suspend fun retryRejected(operationId: String): Outcome<OnlineCommandRecord> { retried = operationId; return retryAction?.invoke() ?: resumeResult }
     }
 }

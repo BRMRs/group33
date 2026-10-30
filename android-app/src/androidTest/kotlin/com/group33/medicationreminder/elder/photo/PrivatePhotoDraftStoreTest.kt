@@ -7,6 +7,10 @@ import com.group33.medicationreminder.core.data.contract.*
 import java.io.File
 import java.security.MessageDigest
 import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
@@ -98,5 +102,79 @@ class PrivatePhotoDraftStoreTest {
             PrivatePhotoDraftStore(app, UUID.randomUUID().toString()).importPhoto(Uri.fromFile(input).toString())
             assertNull(PrivatePhotoDraftStore(app, UUID.randomUUID().toString()).restore())
         } finally { input.delete() }
+    }
+
+    @Test fun inFlightImportKeepsOriginalScopeWhenIoWaitsAcrossAccountChange() = runBlocking {
+        val a = UUID.randomUUID().toString(); val b = UUID.randomUUID().toString()
+        var selected = a
+        val caller = Thread.currentThread()
+        val release = CountDownLatch(1)
+        val store = PrivatePhotoDraftStore(app) {
+            if (Thread.currentThread() != caller) release.await()
+            selected
+        }
+        val input = fixture()
+        try {
+            val pending = async(start = CoroutineStart.UNDISPATCHED) { store.importPhoto(Uri.fromFile(input).toString()) }
+            selected = b
+            release.countDown()
+            val draft = pending.await()
+            assertEquals(draft.id, PrivatePhotoDraftStore(app, a).restore()?.first?.id)
+            assertNull(PrivatePhotoDraftStore(app, b).restore())
+        } finally {
+            release.countDown(); input.delete()
+            listOf(a, b).forEach { namespace ->
+                val name = MessageDigest.getInstance("SHA-256").digest(namespace.toByteArray()).joinToString("") { "%02x".format(it) }
+                File(app.filesDir, "elder-photos/$name").deleteRecursively()
+            }
+        }
+    }
+
+    @Test fun independentStoresOfOneProfileSerializeCurrentAndRetainAttemptedSources() = runBlocking {
+        val namespace = UUID.randomUUID().toString()
+        val input = fixture()
+        val retained = mutableListOf<PhotoDraft>()
+        try {
+            repeat(20) {
+                val a = PrivatePhotoDraftStore(app, namespace).forCurrentScope()
+                val b = PrivatePhotoDraftStore(app, namespace).forCurrentScope()
+                val first = async(Dispatchers.IO) { a.importPhoto(Uri.fromFile(input).toString()) }
+                val second = async(Dispatchers.IO) { b.importPhoto(Uri.fromFile(input).toString()) }
+                val ids = setOf(first.await().id, second.await().id)
+                val current = requireNotNull(a.restore()).first
+                assertTrue(current.id in ids)
+                assertTrue(File(current.previewPath).exists())
+                a.markAttempted(current, CommandContext(UUID.randomUUID().toString(),
+                    RepositoryScope("test", "install", "elder"), OnlineCommandKind.SUBMIT_PHOTO, null))
+                retained += current
+                retained.forEach { draft -> assertTrue(File(draft.previewPath).exists()) }
+            }
+        } finally {
+            input.delete()
+            val name = MessageDigest.getInstance("SHA-256").digest(namespace.toByteArray()).joinToString("") { "%02x".format(it) }
+            File(app.filesDir, "elder-photos/$name").deleteRecursively()
+        }
+    }
+
+    @Test fun replacedUnattemptedSourceCannotBeMarkedForSubmission() = runBlocking {
+        val namespace = UUID.randomUUID().toString()
+        val input = fixture()
+        try {
+            val a = PrivatePhotoDraftStore(app, namespace)
+            val original = a.importPhoto(Uri.fromFile(input).toString())
+            PrivatePhotoDraftStore(app, namespace).importPhoto(Uri.fromFile(input).toString())
+            assertFalse(File(original.previewPath).exists())
+            var rejected = false
+            try {
+                a.markAttempted(original, CommandContext(UUID.randomUUID().toString(),
+                    RepositoryScope("test", "install", "elder"), OnlineCommandKind.SUBMIT_PHOTO, null))
+            } catch (_: Exception) { rejected = true }
+            assertTrue(rejected)
+            assertFalse(File(original.previewPath + ".attempted").exists())
+        } finally {
+            input.delete()
+            val name = MessageDigest.getInstance("SHA-256").digest(namespace.toByteArray()).joinToString("") { "%02x".format(it) }
+            File(app.filesDir, "elder-photos/$name").deleteRecursively()
+        }
     }
 }

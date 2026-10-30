@@ -10,6 +10,7 @@ import java.io.FileInputStream
 import java.io.IOException
 import java.security.MessageDigest
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -19,14 +20,18 @@ import kotlinx.coroutines.withContext
 class PrivatePhotoDraftStore(context: Context, private val namespace: () -> String = { "local-preview" }) : PhotoDraftStore {
     constructor(context: Context, namespace: String) : this(context, { namespace })
     private val resolver = context.applicationContext.contentResolver
+    private val appContext = context.applicationContext
     private val cameraAuthority = "${context.packageName}.elderphotos"
     private val root = File(context.filesDir, "elder-photos")
-    private val directory get() = File(root, MessageDigest.getInstance("SHA-256").digest(namespace().toByteArray()).joinToString("") { "%02x".format(it) }).apply { mkdirs() }
-    private val mutex = Mutex()
+    private fun directory(namespace: String) = File(root, MessageDigest.getInstance("SHA-256").digest(namespace.toByteArray()).joinToString("") { "%02x".format(it) }).apply { mkdirs() }
 
-    override suspend fun importPhoto(uri: String): PhotoDraft = withContext(Dispatchers.IO) {
-        mutex.withLock {
-            val directory = directory
+    override fun forCurrentScope(): PhotoDraftStore = PrivatePhotoDraftStore(appContext, namespace())
+
+    override suspend fun importPhoto(uri: String): PhotoDraft {
+        val capturedNamespace = namespace()
+        return withContext(Dispatchers.IO) {
+        val directory = directory(capturedNamespace)
+        locks.getOrPut(directory.canonicalPath) { Mutex() }.withLock {
             val file = File(directory, UUID.randomUUID().toString() + ".image")
             try {
                 resolver.openInputStream(Uri.parse(uri)).use { input ->
@@ -57,11 +62,14 @@ class PrivatePhotoDraftStore(context: Context, private val namespace: () -> Stri
                 }
             }
         }
+        }
     }
 
-    override suspend fun restore(): Pair<PhotoDraft, CommandContext?>? = withContext(Dispatchers.IO) {
-        mutex.withLock {
-            val directory = directory
+    override suspend fun restore(): Pair<PhotoDraft, CommandContext?>? {
+        val capturedNamespace = namespace()
+        return withContext(Dispatchers.IO) {
+        val directory = directory(capturedNamespace)
+        locks.getOrPut(directory.canonicalPath) { Mutex() }.withLock {
             val current = File(directory, "current")
             if (!current.exists()) return@withLock null
             val name = current.readText()
@@ -83,13 +91,19 @@ class PrivatePhotoDraftStore(context: Context, private val namespace: () -> Stri
             }
             draft to command
         }
+        }
     }
 
-    override suspend fun markAttempted(draft: PhotoDraft, command: CommandContext) = withContext(Dispatchers.IO) {
-        mutex.withLock {
-            val directory = directory
+    override suspend fun markAttempted(draft: PhotoDraft, command: CommandContext) {
+        val capturedNamespace = namespace()
+        withContext(Dispatchers.IO) {
+        val directory = directory(capturedNamespace)
+        locks.getOrPut(directory.canonicalPath) { Mutex() }.withLock {
             val file = File(draft.previewPath)
             require(file.parentFile?.canonicalFile == directory.canonicalFile)
+            val retained = readDraft(file).source
+            require(retained.sha256 == draft.source.sha256 && retained.byteCount == draft.source.byteCount &&
+                retained.contentType == draft.source.contentType)
             val temporary = File(directory, file.name + ".attempting")
             temporary.outputStream().use { stream ->
                 Properties().apply {
@@ -104,6 +118,7 @@ class PrivatePhotoDraftStore(context: Context, private val namespace: () -> Stri
                 stream.fd.sync()
             }
             if (!temporary.renameTo(File(directory, file.name + ".attempted"))) throw IOException("Draft unavailable")
+        }
         }
     }
 
@@ -148,5 +163,9 @@ class PrivatePhotoDraftStore(context: Context, private val namespace: () -> Stri
             override fun openStream() = FileInputStream(file)
         }
         return PhotoDraft(file.name, source, file.path)
+    }
+
+    private companion object {
+        val locks = ConcurrentHashMap<String, Mutex>()
     }
 }

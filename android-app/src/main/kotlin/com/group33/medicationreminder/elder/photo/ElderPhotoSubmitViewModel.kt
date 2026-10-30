@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.group33.medicationreminder.core.data.contract.*
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,6 +24,8 @@ data class ElderPhotoDependencies(
 
 data class PhotoDraft(val id: String, val source: PhotoSource, val previewPath: String)
 interface PhotoDraftStore {
+    /** Capture the trusted profile before asynchronous selection/restoration can change it. */
+    fun forCurrentScope(): PhotoDraftStore = this
     suspend fun importPhoto(uri: String): PhotoDraft
     suspend fun restore(): Pair<PhotoDraft, CommandContext?>?
     /** Persist before handing bytes to any adapter; unresolved sources must survive replacement. */
@@ -49,15 +53,20 @@ class ElderPhotoSubmitViewModel(
     val state = mutableState.asStateFlow()
     private var generation = 0L
     private var command: CommandContext? = null
+    private var draftStore: PhotoDraftStore? = null
 
     init {
         val restorationTicket = generation
+        val restorationScope = dependencies?.scope?.value
+        val restorationStore = store.forCurrentScope()
         viewModelScope.launch {
             val ticket = restorationTicket
             try {
-                store.restore()?.let { (draft, originalCommand) ->
-                    if (ticket == generation && (originalCommand == null || dependencies?.scope?.value == originalCommand.scope)) {
+                restorationStore.restore()?.let { (draft, originalCommand) ->
+                    if (ticket == generation && dependencies?.scope?.value == restorationScope &&
+                        (originalCommand == null || restorationScope == originalCommand.scope)) {
                         command = originalCommand
+                        draftStore = restorationStore
                         mutableState.value = ElderPhotoSubmitUiState(draft,
                             if (originalCommand != null) PhotoStage.RESTORED_PENDING else PhotoStage.PREVIEW)
                     }
@@ -74,6 +83,7 @@ class ElderPhotoSubmitViewModel(
                     previous = scope
                     generation++
                     command = null
+                    draftStore = null
                     mutableState.value = ElderPhotoSubmitUiState()
                 }
             }
@@ -82,13 +92,24 @@ class ElderPhotoSubmitViewModel(
 
     fun select(uri: String) {
         val ticket = ++generation
+        val selectionScope = dependencies?.scope?.value
+        val selectionStore = store.forCurrentScope()
         command = null
+        draftStore = null
         mutableState.value = ElderPhotoSubmitUiState(stage = PhotoStage.LOADING)
         viewModelScope.launch {
             try {
-                val draft = store.importPhoto(uri)
-                if (ticket == generation) mutableState.value = ElderPhotoSubmitUiState(draft, PhotoStage.PREVIEW)
-            } catch (cancelled: CancellationException) { throw cancelled
+                if (ticket != generation || dependencies?.scope?.value != selectionScope) return@launch
+                val draft = selectionStore.importPhoto(uri)
+                if (ticket == generation && dependencies?.scope?.value == selectionScope) {
+                    draftStore = selectionStore
+                    mutableState.value = ElderPhotoSubmitUiState(draft, PhotoStage.PREVIEW)
+                }
+            } catch (cancelled: CancellationException) {
+                if (ticket == generation && dependencies?.scope?.value == selectionScope) {
+                    mutableState.value = ElderPhotoSubmitUiState(stage = PhotoStage.INVALID_PHOTO)
+                }
+                currentCoroutineContext().ensureActive()
             } catch (_: Exception) {
                 if (ticket == generation) mutableState.value = ElderPhotoSubmitUiState(stage = PhotoStage.INVALID_PHOTO)
             }
@@ -107,6 +128,7 @@ class ElderPhotoSubmitViewModel(
             return
         }
         val ticket = generation
+        val retainedStore = draftStore ?: return
         mutableState.value = current.copy(stage = PhotoStage.SUBMITTING, error = null)
         viewModelScope.launch {
             var mayHaveSent = false
@@ -124,7 +146,7 @@ class ElderPhotoSubmitViewModel(
                     return@launch
                 }
                 command = context
-                store.markAttempted(draft, context)
+                retainedStore.markAttempted(draft, context)
                 if (ticket != generation || deps.scope.value != scope) return@launch
                 mayHaveSent = true
                 val result = deps.photos.submit(draft.source, context)
@@ -137,7 +159,11 @@ class ElderPhotoSubmitViewModel(
                     result is OnlineCommandResult.Rejected -> current.copy(stage = PhotoStage.REJECTED, error = result.error)
                     else -> current.copy(stage = PhotoStage.AWAITING)
                 }
-            } catch (cancelled: CancellationException) { throw cancelled
+            } catch (cancelled: CancellationException) {
+                if (ticket == generation && deps.scope.value == scope) mutableState.value = current.copy(
+                    stage = if (mayHaveSent) PhotoStage.AWAITING else PhotoStage.NOT_SUBMITTED,
+                )
+                currentCoroutineContext().ensureActive()
             } catch (_: Exception) {
                 if (ticket == generation) mutableState.value = current.copy(
                     stage = if (mayHaveSent) PhotoStage.AWAITING else PhotoStage.NOT_SUBMITTED,
@@ -156,7 +182,11 @@ class ElderPhotoSubmitViewModel(
         mutableState.value = current.copy(stage = PhotoStage.SUBMITTING)
         viewModelScope.launch {
             val result = try { deps.commands.retryRejected(context.operationId) }
-            catch (cancelled: CancellationException) { throw cancelled }
+            catch (cancelled: CancellationException) {
+                if (ticket == generation && deps.scope.value == context.scope) mutableState.value = current.copy(stage = PhotoStage.AWAITING)
+                currentCoroutineContext().ensureActive()
+                return@launch
+            }
             catch (_: Exception) {
                 if (ticket == generation) mutableState.value = current.copy(stage = PhotoStage.AWAITING)
                 return@launch

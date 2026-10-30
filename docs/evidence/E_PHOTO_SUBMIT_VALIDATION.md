@@ -1,7 +1,17 @@
 # E photo capture and submission handoff
 
+## S1 core recovery correction — 2026-10-30
+
+The lead/S1 reviewed this existing capture/preview/submit component and corrected actual private-source/recovery boundaries without registering a fake upload or inventing a protocol. The original E implementation remains attributed to Katherine-Tang.
+
+- Selection/restoration captures the trusted scope and an immutable profile store before launching work. Import/restore/mark also capture their namespace before switching to IO. A delayed A import cannot write its current pointer into B's profile after account/environment changes.
+- Profile instances share a canonical-directory mutex. Original bytes, current/current.tmp and attempted markers remain serialized; an attempted source cannot be removed by another selection. Marking rechecks retained image bytes/hash/length/type before any adapter call, so a replaced unattempted draft is not falsely marked as available.
+- Adapter-local timeout/cancellation no longer strands SUBMITTING. Before possible dispatch it is NOT_SUBMITTED; after entry it remains AWAITING with the same source/context, allowing host-driven reconciliation without duplicate submission. True parent cancellation still propagates and scope/generation checks prevent stale UI publication.
+
+Two added state regressions actually failed against the original code; the real device import queued across an A-to-B switch also failed against the original store (A had no restored draft). Original assertions are retained. Additional device checks cover 20 rounds of independent same-profile stores, valid current pointers and attempted-source retention, plus rejection of a replaced source. Exact final JVM/device/full-gate results are recorded in the PR. Network/session/cache adapters remain explicit injection boundaries; these tests are not actual upload/Server/two-device acceptance.
+
 2026-10-28. Refs #13. Base main `64ddd4e26440d60a60f209dd7eb12d102e2a55dd`.
-Delivery branch `feature/13-elder-photo-submit`; member authorized commit and push on 2026-10-28. No merge or approval. This expands the earlier state-only proposal at the member's explicit request. Lead assignment/reviewer confirmation remains pending; no issue label changed.
+Delivery branch `feature/13-elder-photo-submit`; member authorized commit and push on 2026-10-28. No merge or approval. This expands the earlier state-only proposal at the member's explicit request. Lead scope/reviewer confirmation is now recorded in Issue #13 (2026-10-30, https://github.com/BRMRs/group33/issues/13#issuecomment-6526228434). This does not close the whole issue or complete human acceptance; no issue label changed.
 
 The diff exceeds the usual 500-line guideline because camera/URI ownership, preview, submission isolation and their tests must form one reviewable flow; no backend, shared contract or global theme rewrite is included.
 
