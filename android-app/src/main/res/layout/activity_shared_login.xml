@@ -234,6 +234,16 @@
             android:visibility="gone" />
 
         <com.google.android.material.button.MaterialButton
+            android:id="@+id/caregiver_navigation_preview_button"
+            style="@style/Widget.Group33.SecondaryAction"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="32dp"
+            android:minHeight="@dimen/group33_touch_min_height"
+            android:text="@string/caregiver_navigation_preview_action"
+            android:visibility="gone" />
+
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/role_preview_button"
             style="@style/Widget.Group33.SecondaryAction"
             android:layout_width="match_parent"

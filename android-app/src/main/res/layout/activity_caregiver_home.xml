@@ -1,51 +1,135 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="24dp">
+    android:background="@color/group33_background"
+    android:orientation="vertical">
 
-    <TextView
-        android:id="@+id/caregiver_title"
-        style="@style/TextAppearance.Material3.HeadlineMedium"
-        android:layout_width="0dp"
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/caregiver_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="@dimen/group33_screen_padding">
+
+            <TextView
+                android:id="@+id/caregiver_header"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/caregiver_navigation_title"
+                android:textAppearance="@style/TextAppearance.Group33.Title" />
+
+            <TextView
+                android:id="@+id/demo_banner"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/caregiver_navigation_demo"
+                android:textAppearance="@style/TextAppearance.Group33.Supporting"
+                android:visibility="gone" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                app:cardBackgroundColor="@color/group33_surface"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/caregiver_current_elder"
+                        android:textAppearance="@style/TextAppearance.Group33.Supporting" />
+
+                    <TextView
+                        android:id="@+id/current_elder_value"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/caregiver_no_current_elder"
+                        android:textAppearance="@style/TextAppearance.Group33.Title" />
+
+                    <TextView
+                        android:id="@+id/current_elder_hint"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/caregiver_context_unavailable"
+                        android:textAppearance="@style/TextAppearance.Group33.Supporting" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <TextView
+                android:id="@+id/page_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="32dp"
+                android:text="@string/caregiver_plans_title"
+                android:textAppearance="@style/TextAppearance.Group33.Title" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/page_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                app:cardBackgroundColor="@color/group33_surface"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:id="@+id/page_message"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/caregiver_feature_pending"
+                        android:textAppearance="@style/TextAppearance.Group33.Body" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/language_button"
+                        style="@style/Widget.Group33.SecondaryAction"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/language_english"
+                        android:textSize="18sp"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottom_navigation"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/caregiver_home_title"
-        android:textStyle="bold"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <TextView
-        android:id="@+id/schedule_count"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:text="@string/no_schedules"
-        android:textSize="20sp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/caregiver_title" />
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/add_demo_schedule_button"
-        android:layout_width="0dp"
-        android:layout_height="56dp"
-        android:layout_marginTop="32dp"
-        android:text="@string/add_demo_schedule"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/schedule_count" />
-
-    <TextView
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="@string/demo_data_notice"
-        android:textColor="?android:attr/textColorSecondary"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/add_demo_schedule_button" />
-
-</androidx.constraintlayout.widget.ConstraintLayout>
-
+        android:minHeight="80dp"
+        android:background="@color/group33_surface"
+        app:itemHorizontalTranslationEnabled="false"
+        app:itemIconTint="@color/caregiver_navigation_item"
+        app:itemTextAppearanceActive="@style/TextAppearance.Group33.Navigation"
+        app:itemTextAppearanceInactive="@style/TextAppearance.Group33.Navigation"
+        app:itemTextColor="@color/caregiver_navigation_item"
+        app:labelVisibilityMode="labeled"
+        app:menu="@menu/caregiver_navigation" />
+</LinearLayout>
