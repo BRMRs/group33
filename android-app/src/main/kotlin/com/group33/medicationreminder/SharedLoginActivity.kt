@@ -79,6 +79,9 @@ class SharedLoginActivity : AppCompatActivity() {
                 })
             }
         }
+        binding.rolePreviewButton.setOnClickListener {
+            startActivity(Intent(this, MainActivity::class.java))
+        }
         render()
     }
 
