@@ -197,6 +197,7 @@ class SharedLoginActivity : AppCompatActivity() {
             PhoneAuthError.ACCOUNT_NOT_FOUND -> R.string.login_account_not_found
             PhoneAuthError.NETWORK -> R.string.login_network_error
             PhoneAuthError.TOO_MANY_REQUESTS -> R.string.login_too_many_requests
+            PhoneAuthError.STORAGE -> R.string.login_signout_storage_error
             PhoneAuthError.UNKNOWN -> R.string.error_unknown
         }
     }

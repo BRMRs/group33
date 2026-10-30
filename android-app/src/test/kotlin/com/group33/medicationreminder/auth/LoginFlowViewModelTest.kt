@@ -104,6 +104,20 @@ class LoginFlowViewModelTest {
         assertNull(model.state.value.account)
     }
 
+    @Test fun `failed durable sign out clears presentation but reports retryable storage failure`() = runTest(dispatcher) {
+        repository.restored = PhoneAccount("server-user", UserRole.ELDER, "Fixture")
+        repository.failSignOut = true
+        val model = model(); runCurrent()
+        model.signOut(); runCurrent()
+        assertEquals(LoginStep.SIGN_IN, model.state.value.step)
+        assertNull(model.state.value.account)
+        assertFalse(model.state.value.busy)
+        assertEquals(LoginNotice.AuthFailure(PhoneAuthError.STORAGE), model.state.value.notice)
+        repository.failSignOut = false
+        model.signOut(); runCurrent()
+        assertNull(model.state.value.notice)
+    }
+
     private fun model(): LoginFlowViewModel = LoginFlowViewModel(repository).also { store.put("login", it) }
 
     private class FakeRepository : PhoneAuthRepository {
@@ -116,6 +130,7 @@ class LoginFlowViewModelTest {
         var oneTapCalls = 0
         var oneTapResult: PhoneAuthResult = PhoneAuthResult.RegistrationRequired
         var delayedOneTap: CompletableDeferred<PhoneAuthResult>? = null
+        var failSignOut = false
 
         override suspend fun restore() = restored
         override suspend fun oneTap(): PhoneAuthResult {
@@ -137,6 +152,6 @@ class LoginFlowViewModelTest {
             registeredPassword = password
             return PhoneAuthResult.SignedIn(PhoneAccount("new", role, displayName.orEmpty()))
         }
-        override suspend fun signOut() = Unit
+        override suspend fun signOut() { check(!failSignOut) }
     }
 }

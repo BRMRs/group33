@@ -57,6 +57,7 @@
     <string name="login_account_not_found">This account was not found. Try SMS sign-in.</string>
     <string name="login_network_error">Could not connect. Check the network and try again.</string>
     <string name="login_too_many_requests">Too many attempts. Wait before trying again.</string>
+    <string name="login_signout_storage_error">Sign-out could not be saved. Please try again.</string>
     <string name="language_english">English</string>
     <string name="language_chinese">中文</string>
     <string name="language_switch_action">Switch to Chinese</string>
