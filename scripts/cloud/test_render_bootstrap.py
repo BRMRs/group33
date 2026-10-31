@@ -44,6 +44,33 @@ class RenderBootstrapTest(unittest.TestCase):
         self.assertEqual(self.env()['GROUP33_RENDER_STORAGE_SECRET'],(path.parent/'storage-secret.key').read_text())
         self.assertTrue(all(x.stat().st_mode&0o777==0o600 for x in path.parent.iterdir()))
         self.assertIn('app.persistence.mode=postgres-supabase',path.read_text());self.assertIn('app.plan.enabled=true',path.read_text())
+    def test_explicit_managed_schema_gate_survives_private_export_and_bootstrap(self):
+        path=self.fixture_private()
+        with (path/'application.properties').open('a') as f:f.write('app.persistence.require-versioned-schema=true\n')
+        exported=export.prepare(path)
+        env=self.env();env.update(dict(line.split('=',1) for line in exported.read_text().splitlines()))
+        decoded=base64.b64decode(env['GROUP33_RENDER_SETTINGS_B64']).decode()
+        self.assertIn('app.persistence.require-versioned-schema=true\n',decoded)
+        result=self.writer(env);self.assertEqual(0,result.returncode,result.stderr)
+        self.assertIn('app.persistence.require-versioned-schema=true',Path(result.stdout.strip()).read_text())
+    def test_managed_schema_gate_is_opt_in_and_rejects_ambiguous_values(self):
+        result=self.writer(self.env());self.assertEqual(0,result.returncode)
+        self.assertIn('app.persistence.require-versioned-schema=false',Path(result.stdout.strip()).read_text())
+        for value in ('TRUE','1','',' true','false ','${PERSISTENCE_REQUIRE_VERSIONED_SCHEMA}'):
+            env=self.env();env['GROUP33_RENDER_SETTINGS_B64']=self.encode((self.text()+'app.persistence.require-versioned-schema='+value+'\n').encode())
+            self.denied(env)
+    def test_explicit_false_gate_is_preserved_and_duplicate_gate_is_denied(self):
+        env=self.env();env['GROUP33_RENDER_SETTINGS_B64']=self.encode((self.text()+'app.persistence.require-versioned-schema=false\n').encode())
+        result=self.writer(env);self.assertEqual(0,result.returncode,result.stderr)
+        self.assertIn('app.persistence.require-versioned-schema=false',Path(result.stdout.strip()).read_text())
+        env['GROUP33_RENDER_SETTINGS_B64']=self.encode((self.text()+'app.persistence.require-versioned-schema=true\napp.persistence.require-versioned-schema=false\n').encode())
+        self.denied(env)
+    def test_export_refuses_malformed_or_duplicate_gate_before_replacing_any_output(self):
+        for suffix in ('app.persistence.require-versioned-schema=TRUE\n','app.persistence.require-versioned-schema=true\napp.persistence.require-versioned-schema=false\n'):
+            path=self.fixture_private()
+            with (path/'application.properties').open('a') as f:f.write(suffix)
+            with self.assertRaises(ValueError):export.prepare(path)
+            self.assertFalse((path/'render.env').exists())
     def test_missing_each_private_input_fails_before_files_are_created(self):
         for name in [k for k in self.env() if k.startswith('GROUP33_')]:
             with self.subTest(name=name):

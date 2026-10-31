@@ -11,6 +11,7 @@ import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermission
+import javax.sql.DataSource
 
 internal class PersistenceRuntime(val identities: AnonymousIdentityStore, val pairing: PlanMutationStore) {
     override fun toString() = "PersistenceRuntime(REDACTED)"
@@ -22,7 +23,8 @@ internal class PersistenceRuntimeConfiguration {
     @Bean fun persistenceRuntime(env: Environment): PersistenceRuntime = create(env)
     @Bean fun anonymousIdentityStore(runtime: PersistenceRuntime): AnonymousIdentityStore = runtime.identities
 
-    internal fun create(env: Environment): PersistenceRuntime {
+    internal fun create(env: Environment,
+        sourceFactory: (Environment, String) -> DataSource = PersistenceDataSourceFactory::create): PersistenceRuntime {
         val plansEnabled = env.getProperty("app.plan.enabled", Boolean::class.java, false)
         val occurrencesEnabled = env.getProperty("app.occurrence.enabled", Boolean::class.java, false)
         require(!occurrencesEnabled || plansEnabled) { "Occurrence registration requires the plan runtime" }
@@ -31,13 +33,15 @@ internal class PersistenceRuntimeConfiguration {
         }
         val mode = env.getProperty("app.persistence.mode", "memory")
         val requireVersioned = env.getProperty("app.persistence.require-versioned-schema", Boolean::class.java, false)
-        require(!requireVersioned || mode == "postgres-local") { "Versioned schema startup validation requires postgres-local persistence" }
+        require(!requireVersioned || mode in setOf("postgres-local", "postgres-supabase")) {
+            "Versioned schema startup validation requires PostgreSQL persistence"
+        }
         if (mode == "memory") return PersistenceRuntime(InMemoryAnonymousIdentityStore(), InMemoryPairingCodeStore())
         require(mode in setOf("postgres-local", "postgres-supabase")) { "app.persistence.mode must be memory, postgres-local or postgres-supabase" }
         fun setting(name: String) = env.getProperty(name)?.takeIf { it.isNotBlank() }
             ?: throw IllegalStateException("Required local persistence setting is missing: $name")
         try {
-            val source = PersistenceDataSourceFactory.create(env, mode)
+            val source = sourceFactory(env, mode)
             val schema = setting("app.persistence.schema")
             val jwt = setting("app.jwt.secret")
             require(jwt.toByteArray(Charsets.UTF_8).size >= 32 && jwt != "GROUP33_LOCAL_DEVELOPMENT_SECRET_CHANGE_BEFORE_DEPLOYMENT_2026")

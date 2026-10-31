@@ -1,0 +1,35 @@
+# S2 managed cloud schema integration and local conversion rehearsal
+
+2026-11-01, Refs #16. Review candidate; no deployed Supabase/Render changes or feature/Gate completion.
+
+## Concrete gap and resulting behavior
+
+The versioned-schema runtime gate previously accepted only `postgres-local`; the separate Supabase runtime could not opt in, and the private Render export discarded the setting. The integrated runtime now supports the same bounded read-only history check for both PostgreSQL modes. The export/bootstrap accepts one optional canonical `app.persistence.require-versioned-schema=true|false` line, writes it into the protected runtime file, and defaults absence to explicit false. Existing manual schemas remain unchanged. Invalid, duplicate or unrecognized settings still fail closed; no automatic DDL/adoption/fallback is added.
+
+The isolated prerequisite tree combines exact #102 `2e05b45` (migration V1–V10, existing SQL budgets/snapshot reads), #83 `02ec955` (cloud/Render configuration and Storage) and actual main `b2aeb49` (including #81 private signing). Both implementation histories and inherited authorship remain. This is a candidate assembly, not main or permission to merge prerequisites. Production changes are limited to the runtime gate path and protected Render export/bootstrap; existing business SQL, Shared/Android and prior test assertions are preserved.
+
+## Local executable conversion evidence
+
+`PostgresManualSchemaConversionTest` explicitly installs original prototype V1–V8 into a fictional private source schema, without creating/deleting/fabricating its migration history. Actual services create persisted identities/roles, a consented relationship, encrypted pairing receipt, private image, plan confirmation and an edited retained version. A distinct empty target is explicitly migrated by the unchanged pinned tool to V10.
+
+With both fictional application writers quiescent, the test-only helper locks source/target business tables, checks the fixed source table set and physical column shape, refuses a nonempty target, copies rows in a bounded transaction with existing constraints/triggers enabled and forces deferred checks before commit. It never changes target Flyway history or source rows. The source schema/object root is then retired so target assertions cannot accidentally read it. Current identities/roles, photo bytes/object identity, current plan/retained versions, original encrypted code and upload/confirmation/edit receipts, no-effect replay and later revocation are verified through fresh runtime/service objects. New occurrence tables stay empty: prior event history is not invented.
+
+Eight actual PostgreSQL cases cover that successful cutover; injected middle-copy rollback and retry; unknown source table/column and nonempty target refusal; real target lock timeout/retry; wrong external receipt key refusal; and missing immutable object detection plus restoration of original bytes without metadata rewriting. Initial test-query type ambiguity is retained as a fixture setup failure and corrected using explicit PostgreSQL text casts, without weakening assertions. It is not a product counterexample.
+
+Four additional actual local PostgreSQL cases exercise the cloud runtime branch through an internal DataSource-construction seam: exact managed read-only startup; manual-history refusal without adoption; corrupted-history refusal and preserved explicit opt-out; and default production factory rejection of loopback disguised as cloud. The production factory retains verify-full/project/role guards; this suite does not connect to or emulate the real Supabase transport.
+
+The old implementation's actual cloud-gate and four new export/bootstrap failures were recorded before the behavior change. The red JVM run includes only the neutral internal injection seam needed to execute against real loopback PostgreSQL; it still has the old gate restriction. New Python tests cover opt-in/explicit false, legacy default false, malformed/duplicate refusal and end-to-end private exporter-to-writer preservation. Original bootstrap/export/exec secrecy tests remain unchanged.
+
+## Verification and limits
+
+Targeted and final regression command results, test report counts, source/manifest/package hashes, execution-versus-cache modes and exact commit CI are recorded in the delivery record after verification. Commands: `gate1Check test :server:schemaMigrationDist`, `:server:postgresIntegrationTest`, `python3 -m unittest discover -s scripts/cloud -p 'test_*.py' -v`, and the standalone Render Server/Shared build, with offline dependencies and explicit dedicated local PG settings.
+
+No universal adoption CLI, online/cross-storage snapshot algorithm, automatic baseline/repair, destructive rollback, privileged runtime role, phone/session binding, V2/group/alerts, device/two-installation, or live cloud/deployment acceptance is claimed. The copy helper certifies only these known synthetic tables/columns; actual cloud conversion requires complete reviewed catalog/constraint/trigger/ACL mapping, paused writers, tested protected DB/object backup, retained external keys, a matching release and deliberate cutover/rollback. A healthy endpoint or matching history alone does not prove objects exist or the live catalog has never drifted.
+
+PostgreSQL references: [SET CONSTRAINTS](https://www.postgresql.org/docs/17/sql-set-constraints.html) for checking deferred constraints before commit, [SET TRANSACTION](https://www.postgresql.org/docs/17/sql-set-transaction.html) for read-only behavior, and [LOCK](https://www.postgresql.org/docs/17/sql-lock.html) for maintenance locks. These documented primitives do not themselves prove an online migration or zero downtime.
+
+## Final local results
+
+858 ordinary report instances (Server738, Shared18, Android Debug51/Release51), 298 actual PostgreSQL cases (286 inherited + 12 new), 27 Python cases (23 inherited + 4 new), and 112 inherited packaged assertions / 39 business HTTP requests pass. The packaged harness uses this exact V10 tool/application, refuses checksum/missing/future history and memory fallback, and verifies original receipts through whole JVM/database restart. These packaged checks exercise local PostgreSQL, not the cloud transport.
+
+Root test task modes: Server=executed, Shared=FROM-CACHE, AndroidDebug=executed, AndroidRelease=executed. Standalone Server738/Shared18 tests both executed with Android absent. Old4 PostgreSQL cloud-path and4 Python feature failures are retained separately; the first conversion-fixture query cast failure is retained and is not a product counterexample. All original business/migration SQL, Shared/Android and 293 combined-baseline paths are unchanged; 304 artifact hashes and package isolation are verified. Temporary owned schemas/object roots/password copies were removed, dedicated PG stopped, existing downloads/caches preserved. No private cloud settings, supplier/SMS, real photos, deployed schema/configuration or billing changes.
