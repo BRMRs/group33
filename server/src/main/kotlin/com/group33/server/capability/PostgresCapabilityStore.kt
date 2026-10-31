@@ -21,7 +21,7 @@ internal class PostgresCapabilityStore(private val dataSource: DataSource, priva
         connection.transactionIsolation = Connection.TRANSACTION_READ_COMMITTED
         connection.autoCommit = false
         try {
-            connection.prepareStatement("SELECT set_config('lock_timeout', ?, true)").use {
+            connection.prepareStatement("SELECT set_config('lock_timeout', ?, true), set_config('statement_timeout', '5000ms', true)").use {
                 it.setString(1, "${lockWaitMillis}ms"); it.execute()
             }
             val suffix = if (lockWaitMillis == 0L) " NOWAIT" else ""
@@ -31,6 +31,9 @@ internal class PostgresCapabilityStore(private val dataSource: DataSource, priva
                 }
             }
             val result = work(Transaction(connection))
+            // Validate all pending business/receipt constraints under the SQL budget before COMMIT.
+            // A lost final COMMIT acknowledgement still needs original-operation reconciliation.
+            connection.createStatement().use { it.execute("SET CONSTRAINTS ALL IMMEDIATE") }
             connection.commit()
             result
         } catch (failure: Throwable) {
