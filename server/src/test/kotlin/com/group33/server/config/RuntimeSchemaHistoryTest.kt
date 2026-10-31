@@ -11,8 +11,8 @@ import org.flywaydb.core.internal.resource.StringResource
 internal class RuntimeSchemaHistoryTest {
     @Test fun `packaged release manifest is complete with canonical SQL identities`() {
         val rows = RuntimeSchemaHistory.parse(checkNotNull(javaClass.getResource("/db/runtime-schema-history.tsv")).readText())
-        assertEquals((1..9).map(Int::toString), rows.map { it.version })
-        assertEquals(9, rows.map { it.script }.distinct().size)
+        assertEquals((1..10).map(Int::toString), rows.map { it.version })
+        assertEquals(10, rows.map { it.script }.distinct().size)
         rows.forEach { row ->
             val migration = checkNotNull(javaClass.getResource("/db/migration/${row.script}")).readText()
             assertEquals(ChecksumCalculator.calculate(StringResource(migration)), row.checksum, row.script)

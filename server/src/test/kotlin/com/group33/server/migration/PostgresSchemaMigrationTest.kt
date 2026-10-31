@@ -52,8 +52,8 @@ class PostgresSchemaMigrationTest {
     }
 
     @Test fun `fresh schema is ordered complete repeatable and read only validation changes no history`() {
-        assertEquals(9, runner().migrate())
-        assertEquals("1,2,3,4,5,6,7,8,9", history())
+        assertEquals(10, runner().migrate())
+        assertEquals("1,2,3,4,5,6,7,8,9,10", history())
         val before = scalar("SELECT string_agg(xmin::text, ',' ORDER BY installed_rank) FROM group33_schema_history")
         assertEquals(0, runner().migrate())
         SchemaMigrations(dataSource(schema).apply { options = "-c default_transaction_read_only=on" }, schema).validate()
@@ -91,7 +91,7 @@ class PostgresSchemaMigrationTest {
         initialFive()
         val (actor, request) = seedReceipt()
         val ciphertext = scalar("SELECT encode(receipt_cipher,'hex') FROM pairing_issue_operation")
-        assertEquals(4, runner().migrate())
+        assertEquals(5, runner().migrate())
         val retainedActor = PostgresAnonymousIdentityStore(dataSource(schema)).findById(actor.id)
         assertEquals(actor, retainedActor)
         val replay = PairingCodeIssuanceService(PostgresPairingCodeStore(dataSource(schema), cipher()), Clock.systemUTC(), PairingCodeGenerator { error("Original receipt must replay") }).issue(actor, request.first)
@@ -121,7 +121,7 @@ class PostgresSchemaMigrationTest {
         assertNull(scalar("SELECT to_regclass('$schema.registered_occurrence')::text"))
         assertEquals(actor, PostgresAnonymousIdentityStore(dataSource(schema)).findById(actor.id))
         execute("ALTER TABLE group33_schema_history DROP CONSTRAINT migration_failure_fixture")
-        assertEquals(4, runner().migrate())
+        assertEquals(5, runner().migrate())
         runner().validate()
         assertEquals("1", scalar("SELECT count(*) FROM pairing_issue_operation"))
     }
@@ -131,15 +131,15 @@ class PostgresSchemaMigrationTest {
         execute("UPDATE group33_schema_history SET checksum=checksum+1 WHERE version='3'")
         assertThrows(IllegalStateException::class.java) { runner().migrate() }
         assertThrows(IllegalStateException::class.java) { runner().validate() }
-        assertEquals("9", scalar("SELECT count(*) FROM group33_schema_history"))
+        assertEquals("10", scalar("SELECT count(*) FROM group33_schema_history"))
     }
 
     @Test fun `future release history fails instead of running an older administrative release`() {
         runner().migrate()
-        execute("INSERT INTO group33_schema_history VALUES (10,'10','future fixture','SQL','V10__future_fixture.sql',1,current_user,current_timestamp,0,true)")
+        execute("INSERT INTO group33_schema_history VALUES (11,'11','future fixture','SQL','V11__future_fixture.sql',1,current_user,current_timestamp,0,true)")
         assertThrows(IllegalStateException::class.java) { runner().migrate() }
         assertThrows(IllegalStateException::class.java) { runner().validate() }
-        assertEquals("10", scalar("SELECT count(*) FROM group33_schema_history"))
+        assertEquals("11", scalar("SELECT count(*) FROM group33_schema_history"))
     }
 
     @Test fun `deleted applied history entry fails rather than replaying an old migration`() {
@@ -147,7 +147,7 @@ class PostgresSchemaMigrationTest {
         execute("DELETE FROM group33_schema_history WHERE version='4'")
         assertThrows(IllegalStateException::class.java) { runner().migrate() }
         assertThrows(IllegalStateException::class.java) { runner().validate() }
-        assertEquals("8", scalar("SELECT count(*) FROM group33_schema_history"))
+        assertEquals("9", scalar("SELECT count(*) FROM group33_schema_history"))
     }
 
     @Test fun `independent concurrent migrators apply each version once`() {
@@ -156,8 +156,8 @@ class PostgresSchemaMigrationTest {
         try {
             val futures = (1..4).map { pool.submit<Int> { start.await(); runner().migrate() } }
             start.countDown()
-            assertEquals(9, futures.sumOf { it.get(30, TimeUnit.SECONDS) })
-            assertEquals("1,2,3,4,5,6,7,8,9", history())
+            assertEquals(10, futures.sumOf { it.get(30, TimeUnit.SECONDS) })
+            assertEquals("1,2,3,4,5,6,7,8,9,10", history())
             runner().validate()
         } finally { pool.shutdownNow(); assertTrue(pool.awaitTermination(5, TimeUnit.SECONDS)) }
     }
@@ -187,7 +187,7 @@ class PostgresSchemaMigrationTest {
         }
         val checked = child("validate")
         assertEquals(0, checked.first, checked.second)
-        assertEquals("Schema migration history is current: 9", checked.second.trim())
+        assertEquals("Schema migration history is current: 10", checked.second.trim())
         assertEquals(actor, PostgresAnonymousIdentityStore(dataSource(schema)).findById(actor.id))
         val replay = PairingCodeIssuanceService(PostgresPairingCodeStore(dataSource(schema), cipher()), Clock.systemUTC(), PairingCodeGenerator { error("No regeneration") }).issue(actor, request.first)
         assertEquals(request.second, assertInstanceOf(CodeIssuanceResult.Issued::class.java, replay).view)
