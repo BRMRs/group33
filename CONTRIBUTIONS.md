@@ -62,3 +62,5 @@ XinyanXue prepared explicit project-scoped PostgreSQL TLS and private Storage ru
 ### S2 Render test deployment candidate — 2026-10-29
 
 XinyanXue prepared the isolated server/Shared Docker build, pinned Java17 images, private runtime export/bootstrap and fail-closed/exec regressions. Refs #16; [scope/evidence](docs/evidence/S2_RENDER_TEST_DEPLOYMENT.md) and [setup](docs/RENDER_TEST_DEPLOYMENT.md). Retains #80 and the merged S1 Room contribution without claiming their authorship. Actual Render/device acceptance and non-author deployment/security review remain pending.
+
+2026-11-01 — XinyanXue / S2, Refs #16: integrate the existing read-only version gate into explicit Supabase runtime and protected Render export/bootstrap; add local unmanaged V1–V8 to managed V10 fictional conversion/rollback/replay/key/object cases. Existing migration/business SQL, Shared/Android and prerequisite authorship are retained. [Implementation and executable evidence](docs/evidence/S2_MANAGED_CLOUD_SCHEMA.md). No actual cloud adoption/configuration/deployment, new shared protocol, formal approval or complete feature acceptance claimed.
