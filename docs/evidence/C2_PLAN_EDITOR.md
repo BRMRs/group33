@@ -102,3 +102,22 @@ timeout is excluded; final run after wake passed in 6.287 seconds.
 `gate1Check :android-app:assembleDebugAndroidTest` passed (99 tasks).
 Keyboard occlusion and actual TalkBack speech remain NOT RUN; use the checklist
 above. This update does not claim real C1 account/Elder integration.
+
+## Integration follow-up, 2026-10-31
+
+Fast-forwarded to S1 correction f122e29, then merged main b2aeb49 as 8521b80.
+No #92 branch code imported: C1 owns actual navigation conflict resolution.
+[Concrete hook handoff](https://github.com/BRMRs/group33/pull/92#issuecomment-6545534495)
+records preservation of the debug install call and both debug activities; real
+Plans host requires trusted context/photos/repositories and remains pending.
+
+`gate1Check test :android-app:assembleDebugAndroidTest` PASS: 129 tasks,
+40 executed/89 up-to-date. Policy PASS. All 8 editor device tests passed on
+Xiaomi API27 (8.6 seconds) after installing this integrated build.
+
+English/default-font keyboard check on tablet: IME reported visible; focused
+name field remains above keyboard; scrolling reaches complete Save button while
+keyboard stays open. [Field](c2-editor/api27-keyboard-field.png),
+[Save](c2-editor/api27-keyboard-save.png). Synthetic data only. This does not
+cover every locale/font/keyboard combination. TalkBack human check requested,
+no result recorded yet. Keep Draft; final independent C1/S2 review pending.
