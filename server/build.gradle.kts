@@ -13,6 +13,7 @@ extra["kotlin-serialization.version"] = libs.versions.serialization.get()
 
 // Administrative tool, deliberately absent from the application runtime/bootJar.
 val schemaMigration = sourceSets.create("schemaMigration")
+val photoReconciliation = sourceSets.create("photoReconciliation")
 
 kotlin {
     jvmToolchain(17)
@@ -42,6 +43,9 @@ dependencies {
     add(schemaMigration.implementationConfigurationName, libs.flyway.postgresql)
     add(schemaMigration.implementationConfigurationName, libs.postgresql)
     add(schemaMigration.implementationConfigurationName, kotlin("stdlib"))
+    add(photoReconciliation.implementationConfigurationName, libs.postgresql)
+    add(photoReconciliation.implementationConfigurationName, kotlin("stdlib"))
+    testImplementation(photoReconciliation.output)
     testImplementation(schemaMigration.output)
     testImplementation(libs.flyway.core)
     testRuntimeOnly(libs.flyway.postgresql)
@@ -63,6 +67,28 @@ tasks.register<Zip>("schemaMigrationDist") {
     from(configurations[schemaMigration.runtimeClasspathConfigurationName]) { into("lib") }
     inputs.file("src/schemaMigration/launcher/schema-migration")
     from("src/schemaMigration/launcher") {
+        into("bin")
+        filePermissions { unix("rwxr-xr-x") }
+    }
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
+}
+
+val photoReconciliationJar = tasks.register<Jar>("photoReconciliationJar") {
+    archiveClassifier.set("photo-reconciliation")
+    from(photoReconciliation.output)
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
+}
+
+tasks.register<Zip>("photoReconciliationDist") {
+    description = "Package the separate, read-only local photo inspection tool"
+    group = "distribution"
+    archiveFileName.set("group33-photo-reconciliation.zip")
+    destinationDirectory.set(layout.buildDirectory.dir("distributions"))
+    from(photoReconciliationJar) { into("lib") }
+    from(configurations[photoReconciliation.runtimeClasspathConfigurationName]) { into("lib") }
+    from("src/photoReconciliation/launcher") {
         into("bin")
         filePermissions { unix("rwxr-xr-x") }
     }
