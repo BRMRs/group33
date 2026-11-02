@@ -1,6 +1,6 @@
 # C2 plan browser state — partial #52
 
-Local validation: 2026-11-02. Branch: `feature/52-c2-plan-list-state`.
+Local validation: 2026-11-03. Branch: `feature/52-c2-plan-list-state`.
 Scope follows the lead's [recorded authorization](https://github.com/BRMRs/group33/issues/52#issuecomment-6494662516).
 
 The read-only component consumes a trusted host-supplied repository, scope, Elder ID
@@ -15,7 +15,7 @@ context replacement clears details and cancels prior observations.
 ## Verification
 
 - `:android-app:testDebugUnitTest :android-app:lintDebug :android-app:assembleDebug`: passed.
-- `PlanBrowserViewModelTest`: 9 tests, zero failures/errors.
+- `PlanBrowserViewModelTest`: 11 tests, zero failures/errors.
 - Repository policy check: passed.
 - Tests cover leap/year ranges, details with no end date and photo reference,
   empty versus missing cache, stale failure/recovery, revocation, context replacement,
@@ -32,3 +32,5 @@ and have not been newly validated here. The component does not implement convers
 or authoritative overlap detection. Cross-stream snapshot atomicity is not promised
 by the current interfaces; candidates from a different plan revision are hidden.
 No human review or approval is claimed.
+
+Integration check: C1 PR #100 remains Draft with relationship snapshot source isolation unresolved; PR #92 remains Draft. No production host wiring was added. Preview state now distinguishes missing cache, empty candidates and revision mismatch; UNKNOWN access recovery is tested.

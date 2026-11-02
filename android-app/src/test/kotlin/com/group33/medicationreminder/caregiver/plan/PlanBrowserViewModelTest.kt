@@ -105,8 +105,28 @@ class PlanBrowserViewModelTest {
         val candidate = PlanPreview(OccurrenceKey("plan", "2024-03-04", "08:00"), 1, "Asia/Shanghai", 1709510400000)
         repo.previews.value = cached(listOf(candidate)); runCurrent()
         assertEquals(listOf(candidate), vm.state.value.candidates)
+        assertEquals(PlanPreviewMessage.RESULTS, vm.state.value.previewMessage)
         repo.plans.value = cached(listOf(plan.copy(revision = 2))); runCurrent()
         assertTrue(vm.state.value.candidates.isEmpty())
+        assertEquals(PlanPreviewMessage.WAITING_FOR_MATCHING_PLANS, vm.state.value.previewMessage)
+    }
+    @Test fun `preview missing data is never presented as an empty schedule`() = runTest(dispatcher) {
+        val repo = Repository(); val vm = model(repo); runCurrent()
+        assertEquals(PlanPreviewMessage.EMPTY, vm.state.value.previewMessage)
+        repo.previews.value = repo.previews.value.copy(hasLocalData = false); runCurrent()
+        assertEquals(PlanPreviewMessage.NO_LOCAL_DATA, vm.state.value.previewMessage)
+        assertEquals(PlanBrowserMessage.RESULTS, vm.state.value.message)
+        repo.previews.value = cached(emptyList()); runCurrent()
+        assertEquals(PlanPreviewMessage.EMPTY, vm.state.value.previewMessage)
+    }
+    @Test fun `unknown access clears both lists and preview then authorized data can recover`() = runTest(dispatcher) {
+        val repo = Repository(); val vm = model(repo); runCurrent(); vm.selectPlan("plan")
+        repo.meds.value = repo.meds.value.copy(access = AccessState.UNKNOWN); runCurrent()
+        assertEquals(PlanPreviewMessage.ACCESS_UNKNOWN, vm.state.value.previewMessage)
+        assertTrue(vm.state.value.items.isEmpty()); assertNull(vm.state.value.details)
+        repo.meds.value = cached(listOf(medication)); runCurrent()
+        assertEquals(PlanBrowserMessage.RESULTS, vm.state.value.message)
+        assertNull(vm.state.value.details)
     }
     @Test fun `mis scoped records and out of range preview fail without exposure`() = runTest(dispatcher) {
         val repo = Repository().also { it.plans.value = cached(listOf(plan.copy(elderId = "wrong"))) }

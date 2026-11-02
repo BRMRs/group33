@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
 enum class PlanBrowserMessage { SELECT_ELDER, LOADING, ACCESS_UNKNOWN, REVOKED, UNAVAILABLE, NO_LOCAL_DATA, EMPTY, RESULTS }
+enum class PlanPreviewMessage { SELECT_ELDER, LOADING, ACCESS_UNKNOWN, REVOKED, UNAVAILABLE, NO_LOCAL_DATA, WAITING_FOR_MATCHING_PLANS, EMPTY, RESULTS }
 
 /** Confirmed records only; photoId is a reference, not permission to load photo bytes. */
 data class PlanDetails(val plan: ReminderPlanView, val medication: MedicationView?)
@@ -44,6 +45,18 @@ data class PlanBrowserState(
     }
     val isStale: Boolean get() = observationFailed || loading ||
         listOfNotNull(plans, medications, preview).any { it.isStale }
+    /** A missing preview cache or temporarily unmatched revision is not an empty schedule. */
+    val previewMessage: PlanPreviewMessage get() = when {
+        elderId == null -> PlanPreviewMessage.SELECT_ELDER
+        access == AccessState.REVOKED -> PlanPreviewMessage.REVOKED
+        loading && preview == null -> PlanPreviewMessage.LOADING
+        observationFailed && preview == null -> PlanPreviewMessage.UNAVAILABLE
+        access != AccessState.AUTHORIZED -> PlanPreviewMessage.ACCESS_UNKNOWN
+        preview?.hasLocalData != true || plans?.hasLocalData != true -> PlanPreviewMessage.NO_LOCAL_DATA
+        candidates.size != preview.value.size -> PlanPreviewMessage.WAITING_FOR_MATCHING_PLANS
+        candidates.isEmpty() -> PlanPreviewMessage.EMPTY
+        else -> PlanPreviewMessage.RESULTS
+    }
     val message: PlanBrowserMessage get() = when {
         elderId == null -> PlanBrowserMessage.SELECT_ELDER
         access == AccessState.REVOKED -> PlanBrowserMessage.REVOKED
