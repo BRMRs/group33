@@ -120,7 +120,7 @@ class CaregiverOverviewPresentationTest {
             assertEquals(OverviewMessage.UNAVAILABLE, screen.message)
             assertNull(screen.content)
             assertFalse(screen.canOpenHistory)
-            assertTrue(screen.canRefresh)
+            assertFalse(screen.canRefresh)
             assertEquals(AccessState.AUTHORIZED, input.access)
         }
     }
@@ -129,10 +129,12 @@ class CaregiverOverviewPresentationTest {
         val noSession = display(state().copy(refreshResult = Outcome.Failure(RepositoryError.Local(LocalFailureCode.SESSION_NOT_READY))))
         assertEquals(OverviewMessage.UNAVAILABLE, noSession.message)
         assertNull(noSession.content)
+        assertFalse(noSession.canRefresh)
         val failed = display(state().copy(refreshResult = Outcome.Failure(RepositoryError.Remote(ApiError("FUTURE_ERROR", "raw", true, "test")))))
         assertNotNull(failed.content)
         assertTrue(checkNotNull(failed.content).isStale)
         assertEquals(OverviewRefreshMessage.FAILED, failed.refreshMessage)
+        assertTrue(failed.canRefresh)
     }
 
     @Test fun `refreshing disables duplicate button and does not replace cached timestamp`() {

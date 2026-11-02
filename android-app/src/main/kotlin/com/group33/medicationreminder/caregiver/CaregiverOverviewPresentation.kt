@@ -80,7 +80,7 @@ data class CaregiverOverviewPresentation(
             }
             return CaregiverOverviewPresentation(
                 message, content, refresh,
-                canRefresh = hasSelection && state.access != AccessState.REVOKED && !state.isRefreshing,
+                canRefresh = hasSelection && !inaccessible && state.access != AccessState.REVOKED && !state.isRefreshing,
                 canOpenHistory = authorized,
             )
         }

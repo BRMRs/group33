@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModelStore
 import com.group33.medicationreminder.core.data.contract.*
 import com.group33.shared.contract.ContractProtocol
 import com.group33.shared.contract.ElderSnapshot
+import com.group33.shared.model.ApiError
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -72,6 +73,29 @@ class CaregiverFeedbackScopeTest {
         runCurrent()
         assertSame(b.updates.value, model.state.value.overview)
         assertEquals(listOf("B" to otherDates), b.observations)
+    }
+
+    @Test fun `reauthenticated context clears authorization error and permits refresh while access is unknown`() = runTest(dispatcher) {
+        val expiredSession = repository("A")
+        val unauthenticated = RepositoryError.Remote(ApiError("UNAUTHENTICATED", "private", false, "test"))
+        expiredSession.onRefresh = { Outcome.Failure(unauthenticated) }
+        val model = model(expiredSession)
+        runCurrent()
+
+        model.refresh()
+        runCurrent()
+        assertEquals(unauthenticated, model.state.value.refreshError)
+        assertFalse(CaregiverOverviewPresentation.from(model.state.value).canRefresh)
+
+        val restoredSession = repository("A")
+        model.selectContext(restoredSession, scope, "A", dates)
+        assertEquals(AccessState.UNKNOWN, model.state.value.access)
+        assertNull(model.state.value.refreshError)
+        assertTrue(CaregiverOverviewPresentation.from(model.state.value).canRefresh)
+
+        runCurrent()
+        assertEquals(AccessState.AUTHORIZED, model.state.value.access)
+        assertTrue(CaregiverOverviewPresentation.from(model.state.value).canRefresh)
     }
 
     @Test fun `late A success and typed failure cannot overwrite B or finish B refresh`() = runTest(dispatcher) {
