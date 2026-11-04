@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="c3_planned_time">Planned: %1$s %2$s (%3$s)</string>
+  <string name="c3_outcome_scheduled">Last accepted result: scheduled</string>
+  <string name="c3_outcome_due">Last accepted result: awaiting a report</string>
+  <string name="c3_outcome_snoozed">Last accepted result: reminder postponed</string>
+  <string name="c3_outcome_taken">Last accepted result: Elder reported taking medication</string>
+  <string name="c3_outcome_missed">Last accepted result: no on-time confirmation. This does not prove medication was not taken.</string>
+  <string name="c3_outcome_unknown">Accepted medication result: unknown</string>
+  <string name="c3_local_sync">Local report synchronization: %1$s</string>
+  <string name="c3_sync_pending">pending sync</string>
+  <string name="c3_sync_synced">synced</string>
+  <string name="c3_sync_attention">needs attention</string>
+  <string name="c3_synced_report">Synced report: %1$s\nRecorded (device time zone): %2$s\nService receipt time: unknown. Syncing a report does not itself change the accepted event result.</string>
+  <string name="c3_report_timely_taken">reported taking medication within the response window; ingestion is not verified</string>
+  <string name="c3_report_late_taken">reported taking medication after the response window; this does not turn a Missed event into Taken</string>
+  <string name="c3_report_remind_later">previously requested a later reminder; this does not promise another reminder</string>
+  <string name="c3_report_unlinked">Some reports could not be associated with this event. Their details are unavailable and have not been used to change its result.</string>
+</resources>
