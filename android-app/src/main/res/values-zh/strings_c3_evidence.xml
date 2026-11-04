@@ -12,6 +12,7 @@
   <string name="c3_sync_synced">已同步</string>
   <string name="c3_sync_attention">需要处理</string>
   <string name="c3_synced_report">已同步报告：%1$s\n记录时间（本机时区）：%2$s\n服务接收时间：未知。报告已同步本身不会改变事件已接受的结果。</string>
+  <string name="c3_server_accepted_late_report">服务器已接受的迟报：长者在响应期结束后报告已服药。这不会改变事件已接受的结果。\n记录时间（本机时区）：%1$s\n服务接收时间（本机时区）：%2$s</string>
   <string name="c3_report_timely_taken">响应期内登记的已服药报告；不代表实际服药已获验证</string>
   <string name="c3_report_late_taken">响应期结束后登记的已服药报告；不会将未及时确认的事件改为已服药</string>
   <string name="c3_report_remind_later">曾请求延后提醒；这不保证还会再次提醒</string>

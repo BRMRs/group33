@@ -24,3 +24,9 @@ internal fun Context.syncedReportText(report: CaregiverSyncedReport): String = g
     }),
     caregiverInstant(report.recordedAtEpochMillis),
 )
+
+internal fun Context.serverAcceptedLateReportText(report: CaregiverServerAcceptedLateReport): String = getString(
+    R.string.c3_server_accepted_late_report,
+    caregiverInstant(report.recordedAtEpochMillis),
+    caregiverInstant(report.receivedAtEpochMillis),
+)

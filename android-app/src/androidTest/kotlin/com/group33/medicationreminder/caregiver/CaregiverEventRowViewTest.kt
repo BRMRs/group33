@@ -86,6 +86,41 @@ class CaregiverEventRowViewTest {
         }
     }
 
+    @Test fun serverAcceptedLateEvidenceShowsBothTimesWithoutChangingMissedOrLocalSync() {
+        for (language in listOf("en", "zh")) withRow(language) { row ->
+            val remote = ServerAcceptedLateTakenReport("server-action", planned + 7_201_000, planned + 7_209_000)
+            row.bindEvent(event.copy(serverAcceptedLateTakenReports = listOf(remote)).toCaregiverEventRow())
+
+            assertTrue(row.outcome.text.toString(), row.outcome.text.contains(
+                if (language == "en") "no on-time confirmation" else "未及时确认"))
+            assertEquals(View.GONE, row.localSync.visibility)
+            assertEquals(View.GONE, row.syncedReports.visibility)
+            assertEquals(View.VISIBLE, row.serverAcceptedLateReports.visibility)
+            val text = row.serverAcceptedLateReports.text.toString()
+            val expectedLabel = if (language == "en") "server-accepted late report" else "服务器已接受的迟报"
+            assertTrue(text, text.contains(expectedLabel, ignoreCase = language == "en"))
+            assertTrue(text, text.contains(if (language == "en") "Recorded" else "记录时间"))
+            assertTrue(text, text.contains(if (language == "en") "Service received" else "服务接收时间"))
+            assertTrue(text, Regex("0?2:00:01").containsMatchIn(text))
+            assertTrue(text, Regex("0?2:00:09").containsMatchIn(text))
+        }
+    }
+
+    @Test fun serverAcceptedLateEvidenceRemainsDistinctBesideALocalPendingReport() = withRow { row ->
+        val remote = ServerAcceptedLateTakenReport("server-action", planned + 7_201_000, planned + 7_209_000)
+        val local = report.copy(actionId = "local-action", syncState = SyncState.PENDING_SYNC)
+        row.bindEvent(event.copy(localReports = listOf(local), serverAcceptedLateTakenReports = listOf(remote))
+            .toCaregiverEventRow())
+
+        assertTrue(row.outcome.text.toString(), row.outcome.text.contains("no on-time confirmation"))
+        assertEquals(View.VISIBLE, row.localSync.visibility)
+        assertTrue(row.localSync.text.toString(), row.localSync.text.contains("pending sync"))
+        assertEquals(View.GONE, row.syncedReports.visibility)
+        assertEquals(View.VISIBLE, row.serverAcceptedLateReports.visibility)
+        assertTrue(row.serverAcceptedLateReports.text.toString(),
+            row.serverAcceptedLateReports.text.contains("Server-accepted late report"))
+    }
+
     @Test fun rebindingClearsReportWarningAndAccessibilityText() = withRow { row ->
         row.bindEvent(event.copy(localReports = listOf(report)).toCaregiverEventRow())
         assertTrue(row.syncedReports.text.isNotEmpty())
@@ -94,7 +129,12 @@ class CaregiverEventRowViewTest {
         row.bindEvent(event.copy(localReports = listOf(report.copy(occurrence = occurrence.copy(planId = "other")))).toCaregiverEventRow())
         assertTrue(row.reportLinkError.text.isNotEmpty())
         row.bindEvent(event.toCaregiverEventRow())
-        listOf(row.syncedReports, row.reportLinkError, row.localSync).forEach(::assertCleared)
+        row.bindEvent(event.copy(serverAcceptedLateTakenReports = listOf(
+            ServerAcceptedLateTakenReport("server-action", planned, planned + 1_000),
+        )).toCaregiverEventRow())
+        assertEquals(View.VISIBLE, row.serverAcceptedLateReports.visibility)
+        row.bindEvent(event.toCaregiverEventRow())
+        listOf(row.syncedReports, row.serverAcceptedLateReports, row.reportLinkError, row.localSync).forEach(::assertCleared)
     }
 
     @Test fun everyAcceptedOutcomeHasTextIncludingUnknown() = withRow { row ->
@@ -181,7 +221,7 @@ class CaregiverEventRowViewTest {
     }
 
     private fun texts(row: ItemCaregiverOverviewEventBinding) = listOf(row.medication, row.dosage,
-        row.plannedTime, row.outcome, row.localSync, row.syncedReports, row.reportLinkError)
+        row.plannedTime, row.outcome, row.localSync, row.syncedReports, row.serverAcceptedLateReports, row.reportLinkError)
 
     private fun assertCleared(view: TextView) {
         assertEquals(View.GONE, view.visibility)

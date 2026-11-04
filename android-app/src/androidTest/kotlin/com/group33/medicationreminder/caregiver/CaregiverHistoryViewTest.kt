@@ -302,6 +302,47 @@ class CaregiverHistoryViewTest {
         assertEquals(2, repository.updates.value.value.size)
     }
 
+    @Test fun historyListAndDetailsShowServerAcceptedLateEvidenceWithoutChangingMissed() {
+        for (language in listOf("en", "zh")) withScreen(language) {
+            val recorded = 1_792_483_201_000L
+            val received = 1_792_483_209_000L
+            onMain {
+                val missed = event(20).copy(
+                    effectiveStatus = DoseStatus.MISSED,
+                    lastAcceptedStatus = DoseStatus.MISSED,
+                    serverAcceptedLateTakenReports = listOf(
+                        ServerAcceptedLateTakenReport("server-action", recorded, received),
+                    ),
+                )
+                // Keep one event so adapter position 1 unambiguously refers to this MISSED event.
+                repository.updates.value = repository.updates.value.copy(value = listOf(missed))
+            }
+            awaitLayoutFrame(view)
+            onMain {
+                val row = list.adapter.getView(1, null, list)
+                val expectedOutcome = if (language == "en") "no on-time confirmation" else "未及时确认"
+                val rowOutcome = row.findViewById<TextView>(R.id.outcome).text.toString()
+                assertTrue("$language outcome: $rowOutcome", rowOutcome.contains(
+                    expectedOutcome, ignoreCase = language == "en"))
+                assertTrue(row.findViewById<TextView>(R.id.server_accepted_late_reports).text.toString().contains(
+                    if (language == "en") "Server-accepted late report" else "服务器已接受的迟报"))
+                model.selectEvent(event(20).occurrence)
+                showDetails()
+            }
+            awaitLayoutFrame(view)
+            onMain {
+                val detail = details().findViewById<View>(R.id.history_detail_event)
+                assertTrue(detail.findViewById<TextView>(R.id.outcome).text.toString().contains(
+                    if (language == "en") "no on-time confirmation" else "未及时确认"))
+                val evidence = detail.findViewById<TextView>(R.id.server_accepted_late_reports)
+                assertEquals(View.VISIBLE, evidence.visibility)
+                assertTrue(evidence.text.toString().contains(if (language == "en") "Recorded" else "记录时间"))
+                assertTrue(evidence.text.toString().contains(
+                    if (language == "en") "Service received" else "服务接收时间"))
+            }
+        }
+    }
+
     @Test fun selectedDetailsStayAfterTheirRecordWithoutJumpingToFilters() = withScreen {
         var anchor = -1
         var closed: View? = null

@@ -28,6 +28,10 @@ internal fun ItemCaregiverOverviewEventBinding.bindEvent(event: OverviewEventRow
     localSync.visibility = if (event.localSyncStates.isEmpty()) View.GONE else View.VISIBLE
     syncedReports.text = event.syncedReports.joinToString("\n\n") { context.syncedReportText(it) }
     syncedReports.visibility = if (event.syncedReports.isEmpty()) View.GONE else View.VISIBLE
+    serverAcceptedLateReports.text = event.serverAcceptedLateReports.joinToString("\n\n") {
+        context.serverAcceptedLateReportText(it)
+    }
+    serverAcceptedLateReports.visibility = if (event.serverAcceptedLateReports.isEmpty()) View.GONE else View.VISIBLE
     reportLinkError.text = context.getString(R.string.c3_report_unlinked).takeIf { event.hasUnlinkedReports }.orEmpty()
     reportLinkError.visibility = if (event.hasUnlinkedReports) View.VISIBLE else View.GONE
 }
