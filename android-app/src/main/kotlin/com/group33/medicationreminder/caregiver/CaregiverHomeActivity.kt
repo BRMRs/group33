@@ -18,6 +18,7 @@ class CaregiverHomeActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityCaregiverHomeBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        com.group33.medicationreminder.caregiver.plan.PlanEditorDebugEntry.install(this, binding.root)
 
         binding.addDemoScheduleButton.setOnClickListener {
             viewModel.addDemoSchedule()
