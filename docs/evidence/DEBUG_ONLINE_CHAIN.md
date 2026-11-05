@@ -30,7 +30,7 @@ The final harness runs fourteen phases in English and fourteen in Simplified Chi
 | Late old401 does not invalidate newer successful session | PASS |
 | Transient503 retains data and last sync time, reports stale, retains session | PASS |
 | Revocation clears UI and real subsequent reads are denied | PASS |
-| Native emulated camera shutter/Done → private preview → confirmed JPEG upload | Prior integration PASS; unchanged #82 component, not rerun in this navigation update |
+| Native emulated camera shutter/Done → private preview → confirmed JPEG upload | PASS from shared entry → ElderHome photo button → native camera; emulator only |
 
 The first shared-entry run exposed an issue-code tap racing the automatic home refresh: the busy operation gate ignored it. Operation buttons now reflect busy state, the lifecycle refresh waits for a ready session, and the harness waits for enabled controls. Both full final language runs passed after this correction; the failed run remains in the local evidence.
 
@@ -45,6 +45,6 @@ Screenshots contain only fictional fixture data and no pairing codes or credenti
 | [Caregiver confirmed save](debug-chain/en-caregiver-plan.png) | [照护者保存成功](debug-chain/zh-caregiver-plan.png) |
 | [Elder sees the same plan](debug-chain/en-elder-plan.png) | [长辈看到同一计划](debug-chain/zh-elder-plan.png) |
 
-Current phase logs/screenshots, the 67-test regression log, build log and Release inspection results are retained in the local `reviews/formal-navigation-evidence` directory. Prior native-camera evidence remains in `reviews/debug-online-evidence`. Raw logs, APKs, live credentials/bridge files and private runtime photo storage are not committed.
+Current phase logs/screenshots, the 67-test regression log, build log and Release inspection results are retained in the local `reviews/formal-navigation-evidence` directory. The new shared-entry native-camera screenshot/status are retained there too; earlier evidence remains in `reviews/debug-online-evidence`. Raw logs, APKs, live credentials/bridge files and private runtime photo storage are not committed.
 
 Physical devices, physical camera capture, API23/OEM behavior for the new host, persistent PostgreSQL runtime/restart, Supabase/Render, real phone login, alarms and V2 are not independently accepted by this run.
