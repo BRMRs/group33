@@ -8,7 +8,6 @@
         android:id="@+id/login_content_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_gravity="center_horizontal"
         android:orientation="vertical">
 
     <androidx.core.widget.NestedScrollView
@@ -38,11 +37,20 @@
             android:textStyle="bold" />
 
         <TextView
+            android:id="@+id/login_header"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/group33_title_top_margin"
             android:text="@string/login_title"
             android:textAppearance="@style/TextAppearance.Group33.Title" />
+
+        <ProgressBar
+            android:id="@+id/login_progress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="24dp"
+            android:visibility="gone" />
 
         <LinearLayout
             android:id="@+id/login_choices"
@@ -74,19 +82,16 @@
                 app:cardCornerRadius="16dp"
                 app:strokeColor="@color/group33_error_outline"
                 app:strokeWidth="1dp">
-
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:padding="16dp">
-
                     <TextView
                         android:id="@+id/choice_feedback_title"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:textAppearance="@style/TextAppearance.Group33.ErrorTitle" />
-
                     <TextView
                         android:id="@+id/choice_feedback_message"
                         android:layout_width="match_parent"
@@ -106,8 +111,8 @@
                 android:layout_marginTop="12dp"
                 android:minHeight="@dimen/group33_touch_min_height"
                 android:text="@string/login_other_methods"
-                android:textSize="18sp"
-                android:textStyle="bold" />
+            android:textSize="18sp"
+            android:textStyle="bold" />
 
             <LinearLayout
                 android:id="@+id/alternative_methods"
@@ -134,15 +139,6 @@
                     android:text="@string/login_password"
                     android:textSize="20sp" />
             </LinearLayout>
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/role_preview_button"
-                style="@style/Widget.Group33.SecondaryAction"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
-                android:text="@string/login_open_role_preview"
-                android:textSize="18sp" />
         </LinearLayout>
 
         <LinearLayout
@@ -189,8 +185,10 @@
                     android:layout_height="wrap_content"
                     android:autofillHints="phone"
                     android:inputType="phone"
-                    android:minHeight="@dimen/group33_touch_min_height"
-                    android:textSize="18sp" />
+                    android:imeOptions="actionDone"
+                    android:minHeight="80dp"
+                    android:saveEnabled="false"
+                    android:textSize="24sp" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.textfield.TextInputLayout
@@ -205,6 +203,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:inputType="number"
+                    android:imeOptions="actionDone"
                     android:minHeight="@dimen/group33_touch_min_height"
                     android:saveEnabled="false"
                     android:textSize="18sp" />
@@ -233,6 +232,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:inputType="textPassword"
+                    android:imeOptions="actionDone"
                     android:minHeight="@dimen/group33_touch_min_height"
                     android:saveEnabled="false"
                     android:textSize="18sp" />
@@ -263,6 +263,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:inputType="textPassword"
+                    android:imeOptions="actionDone"
                     android:minHeight="@dimen/group33_touch_min_height"
                     android:saveEnabled="false"
                     android:textSize="18sp" />
@@ -273,9 +274,10 @@
                 style="@style/Widget.Group33.PrimaryAction"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
+                android:layout_marginTop="16dp"
+                android:minHeight="80dp"
                 android:text="@string/login_sms"
-                android:textSize="22sp" />
+                android:textSize="24sp" />
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/form_feedback_card"
@@ -288,19 +290,16 @@
                 app:cardCornerRadius="16dp"
                 app:strokeColor="@color/group33_error_outline"
                 app:strokeWidth="1dp">
-
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:padding="16dp">
-
                     <TextView
                         android:id="@+id/form_feedback_title"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:textAppearance="@style/TextAppearance.Group33.ErrorTitle" />
-
                     <TextView
                         android:id="@+id/form_feedback_message"
                         android:layout_width="match_parent"
@@ -311,6 +310,189 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/role_selection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="32dp"
+                android:text="@string/login_choose_role"
+                android:textAppearance="@style/TextAppearance.Group33.Title" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/login_role_once"
+                android:textAppearance="@style/TextAppearance.Group33.Body" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/register_elder_button"
+                style="@style/Widget.Group33.PrimaryAction"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="32dp"
+                android:minHeight="64dp"
+                android:text="@string/elder_role"
+                android:textSize="20sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/register_caregiver_button"
+                style="@style/Widget.Group33.SecondaryAction"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:minHeight="64dp"
+                android:text="@string/caregiver_role"
+                android:textSize="20sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/cancel_registration_button"
+                style="@style/Widget.Group33.LanguageAction"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="12dp"
+                android:minHeight="@dimen/group33_touch_min_height"
+                android:text="@string/login_back_to_methods" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/caregiver_registration"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="32dp"
+                android:text="@string/login_caregiver_details"
+                android:textAppearance="@style/TextAppearance.Group33.Title" />
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:hint="@string/login_display_name">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/display_name_input"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textPersonName"
+                    android:imeOptions="actionNext"
+                    android:minHeight="@dimen/group33_touch_min_height"
+                    android:textSize="18sp" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/registration_password_field"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:hint="@string/login_optional_password"
+                app:endIconMode="password_toggle">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/registration_password_input"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textPassword"
+                    android:imeOptions="actionDone"
+                    android:minHeight="@dimen/group33_touch_min_height"
+                    android:saveEnabled="false"
+                    android:textSize="18sp" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/complete_registration_button"
+                style="@style/Widget.Group33.PrimaryAction"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:minHeight="64dp"
+                android:text="@string/login_complete_registration"
+                android:textSize="20sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/skip_password_button"
+                style="@style/Widget.Group33.SecondaryAction"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:minHeight="56dp"
+                android:text="@string/login_skip_password"
+                android:textSize="18sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/back_to_role_button"
+                style="@style/Widget.Group33.LanguageAction"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="12dp"
+                android:minHeight="@dimen/group33_touch_min_height"
+                android:text="@string/login_back_to_role" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/signed_in_summary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/signed_in_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="32dp"
+                android:textAppearance="@style/TextAppearance.Group33.Title" />
+
+            <TextView
+                android:id="@+id/signed_in_description"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/login_demo_no_real_session"
+                android:textAppearance="@style/TextAppearance.Group33.Body" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/open_home_button"
+                style="@style/Widget.Group33.PrimaryAction"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="32dp"
+                android:minHeight="64dp"
+                android:text="@string/login_open_home_preview"
+                android:textSize="20sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/sign_out_button"
+                style="@style/Widget.Group33.SecondaryAction"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/login_sign_out" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/login_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:accessibilityLiveRegion="polite"
+            android:textAppearance="@style/TextAppearance.Group33.Body"
+            android:visibility="gone" />
+
     </LinearLayout>
     </androidx.core.widget.NestedScrollView>
     </LinearLayout>

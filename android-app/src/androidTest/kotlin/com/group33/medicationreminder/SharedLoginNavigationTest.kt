@@ -19,10 +19,10 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class SharedLoginNavigationTest {
     @Test
-    fun englishLauncherKeepsBothRolePreviewsReachable() = verifyRoleNavigation("en")
+    fun englishDebugRolePreviewKeepsBothHomesReachable() = verifyRoleNavigation("en")
 
     @Test
-    fun chineseLauncherKeepsBothRolePreviewsReachable() = verifyRoleNavigation("zh-CN")
+    fun chineseDebugRolePreviewKeepsBothHomesReachable() = verifyRoleNavigation("zh-CN")
 
     private fun verifyRoleNavigation(language: String) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -30,18 +30,15 @@ class SharedLoginNavigationTest {
             AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(language))
         }
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val launcher = checkNotNull(context.packageManager.getLaunchIntentForPackage(context.packageName))
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-        try { ActivityScenario.launch<SharedLoginActivity>(launcher).use {
-            onView(withId(R.id.role_preview_button)).perform(scrollTo(), click())
+        val preview = Intent(context, MainActivity::class.java)
+        try { ActivityScenario.launch<MainActivity>(preview).use {
             onView(withId(R.id.elder_button)).perform(scrollTo(), click())
             onView(withId(R.id.elder_title)).check(matches(isDisplayed()))
             pressBack()
             onView(withId(R.id.caregiver_button)).perform(scrollTo(), click())
             onView(withId(R.id.caregiver_title)).check(matches(isDisplayed()))
             pressBack()
-            pressBack()
-            onView(withId(R.id.one_tap_button)).perform(scrollTo()).check(matches(isDisplayed()))
+            onView(withId(R.id.caregiver_button)).check(matches(isDisplayed()))
         } } finally {
             instrumentation.runOnMainSync {
                 AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList())

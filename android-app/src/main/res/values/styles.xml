@@ -22,6 +22,15 @@
         <item name="android:textColor">@color/group33_error</item>
         <item name="android:textSize">18sp</item>
     </style>
+    <style name="TextAppearance.Group33.SuccessTitle" parent="TextAppearance.Material3.TitleMedium">
+        <item name="android:textColor">@color/group33_success</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="TextAppearance.Group33.SuccessBody" parent="TextAppearance.Material3.BodyLarge">
+        <item name="android:textColor">@color/group33_success</item>
+        <item name="android:textSize">18sp</item>
+    </style>
     <style name="Widget.Group33.PrimaryAction" parent="Widget.Material3.Button">
         <item name="android:minHeight">@dimen/group33_action_min_height</item>
         <item name="android:textColor">@android:color/white</item>
