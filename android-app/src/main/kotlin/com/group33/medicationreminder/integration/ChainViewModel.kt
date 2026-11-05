@@ -32,7 +32,8 @@ internal data class ChainUi(
 /** Screen logic consumes existing Repository interfaces. No UI-owned identity, HTTP or DAO. */
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class ChainViewModel(private val services: ChainServices,
-                              private val clock: Clock = Clock.systemDefaultZone()) : ViewModel() {
+                              private val clock: Clock = Clock.systemDefaultZone(),
+                              private val decode: suspend (PhotoContent) -> Bitmap = ::decodePhotoContent) : ViewModel() {
     private val mutable = MutableStateFlow(ChainUi())
     val state = mutable.asStateFlow()
     private val selected = MutableStateFlow<String?>(null)
@@ -131,6 +132,10 @@ internal class ChainViewModel(private val services: ChainServices,
             features?.browser?.bind(services.plans, trusted.scope, elder, today)
         }
         val result = services.photos.refresh(elder)
+        if (isCurrentCollection(mutable.value, trusted, elder, caregiverContext)) {
+            if (features?.photos?.state?.value?.observationError != null) features?.photos?.retryObservation()
+            if (features?.browser?.state?.value?.observationFailed == true) features?.browser?.retryObservation()
+        }
         mutable.update {
             if (!isCurrentCollection(it, trusted, elder, caregiverContext)) return@update it
             it.copy(message = if (result is Outcome.Success) R.string.chain_refreshed else R.string.chain_failed) }
@@ -221,6 +226,19 @@ internal class ChainViewModel(private val services: ChainServices,
             mutable.update { it.copy(editorPhotoId = viewed.metadata.id) }
     }
     fun retryPhotoContent() { features?.photos?.retryContent() }
+    fun retryPhotoDecode() {
+        if (!mutable.value.photoDecodeFailed) return
+        val current = target ?: return
+        val bound = features ?: return
+        val photo = bound.photos.state.value
+        val content = photo.content.takeIf { photo.contentStatus == PhotoContentStatus.AVAILABLE } ?: return
+        val metadata = photo.photos.firstOrNull { it.id == photo.selectedPhotoId } ?: return
+        if (current.caregiver == null || !isCurrentCollection(mutable.value, current.trusted,
+                current.elderId, current.caregiver)) return
+        mutable.update { it.copy(photoDecodeFailed = false) }
+        photoJob?.cancel()
+        decodePhoto(current, bound, metadata, content)
+    }
     fun retryPhotoObservation() { features?.photos?.retryObservation() }
     fun retryPlanObservation() { features?.browser?.retryObservation() }
     fun selectPlan(id: String?) { features?.browser?.selectPlan(id) }
@@ -229,16 +247,7 @@ internal class ChainViewModel(private val services: ChainServices,
     private fun decodePhoto(next: Target, bound: Features, metadata: MedicationPhotoView, content: PhotoContent) {
         photoJob = viewModelScope.launch {
             try {
-                val bitmap = withContext(Dispatchers.IO) {
-                    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                    content.openStream().use { BitmapFactory.decodeStream(it, null, bounds) }
-                    require(bounds.outWidth > 0 && bounds.outHeight > 0)
-                    val options = BitmapFactory.Options().apply {
-                        inSampleSize = 1
-                        while (bounds.outWidth / inSampleSize > 1280 || bounds.outHeight / inSampleSize > 1280) inSampleSize *= 2
-                    }
-                    content.openStream().use { BitmapFactory.decodeStream(it, null, options) }
-                } ?: error("Invalid photo")
+                val bitmap = decode(content)
                 if (target == next && decodedContent === content &&
                     bound.photos.state.value.selectedPhotoId == metadata.id &&
                     isCurrentCollection(mutable.value, next.trusted, next.elderId, next.caregiver)) {
@@ -257,4 +266,16 @@ internal class ChainViewModel(private val services: ChainServices,
         bindFeatures(null)
         featureStore.clear()
     }
+}
+
+/** Bounded private-byte decoding stays separate from the original feature's retrieval state. */
+private suspend fun decodePhotoContent(content: PhotoContent): Bitmap = withContext(Dispatchers.IO) {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    content.openStream().use { BitmapFactory.decodeStream(it, null, bounds) }
+    require(bounds.outWidth > 0 && bounds.outHeight > 0)
+    val options = BitmapFactory.Options().apply {
+        inSampleSize = 1
+        while (bounds.outWidth / inSampleSize > 1280 || bounds.outHeight / inSampleSize > 1280) inSampleSize *= 2
+    }
+    content.openStream().use { BitmapFactory.decodeStream(it, null, options) } ?: error("Invalid photo")
 }

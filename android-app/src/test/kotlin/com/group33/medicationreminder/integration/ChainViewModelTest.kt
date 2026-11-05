@@ -43,6 +43,8 @@ class ChainViewModelTest {
                 photoId = photo(elder).id)))) }
         var failPlanObservation = false
         var photoLoads = 0
+        var decodeAttempts = 0
+        var photoResult: Outcome<PhotoContent> = failure
         var photoLoadGate: CompletableDeferred<Unit>? = null
         val records = MutableStateFlow<List<OnlineCommandRecord>>(emptyList())
         var pairingResult: Outcome<Unit> = Outcome.Success(Unit)
@@ -50,7 +52,7 @@ class ChainViewModelTest {
         var refreshGate: CompletableDeferred<Unit>? = null
         val model = ChainViewModel(ChainServices(this, this, this, this, this, MutableStateFlow(scope), trusted) {
             Outcome.Success(Unit)
-        }).also { model -> stores += ViewModelStore().apply { put("chain", model) } }
+        }, decode = { decodeAttempts++; error("Transient private-stream decode fixture") }).also { model -> stores += ViewModelStore().apply { put("chain", model) } }
         override fun observeSession() = session
         override suspend fun login(role: UserRole, displayName: String): Outcome<UserView> = error("Not used")
         override fun observeRelationships() = relationships
@@ -64,7 +66,7 @@ class ChainViewModelTest {
         override suspend fun refresh(elderId: String): Outcome<SyncSummary> {
             // Model a read whose cancellation cannot complete until its transport returns.
             refreshGate?.let { withContext(NonCancellable) { it.await() } }
-            return Outcome.Success(SyncSummary(scope, elderId, SyncCompletion.COMPLETE, 1L, null))
+            return Outcome.Success(SyncSummary(checkNotNull(trusted.value).scope, elderId, SyncCompletion.COMPLETE, 1L, null))
         }
         override fun observeCommands() = records
         override suspend fun resume(operationId: String) = resumeResult
@@ -78,7 +80,7 @@ class ChainViewModelTest {
         override suspend fun revoke(relationshipId: String, command: CommandContext): OnlineCommandResult<CareRelationshipView> = error("Not used")
         override suspend fun submit(source: PhotoSource, command: CommandContext): OnlineCommandResult<MedicationPhotoView> = error("Not used")
         override suspend fun loadContent(photoId: String): Outcome<PhotoContent> {
-            photoLoads++; photoLoadGate?.await(); return failure
+            photoLoads++; photoLoadGate?.await(); return photoResult
         }
         override fun observePreview(elderId: String, range: LocalDateRange): Flow<Cached<List<PlanPreview>>> =
             flowOf(Cached(emptyList(), false, null, true, AccessState.AUTHORIZED))
@@ -213,6 +215,41 @@ class ChainViewModelTest {
         f.relationships.value = cached(listOf(relation("new-relationship", elderA)))
         f.model.select("new-relationship"); runCurrent()
         assertEquals(listOf(photo(elderA)), f.model.state.value.photo.photos)
+    }
+
+    @Test fun `decode failure retries selected private bytes without bypassing withdrawal`() = runTest(dispatcher) {
+        val f = Fixture(); runCurrent(); f.model.select("rel-a"); runCurrent()
+        f.photoResult = Outcome.Success(object : PhotoContent {
+            override val contentType = "image/png"
+            override fun openStream() = java.io.ByteArrayInputStream(byteArrayOf(1))
+        })
+        f.model.viewPhoto(photo(elderA).id); runCurrent()
+        assertTrue(f.model.state.value.photoDecodeFailed)
+        assertEquals(1, f.decodeAttempts)
+        f.model.retryPhotoDecode(); runCurrent()
+        assertEquals(2, f.decodeAttempts)
+        assertEquals(1, f.photoLoads)
+        assertEquals(photo(elderA).id, f.model.state.value.photo.selectedPhotoId)
+        f.photos.getValue(elderA.id).value = cached(listOf(photo(elderA))).copy(access = AccessState.REVOKED)
+        runCurrent(); f.model.retryPhotoDecode(); runCurrent()
+        assertEquals(2, f.decodeAttempts)
+    }
+
+    @Test fun `Elder foreground refresh reopens a terminated browser observation`() = runTest(dispatcher) {
+        val f = Fixture()
+        f.session.value = SessionView(AuthReadiness.READY, elderA)
+        f.trusted.value = TrustedSessionContext(scope.copy(userId = elderA.id), 2)
+        runCurrent()
+        assertEquals(elderA.id, f.model.state.value.browser.items.single().elderId)
+        f.failPlanObservation = true
+        f.plans.getValue(elderA.id).value = f.plans.getValue(elderA.id).value.copy(isStale = true)
+        runCurrent()
+        assertTrue(f.model.state.value.browser.observationFailed)
+        assertTrue(f.model.state.value.browser.items.isEmpty())
+        f.failPlanObservation = false
+        f.model.refresh(); runCurrent()
+        assertFalse(f.model.state.value.browser.observationFailed)
+        assertEquals(elderA.id, f.model.state.value.browser.items.single().elderId)
     }
 
 }

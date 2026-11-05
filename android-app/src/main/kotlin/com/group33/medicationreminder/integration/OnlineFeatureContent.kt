@@ -185,8 +185,12 @@ internal class OnlineFeatureContent private constructor(
                 .text = activity.getString(R.string.chain_inspect_number, i + 1)
         }
         when {
-            state.photoDecodeFailed -> text(data, R.string.browse_photo_decode_failed)
-            photo.contentStatus == PhotoContentStatus.LOADING -> text(data, R.string.browse_photo_loading)
+            state.photoDecodeFailed -> {
+                text(data, R.string.browse_photo_decode_failed)
+                button(data, R.string.browse_retry_photo) { model.retryPhotoDecode() }
+            }
+            photo.contentStatus == PhotoContentStatus.LOADING ||
+                photo.contentStatus == PhotoContentStatus.AVAILABLE && state.viewed == null -> text(data, R.string.browse_photo_loading)
             photo.contentStatus == PhotoContentStatus.FAILED -> {
                 text(data, R.string.browse_photo_failed)
                 button(data, R.string.browse_retry_photo) { model.retryPhotoContent() }
@@ -223,7 +227,16 @@ internal class OnlineFeatureContent private constructor(
                 isSelected = browser.selectedPlanId == plan.id
             }
         }
-        if (role != UserRole.CAREGIVER) return
+        if (role != UserRole.CAREGIVER) {
+            val elderMessage = when (browser.message) {
+                PlanBrowserMessage.RESULTS -> null
+                PlanBrowserMessage.EMPTY -> R.string.browse_elder_empty
+                PlanBrowserMessage.LOADING -> R.string.browse_elder_loading
+                else -> R.string.browse_elder_unavailable
+            }
+            elderMessage?.let { text(data, it).id = R.id.plan_browser_status }
+            return
+        }
         browser.details?.let { details ->
             text(data, R.string.browse_plan_details).id = R.id.plan_details_heading
             renderPlan(details.plan, details.medication)

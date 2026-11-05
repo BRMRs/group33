@@ -29,11 +29,15 @@ class SharedLoginNavigationTest {
             }
             app.languageSettings.setChoice(choice)
         }
-        instrumentation.runOnMainSync { Group33Application.applyLanguage(choice) }
+        instrumentation.runOnMainSync { Group33Application.applyLanguage(choice, app) }
         val launcher = checkNotNull(context.packageManager.getLaunchIntentForPackage(context.packageName))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         assertEquals(SharedLoginActivity::class.java.name, launcher.component!!.className)
-        try { ActivityScenario.launch<SharedLoginActivity>(launcher).use {
+        try { ActivityScenario.launch<SharedLoginActivity>(launcher).use { scenario ->
+            scenario.onActivity { activity -> assertEquals(
+                if (choice == LanguageChoice.SIMPLIFIED_CHINESE) "zh" else "en",
+                androidx.core.os.ConfigurationCompat.getLocales(activity.resources.configuration)[0]?.language)
+            }
             onView(withId(R.id.one_tap_button)).perform(scrollTo()).check(matches(isDisplayed()))
             onView(withId(R.id.other_methods_button)).perform(scrollTo(), click())
             onView(withId(R.id.sms_button)).perform(scrollTo(), click())
@@ -42,7 +46,7 @@ class SharedLoginNavigationTest {
             onView(withId(R.id.one_tap_button)).perform(scrollTo()).check(matches(isDisplayed()))
         } } finally {
             runBlocking { app.languageSettings.setChoice(LanguageChoice.FOLLOW_SYSTEM) }
-            instrumentation.runOnMainSync { Group33Application.applyLanguage(LanguageChoice.FOLLOW_SYSTEM) }
+            instrumentation.runOnMainSync { Group33Application.applyLanguage(LanguageChoice.FOLLOW_SYSTEM, app) }
         }
     }
 }

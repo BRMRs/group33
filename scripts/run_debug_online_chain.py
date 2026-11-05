@@ -50,6 +50,11 @@ def main():
             setup = run(serial, 'shell', 'am', 'instrument', '-w', '-r', '-e', 'class',
                         PKG + '.integration.ChainOnlineFlowTest#configureLanguage', '-e', 'chainLanguage', args.locale, TEST)
             if b'OK (1 test)' not in setup: raise RuntimeError('Shared language preference setup failed')
+            # Prove the Application restores its saved choice without a live Activity delegate.
+            sdk = int(run(serial, 'shell', 'getprop', 'ro.build.version.sdk').strip())
+            if sdk >= 33:
+                run(serial, 'shell', 'cmd', 'locale', 'set-app-locales', PKG)
+            run(serial, 'shell', 'am', 'force-stop', PKG)
         run(serial, 'shell', 'am', 'start', '-n', PKG + '/.SharedLoginActivity')
 
     bridge = None

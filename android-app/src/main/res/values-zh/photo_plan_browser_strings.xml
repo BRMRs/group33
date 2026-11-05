@@ -10,7 +10,7 @@
     <string name="browse_retry_observation">重新读取已保存资料</string>
     <string name="browse_photo_loading">正在打开药盒照片…</string>
     <string name="browse_photo_failed">暂时无法打开这张照片。</string>
-    <string name="browse_photo_decode_failed">无法显示这张照片，请选择其他照片。</string>
+    <string name="browse_photo_decode_failed">暂时无法显示这张照片，请重试。</string>
     <string name="browse_retry_photo">重新打开照片</string>
     <string name="browse_plans_unavailable">暂时无法读取已保存的计划。</string>
     <string name="browse_plans_empty">尚无已确认计划。</string>
@@ -25,4 +25,7 @@
     <string name="browse_preview_waiting">正在等待与当前计划版本一致的提醒预览。</string>
     <string name="browse_preview_candidate">%1$s %2$s (%3$s)</string>
     <string name="browse_create_plan">用这张照片建立计划</string>
+    <string name="browse_elder_empty">暂时还没有分享给您的计划。</string>
+    <string name="browse_elder_loading">正在载入您的计划…</string>
+    <string name="browse_elder_unavailable">暂时无法查看计划，请稍后再回来。</string>
 </resources>

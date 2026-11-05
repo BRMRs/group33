@@ -72,11 +72,18 @@ class ChainOnlineFlowTest {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         instrumentation.startActivitySync(intent)
         val session = withTimeout(10_000) { s.auth.observeSession().first { it.readiness != AuthReadiness.RESTORING } }
-        return foreground(when (session.user?.role) {
+        val activity = foreground(when (session.user?.role) {
             UserRole.ELDER -> ElderHomeActivity::class.java
             UserRole.CAREGIVER -> CaregiverHomeActivity::class.java
             null -> SharedLoginActivity::class.java
         })
+        val choice = app.languageSettings.observeChoice().first()
+        if (choice != LanguageChoice.FOLLOW_SYSTEM) instrumentation.runOnMainSync {
+            assertEquals("Actual Activity locale must match the saved preference",
+                if (choice == LanguageChoice.SIMPLIFIED_CHINESE) "zh" else "en",
+                androidx.core.os.ConfigurationCompat.getLocales(activity.resources.configuration)[0]?.language)
+        }
+        return activity
     }
     private fun nav(activity: Activity, id: Int) = instrumentation.runOnMainSync {
         activity.findViewById<View>(id).performClick()
@@ -102,7 +109,7 @@ class ChainOnlineFlowTest {
         assumeTrue("Locale setup is explicit", tag != null)
         val choice = if (tag!!.startsWith("zh")) LanguageChoice.SIMPLIFIED_CHINESE else LanguageChoice.ENGLISH
         success(app.languageSettings.setChoice(choice))
-        instrumentation.runOnMainSync { Group33Application.applyLanguage(choice) }
+        instrumentation.runOnMainSync { Group33Application.applyLanguage(choice, app) }
     }
 
     @Test fun realOnlinePhase(): Unit = runBlocking<Unit> {
@@ -274,6 +281,8 @@ class ChainOnlineFlowTest {
                             activity.findViewById<TextView>(R.id.plan_details_heading)?.isShown == true
                     }; selected
                 }
+                waitUntil { !host!!.state.value.busy && host!!.state.value.browser.plans?.isStale == false }
+                instrumentation.waitForIdleSync()
                 screenshot(activity, "caregiver-browser")
                 click(activity, R.string.browse_plan_photo)
                 waitUntil { host!!.state.value.viewed?.metadata?.id == b.getString("photoId") }
