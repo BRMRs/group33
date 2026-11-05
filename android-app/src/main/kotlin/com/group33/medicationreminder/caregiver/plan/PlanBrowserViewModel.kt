@@ -176,7 +176,10 @@ class PlanBrowserViewModel : ViewModel() {
     }
 
     private fun failObservation() {
-        mutableState.value = state.value.copy(loading = false, observationFailed = true)
+        // combine terminates all subscriptions on failure. Without a live access source,
+        // retained private content cannot safely remain visible. Retry must re-establish access.
+        mutableState.value = PlanBrowserState(state.value.scope, state.value.elderId,
+            state.value.range, observationFailed = true)
     }
 
     override fun onCleared() { clearContext() }

@@ -8,14 +8,14 @@ and execution-zone local date. It observes confirmed plans, medication details/p
 references and seven inclusive dates of repository-calculated candidates. It does
 not load photo bytes, create events, schedule alarms, or call plan mutations.
 Observation retry is not a server refresh. Each collection retains its own cache
-metadata; observation failures retain the previous snapshot marked stale.
+metadata; terminal observation failures clear private UI snapshots because access monitoring has stopped. Live stale cache emissions remain visible with their metadata.
 Access withdrawal hides data, revocation is latched for that scope/Elder, and
 context replacement clears details and cancels prior observations.
 
 ## Verification
 
 - `:android-app:testDebugUnitTest :android-app:lintDebug :android-app:assembleDebug`: passed.
-- `PlanBrowserViewModelTest`: 11 tests, zero failures/errors.
+- `PlanBrowserViewModelTest`: 12 tests, zero failures/errors.
 - Repository policy check: passed.
 - Tests cover leap/year ranges, details with no end date and photo reference,
   empty versus missing cache, stale failure/recovery, revocation, context replacement,
@@ -34,3 +34,5 @@ by the current interfaces; candidates from a different plan revision are hidden.
 No human review or approval is claimed.
 
 Integration check: C1 PR #100 remains Draft with relationship snapshot source isolation unresolved; PR #92 remains Draft. No production host wiring was added. Preview state now distinguishes missing cache, empty candidates and revision mismatch; UNKNOWN access recovery is tested.
+
+2026-11-05 S2-107-01: pre-fix fault regression failed; final loop covers each of three stream failures, later revoked/unknown data, authorized retry and new-session binding. No repository data is deleted. This is conservative UI invalidation, not a claim of continuous access monitoring after stream termination.

@@ -28,14 +28,16 @@ class PlanBrowserViewModelTest {
         val meds = MutableStateFlow(cached(listOf(medication)))
         val previews = MutableStateFlow(cached(emptyList<PlanPreview>()))
         var fail = false
+        var failMeds = false
+        var failPreview = false
         var silentPreview = false
         var range: LocalDateRange? = null
         override fun observePlans(elderId: String): Flow<Cached<List<ReminderPlanView>>> =
             plans.map { if (fail) error("offline") else it }
-        override fun observeMedications(elderId: String) = meds
+        override fun observeMedications(elderId: String) = meds.map { if (failMeds) error("offline") else it }
         override fun observePreview(elderId: String, range: LocalDateRange): Flow<Cached<List<PlanPreview>>> {
             this.range = range
-            return if (silentPreview) flow { kotlinx.coroutines.awaitCancellation() } else previews
+            return if (silentPreview) flow { kotlinx.coroutines.awaitCancellation() } else previews.map { if (failPreview) error("offline") else it }
         }
         override suspend fun confirm(elderId: String, draft: ConfirmReminderPlanRequest, command: CommandContext): OnlineCommandResult<ConfirmReminderPlanResponse> = error("Read must never write")
         override suspend fun update(planId: String, draft: UpdateReminderPlanRequest, command: CommandContext): OnlineCommandResult<UpdateReminderPlanResponse> = error("Read must never write")
@@ -52,6 +54,27 @@ class PlanBrowserViewModelTest {
         assertEquals(LocalDateRange("2024-02-27", "2024-03-04"), PlanBrowserViewModel.sevenDayRange(today))
         assertEquals(LocalDateRange("2026-12-29", "2027-01-04"), PlanBrowserViewModel.sevenDayRange(LocalDate.parse("2026-12-29")))
     }
+    @Test fun `each terminal stream failure hides private data even when access later changes`() = runTest(dispatcher) {
+        for (source in 0..2) {
+            val repo = Repository(); val vm = model(repo); runCurrent(); vm.selectPlan("plan")
+            when (source) {
+                0 -> { repo.fail = true; repo.plans.value = repo.plans.value.copy(isStale = true) }
+                1 -> { repo.failMeds = true; repo.meds.value = repo.meds.value.copy(isStale = true) }
+                2 -> { repo.failPreview = true; repo.previews.value = repo.previews.value.copy(isStale = true) }
+            }
+            runCurrent()
+            assertEquals(AccessState.UNKNOWN, vm.state.value.access)
+            assertTrue(vm.state.value.items.isEmpty()); assertNull(vm.state.value.details)
+            repo.plans.value = repo.plans.value.copy(access = AccessState.REVOKED)
+            repo.meds.value = repo.meds.value.copy(access = AccessState.UNKNOWN); runCurrent()
+            assertTrue(vm.state.value.items.isEmpty())
+            repo.fail = false; repo.failMeds = false; repo.failPreview = false
+            vm.retryObservation(); runCurrent()
+            assertEquals(AccessState.REVOKED, vm.state.value.access)
+            vm.bind(Repository(), scope.copy(userId = "new-session"), "elder", today); runCurrent()
+            assertEquals(listOf(plan), vm.state.value.items)
+        }
+    }
     @Test fun `details preserve confirmed fields and photo reference without end date`() = runTest(dispatcher) {
         val repo = Repository(); val vm = model(repo)
         assertEquals(PlanBrowserMessage.LOADING, vm.state.value.message)
@@ -67,10 +90,10 @@ class PlanBrowserViewModelTest {
         repo.plans.value = repo.plans.value.copy(hasLocalData = false); runCurrent()
         assertEquals(PlanBrowserMessage.NO_LOCAL_DATA, vm.state.value.message)
     }
-    @Test fun `observation failure retains stale data and retry recovers`() = runTest(dispatcher) {
+    @Test fun `terminal observation failure hides data and authorized retry recovers`() = runTest(dispatcher) {
         val repo = Repository(); val vm = model(repo); runCurrent()
         repo.fail = true; repo.plans.value = repo.plans.value.copy(isStale = true); runCurrent()
-        assertEquals(listOf(plan), vm.state.value.items)
+        assertTrue(vm.state.value.items.isEmpty())
         assertTrue(vm.state.value.observationFailed); assertTrue(vm.state.value.isStale)
         repo.fail = false; repo.plans.value = cached(listOf(plan)); vm.retryObservation(); runCurrent()
         assertFalse(vm.state.value.observationFailed); assertFalse(vm.state.value.isStale)
