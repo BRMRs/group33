@@ -1,10 +1,10 @@
 # Gate 1 六角色正式审查交接清单（可转发给组员）
 
-更新：2026-10-17。现行产品：ELDER_REMINDER_V2（[#23](https://github.com/BRMRs/group33/issues/23)、[独立文档 PR #25](https://github.com/BRMRs/group33/pull/25)）；技术收口 [#24](https://github.com/BRMRs/group33/issues/24) 仍 OPEN。`T01-T07/2026-10-16-r1` 仅标识当前 legacy 代码/fixture，不是 V2 冻结版本。任务：[Issue #12](https://github.com/BRMRs/group33/issues/12)；共同代码：[Draft PR #22](https://github.com/BRMRs/group33/pull/22)。
+更新：2026-10-22。现行产品：ELDER_REMINDER_V2（[#23](https://github.com/BRMRs/group33/issues/23)、[独立文档 PR #25](https://github.com/BRMRs/group33/pull/25)）；技术收口 [#24](https://github.com/BRMRs/group33/issues/24) 仍 OPEN。`T01-T07/2026-10-16-r1` 仅标识当前 legacy 代码/fixture，不是 V2 冻结版本。任务：[Issue #12](https://github.com/BRMRs/group33/issues/12)；共同基线：[已合入main的PR #22](https://github.com/BRMRs/group33/pull/22)；独立S1策略：[Draft PR #37](https://github.com/BRMRs/group33/pull/37)，未合入main。
 
 交付顺序已由负责人按[ADR-0009](../adr/0009-two-stage-baseline-and-gate1-acceptance.md)批准：阶段 A 验收可开发基线，阶段 B 保留六人真实贡献与正式 Gate 1 签署。下面角色卡首先帮助定位一个小任务；六人未来的代码 PR 不再是获取初始工程的前置，但不能在阶段 A 勾完阶段 B。PR #22 的一次性发布授权见该ADR，当前PR/main状态实时核验，不由本角色卡推断。
 
-本清单是既有[贡献矩阵](SUBMISSION_MATRIX.md)的执行入口，不改变产品决策、任务归属或合并条件。E/C1/C2/C3/S1/S2 暂不映射 GitHub 账号，下面所有正式审查均为 **PENDING**。agent 可以辅助解释、跑测试、整理发现；真实成员亲自确认理解和证据之后，才填写本人记录。agent 不代签、不提交 APPROVE，不把共同准备的代码算到六人名下。
+本清单是既有[贡献矩阵](SUBMISSION_MATRIX.md)的执行入口，不改变产品决策、任务归属或合并条件。E/C1/C2/C3/S1/S2 的人员与账号已由负责人于2026-10-22确认，见[正式分工](../TEAM_ROSTER.md)；下面所有正式审查仍为 **PENDING**。agent 可以辅助解释、跑测试、整理发现；真实成员亲自确认理解和证据之后，才填写本人记录。agent 不代签、不提交 APPROVE，不把共同准备的代码算到六人名下。
 
 ## 1. 先认清这轮交付
 
@@ -26,7 +26,7 @@
 - [GATE1_REVIEW_PACKET.md](GATE1_REVIEW_PACKET.md)：区分真实 JVM 证据、scripted fake 与下游生产验收。
 - [SUBMISSION_MATRIX.md](SUBMISSION_MATRIX.md)：角色代码责任的权威矩阵；[工程手册](../ENGINEERING_PLAYBOOK.md)控制 PR/审查流程。
 
-**先做版本检查**：#23最新正文/PR #25 中 ADR-0008 已接受的 V2 产品行为高于这里 legacy 示例。T+30分钟仅通知照护者、长者提醒保留，T+2小时才截止；T−5/T+5两次连接检查在各自响应等待后均无有效响应才通知，任一次有效响应不发本轮两次失败告警，不要求全天心跳。整组确认/十分钟延后/求助、无强制二次确认、照护者独立补登记及长者不管理同步不变。时点已定，V2-T01–T06 的探测等待/具体协议/迁移由 #24 协调。当前r1两小时值与窗口相符，但不证明新增通知/探测/组动作。下文case ID不能直接签成完整V2通过。
+**先做版本检查**：#23最新正文/PR #25 中 ADR-0008 已接受的 V2 产品行为高于这里 legacy 示例。T+30分钟仅通知照护者、长者提醒保留，T+2小时才截止；T−5/T+5两次连接检查在各自响应等待后均无有效响应才通知，任一次有效响应不发本轮两次失败告警，不要求全天心跳。整组确认/十分钟延后/求助、无强制二次确认、照护者独立补登记及长者不管理同步不变。时点与初版60秒等待等参数已定，见[技术清单](../ELDER_UI_TECHNICAL_REVIEW.md)；V2-T01–T06的具体协议/声明与测试对齐由#24协调，不增加旧用户兼容任务。当前r1两小时值与窗口相符，但不证明新增通知/探测/组动作。下文case ID不能直接签成完整V2通过。
 
 所有命令都在仓库根目录运行：
 
@@ -88,7 +88,7 @@ A01–A05、W02、R01/R04 的实际子断言；pending 不是 active、终态不
 **本人要交的代码／测试**
 
 - Gate 1 首份小 PR：unknown/confirmed-cache-pending 的基本类型已有测试，优先检查现有计划/日期范围类型的未覆盖输入边界，限定为一个契约测试文件。真正消费 Repository 的 PlanEditorViewModel 及其表单状态测试是后续 #14 功能候选，不把新增生产 ViewModel 混入这次只读演练或伪称 Gate 1 小测试。
-- 核对未被替换的照片先决条件、revision、IANA zone/日期/时间和预览/真实事件区分；旧 T01 时长不能当 V2 参数，组成员/迁移等受影响协议先按 #24 收口。
+- 核对未被替换的照片先决条件、revision、IANA zone/日期/时间和预览/真实事件区分；r1的两小时值与当前窗口相符但不证明完整V2，组成员/声明对齐等受影响协议先按#24收口。
 - 后续业务：[照片 #13](https://github.com/BRMRs/group33/issues/13)、[计划 #14](https://github.com/BRMRs/group33/issues/14)、[在线切片 #15](https://github.com/BRMRs/group33/issues/15)。交表单、查看照片、验证/转换和自己的 Repository 接入。
 
 **验收证据**
