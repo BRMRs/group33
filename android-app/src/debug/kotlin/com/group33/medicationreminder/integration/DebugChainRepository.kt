@@ -135,9 +135,10 @@ internal class DebugChainRepository(
     override fun observePlans(elderId: String) = collection("plans", elderId, ReminderPlanCollection.serializer(),
         ReminderPlanCollection(emptyList(), emptyList())).map { it.copyValue(it.value.items) }
     override fun observeMedications(elderId: String) = collection("medications", elderId, ListSerializer(MedicationView.serializer()), emptyList())
-    // This create/read slice has no occurrence cache to overlay. Do not fabricate a complete preview.
+    // Authorized confirmed-plan reads establish the target's access, not preview availability.
+    // No occurrence cache exists: keep hasLocalData=false, never claim an empty schedule.
     override fun observePreview(elderId: String, range: LocalDateRange): Flow<Cached<List<PlanPreview>>> =
-        flowOf(Cached(emptyList(), false, null, true, AccessState.UNKNOWN))
+        observePlans(elderId).map { plans -> Cached(emptyList(), false, null, true, plans.access) }
     private fun <A, B> Cached<A>.copyValue(value: B) = Cached(value, hasLocalData, lastSuccessfulSyncAtEpochMillis, isStale, access)
 
     private suspend fun put(lease: SessionLease, kind: String, target: String, body: String) =

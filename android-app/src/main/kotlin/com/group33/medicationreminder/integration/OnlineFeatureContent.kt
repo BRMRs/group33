@@ -9,6 +9,7 @@ import com.group33.medicationreminder.Group33Application
 import com.group33.medicationreminder.R
 import com.group33.medicationreminder.caregiver.CaregiverDestination
 import com.group33.medicationreminder.caregiver.plan.*
+import com.group33.medicationreminder.caregiver.photo.*
 import com.group33.medicationreminder.core.data.contract.*
 import com.group33.shared.contract.*
 import com.group33.shared.model.UserRole
@@ -42,6 +43,12 @@ internal class OnlineFeatureContent private constructor(
     private val requests = section()
     private val relationships = section()
     private val data = section()
+    private val selectedPhoto = section()
+    private val photoPreview = ImageView(activity).apply {
+        adjustViewBounds = true
+        selectedPhoto.addView(this, LinearLayout.LayoutParams(-1, dp(220)))
+    }
+    private val createPlan = button(selectedPhoto, R.string.browse_create_plan) { model.createPlanForViewedPhoto() }
     private val editor = PlanEditorView(activity).apply { visibility = View.GONE; column.addView(this) }
     private val code: TextView
     private var editorKey: String? = null
@@ -75,7 +82,7 @@ internal class OnlineFeatureContent private constructor(
     private fun render(state: ChainUi) {
         val user = state.session.user
         if (user == null || user.role != role) {
-            editor.clear(); editorKey = null; column.visibility = View.GONE
+            editor.clear(); editorKey = null; photoPreview.setImageDrawable(null); column.visibility = View.GONE
             if (signedIn && state.session.readiness == AuthReadiness.SIGNED_OUT) openSharedLogin(activity)
             return
         }
@@ -119,24 +126,18 @@ internal class OnlineFeatureContent private constructor(
             if (role == UserRole.CAREGIVER && state.context !is CaregiverContextState.Active) {
                 button(data, R.string.chain_manage_pairing) { navigate(CaregiverDestination.SETTINGS) }
             } else {
-                state.photos.forEachIndexed { i, photo ->
-                    if (role == UserRole.CAREGIVER) button(data, R.string.chain_inspect) { model.viewPhoto(photo.id) }
-                        .text = activity.getString(R.string.chain_inspect_number, i + 1)
-                }
-                if (state.plans.isEmpty()) text(data, R.string.chain_no_plans)
-                state.plans.forEach { plan ->
-                    val medication = state.medications.firstOrNull { it.id == plan.medicationId } ?: return@forEach
-                    text(data).text = activity.getString(R.string.chain_plan, medication.displayName, medication.dosageText,
-                        plan.localTimes.joinToString(", "), plan.executionTimeZoneId, plan.startDate,
-                        plan.endDate ?: activity.getString(R.string.chain_no_end),
-                        activity.getString(if (plan.active) R.string.chain_active else R.string.chain_inactive))
-                    medication.instructions?.let { text(data).text = it }
-                }
-                if (state.stale && role == UserRole.CAREGIVER) text(data, R.string.chain_stale)
+                if (role == UserRole.CAREGIVER) renderPhotos(state)
+                renderPlans(state)
             }
         }
-        val viewed = state.viewed.takeIf { plans }
-        val key = viewed?.let { "${it.scope}:${it.generation}:${it.elderId}:${it.metadata.id}" }
+        val visiblePhoto = state.viewed.takeIf { plans && role == UserRole.CAREGIVER }
+        val editing = visiblePhoto != null && state.editorPhotoId == visiblePhoto.metadata.id
+        selectedPhoto.visibility = if (visiblePhoto != null && !editing) View.VISIBLE else View.GONE
+        photoPreview.setImageBitmap(visiblePhoto?.bitmap.takeUnless { editing })
+        photoPreview.contentDescription = visiblePhoto?.let { activity.getString(R.string.c2_editor_photo_description,
+            (state.context as? CaregiverContextState.Active)?.context?.elderDisplayName.orEmpty()) }
+        val viewed = visiblePhoto.takeIf { editing }
+        val key = viewed?.let { "${it.scope}:${it.generation}:${(state.context as? CaregiverContextState.Active)?.context?.relationshipId}:${it.elderId}:${it.metadata.id}" }
         if (key != editorKey) {
             editorKey = key; editor.clear()
             editor.visibility = if (viewed == null) View.GONE else View.VISIBLE
@@ -165,7 +166,96 @@ internal class OnlineFeatureContent private constructor(
         }
     }
 
-    fun close() { editor.clear() }
+    private fun renderPhotos(state: ChainUi) {
+        val photo = state.photo
+        text(data, R.string.browse_photos_title).apply { androidx.core.view.ViewCompat.setAccessibilityHeading(this, true) }
+        val message = when {
+            photo.observationError != null -> R.string.browse_photos_unavailable
+            photo.loading -> R.string.browse_loading
+            photo.access == AccessState.REVOKED -> R.string.browse_access_revoked
+            photo.access != AccessState.AUTHORIZED -> R.string.browse_access_unknown
+            !photo.hasLocalData -> R.string.browse_no_local_data
+            photo.photos.isEmpty() -> R.string.browse_photos_empty
+            else -> null
+        }
+        message?.let { text(data, it).id = R.id.photo_browser_status }
+        if (photo.observationError != null) button(data, R.string.browse_retry_observation) { model.retryPhotoObservation() }
+        photo.photos.forEachIndexed { i, metadata ->
+            button(data, R.string.chain_inspect) { model.viewPhoto(metadata.id) }
+                .text = activity.getString(R.string.chain_inspect_number, i + 1)
+        }
+        when {
+            state.photoDecodeFailed -> text(data, R.string.browse_photo_decode_failed)
+            photo.contentStatus == PhotoContentStatus.LOADING -> text(data, R.string.browse_photo_loading)
+            photo.contentStatus == PhotoContentStatus.FAILED -> {
+                text(data, R.string.browse_photo_failed)
+                button(data, R.string.browse_retry_photo) { model.retryPhotoContent() }
+            }
+        }
+        if (photo.isStale && photo.hasLocalData) text(data, R.string.chain_stale)
+    }
+
+    private fun renderPlans(state: ChainUi) {
+        val browser = state.browser
+        if (role == UserRole.CAREGIVER) text(data, R.string.browse_plans_title)
+            .apply { androidx.core.view.ViewCompat.setAccessibilityHeading(this, true) }
+        val message = when (browser.message) {
+            PlanBrowserMessage.SELECT_ELDER -> R.string.chain_manage_pairing
+            PlanBrowserMessage.LOADING -> R.string.browse_loading
+            PlanBrowserMessage.ACCESS_UNKNOWN -> R.string.browse_access_unknown
+            PlanBrowserMessage.REVOKED -> R.string.browse_access_revoked
+            PlanBrowserMessage.UNAVAILABLE -> R.string.browse_plans_unavailable
+            PlanBrowserMessage.NO_LOCAL_DATA -> R.string.browse_no_local_data
+            PlanBrowserMessage.EMPTY -> R.string.browse_plans_empty
+            PlanBrowserMessage.RESULTS -> null
+        }
+        if (role == UserRole.CAREGIVER) {
+            message?.let { text(data, it).id = R.id.plan_browser_status }
+            if (browser.observationFailed) button(data, R.string.browse_retry_observation) { model.retryPlanObservation() }
+        }
+        val medications = browser.medications?.value.orEmpty()
+        browser.items.forEach { plan ->
+            val medication = medications.firstOrNull { it.id == plan.medicationId }
+            if (role == UserRole.ELDER) renderPlan(plan, medication)
+            else button(data, R.string.browse_plan_details) { model.selectPlan(plan.id) }.apply {
+                text = activity.getString(R.string.browse_plan_row, medication?.displayName ?: activity.getString(R.string.browse_medication_unknown),
+                    medication?.dosageText ?: activity.getString(R.string.browse_medication_unknown), plan.localTimes.joinToString(", "))
+                isSelected = browser.selectedPlanId == plan.id
+            }
+        }
+        if (role != UserRole.CAREGIVER) return
+        browser.details?.let { details ->
+            text(data, R.string.browse_plan_details).id = R.id.plan_details_heading
+            renderPlan(details.plan, details.medication)
+            val photoId = details.medication?.photoId
+            if (photoId != null && state.photo.photos.any { it.id == photoId })
+                button(data, R.string.browse_plan_photo) { model.viewPhoto(photoId) }
+            button(data, R.string.browse_close_details) { model.selectPlan(null) }
+        }
+        if (listOfNotNull(browser.plans, browser.medications).any { it.isStale && it.hasLocalData })
+            text(data, R.string.chain_stale)
+        val previewMessage = when (browser.previewMessage) {
+            PlanPreviewMessage.RESULTS -> R.string.browse_preview_results
+            PlanPreviewMessage.EMPTY -> R.string.browse_preview_empty
+            PlanPreviewMessage.WAITING_FOR_MATCHING_PLANS -> R.string.browse_preview_waiting
+            PlanPreviewMessage.LOADING -> R.string.browse_loading
+            else -> R.string.browse_preview_unavailable
+        }
+        text(data, previewMessage).id = R.id.plan_preview_status
+        browser.candidates.forEach { candidate -> text(data).text = activity.getString(R.string.browse_preview_candidate,
+            candidate.occurrence.localDate, candidate.occurrence.localTime, candidate.executionTimeZoneId) }
+    }
+
+    private fun renderPlan(plan: ReminderPlanView, medication: MedicationView?) {
+        if (medication == null) { text(data, R.string.browse_medication_unknown); return }
+        text(data).text = activity.getString(R.string.chain_plan, medication.displayName, medication.dosageText,
+            plan.localTimes.joinToString(", "), plan.executionTimeZoneId, plan.startDate,
+            plan.endDate ?: activity.getString(R.string.chain_no_end),
+            activity.getString(if (plan.active) R.string.chain_active else R.string.chain_inactive))
+        medication.instructions?.let { text(data).text = it }
+    }
+
+    fun close() { editor.clear(); photoPreview.setImageDrawable(null) }
     companion object {
         fun install(activity: AppCompatActivity, host: FrameLayout, role: UserRole,
                     navigate: (CaregiverDestination) -> Unit = {}): OnlineFeatureContent? {

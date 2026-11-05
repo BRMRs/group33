@@ -1,0 +1,28 @@
+<resources>
+    <string name="browse_photos_title">Medicine box photos</string>
+    <string name="browse_plans_title">Confirmed plans</string>
+    <string name="browse_loading">Loading…</string>
+    <string name="browse_access_revoked">Access has been withdrawn.</string>
+    <string name="browse_access_unknown">Access has not been confirmed. Refresh or check your relationship in Settings.</string>
+    <string name="browse_no_local_data">No saved data is available yet. Refresh to load it.</string>
+    <string name="browse_photos_unavailable">The saved photo list could not be read.</string>
+    <string name="browse_photos_empty">No photos have been shared yet.</string>
+    <string name="browse_retry_observation">Read saved data again</string>
+    <string name="browse_photo_loading">Opening the private photo…</string>
+    <string name="browse_photo_failed">The photo could not be opened.</string>
+    <string name="browse_photo_decode_failed">The photo could not be displayed. Choose another photo.</string>
+    <string name="browse_retry_photo">Open photo again</string>
+    <string name="browse_plans_unavailable">The saved plans could not be read.</string>
+    <string name="browse_plans_empty">No confirmed plans yet.</string>
+    <string name="browse_plan_details">Plan details</string>
+    <string name="browse_plan_row">%1$s — %2$s · %3$s</string>
+    <string name="browse_medication_unknown">Medicine details are unavailable.</string>
+    <string name="browse_plan_photo">View the original medicine box photo</string>
+    <string name="browse_close_details">Close details</string>
+    <string name="browse_preview_unavailable">Upcoming reminders are not available yet. This does not mean there are no reminders.</string>
+    <string name="browse_preview_results">Upcoming reminders</string>
+    <string name="browse_preview_empty">No reminders in the selected date range.</string>
+    <string name="browse_preview_waiting">Waiting for a preview matching the current plan version.</string>
+    <string name="browse_preview_candidate">%1$s %2$s (%3$s)</string>
+    <string name="browse_create_plan">Create a plan from this photo</string>
+</resources>

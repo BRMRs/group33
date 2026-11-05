@@ -208,6 +208,7 @@ class ChainOnlineFlowTest {
                 }
                 instrumentation.runOnMainSync { descendants(activity.window.decorView).filterIsInstance<Button>()
                     .single { it.text == activity.getString(R.string.chain_inspect_number, 1) }.performClick() }
+                click(activity, R.string.browse_create_plan)
                 waitUntil {
                     var bound = false
                     instrumentation.runOnMainSync {
@@ -243,6 +244,44 @@ class ChainOnlineFlowTest {
                 assertEquals(OnlineCommandState.CONFIRMED, record.state)
                 launch()
                 success(s.pairing.refresh()); success(s.photos.refresh(b.getString("elderId")))
+            }
+            "caregiver-browser" -> {
+                val b = read(); ready()
+                var activity = launch()
+                var host: ChainViewModel? = null
+                waitUntil {
+                    instrumentation.runOnMainSync { host = featureModel(activity as CaregiverHomeActivity) }
+                    host!!.state.value.browser.items.any { it.id == b.getString("planId") }
+                }
+                instrumentation.runOnMainSync {
+                    descendants(activity.window.decorView).filterIsInstance<Button>()
+                        .single { it.text.contains("Fictional medicine") }.performClick()
+                }
+                waitUntil { host!!.state.value.browser.details?.plan?.id == b.getString("planId") }
+                instrumentation.runOnMainSync {
+                    assertEquals(activity.getString(R.string.browse_preview_unavailable),
+                        activity.findViewById<TextView>(R.id.plan_preview_status).text.toString())
+                    assertTrue(descendants(activity.window.decorView).filterIsInstance<PlanEditorView>().none { it.isShown })
+                    activity.recreate()
+                }
+                val previous = activity
+                waitUntil {
+                    activity = foreground(CaregiverHomeActivity::class.java)
+                    var selected = false
+                    instrumentation.runOnMainSync {
+                        host = featureModel(activity as CaregiverHomeActivity)
+                        selected = activity !== previous && host!!.state.value.browser.details?.plan?.id == b.getString("planId") &&
+                            activity.findViewById<TextView>(R.id.plan_details_heading)?.isShown == true
+                    }; selected
+                }
+                screenshot(activity, "caregiver-browser")
+                click(activity, R.string.browse_plan_photo)
+                waitUntil { host!!.state.value.viewed?.metadata?.id == b.getString("photoId") }
+                instrumentation.runOnMainSync {
+                    assertTrue(descendants(activity.window.decorView).filterIsInstance<ImageView>().any { it.isShown && it.drawable != null })
+                    assertTrue(descendants(activity.window.decorView).filterIsInstance<PlanEditorView>().none { it.isShown })
+                }
+                screenshot(activity, "caregiver-photo")
             }
             "caregiver-navigation" -> {
                 val b = read(); ready()

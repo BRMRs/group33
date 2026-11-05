@@ -3,6 +3,12 @@ package com.group33.medicationreminder.integration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.ViewModelProvider
+import com.group33.medicationreminder.caregiver.photo.*
+import com.group33.medicationreminder.caregiver.plan.*
+import java.time.Clock
+import java.time.LocalDate
 import androidx.lifecycle.viewModelScope
 import com.group33.medicationreminder.R
 import com.group33.medicationreminder.core.data.contract.*
@@ -17,19 +23,30 @@ internal data class ChainUi(
     val session: SessionView = SessionView(AuthReadiness.RESTORING, null),
     val requests: List<PairingRequestView> = emptyList(), val relationships: List<CareRelationshipView> = emptyList(),
     val context: CaregiverContextState = CaregiverContextState.SignedOut,
-    val photos: List<MedicationPhotoView> = emptyList(), val plans: List<ReminderPlanView> = emptyList(),
-    val medications: List<MedicationView> = emptyList(), val viewed: ViewedPhoto? = null,
+    val photo: CaregiverPhotoState = CaregiverPhotoState(),
+    val browser: PlanBrowserState = PlanBrowserState(), val viewed: ViewedPhoto? = null,
+    val photoDecodeFailed: Boolean = false, val editorPhotoId: String? = null,
     val code: PairingCodeView? = null, val busy: Boolean = false, val message: Int = R.string.chain_ready,
-    val stale: Boolean = false,
 )
 
 /** Screen logic consumes existing Repository interfaces. No UI-owned identity, HTTP or DAO. */
 @OptIn(ExperimentalCoroutinesApi::class)
-internal class ChainViewModel(private val services: ChainServices) : ViewModel() {
+internal class ChainViewModel(private val services: ChainServices,
+                              private val clock: Clock = Clock.systemDefaultZone()) : ViewModel() {
     private val mutable = MutableStateFlow(ChainUi())
     val state = mutable.asStateFlow()
     private val selected = MutableStateFlow<String?>(null)
+    private data class Target(val trusted: TrustedSessionContext, val elderId: String,
+                              val caregiver: CaregiverElderContext?)
+    private data class Features(val photos: CaregiverPhotoViewModel, val browser: PlanBrowserViewModel)
+    // The host retains original feature ViewModels, not parallel collection/selection state machines.
+    private val featureStore = ViewModelStore()
+    private val featureProvider = ViewModelProvider(featureStore, ViewModelProvider.NewInstanceFactory())
+    private var target: Target? = null
+    private var features: Features? = null
     private var collection: Job? = null
+    private var refreshJob: Job? = null
+    private var decodedContent: PhotoContent? = null
     private var photoJob: Job? = null
     private var actionJob: Job? = null
     private var account = services.trusted.value.let { it?.scope to it?.generation }
@@ -42,6 +59,7 @@ internal class ChainViewModel(private val services: ChainServices) : ViewModel()
                 if (nextAccount != account) {
                     account = nextAccount; selected.value = null; collection?.cancel(); photoJob?.cancel()
                     actionJob?.cancel()
+                    bindFeatures(null)
                     mutable.value = ChainUi(session = session)
                 }
                 val safeRelationships = relationships.value.takeIf { relationships.access == AccessState.AUTHORIZED } ?: emptyList()
@@ -53,33 +71,16 @@ internal class ChainViewModel(private val services: ChainServices) : ViewModel()
                 val now = context as? CaregiverContextState.Active
                 if (old?.context != now?.context) {
                     photoJob?.cancel()
-                    mutable.update { it.copy(viewed = null, photos = emptyList(), plans = emptyList(), medications = emptyList()) }
+                    mutable.update { it.copy(viewed = null, photo = CaregiverPhotoState(), browser = PlanBrowserState(), photoDecodeFailed = false, editorPhotoId = null) }
                 }
                 mutable.update { it.copy(session = session, context = context,
                     relationships = safeRelationships,
                     requests = requests.value.takeIf { requests.access == AccessState.AUTHORIZED } ?: emptyList()) }
                 Triple(session, trusted, now?.context)
-            }.distinctUntilChanged().collectLatest { (session, trusted, caregiverContext) ->
-                collection?.cancel()
+            }.distinctUntilChanged().collect { (session, trusted, caregiverContext) ->
                 val elder = if (session.user?.role == UserRole.ELDER) session.user.id else caregiverContext?.elderId
-                if (elder != null && trusted != null) {
-                    collection = viewModelScope.launch {
-                        combine(services.photos.observePhotos(elder), services.plans.observePlans(elder),
-                            services.plans.observeMedications(elder)) { photos, plans, meds -> Triple(photos, plans, meds) }
-                            .collect { (photos, plans, meds) ->
-                                mutable.update {
-                                    if (!isCurrentCollection(it, trusted, elder, caregiverContext)) return@update it
-                                    it.copy(
-                                    photos = photos.value.takeIf { photos.access == AccessState.AUTHORIZED } ?: emptyList(),
-                                    plans = plans.value.takeIf { plans.access == AccessState.AUTHORIZED } ?: emptyList(),
-                                    medications = meds.value.takeIf { meds.access == AccessState.AUTHORIZED } ?: emptyList(),
-                                    stale = photos.isStale || plans.isStale || meds.isStale,
-                                    viewed = it.viewed.takeIf { photos.access == AccessState.AUTHORIZED },
-                                ) }
-                            }
-                    }
-                    refreshBusiness(elder, trusted, caregiverContext)
-                }
+                bindFeatures(if (session.readiness == AuthReadiness.READY && elder != null && trusted != null)
+                    Target(trusted, elder, caregiverContext) else null)
             }
         }
         viewModelScope.launch {
@@ -101,13 +102,13 @@ internal class ChainViewModel(private val services: ChainServices) : ViewModel()
         }
     }
     fun logout() {
-        actionJob?.cancel(); photoJob?.cancel(); collection?.cancel()
+        actionJob?.cancel(); bindFeatures(null)
         viewModelScope.launch { services.signOut(); mutable.value = ChainUi() }
     }
     fun select(relationshipId: String) { selected.value = relationshipId }
     fun refresh() = action {
         val result = services.pairing.refresh()
-        if (result is Outcome.Failure) { mutable.update { it.copy(message = R.string.chain_failed, stale = true) }; return@action }
+        if (result is Outcome.Failure) { mutable.update { it.copy(message = R.string.chain_failed) }; return@action }
         val user = mutable.value.session.user
         val elder = if (user?.role == UserRole.ELDER) user.id else (mutable.value.context as? CaregiverContextState.Active)?.context?.elderId
         val trusted = services.trusted.value
@@ -124,11 +125,15 @@ internal class ChainViewModel(private val services: ChainServices) : ViewModel()
     }
     private suspend fun refreshBusiness(elder: String, trusted: TrustedSessionContext,
                                         caregiverContext: CaregiverElderContext?) {
+        val today = LocalDate.now(clock)
+        if (isCurrentCollection(mutable.value, trusted, elder, caregiverContext) &&
+            features?.browser?.state?.value?.range != PlanBrowserViewModel.sevenDayRange(today)) {
+            features?.browser?.bind(services.plans, trusted.scope, elder, today)
+        }
         val result = services.photos.refresh(elder)
         mutable.update {
             if (!isCurrentCollection(it, trusted, elder, caregiverContext)) return@update it
-            it.copy(message = if (result is Outcome.Success) R.string.chain_refreshed else R.string.chain_failed,
-            stale = result is Outcome.Failure) }
+            it.copy(message = if (result is Outcome.Success) R.string.chain_refreshed else R.string.chain_failed) }
     }
     fun issue() = action {
         val command = (services.commands.begin(OnlineCommandKind.ISSUE_PAIRING_CODE, null) as? Outcome.Success)?.value ?: return@action
@@ -168,33 +173,88 @@ internal class ChainViewModel(private val services: ChainServices) : ViewModel()
             !refreshed || rejected -> R.string.chain_failed
             pending -> R.string.chain_pending
             else -> R.string.chain_refreshed
-        }, stale = it.stale || !refreshed) }
+        }) }
     }
+    private fun bindFeatures(next: Target?) {
+        if (target == next) return
+        collection?.cancel(); refreshJob?.cancel(); photoJob?.cancel()
+        features?.photos?.clearContext(); features?.browser?.clearContext()
+        target = next; features = null; decodedContent = null
+        mutable.update { it.copy(photo = CaregiverPhotoState(), browser = PlanBrowserState(),
+            viewed = null, photoDecodeFailed = false, editorPhotoId = null) }
+        if (next == null) return
+        // Relationship/session identity is part of retention: a newly accepted relationship may
+        // legitimately restore access, while a revoked original feature instance stays latched.
+        val key = listOf(next.trusted.scope.environmentId, next.trusted.scope.installationId,
+            next.trusted.scope.userId, next.trusted.generation.toString(), next.elderId,
+            next.caregiver?.relationshipId.orEmpty()).joinToString("") { "${it.length}:$it" }
+        val bound = Features(featureProvider["photos:$key", CaregiverPhotoViewModel::class.java],
+            featureProvider["browser:$key", PlanBrowserViewModel::class.java])
+        features = bound
+        bound.photos.selectContext(services.photos, next.trusted.scope, next.elderId)
+        bound.browser.bind(services.plans, next.trusted.scope, next.elderId, LocalDate.now(clock))
+        collection = viewModelScope.launch {
+            combine(bound.photos.state, bound.browser.state) { photo, browser -> photo to browser }
+                .collect { (photo, browser) ->
+                    if (target != next || !isCurrentCollection(mutable.value, next.trusted, next.elderId, next.caregiver)) return@collect
+                    mutable.update { it.copy(photo = photo, browser = browser) }
+                    val content = photo.content.takeIf { photo.contentStatus == PhotoContentStatus.AVAILABLE }
+                    if (content !== decodedContent) {
+                        decodedContent = content; photoJob?.cancel()
+                        mutable.update { it.copy(viewed = null, photoDecodeFailed = false, editorPhotoId = null) }
+                        val metadata = photo.photos.firstOrNull { it.id == photo.selectedPhotoId }
+                        if (content != null && metadata != null && next.caregiver != null)
+                            decodePhoto(next, bound, metadata, content)
+                    }
+                }
+        }
+        refreshJob = viewModelScope.launch { refreshBusiness(next.elderId, next.trusted, next.caregiver) }
+    }
+
     fun viewPhoto(id: String) {
-        photoJob?.cancel()
-        val context = (mutable.value.context as? CaregiverContextState.Active)?.context ?: return
-        val metadata = mutable.value.photos.firstOrNull { it.id == id && it.elderId == context.elderId } ?: return
-        mutable.update { it.copy(viewed = null) }
+        mutable.update { it.copy(editorPhotoId = null) }
+        if (mutable.value.context is CaregiverContextState.Active) features?.photos?.selectPhoto(id)
+    }
+    fun createPlanForViewedPhoto() {
+        val viewed = mutable.value.viewed ?: return
+        if (mutable.value.context is CaregiverContextState.Active)
+            mutable.update { it.copy(editorPhotoId = viewed.metadata.id) }
+    }
+    fun retryPhotoContent() { features?.photos?.retryContent() }
+    fun retryPhotoObservation() { features?.photos?.retryObservation() }
+    fun retryPlanObservation() { features?.browser?.retryObservation() }
+    fun selectPlan(id: String?) { features?.browser?.selectPlan(id) }
+
+    /** #55 owns content retrieval. This bridge only decodes its actual private bytes. */
+    private fun decodePhoto(next: Target, bound: Features, metadata: MedicationPhotoView, content: PhotoContent) {
         photoJob = viewModelScope.launch {
             try {
-            val content = (services.photos.loadContent(id) as? Outcome.Success)?.value ?: return@launch
-            val bitmap = withContext(Dispatchers.IO) {
-                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                content.openStream().use { BitmapFactory.decodeStream(it, null, bounds) }
-                require(bounds.outWidth > 0 && bounds.outHeight > 0)
-                val options = BitmapFactory.Options().apply {
-                    inSampleSize = 1
-                    while (bounds.outWidth / inSampleSize > 1280 || bounds.outHeight / inSampleSize > 1280) inSampleSize *= 2
-                }
-                content.openStream().use { BitmapFactory.decodeStream(it, null, options) }
-            } ?: return@launch
-            val current = (mutable.value.context as? CaregiverContextState.Active)?.context
-            if (current != null && context.isCurrentFor(current) && services.trusted.value ==
-                TrustedSessionContext(context.scope, context.sessionGeneration)) mutable.update {
-                it.copy(viewed = ViewedPhoto(metadata, bitmap, context.scope, context.sessionGeneration, context.elderId))
-            } else bitmap.recycle()
+                val bitmap = withContext(Dispatchers.IO) {
+                    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    content.openStream().use { BitmapFactory.decodeStream(it, null, bounds) }
+                    require(bounds.outWidth > 0 && bounds.outHeight > 0)
+                    val options = BitmapFactory.Options().apply {
+                        inSampleSize = 1
+                        while (bounds.outWidth / inSampleSize > 1280 || bounds.outHeight / inSampleSize > 1280) inSampleSize *= 2
+                    }
+                    content.openStream().use { BitmapFactory.decodeStream(it, null, options) }
+                } ?: error("Invalid photo")
+                if (target == next && decodedContent === content &&
+                    bound.photos.state.value.selectedPhotoId == metadata.id &&
+                    isCurrentCollection(mutable.value, next.trusted, next.elderId, next.caregiver)) {
+                    mutable.update { it.copy(viewed = ViewedPhoto(metadata, bitmap, next.trusted.scope,
+                        next.trusted.generation, next.elderId)) }
+                } else bitmap.recycle()
             } catch (cancelled: CancellationException) { throw cancelled
-            } catch (_: Exception) { mutable.update { it.copy(viewed = null, message = R.string.chain_failed) } }
+            } catch (_: Exception) {
+                if (target == next && decodedContent === content)
+                    mutable.update { it.copy(viewed = null, photoDecodeFailed = true) }
+            }
         }
+    }
+
+    override fun onCleared() {
+        bindFeatures(null)
+        featureStore.clear()
     }
 }
