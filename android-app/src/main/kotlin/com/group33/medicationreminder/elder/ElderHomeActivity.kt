@@ -18,6 +18,9 @@ class ElderHomeActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityElderHomeBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        binding.elderPhotoButton.setOnClickListener {
+            startActivity(android.content.Intent(this, com.group33.medicationreminder.elder.photo.ElderPhotoActivity::class.java))
+        }
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {

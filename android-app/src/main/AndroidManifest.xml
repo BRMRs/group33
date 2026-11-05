@@ -5,10 +5,17 @@
 
     <application
         android:allowBackup="true"
+        android:fullBackupContent="@xml/elder_photo_backup"
+        android:dataExtractionRules="@xml/elder_photo_extraction"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.Group33">
 
+        <provider android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.elderphotos" android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/elder_photo_paths" />
+        </provider>
+        <activity android:name=".elder.photo.ElderPhotoActivity" android:exported="false" />
         <activity
             android:name=".caregiver.CaregiverHomeActivity"
             android:exported="false" />
