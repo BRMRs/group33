@@ -35,16 +35,22 @@ internal class FusionPhoneAuthRepository(
 
     override suspend fun restore(): PhoneAccount? = withContext(Dispatchers.IO) { sessions.restore()?.account }
 
-    override suspend fun oneTap(): PhoneAuthResult {
+    override suspend fun oneTap(): PhoneAuthResult = authenticate(preferSms = false)
+
+    override suspend fun smsSignIn(phone: String): PhoneAuthResult = authenticate(preferSms = true, smsPhone = phone)
+
+    private suspend fun authenticate(preferSms: Boolean, smsPhone: String = ""): PhoneAuthResult {
         return try {
         val host = activity.get()?.takeUnless { it.isFinishing || it.isDestroyed }
             ?: return PhoneAuthResult.Failed(PhoneAuthError.UNKNOWN)
         val attempt = beginAuthentication()
         val grant = withContext(Dispatchers.IO) { client.grant() }
-        // SDK token renewal is synchronous; prefetch so its callback never blocks the UI.
-        val replacement = withContext(Dispatchers.IO) { client.grant() }
-        val verified = runScene(host, grant, replacement.token)
-            ?: return PhoneAuthResult.Failed(PhoneAuthError.UNKNOWN)
+        // Reuse the just-fetched token; a second identical request only delays opening the SDK.
+        val scene = runScene(host, grant, preferSms, smsPhone) {
+            client.verify(it, if (preferSms) smsPhone else null)
+        }
+            ?: return PhoneAuthResult.Failed(if (preferSms) PhoneAuthError.UNKNOWN else PhoneAuthError.ONE_TAP_UNAVAILABLE)
+        val verified = scene.first ?: return PhoneAuthResult.Failed(scene.second ?: PhoneAuthError.UNKNOWN)
         completeVerifiedResponse(attempt, verified)
         } catch (error: CancellationException) {
             throw error
@@ -67,30 +73,36 @@ internal class FusionPhoneAuthRepository(
             is VerifiedPhone.Existing -> signedIn(attempt, verified.session)
         }
 
-    private suspend fun runScene(host: Activity, grant: FusionSdkGrant, replacement: String): VerifiedPhone? =
+    private suspend fun <T> runScene(
+        host: Activity, grant: FusionSdkGrant, preferSms: Boolean, smsPhone: String = "",
+        verify: suspend (String) -> T,
+    ): Pair<T?, PhoneAuthError?>? =
         coroutineScope {
-            val result = CompletableDeferred<VerifiedPhone?>()
-            val freshToken = AtomicReference(replacement)
-            var response: VerifiedPhone? = null
-            val bridge = FusionSdkBridge(host, object : FusionSdkBridge.Listener {
+            val result = CompletableDeferred<Pair<T?, PhoneAuthError?>>()
+            val freshToken = AtomicReference(grant.token)
+            var response: T? = null
+            var serverFailure: PhoneAuthError? = null
+            val bridge = FusionSdkBridge(host, preferSms, smsPhone, object : FusionSdkBridge.Listener {
                 override fun refreshSdkToken(): String = freshToken.get()
 
-                override fun verifyOnServer(token: String, completion: (Boolean) -> Unit) {
+                override fun verifyOnServer(token: String, completion: (Boolean, PhoneAuthError?) -> Unit) {
                     launch {
+                        serverFailure = null
                         val verified = try {
-                            withContext(Dispatchers.IO) { client.verify(token) }
+                            withContext(Dispatchers.IO) { verify(token) }
                         } catch (error: CancellationException) {
                             throw error
-                        } catch (_: Exception) {
+                        } catch (error: Exception) {
+                            serverFailure = error.asPhoneError()
                             null
                         }
                         response = verified
-                        completion(verified != null)
+                        completion(verified != null, serverFailure)
                     }
                 }
 
-                override fun finished(verified: Boolean) {
-                    result.complete(if (verified) response else null)
+                override fun finished(verified: Boolean, error: PhoneAuthError?) {
+                    result.complete(Pair(if (verified) response else null, serverFailure ?: error))
                 }
             })
             val refresh = launch(Dispatchers.IO) {
@@ -146,14 +158,40 @@ internal class FusionPhoneAuthRepository(
     // SMS is performed by Alibaba's configured fallback within the Fusion scene.
     override suspend fun requestSms(phone: String) = PhoneActionResult.Failed(PhoneAuthError.NOT_CONFIGURED)
     override suspend fun verifySms(phone: String, code: String) = PhoneAuthResult.Failed(PhoneAuthError.NOT_CONFIGURED)
-    override suspend fun passwordSignIn(phone: String, password: String) = PhoneAuthResult.Failed(PhoneAuthError.NOT_CONFIGURED)
+    override suspend fun passwordSignIn(phone: String, password: String) =
+        PhoneAuthResult.Failed(PhoneAuthError.NOT_CONFIGURED)
     override suspend fun resetPassword(phone: String, code: String, newPassword: String) =
         PhoneActionResult.Failed(PhoneAuthError.NOT_CONFIGURED)
 
-    private fun Exception.asPhoneError(): PhoneAuthError = when ((this as? FusionHttpException)?.status) {
-        401 -> PhoneAuthError.INVALID_CODE
-        429 -> PhoneAuthError.TOO_MANY_REQUESTS
-        503 -> PhoneAuthError.NOT_CONFIGURED
-        else -> PhoneAuthError.NETWORK
+    override suspend fun resetPasswordWithSms(phone: String, newPassword: String): PhoneActionResult { return try {
+        if (newPassword.length !in 8..128) return PhoneActionResult.Failed(PhoneAuthError.WRONG_PASSWORD)
+        val host = activity.get()?.takeUnless { it.isFinishing || it.isDestroyed }
+            ?: return PhoneActionResult.Failed(PhoneAuthError.UNKNOWN)
+        val grant = withContext(Dispatchers.IO) { client.grant() }
+        val scene = runScene(host, grant, preferSms = true, smsPhone = phone) { client.verify(it, phone) }
+        if (scene?.first != null) PhoneActionResult.Failed(PhoneAuthError.PASSWORD_FEATURE_PENDING)
+        else PhoneActionResult.Failed(scene?.second ?: PhoneAuthError.UNKNOWN)
+    } catch (error: CancellationException) {
+        throw error
+    } catch (error: Exception) {
+        PhoneActionResult.Failed(error.asPhoneError())
+    } }
+
+    private fun Exception.asPhoneError(): PhoneAuthError {
+        val response = this as? FusionHttpException ?: return PhoneAuthError.NETWORK
+        return when (response.code) {
+            "INVALID_CREDENTIALS" -> PhoneAuthError.WRONG_PASSWORD
+            "PASSWORD_NOT_SET" -> PhoneAuthError.PASSWORD_NOT_SET
+            "ACCOUNT_NOT_FOUND" -> PhoneAuthError.ACCOUNT_NOT_FOUND
+            "PHONE_VERIFICATION_FAILED" -> PhoneAuthError.INVALID_CODE
+            "PHONE_MISMATCH" -> PhoneAuthError.PHONE_MISMATCH
+            "TOO_MANY_REQUESTS" -> PhoneAuthError.TOO_MANY_REQUESTS
+            "PHONE_AUTH_UNAVAILABLE" -> PhoneAuthError.NOT_CONFIGURED
+            else -> when (response.status) {
+                429 -> PhoneAuthError.TOO_MANY_REQUESTS
+                503 -> PhoneAuthError.NOT_CONFIGURED
+                else -> PhoneAuthError.NETWORK
+            }
+        }
     }
 }

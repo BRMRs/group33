@@ -17,7 +17,11 @@ internal class FusionServerClient(private val baseUrl: String, allowHttp: Boolea
     private val base = URL(baseUrl.trimEnd('/') + "/")
 
     init {
-        require(base.protocol == "https" || (allowHttp && base.protocol == "http" && base.host == "10.0.2.2"))
+        require(
+            base.protocol == "https" ||
+                (allowHttp && base.protocol == "http" &&
+                    base.host in setOf("10.0.2.2", "127.0.0.1", "localhost")),
+        )
         require(base.userInfo == null && base.query == null && base.ref == null)
     }
 
@@ -25,8 +29,9 @@ internal class FusionServerClient(private val baseUrl: String, allowHttp: Boolea
         FusionSdkGrant(it.getString("schemeCode"), it.getString("fusionAuthToken"))
     }
 
-    fun verify(token: String): VerifiedPhone =
-        parse(post("api/v1/auth/fusion/verify", JSONObject().put("verifyToken", token)))
+    fun verify(token: String, expectedPhone: String? = null): VerifiedPhone =
+        parse(post("api/v1/auth/fusion/verify", JSONObject().put("verifyToken", token)
+            .put("expectedPhone", expectedPhone ?: JSONObject.NULL), readTimeoutMillis = 45_000))
 
     fun register(ticket: String, role: UserRole, displayName: String?): VerifiedPhone = parse(
         post(
@@ -54,19 +59,25 @@ internal class FusionServerClient(private val baseUrl: String, allowHttp: Boolea
         else -> error("Unexpected phone authentication response")
     }
 
-    private fun post(path: String, payload: JSONObject): JSONObject {
+    private fun post(path: String, payload: JSONObject, readTimeoutMillis: Int = 20_000): JSONObject {
         val connection = URL(base, path).openConnection() as HttpURLConnection
         try {
             connection.requestMethod = "POST"
             connection.instanceFollowRedirects = false
             connection.connectTimeout = 10_000
-            connection.readTimeout = 20_000
+            connection.readTimeout = readTimeoutMillis
             connection.doOutput = true
             connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
             connection.setRequestProperty("Accept", "application/json")
             connection.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
             val status = connection.responseCode
-            if (status !in 200..299) throw FusionHttpException(status)
+            if (status !in 200..299) {
+                val code = runCatching {
+                    val body = connection.errorStream?.bufferedReader(Charsets.UTF_8)?.use { it.readText().take(8192) }
+                    body?.let { JSONObject(it).optString("code") }
+                }.getOrNull()
+                throw FusionHttpException(status, code)
+            }
             val body = connection.inputStream.bufferedReader(Charsets.UTF_8).use { reader ->
                 val buffer = CharArray(32_769)
                 var count = 0
@@ -85,4 +96,4 @@ internal class FusionServerClient(private val baseUrl: String, allowHttp: Boolea
     }
 }
 
-internal class FusionHttpException(val status: Int) : Exception("Phone authentication request failed")
+internal class FusionHttpException(val status: Int, val code: String?) : Exception("Phone authentication request failed")

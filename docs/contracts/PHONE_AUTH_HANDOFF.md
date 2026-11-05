@@ -31,10 +31,10 @@ The Alibaba AccessKey and secret stay in the App Server's secret store. The app 
 `POST /fusion/verify`:
 
 ```json
-{"verifyToken":"<opaque-sdk-result>"}
+{"verifyToken":"<opaque-sdk-result>","expectedPhone":"<phone-entered-for-sms-only>"}
 ```
 
-The server calls Alibaba `VerifyWithFusionAuthToken`; it must not accept a phone number from this request. Suggested outcomes:
+The server calls Alibaba `VerifyWithFusionAuthToken`. For SMS, `expectedPhone` is only a match check; the server must use Alibaba's verified number as the identity and reject a mismatch. For one-tap, omit `expectedPhone`. Suggested outcomes:
 
 ```json
 {"status":"SIGNED_IN","accessToken":"<app-session>","expiresInSeconds":86400,"user":{"id":"...","role":"ELDER","displayName":"..."}}
@@ -71,7 +71,16 @@ For a single-machine development run, the bundled H2 driver also accepts a persi
 
 Build Android with `-PphoneAuthBaseUrl=https://<server>` and `-PphoneAuthPrivacyPolicyUrl=https://<app-policy>`. The app requests consent before initializing the SDK. A published app privacy policy must describe the actual Alibaba SDK use and data handling. Release builds require the console scheme to match the release signing certificate; the current console signature matches this machine's debug certificate only.
 
-The Fusion scene provides automatic SMS fallback and an explicit switch from the carrier authorization page. The legacy password and hand-entered local-demo SMS form are not production authentication.
+The app exposes separate one-tap and SMS entries. Every tap on SMS opens a blank app phone field; after the user enters a number, the app passes it to a new Alibaba Fusion scene and prefills the provider field. The SDK owns code sending, its resend timer and frequency checks. Alibaba may require an upstream SMS challenge after its risk checks; that challenge remains in the flow. Both the code page and the upstream SMS page pass a successful Fusion token to the app server; a server-accepted proof returns to sign-in or first-time role selection. Leaving the provider screen ends the scene and returns to the login choices. A failed one-tap attempt returns to the app's alternatives and error message. The legacy password and hand-entered local-demo SMS form are not production authentication.
+
+On the 2026-11-06 Xiaomi tablet trial, Alibaba opened the upstream SMS challenge and returned proof to Android twice, but the local trial server did not answer the verify request within the former 20-second client timeout. The app now waits up to 45 seconds for this verification request. This is not evidence of a completed sign-in: S2 still needs to trace the server-to-Alibaba verification latency, configure bounded upstream timeouts and deploy the server behind HTTPS before team testing.
+
+### Password UI handoff (2026-11-05)
+
+- Password sign-in has no accepted server endpoint. The Android screen keeps the entry visible but reports that the server connection is pending; it does not issue a password request or sign in.
+- Password recovery uses the Alibaba Fusion SMS verification scene. A successful SMS proof currently ends with a clear pending-service message; it does not change a password.
+- First-time Caregiver registration shows an optional password field and an explicit skip action. Until password storage is agreed and deployed, entering a password is blocked with a message, while skipping continues registration. No password is silently discarded or stored on the device.
+- The Android session file contains the server account ID, role, display name, app session token and expiry, encrypted with Android Keystore. It contains neither the phone number nor a password. The experimental server identifies accounts with a keyed phone hash.
 
 ### Local real-service smoke check (2026-10-29)
 
@@ -116,6 +125,8 @@ This private debug-only setup uses the emulator's `10.0.2.2` route to a server b
 .\scripts\start_phone_auth_trial.ps1
 ```
 
-The script prompts for the Fusion scheme code and RAM AccessKey, without printing or saving the AccessKey. Local database, account-hash and JWT keys are saved using Windows user-bound protection under `%LOCALAPPDATA%\Group33PhoneAuthTrial`; preserve them to retain access to test accounts. Install the debug APK on the emulator and launch normally, without the local-demo intent. This scheme is bound to the debug signing fingerprint configured in the script.
+The trial script uses the shared Fusion scheme code configured in the script and prompts each tester for their RAM AccessKey ID and secret. AccessKey values are not printed or saved. Keep them out of commits and chat. Local database, account-hash and JWT keys are saved using Windows user-bound protection under `%LOCALAPPDATA%\Group33PhoneAuthTrial`; preserve them to retain access to test accounts. Install the debug APK on the emulator and launch normally, without the local-demo intent. This scheme is bound to the debug signing fingerprint configured in the script.
 
 An iPhone or other phone can receive the actual SMS; the code can be entered in the emulator. Alibaba does not support carrier one-tap number authentication on an emulator, and whether the Fusion SDK reaches its SMS fallback in this emulator must be established with a live trial. Sending real SMS may incur provider charges.
+
+For a USB-connected Android tablet, keep the local server running and use `scripts/install_phone_auth_tablet.ps1 -Serial <ADB serial>`. The script builds with the tablet loopback URL, installs the APK, restores `adb reverse`, and compares the installed APK hash with the build. A plain `assembleDebug` build omits the local trial URL and must not be used for this tablet trial. Re-run the install script after every source change or tablet reboot (the reverse tunnel may be lost).

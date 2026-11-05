@@ -9,7 +9,11 @@ internal fun createPhoneAuthRepository(localDemoRequested: Boolean, context: Con
     if (localDemoRequested) LocalDemoPhoneAuthRepository else createFusionRepository(context)
 
 internal fun createFusionRepository(context: Context): PhoneAuthRepository = try {
-    val localTrial = BuildConfig.PHONE_AUTH_LOCAL_TRIAL && BuildConfig.PHONE_AUTH_BASE_URL.startsWith("http://10.0.2.2:")
+    val localTrial = BuildConfig.PHONE_AUTH_LOCAL_TRIAL && (
+        BuildConfig.PHONE_AUTH_BASE_URL.startsWith("http://10.0.2.2:") ||
+            BuildConfig.PHONE_AUTH_BASE_URL.startsWith("http://127.0.0.1:") ||
+            BuildConfig.PHONE_AUTH_BASE_URL.startsWith("http://localhost:")
+        )
     if (BuildConfig.PHONE_AUTH_BASE_URL.isBlank() || (!localTrial && !BuildConfig.PHONE_AUTH_PRIVACY_POLICY_URL.startsWith("https://"))) {
         UnconfiguredPhoneAuthRepository
     } else {
@@ -32,6 +36,9 @@ internal object LocalDemoPhoneAuthRepository : PhoneAuthRepository {
     override suspend fun restore(): PhoneAccount? = currentPhone?.let { accounts[it]?.account }
 
     override suspend fun oneTap(): PhoneAuthResult = verified(ONE_TAP_PHONE)
+
+    override suspend fun smsSignIn(phone: String): PhoneAuthResult = PhoneAuthResult.Failed(PhoneAuthError.NOT_CONFIGURED)
+    override suspend fun resetPasswordWithSms(phone: String, newPassword: String) = PhoneActionResult.Failed(PhoneAuthError.NOT_CONFIGURED)
 
     override suspend fun requestSms(phone: String): PhoneActionResult {
         if (!phone.matches(Regex("\\+?[0-9]{8,15}"))) {

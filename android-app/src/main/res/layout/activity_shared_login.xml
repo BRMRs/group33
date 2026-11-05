@@ -20,6 +20,7 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:gravity="center_vertical"
         android:orientation="vertical"
         android:padding="@dimen/group33_screen_padding">
 
@@ -42,15 +43,6 @@
             android:layout_marginTop="@dimen/group33_title_top_margin"
             android:text="@string/login_title"
             android:textAppearance="@style/TextAppearance.Group33.Title" />
-
-        <TextView
-            android:id="@+id/local_demo_notice"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/login_local_demo_notice"
-            android:textAppearance="@style/TextAppearance.Group33.Supporting"
-            android:visibility="gone" />
 
         <ProgressBar
             android:id="@+id/login_progress"
@@ -136,7 +128,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:text="@string/login_sms"
-                    android:textSize="18sp" />
+                    android:textSize="20sp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/password_button"
@@ -145,7 +137,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:text="@string/login_password"
-                    android:textSize="18sp" />
+                    android:textSize="20sp" />
             </LinearLayout>
         </LinearLayout>
 
@@ -193,8 +185,10 @@
                     android:layout_height="wrap_content"
                     android:autofillHints="phone"
                     android:inputType="phone"
-                    android:minHeight="@dimen/group33_touch_min_height"
-                    android:textSize="18sp" />
+                    android:imeOptions="actionDone"
+                    android:minHeight="80dp"
+                    android:saveEnabled="false"
+                    android:textSize="24sp" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.textfield.TextInputLayout
@@ -209,6 +203,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:inputType="number"
+                    android:imeOptions="actionDone"
                     android:minHeight="@dimen/group33_touch_min_height"
                     android:saveEnabled="false"
                     android:textSize="18sp" />
@@ -237,6 +232,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:inputType="textPassword"
+                    android:imeOptions="actionDone"
                     android:minHeight="@dimen/group33_touch_min_height"
                     android:saveEnabled="false"
                     android:textSize="18sp" />
@@ -267,6 +263,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:inputType="textPassword"
+                    android:imeOptions="actionDone"
                     android:minHeight="@dimen/group33_touch_min_height"
                     android:saveEnabled="false"
                     android:textSize="18sp" />
@@ -278,8 +275,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
+                android:minHeight="80dp"
                 android:text="@string/login_sms"
-                android:textSize="22sp" />
+                android:textSize="24sp" />
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/form_feedback_card"
@@ -390,6 +388,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:inputType="textPersonName"
+                    android:imeOptions="actionNext"
                     android:minHeight="@dimen/group33_touch_min_height"
                     android:textSize="18sp" />
             </com.google.android.material.textfield.TextInputLayout>
@@ -407,6 +406,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:inputType="textPassword"
+                    android:imeOptions="actionDone"
                     android:minHeight="@dimen/group33_touch_min_height"
                     android:saveEnabled="false"
                     android:textSize="18sp" />
@@ -421,6 +421,16 @@
                 android:minHeight="64dp"
                 android:text="@string/login_complete_registration"
                 android:textSize="20sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/skip_password_button"
+                style="@style/Widget.Group33.SecondaryAction"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:minHeight="56dp"
+                android:text="@string/login_skip_password"
+                android:textSize="18sp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/back_to_role_button"

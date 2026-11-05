@@ -30,6 +30,15 @@ class PhoneAuthHttpTest {
     @MockitoBean private lateinit var provider: FusionAuthProvider
 
     @Test
+    fun `sms verification rejects a retained number from another attempt`() {
+        `when`(provider.verify("old-number-proof")).thenReturn("13800000001")
+        mvc.perform(
+            post("/api/v1/auth/fusion/verify").contentType(MediaType.APPLICATION_JSON)
+                .content("""{"verifyToken":"old-number-proof","expectedPhone":"13900000002"}"""),
+        ).andExpect(status().isUnauthorized)
+    }
+
+    @Test
     fun `verified first login registers role and later login restores account`() {
         `when`(provider.verify("first-proof")).thenReturn("13800000001")
         `when`(provider.verify("second-proof")).thenReturn("13800000001")

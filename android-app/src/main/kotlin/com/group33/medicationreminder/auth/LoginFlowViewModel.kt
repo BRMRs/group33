@@ -17,6 +17,8 @@ sealed interface LoginNotice {
     data object InvalidPhone : LoginNotice
     data object InvalidCode : LoginNotice
     data object MissingPassword : LoginNotice
+    data object InvalidPassword : LoginNotice
+    data object PasswordSetupPending : LoginNotice
     data object InvalidName : LoginNotice
     data object CodeSent : LoginNotice
     data object PasswordReset : LoginNotice
@@ -26,6 +28,7 @@ sealed interface LoginNotice {
 data class LoginFlowState(
     val step: LoginStep = LoginStep.SIGN_IN,
     val method: LoginMethod = LoginMethod.CHOICE,
+    val lastAuthEntry: LoginMethod = LoginMethod.CHOICE,
     val alternativesExpanded: Boolean = false,
     val busy: Boolean = false,
     val notice: LoginNotice? = null,
@@ -67,7 +70,16 @@ class LoginFlowViewModel(private val repository: PhoneAuthRepository) : ViewMode
     fun oneTap() {
         val current = state.value
         if (current.step != LoginStep.SIGN_IN || current.busy) return
+        mutableState.value = current.copy(lastAuthEntry = LoginMethod.CHOICE)
         runAuth { repository.oneTap() }
+    }
+
+    fun smsSignIn(phone: String) {
+        val current = state.value
+        if (current.step != LoginStep.SIGN_IN || current.busy) return
+        if (!validPhone(phone)) return notice(LoginNotice.InvalidPhone)
+        mutableState.value = current.copy(lastAuthEntry = LoginMethod.SMS)
+        runAuth { repository.smsSignIn(phone.trim()) }
     }
 
     fun requestSms(phone: String) {
@@ -87,6 +99,10 @@ class LoginFlowViewModel(private val repository: PhoneAuthRepository) : ViewMode
         runAuth { repository.passwordSignIn(phone.trim(), password) }
     }
 
+    fun showPasswordUnavailable() = notice(LoginNotice.AuthFailure(PhoneAuthError.NOT_CONFIGURED))
+
+    fun showPasswordSetupPending() = notice(LoginNotice.PasswordSetupPending)
+
     fun resetPassword(phone: String, code: String, newPassword: String) {
         if (!validPhone(phone)) return notice(LoginNotice.InvalidPhone)
         if (!validCode(code)) return notice(LoginNotice.InvalidCode)
@@ -94,6 +110,14 @@ class LoginFlowViewModel(private val repository: PhoneAuthRepository) : ViewMode
         runAction(onSuccess = {
             mutableState.value = state.value.copy(method = LoginMethod.PASSWORD, notice = LoginNotice.PasswordReset)
         }) { repository.resetPassword(phone.trim(), code.trim(), newPassword) }
+    }
+
+    fun resetPasswordWithSms(phone: String, newPassword: String) {
+        if (!validPhone(phone)) return notice(LoginNotice.InvalidPhone)
+        if (newPassword.length !in 8..128) return notice(LoginNotice.InvalidPassword)
+        runAction(onSuccess = {
+            mutableState.value = state.value.copy(method = LoginMethod.PASSWORD, notice = LoginNotice.PasswordReset)
+        }) { repository.resetPasswordWithSms(phone.trim(), newPassword) }
     }
 
     fun chooseRole(role: UserRole) {
@@ -109,6 +133,7 @@ class LoginFlowViewModel(private val repository: PhoneAuthRepository) : ViewMode
         if (state.value.step != LoginStep.CAREGIVER_DETAILS || state.value.busy) return
         val name = displayName.trim()
         if (name.isEmpty() || name.length > 40) return notice(LoginNotice.InvalidName)
+        if (!password.isNullOrBlank() && password.length !in 8..128) return notice(LoginNotice.InvalidPassword)
         runAuth { repository.register(UserRole.CAREGIVER, name, password?.takeIf { it.isNotBlank() }) }
     }
 
@@ -151,6 +176,9 @@ class LoginFlowViewModel(private val repository: PhoneAuthRepository) : ViewMode
                 )
                 PhoneAuthResult.RegistrationRequired -> current.copy(
                     step = LoginStep.CHOOSE_ROLE, busy = false, notice = null,
+                )
+                PhoneAuthResult.Failed(PhoneAuthError.CANCELLED) -> current.copy(
+                    method = LoginMethod.CHOICE, busy = false, notice = null,
                 )
                 is PhoneAuthResult.Failed -> current.copy(
                     busy = false,

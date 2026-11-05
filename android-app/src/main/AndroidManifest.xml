@@ -35,7 +35,7 @@
             android:screenOrientation="behind" android:theme="@style/NumberAuthTheme" />
         <activity android:name="com.alicom.fusion.auth.smsauth.FusionSmsActivity"
             android:exported="false" android:configChanges="orientation|keyboardHidden|screenSize"
-            android:screenOrientation="behind" />
+            android:screenOrientation="behind" android:windowSoftInputMode="adjustResize" />
         <activity android:name="com.alicom.fusion.auth.graphauth.FusionGraphAuthActivity"
             android:exported="false" android:configChanges="orientation|keyboardHidden|screenSize"
             android:screenOrientation="behind" />
