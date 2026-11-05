@@ -286,13 +286,19 @@ class ChainOnlineFlowTest {
             }
             "elder-sees-plan" -> {
                 val b = read(); assertEquals(b.getString("elderId"), ready().user!!.id)
-                val activity = launch(); click(activity, R.string.chain_refresh)
+                val activity = launch()
                 val plans = withTimeout(20_000) { s.plans.observePlans(b.getString("elderId")).first { it.access == AccessState.AUTHORIZED && it.value.isNotEmpty() } }
                 assertEquals(b.getString("planId"), plans.value.single().id)
                 waitUntil { var shown = false
                     instrumentation.runOnMainSync { shown = descendants(activity.window.decorView).filterIsInstance<TextView>()
-                        .any { it.text.contains("Fictional medicine") && it.text.contains("One demo unit") && it.text.contains("08:00") } &&
-                        descendants(activity.window.decorView).filterIsInstance<TextView>().any { it.text == activity.getString(R.string.chain_refreshed) } }
+                        .any { it.text.contains("Fictional medicine") && it.text.contains("One demo unit") && it.text.contains("08:00") }
+                        assertTrue(descendants(activity.window.decorView).filterIsInstance<Button>().none {
+                            it.text == activity.getString(R.string.chain_refresh) || it.text == activity.getString(R.string.chain_recover)
+                        })
+                        assertTrue(descendants(activity.window.decorView).filterIsInstance<TextView>().none {
+                            it.isShown && it.text == activity.getString(R.string.chain_refreshed)
+                        })
+                    }
                     shown
                 }
                 screenshot(activity, "elder-plan")

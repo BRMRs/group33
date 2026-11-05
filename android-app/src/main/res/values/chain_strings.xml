@@ -30,8 +30,10 @@
     <string name="chain_failed">Could not complete this step. Check your connection and sign-in, then refresh or check pending submissions.</string>
     <string name="chain_pending">Submission may have reached the service. Check pending submissions before starting another one.</string>
     <string name="chain_waiting">Request sent. The Elder must accept it.</string>
-    <string name="chain_code_ready">Share the code with your test caregiver.</string>
+    <string name="chain_code_ready">Share the code with your caregiver.</string>
     <string name="chain_refreshed">Authorized data refreshed.</string>
     <string name="chain_working">Working…</string>
     <string name="chain_manage_pairing">Pair or choose an Elder</string>
+    <string name="chain_elder_failed">Could not complete this step. Please try again later.</string>
+    <string name="chain_elder_pending">This request is still being checked.</string>
 </resources>

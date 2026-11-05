@@ -58,17 +58,18 @@ internal class ChainViewModel(private val services: ChainServices) : ViewModel()
                 mutable.update { it.copy(session = session, context = context,
                     relationships = safeRelationships,
                     requests = requests.value.takeIf { requests.access == AccessState.AUTHORIZED } ?: emptyList()) }
-                Triple(session, trusted, now?.context?.elderId)
-            }.distinctUntilChanged().collectLatest { (session, trusted, caregiverElder) ->
+                Triple(session, trusted, now?.context)
+            }.distinctUntilChanged().collectLatest { (session, trusted, caregiverContext) ->
                 collection?.cancel()
-                val elder = if (session.user?.role == UserRole.ELDER) session.user.id else caregiverElder
+                val elder = if (session.user?.role == UserRole.ELDER) session.user.id else caregiverContext?.elderId
                 if (elder != null && trusted != null) {
                     collection = viewModelScope.launch {
                         combine(services.photos.observePhotos(elder), services.plans.observePlans(elder),
                             services.plans.observeMedications(elder)) { photos, plans, meds -> Triple(photos, plans, meds) }
                             .collect { (photos, plans, meds) ->
-                                if (services.trusted.value != trusted) return@collect
-                                mutable.update { it.copy(
+                                mutable.update {
+                                    if (!isCurrentCollection(it, trusted, elder, caregiverContext)) return@update it
+                                    it.copy(
                                     photos = photos.value.takeIf { photos.access == AccessState.AUTHORIZED } ?: emptyList(),
                                     plans = plans.value.takeIf { plans.access == AccessState.AUTHORIZED } ?: emptyList(),
                                     medications = meds.value.takeIf { meds.access == AccessState.AUTHORIZED } ?: emptyList(),
@@ -77,7 +78,7 @@ internal class ChainViewModel(private val services: ChainServices) : ViewModel()
                                 ) }
                             }
                     }
-                    refreshBusiness(elder)
+                    refreshBusiness(elder, trusted, caregiverContext)
                 }
             }
         }
@@ -109,11 +110,24 @@ internal class ChainViewModel(private val services: ChainServices) : ViewModel()
         if (result is Outcome.Failure) { mutable.update { it.copy(message = R.string.chain_failed, stale = true) }; return@action }
         val user = mutable.value.session.user
         val elder = if (user?.role == UserRole.ELDER) user.id else (mutable.value.context as? CaregiverContextState.Active)?.context?.elderId
-        if (elder != null) refreshBusiness(elder)
+        val trusted = services.trusted.value
+        if (elder != null && trusted != null) refreshBusiness(elder, trusted,
+            (mutable.value.context as? CaregiverContextState.Active)?.context)
     }
-    private suspend fun refreshBusiness(elder: String) {
+    private fun isCurrentCollection(state: ChainUi, trusted: TrustedSessionContext, elder: String,
+                                    caregiverContext: CaregiverElderContext?): Boolean {
+        if (services.trusted.value != trusted || state.session.readiness != AuthReadiness.READY ||
+            state.session.user?.id != trusted.scope.userId) return false
+        return if (state.session.user.role == UserRole.ELDER) state.session.user.id == elder
+        else caregiverContext != null && (state.context as? CaregiverContextState.Active)?.context
+            ?.let(caregiverContext::isCurrentFor) == true
+    }
+    private suspend fun refreshBusiness(elder: String, trusted: TrustedSessionContext,
+                                        caregiverContext: CaregiverElderContext?) {
         val result = services.photos.refresh(elder)
-        mutable.update { it.copy(message = if (result is Outcome.Success) R.string.chain_refreshed else R.string.chain_failed,
+        mutable.update {
+            if (!isCurrentCollection(it, trusted, elder, caregiverContext)) return@update it
+            it.copy(message = if (result is Outcome.Success) R.string.chain_refreshed else R.string.chain_failed,
             stale = result is Outcome.Failure) }
     }
     fun issue() = action {
@@ -138,11 +152,23 @@ internal class ChainViewModel(private val services: ChainServices) : ViewModel()
         services.pairing.revoke(id, command)
     }
     fun recover() = action {
+        var pending = false
+        var rejected = false
         services.commands.observeCommands().first().filter {
             it.state == OnlineCommandState.AWAITING_CONFIRMATION || it.state == OnlineCommandState.CONFIRMED && it.cacheState == CacheState.REFRESH_REQUIRED
-        }.forEach { services.commands.resume(it.operationId) }
-        services.pairing.refresh()
-        mutable.update { it.copy(message = R.string.chain_refreshed) }
+        }.forEach {
+            val result = services.commands.resume(it.operationId)
+            if (result is Outcome.Success && result.value.state in
+                setOf(OnlineCommandState.REJECTED, OnlineCommandState.NOT_SUBMITTED)) rejected = true
+            else if (result !is Outcome.Success || result.value.state != OnlineCommandState.CONFIRMED ||
+                result.value.cacheState != CacheState.APPLIED) pending = true
+        }
+        val refreshed = services.pairing.refresh() is Outcome.Success
+        mutable.update { it.copy(message = when {
+            !refreshed || rejected -> R.string.chain_failed
+            pending -> R.string.chain_pending
+            else -> R.string.chain_refreshed
+        }, stale = it.stale || !refreshed) }
     }
     fun viewPhoto(id: String) {
         photoJob?.cancel()

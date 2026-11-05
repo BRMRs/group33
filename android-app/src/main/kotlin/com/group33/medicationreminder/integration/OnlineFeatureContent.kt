@@ -49,8 +49,10 @@ internal class OnlineFeatureContent private constructor(
     private var signedIn = false
 
     init {
-        button(controls, R.string.chain_refresh) { model.refresh() }
-        button(controls, R.string.chain_recover) { model.recover() }
+        if (role == UserRole.CAREGIVER) {
+            button(controls, R.string.chain_refresh) { model.refresh() }
+            button(controls, R.string.chain_recover) { model.recover() }
+        }
         if (role == UserRole.ELDER) button(pairing, R.string.chain_issue) { model.issue() }
         code = text(pairing)
         if (role == UserRole.CAREGIVER) {
@@ -83,6 +85,17 @@ internal class OnlineFeatureContent private constructor(
         column.visibility = if (settings || plans) View.VISIBLE else View.GONE
         identity.text = activity.getString(if (role == UserRole.ELDER) R.string.chain_elder_identity else R.string.chain_caregiver_identity, user.displayName)
         status.setText(if (state.busy) R.string.chain_working else state.message)
+        // Session/cache refresh is automatic; Elders do not manage synchronization.
+        if (role == UserRole.ELDER) {
+            val message = when (state.message) {
+                R.string.chain_code_ready -> R.string.chain_code_ready
+                R.string.chain_failed -> R.string.chain_elder_failed
+                R.string.chain_pending -> R.string.chain_elder_pending
+                else -> null
+            }
+            status.visibility = if (message == null) View.GONE else View.VISIBLE
+            message?.let(status::setText)
+        }
         pairing.visibility = if (settings) View.VISIBLE else View.GONE
         requests.visibility = if (settings) View.VISIBLE else View.GONE
         relationships.visibility = if (settings) View.VISIBLE else View.GONE
@@ -119,7 +132,7 @@ internal class OnlineFeatureContent private constructor(
                         activity.getString(if (plan.active) R.string.chain_active else R.string.chain_inactive))
                     medication.instructions?.let { text(data).text = it }
                 }
-                if (state.stale) text(data, R.string.chain_stale)
+                if (state.stale && role == UserRole.CAREGIVER) text(data, R.string.chain_stale)
             }
         }
         val viewed = state.viewed.takeIf { plans }

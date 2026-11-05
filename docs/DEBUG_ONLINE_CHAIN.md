@@ -63,7 +63,7 @@ The default address is `http://10.0.2.2:18082`, the emulator-to-host route. Inst
 4. Caregiver: refresh; choose from authorized Elders in Settings if more than one exists, then open Plans.
 5. Elder: photograph/select a fictional medicine box, inspect the preview, then submit.
 6. Caregiver: refresh, open the actual private image and create a plan using the existing editor. Confirm image inspection and the timezone comparison; unknown Elder timezone is not invented.
-7. Elder: refresh. The same medication, dose, times, execution zone, date range and active/inactive state appear from Room-backed authorized reads.
+7. Elder: return to the home page. Authorized data loads automatically; the same medication, dose, times, execution zone, date range and active/inactive state appear from Room-backed reads. The Elder does not operate refresh/recovery controls or see technical sync status.
 
 For a later USB-connected physical device, forward the local test port on each device and build the Debug APK for `http://127.0.0.1:18082`:
 
@@ -121,4 +121,4 @@ The plan and medication GETs use the same captured client session and are publis
 
 ## Validation record
 
-Final execution details, screenshots and phase results are recorded in [the integration evidence](evidence/DEBUG_ONLINE_CHAIN.md). Local build commands are `gate1Check test :android-app:assembleRelease :android-app:assembleDebugAndroidTest`; ordinary tests, device phases, caches and deferred physical/Server-persistence evidence are reported separately.
+Current merge gates and named review scopes are in [the merge-readiness checklist](PR110_MERGE_READINESS.md). Final execution details, screenshots and phase results are recorded in [the integration evidence](evidence/DEBUG_ONLINE_CHAIN.md). Local build commands are `gate1Check test :android-app:assembleRelease :android-app:assembleDebugAndroidTest`; ordinary tests, device phases, caches and deferred physical/Server-persistence evidence are reported separately.

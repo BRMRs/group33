@@ -30,8 +30,10 @@
     <string name="chain_failed">未能完成。请检查网络和登录状态，再刷新或核对待确认提交。</string>
     <string name="chain_pending">提交可能已送达服务，请先核对待确认提交，再开始新提交。</string>
     <string name="chain_waiting">申请已发送，等待长辈同意。</string>
-    <string name="chain_code_ready">请把配对码提供给测试照护者。</string>
+    <string name="chain_code_ready">请把配对码提供给照护者。</string>
     <string name="chain_refreshed">已刷新有权查看的资料。</string>
     <string name="chain_working">正在处理…</string>
     <string name="chain_manage_pairing">配对或选择长辈</string>
+    <string name="chain_elder_failed">暂时未能完成，请稍后重试。</string>
+    <string name="chain_elder_pending">这次请求仍在核对中。</string>
 </resources>

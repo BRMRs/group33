@@ -6,9 +6,9 @@ The independent installations are two dedicated API35 arm64 AOSP emulators. The 
 
 ## Automated build
 
-`gate1Check test :android-app:assembleRelease :android-app:assembleDebugAndroidTest --offline --console=plain` passed. Ordinary XML report instances: Shared18, Server627, Android Debug104, Android Release104; zero failures/errors/skips. Executed, cached and up-to-date tasks are distinguished in the retained local logs; repeated baseline reports are not counted as new distinct feature coverage.
+`gate1Check test :android-app:assembleRelease :android-app:assembleDebugAndroidTest --offline --console=plain` passed. Ordinary XML report instances: Shared18, Server627, Android Debug113, Android Release113; zero failures/errors/skips. Executed, cached and up-to-date tasks are distinguished in the retained local logs; repeated baseline reports are not counted as new distinct feature coverage.
 
-The 67 Android instrumentation regressions passed on API35: the original session/Keystore, Room journal/recovery, private photo source/layout and editor tests, plus shared entry, language persistence and #92 navigation. Explicit real-reboot probe phases were not rerun or inferred from default checks.
+After the merge-readiness fixes, the 67 Android instrumentation regressions passed on API35: the original session/Keystore, Room journal/recovery, private photo source/layout and editor tests, plus shared entry, language persistence and #92 navigation. Explicit real-reboot probe phases were not rerun or inferred from default checks.
 
 Release inspection confirms SharedLoginActivity is the sole launcher with Group33Application. It contains shared business views/interfaces, but no DebugChain Application/Activity/repository/HTTP/cache, AnonymousLoginModel, anonymous endpoint, anonymous controls/resources, INTERNET permission or cleartext opt-in. Release does not install an authenticated provider yet.
 
@@ -30,11 +30,17 @@ The final harness runs fourteen phases in English and fourteen in Simplified Chi
 | Late old401 does not invalidate newer successful session | PASS |
 | Transient503 retains data and last sync time, reports stale, retains session | PASS |
 | Revocation clears UI and real subsequent reads are denied | PASS |
-| Native emulated camera shutter/Done → private preview → confirmed JPEG upload | PASS from shared entry → ElderHome photo button → native camera; emulator only |
+| Native emulated camera shutter/Done → private preview → confirmed JPEG upload | PASS at `faa9abd`, before this merge-readiness correction; unchanged camera component, emulator only |
 
 The first shared-entry run exposed an issue-code tap racing the automatic home refresh: the busy operation gate ignored it. Operation buttons now reflect busy state, the lifecycle refresh waits for a ready session, and the harness waits for enabled controls. Both full final language runs passed after this correction; the failed run remains in the local evidence.
 
 The earlier integration RED run exposed a zero `BitmapFactory.Options.inSampleSize` division in the new image host. It was corrected to start at one, bounded decoding and safe failure handling were retained, and the actual photo/editor path reran successfully. A JUnit initialization failure in the first harness attempt was also corrected; failed runs were retained, not called successful evidence.
+
+## Merge-readiness correction
+
+Automated Standards review found an old-Elder publication race and same-Elder replacement subscription gap. Automated Spec review found Elder sync-management controls and false recovery success. Nine new ViewModel cases cover context switching/revocation/replacement, offline/failed/unknown recovery, refresh-required, confirmed/reconciled success and rejection. Eight were run before correction (seven failed); all nine pass afterward in both Debug and Release. The two original review axes were rechecked; this supplies no human approval.
+
+The full gate passed again; final ordinary counts above include the nine new cases. Both languages reran all fourteen actual-HTTP phases, including automatic foreground Elder plan loading with no refresh/recovery buttons or successful-sync status on the Elder page. The 67 original device regressions also reran successfully. See [the per-person merge checklist](../PR110_MERGE_READINESS.md) for actual approval requirements.
 
 ## UI records
 
