@@ -38,7 +38,7 @@ class SharedLoginNavigationTest {
             onView(withId(R.id.elder_title)).check(matches(isDisplayed()))
             pressBack()
             onView(withId(R.id.caregiver_button)).perform(scrollTo(), click())
-            onView(withId(R.id.caregiver_title)).check(matches(isDisplayed()))
+            onView(withId(R.id.caregiver_header)).check(matches(isDisplayed()))
             pressBack()
             pressBack()
             onView(withId(R.id.one_tap_button)).perform(scrollTo()).check(matches(isDisplayed()))
