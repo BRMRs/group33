@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="c3_history_window_hint">Filter by the event’s original local date. Default: 30 dates; maximum: 90 inclusive dates. Filtering does not delete older records. Tap a record for details.</string>
+  <string name="c3_history_from">From date (YYYY-MM-DD)</string>
+  <string name="c3_history_through">Through date (YYYY-MM-DD)</string>
+  <string name="c3_history_apply">Read records for these dates</string>
+  <string name="c3_history_applied_range">Applied dates: %1$s – %2$s</string>
+  <string name="c3_history_invalid_date">Enter real dates in YYYY-MM-DD format. Any previous applied dates remain unchanged.</string>
+  <string name="c3_history_reversed">The end date must be on or after the start date. Applied dates remain unchanged.</string>
+  <string name="c3_history_too_long">Choose at most 90 dates, including both ends. No query was sent and no records were deleted.</string>
+  <string name="c3_history_read_error">Records could not be read completely. Any last known records are retained; this is not an empty-history result.</string>
+  <string name="c3_history_retry">Read local records again</string>
+  <string name="c3_history_details">Event details</string>
+  <string name="c3_history_instructions">Instructions recorded for this event: %1$s</string>
+  <string name="c3_history_no_instructions">No instructions were recorded for this event.</string>
+  <string name="c3_history_close_details">Close details</string>
+  <string name="c3_history">View event history</string>
+  <string name="c3_history_pick_range">Choose dates</string>
+  <string name="c3_history_use_dates">Use these dates</string>
+  <string name="c3_history_cancel_dates">Cancel</string>
+  <string name="c3_history_previous_month">Previous month</string>
+  <string name="c3_history_next_month">Next month</string>
+  <string name="c3_history_scroll_calendar">Swipe the calendar left or right to reach all dates.</string>
+  <string name="c3_history_calendar_from">Start date: %1$s</string>
+  <string name="c3_history_calendar_through">End date: %1$s</string>
+  <string name="c3_history_date_not_selected">Not selected</string>
+  <string name="c3_history_same_day">%1$s. Start and end date, selected.</string>
+  <string name="c3_history_start_day">%1$s. Start date, selected.</string>
+  <string name="c3_history_end_day">%1$s. End date, selected.</string>
+  <string name="c3_history_between_days">%1$s. Within selected dates.</string>
+  <string name="c3_history_unselected_day">%1$s. Not selected.</string>
+  <string-array name="c3_history_weekdays">
+    <item>Mon</item>
+    <item>Tue</item>
+    <item>Wed</item>
+    <item>Thu</item>
+    <item>Fri</item>
+    <item>Sat</item>
+    <item>Sun</item>
+  </string-array>
+</resources>

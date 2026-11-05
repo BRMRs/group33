@@ -2,6 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application android:usesCleartextTraffic="true">
         <activity
+            android:name=".caregiver.CaregiverHistoryTestActivity"
+            android:exported="false" />
+        <activity
             android:name=".caregiver.CaregiverEventRowTestActivity"
             android:exported="false" />
     </application>

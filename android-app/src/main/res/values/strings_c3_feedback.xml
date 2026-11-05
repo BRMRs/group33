@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="c3_elder">Elder: %1$s</string>
+  <string name="c3_select_elder">Sign in and select a paired Elder to view records.</string>
+  <string name="c3_loading">Loading records…</string>
+  <string name="c3_access_unknown">Access is not yet confirmed. No records are shown. Check your sign-in and Elder selection.</string>
+  <string name="c3_revoked">Access has been revoked. Select an authorized Elder through pairing.</string>
+  <string name="c3_unavailable">Records are unavailable or access could not be confirmed. Check your sign-in and Elder selection.</string>
+  <string name="c3_no_local_data">No local records have been loaded. This does not mean there are no medication events.</string>
+  <string name="c3_empty">No medication events in the selected dates. This is not evidence of whether medication was taken.</string>
+  <string name="c3_results">Last known event results</string>
+  <string name="c3_stale">Out of date — these records may have changed.</string>
+  <string name="c3_last_sync">Last successful sync (device time zone): %1$s</string>
+  <string name="c3_sync_time_unknown">Last successful sync time: unknown</string>
+</resources>
