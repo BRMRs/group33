@@ -6,14 +6,18 @@ This is the full P0 test plan for [Implement shared HTTP contracts, feature Repo
 
 Approved technical baseline: `T01-T07/2026-10-16-r1` (project lead, 2026-10-16). All seven choices are resolved; six-role contributions and Android/Server sign-off remain pending. The existing 33 case IDs are retained and expanded below, not marked passing.
 
+## Current V2 acceptance versus legacy regression
+
+[ADR-0008 / ELDER_REMINDER_V2](../adr/0008-photo-first-elder-reminders-and-caregiver-handoff.md) is binding. The existing 33 IDs below now specify its current behavior; six V2 cases are added below. Existing r1 code/examples and historical suite results do not prove it. The r1 two-hour duration assertion now matches the clarification, but does not prove thirty-minute notification, scheduled probes or the remaining V2 behavior. Add coordinated code/fixtures/tests under V2-T01/T04, without changing them in this docs-only PR.
+
 ## Gate 1 code and actual evidence
 
 - `shared/.../contract/WireContractTest`: 11 tests of wire shapes, optional/required/null/enum/list/Long behavior and logical identity representation.
 - `server/.../contract/WireTransportContractTest`: 13 tests using the real Boot ObjectMapper and HTTP converter/security with a test-only probe. No production Pairing/Dose action endpoint is implemented.
 - `android-app/.../core/data/contract/RepositoryContractsTest` (8) and `FeatureRepositoryHarnessTest` (7): local model/result/scope tests and caller harnesses for all nine Interfaces, not durable-adapter acceptance.
 - `ApiErrorMessagesTest` includes bilingual P0 mapping/resource checks and safe unknown fallback.
-- `./gradlew gate1Check test` currently passes Shared 16, Server 30, Android Debug 23 and Android Release 23 JVM tests (92 variant executions, not 33 completed P0 scenarios), lint (0 errors/28 warnings), Debug assembly and Server bootJar. GitHub CI is configured but has not run on unpublished local files.
-- Formal review stays role-based pending team action; account mapping is deferred, signatures and member contributions are not fabricated. Complete production acceptance remains mandatory in the linked downstream Issues.
+- `./gradlew gate1Check test` currently passes Shared 16, Server 30, Android Debug 23 and Android Release 23 JVM tests (92 variant executions, not 33 completed P0 scenarios), lint (0 errors/28 warnings), Debug assembly and Server bootJar. Historical publication CI for main is recorded in #22; this docs revision must pass its own PR checks.
+- Formal review remains pending for the named members in [TEAM_ROSTER.md](../TEAM_ROSTER.md); signatures and member contributions are not fabricated. Complete production acceptance remains mandatory in the linked downstream Issues.
 
 ## What Gate 1 should eventually prove
 
@@ -35,7 +39,7 @@ Approved technical baseline: `T01-T07/2026-10-16-r1` (project lead, 2026-10-16).
 
 Use fictional `elder-1`, `caregiver-1` (active), `caregiver-2` (unrelated), `elder-2` (other relationship), plan `plan-1`, photo `photo-1`, and a second plan revision. Local test date is 2026-10-20 in `Asia/Shanghai`; it is a fixture, not the current device time. Inject a controllable clock into tested adapters. The r1 two-hour values agree with the latest V2 response duration, but do not cover the separate thirty-minute notification, T−5/T+5 probes or group/reporting migration. Coordinate affected vectors through #24; use controlled clocks, not real waiting or relabeled historical evidence.
 
-[examples.json](examples.json) contains a P0 confirmation request/response, one timely offline Taken and receipt, the separate Pending sync local representation, a late report, and an error. These are illustrative JSON instances, not a full OpenAPI/JSON Schema or executable test harness. Test code must read the actual DTOs/production adapters when those exist; parsing these examples alone does not prove an API implementation.
+[examples.json](examples.json) is the unchanged **legacy r1 fixture**, not the current deadline specification. It contains a P0 confirmation request/response, one timely offline Taken and receipt, the separate Pending sync local representation, a late report, and an error. These are illustrative JSON instances, not a full OpenAPI/JSON Schema or executable test harness. Test code must read the actual DTOs/production adapters when those exist; parsing these examples alone does not prove an API implementation.
 
 ## Test matrix
 
@@ -52,7 +56,7 @@ Use fictional `elder-1`, `caregiver-1` (active), `caregiver-2` (unrelated), `eld
 | P02 | Photo-content access authorized at fetch time, including revoked and unrelated callers; no public permanent Storage URL in view | C2 + S2 | HTTP access tests, real storage adapter |
 | P03 | P0 confirmation uses an authorized ready photo, creates Medication + plan atomically; edits return Medication and plan so both caches update together; invalid field leaves previous state and no new event | C2 + S2 | Request mapping + Server transaction test |
 | P04 | Wrong-Elder or not-ready photo is rejected with recoverable field/reason; form values retained | C2 + E/S2 | Repository mapping + production validation |
-| D01 | Inclusive date range, unique HH:mm list, IANA zone and 2h/10m values; no silent zone migration | C2 + S1/S2 | Shared vectors + domain production tests |
+| D01 | Inclusive date range, unique HH:mm list, IANA zone and 2h response/30m notification/10m snooze values; no silent zone migration | C2 + S1/S2 | Shared vectors + domain production tests |
 | D02 | Matching known zones have no blocking warning; different/unknown context requires explicit acknowledgment/converted example | C2 + E | Mapping tests + UI evidence |
 | D03 | Scheduled→Due→Snoozed→Due and Due/Snoozed→Taken; fixed ten minutes from recordedAt; repeat target deadline−1ms can return only while window open; target at/after deadline produces no repeat and deadline without timely Taken→Missed; no shortened delay or timer restart on late receipt; Remind later recorded at deadline rejected; Taken never downgraded by delayed snooze | E + S1/S2/C3 | Action/event contract vectors and production reducer tests |
 | D04 | Timely local Taken received after deadline reconciles provisional Missed; Late taken remains attached to Missed on Android before sync as well as on Server, with independent Pending sync and recorded/received timestamps | S2 + E/C3/S1 | Fixtures plus service/repository reconciliation tests |
@@ -71,7 +75,7 @@ Use fictional `elder-1`, `caregiver-1` (active), `caregiver-2` (unrelated), `eld
 | R02 | Failed Caregiver save preserves prior confirmed plan/form; success with unresolved local cache does not falsely report an uncommitted failure or retry under a new key | C2 + S1/S2 | Repository adapter tests |
 | R03 | Caregiver refresh yields last-successful-sync time/stale flag; capability is last-known/timestamped and separate from DoseStatus/SyncState | C3 + E/S1/S2 | Repository mapping + service snapshot tests |
 | R04 | Pairing/photo/plan commands survive response loss and process recreation with the same persisted context; result distinguishes NOT_SUBMITTED/AWAITING_CONFIRMATION/CONFIRMED-cache-pending/REJECTED; resume cannot auto-submit an offline Caregiver edit; photo metadata is observable before any Medication exists | C1/C2/E + S1/S2/C3 | Public Repository/journal contract vectors then production adapters |
-| U01 | Local Taken plus Pending, Synced, Needs attention, degraded and unavailable remain distinct in bilingual UI and accessibility copy; Late taken does not repaint Missed | E/C3 + C1/C2 | Mapping cases then UI/device tests |
+| U01 | Outcome/sync/capability remain separate in data and appropriate Caregiver/diagnostic mapping; Elder Home/reminder has simple recorded feedback, no technical sync labels/retry burden; both languages/accessibility supported; late evidence does not repaint Missed | E/C3 + C1/C2 | Mapping cases then UI/device tests |
 | O01 | Process/boot persistence, no replay of Taken/expired events, deadline takes precedence over snooze including same-instant alarm and delayed delivery/recovery, focused API matrix and controlled demo timing | S1 + E/C3 | [Implement permissions, alarm/process/reboot recovery](https://github.com/BRMRs/group33/issues/18), not a Gate 1 fake |
 | O02 | Render and local fallback use the same payloads; stored business data/photos survive service restart | S2 + S1/C3 | [Replace temporary server stores and deploy the selected stack](https://github.com/BRMRs/group33/issues/16), [Implement and rehearse the local demonstration fallback](https://github.com/BRMRs/group33/issues/20) |
 
@@ -79,7 +83,7 @@ Use fictional `elder-1`, `caregiver-1` (active), `caregiver-2` (unrelated), `eld
 
 | Source / case IDs | Required vectors and assertions | Proof / owners |
 |---|---|---|
-| T01 — D01/D03/D04/S07 | P0_TIME_V1; New York 2026-03-08 02:30 → 07:30Z (03:30−04:00), 2026-11-01 01:30 → 05:30Z once; non-one-hour gap; planned instant inclusive; deadline−1ms timely, deadline/deadline+1ms late; fixed 7,200,000 real ms; no frozen-time rewrite on TZDB difference | C2/E/S1/S2; identical Shared/Server and API 23/35 vectors, production resolver proof |
+| T01 — D01/D03/D04/S07 | P0_TIME_V1; New York 2026-03-08 02:30 → 07:30Z (03:30−04:00), 2026-11-01 01:30 → 05:30Z once; non-one-hour gap; planned instant inclusive; deadline−1ms timely, deadline/deadline+1ms late; fixed 7,200,000 real ms response interval plus separate 1,800,000ms notification; no frozen-time rewrite on TZDB difference | C2/E/S1/S2; identical Shared/Server and API 23/35 vectors, production resolver proof |
 | T02 — D05/S03/S06/S07/S08/O01 | Only Elder generates real events; next-24-hour rolling generation; seven-day preview has no event ID/history; offline >24 hours and reboot replenish; existing SCHEDULED stays old after edit/deactivation; old-revision offline timely action registers atomically if needed; register/action either order, repeated key/new transport batch for same generation produces one canonical event; conflicting evidence preserves original and Needs attention | E/C2/S1/S2; Room transactions, Server registration/action production integration, controlled response ordering |
 | T03 — D06/P03 | Same Elder/Medication/same resolved instant fails atomically; different Medication same instant allowed; same text is not identity; own prior revision excluded; inclusive end boundary; DST nominal-time collision; unbounded ranges not validated solely over downloaded dates; frozen events not duplicated after deactivation/new plan | C2/S2/S1; validator algorithm plus transaction tests |
 | T04 — A02/A03/A05/S01 | Eight-digit leading-zero code; exact 10-minute server expiry; pending inherits expiry; consumed code never reopens after reject/cancel; replacement/new request needs new code; code hash collision regenerated; 5/min/install, 20/min/IP, 3 issuance/min/Elder and Retry-After recovery; cancel-first forbids accept, accept-then-revoke ends revoked, no second active relation; terminal metadata retained 30 days, dedup evidence through P0 | C1/E/S2; real clock-controlled pairing transactions and limiter |
@@ -88,7 +92,20 @@ Use fictional `elder-1`, `caregiver-1` (active), `caregiver-2` (unrelated), `eld
 | T07 — S06/S08/S09/R03/O02 | Default 30-date history/seven-day preview not retention/offline limits; 90 inclusive query dates and 10,000 entity cap (+1 rejected, no truncation); primary Repeatable Read authorization/multi-table snapshot; read-after-write; old generation cannot merge; Room keeps old reports; capability seq+outbox atomic/reboot safe; cloud/local pending isolated | C3/S1/S2/E; real PostgreSQL/Room controlled transactions, not mocks alone |
 | T07 — O02 final fallback | With cloud/network egress unavailable but local LAN intact, preprepared APK/dependencies and local Spring Boot+PostgreSQL+private-file adapter complete real two-device login→pair→photo→plan→reminder→action→feedback, survive server restart including photo bytes, then demonstrate offline action/recovery; no Render/Supabase/Auth/CDN/download needed, no final-state seeding | S2/S1/C3 + all feature owners; recorded local rehearsal and repeatable scripts |
 
-[examples.json](examples.json) supplies illustrative baseline vectors and configuration values, including `snoozeBoundaryVectors` for D03/O01 and `closedPairingRequestResponse` for A02/A05. These are not executable acceptance. All 33 IDs remain planned; the subcases above expand their obligations without implying new passing tests. Explicitly report which subcases execute at Gate 1 and which require the downstream real adapter/device Issues.
+[examples.json](examples.json) supplies historical r1 illustrative vectors (V2 migration outstanding), not current V2 acceptance vectors and configuration values, including `snoozeBoundaryVectors` for D03/O01 and `closedPairingRequestResponse` for A02/A05. These are not executable acceptance. All 33 IDs remain planned; the subcases above expand their obligations without implying new passing tests. Explicitly report which subcases execute at Gate 1 and which require the downstream real adapter/device Issues.
+
+## Additional V2 acceptance cases — specified, not executed
+
+| ID | Required assertions | Owners / tracking |
+| --- | --- | --- |
+| V201 | Separate 30m notification and 2h cutoff: at 30m Caregiver notified, Elder actions remain, no MISSED; Taken at 31m/119m is timely; deadline−1ms/exact/+1ms, snooze cannot extend either timer, notification action/process/boot/reconnect never replay after 2h; migration explicit | E/C2/S1/S2; #12/#14/#18 |
+| V202 | Frozen same-time group, one-step Taken/10m snooze/Help; local and Server dedup/transaction; whole-group acceptance or rejection, rollback of one-member failure; no partial business receipt or per-drug Elder entry | E/C2/C3/S1/S2; #12/#14/#17 |
+| V203 | Help creates/updates follow-up immediately; at T+30m with no known intake confirmation, create/update and deduplicate the nonresponse notification; T+2h only ends the Elder response window and retains unresolved follow-up without recreating an existing alert; contact remains awaiting entry; authorized Caregiver Taken/Not taken/Unable to confirm, unknown actual time, audit correction, contradictory delayed Elder fact preserved | C3/E/C1/S1/S2; #12/#14/#16/#17 |
+| V204 | T−5 first probe and T+5 recheck per group; both missing valid responses after their waits alerts once, either valid response prevents that round's alert; old sync/replay is not response; cover failure/success combinations, timeouts, late-reply races, missed trigger/recovery and no all-day monitoring; dose case not silently closed on reconnect | C3/E/S1/S2; #17/#18 |
+| V205 | Durable help/nonresponse/contact-loss alert delivery with reviewed channel/budget, retries, offline/permission failure, sent/delivered/read/contact/ack distinct, unresolved escalation; cloud and LAN fallback | C3/C1/S1/S2; #16/#17/#18/#20/#21 |
+| V206 | Quiet Home/camera/no Help; six two-column photos complete and recognizable at default on target device, three actions not mistaken, no per-drug or sync tasks; Chinese/English, system200%, TalkBack/cancel touch; current C screenshot not accepted | C1/E/C2/C3; #19/#21 |
+
+Do not report the six new cases as passed from r1 DTO round-trips or simulated alerts. Initial timing values are now selected; coordinated declarations/schema and real adapters still require [technical review](../ELDER_UI_TECHNICAL_REVIEW.md).
 
 ## Future execution and evidence
 
@@ -96,3 +113,9 @@ Use fictional `elder-1`, `caregiver-1` (active), `caregiver-2` (unrelated), `eld
 - Real Room/instrumentation and device acceptance require the agreed device/emulator environment; ordinary unit tests cannot prove notification delivery or reboot behavior.
 - Each PR states covered test IDs, uncovered downstream cases, commands/results and production adapters exercised. Android and Server reviewers sign the same fixture version.
 - Document/fixture checks and scoped scaffold regressions must not close this Issue or label the full proposed cases as passing business tests. Report actual test classes/assertions separately from downstream P0 acceptance.
+
+## Separate S1 local-policy evidence — 2026-10-22
+
+[S1 PR #37 (Ready for review)](https://github.com/BRMRs/group33/pull/37) adds 38 real local-policy test methods, including four wall-clock rollback regressions for subsets of V201/V203/V204/V205/R01/R04; its CI reports the separate code snapshot, not this docs-only branch. It does not implement Room/HTTP/push or complete the six V2 scenarios. No S1 source/test changes are included in #25.
+
+Lead clarification for V203: the effective follow-up conclusion uses the authorized current Caregiver entry; delayed Elder facts remain in history without overwriting it. Test both no-Caregiver-entry and Unable-to-confirm cases. First-release timing and remaining technical work are in [ELDER_UI_TECHNICAL_REVIEW.md](../ELDER_UI_TECHNICAL_REVIEW.md); real adapter/device scenarios remain NOT RUN here.
