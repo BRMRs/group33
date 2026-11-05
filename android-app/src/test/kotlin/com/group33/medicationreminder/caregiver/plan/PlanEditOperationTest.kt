@@ -47,6 +47,22 @@ class PlanEditOperationTest {
         override suspend fun retryRejected(operationId: String): Outcome<OnlineCommandRecord> = error("No automatic rejected retry")
     }
     private fun operation() = PlanEditOperation(draft, command, scope, plans, journal)
+    @Test fun `synchronous busy listener close prevents dispatch`() = runTest {
+        val op = operation()
+        backgroundScope.launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) {
+            op.state.collect { if (it.busy) op.close() }
+        }
+        op.submit()
+        assertEquals(0, writes); assertEquals(PlanEditOperationState(), op.state.value)
+    }
+    @Test fun `synchronous awaiting listener close prevents dispatch`() = runTest {
+        val op = operation()
+        backgroundScope.launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) {
+            op.state.collect { if (it.status == OnlineCommandState.AWAITING_CONFIRMATION) op.close() }
+        }
+        op.submit()
+        assertEquals(0, writes); assertEquals(PlanEditOperationState(), op.state.value)
+    }
     @Test fun `unknown duplicate submit never writes twice and recovery preserves identity`() = runTest {
         val op = operation(); op.submit(); op.submit()
         assertEquals(1, writes); op.resume()

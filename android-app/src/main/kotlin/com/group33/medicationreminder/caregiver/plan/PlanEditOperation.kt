@@ -57,6 +57,7 @@ class PlanEditOperation(
         if (recoveryOnly || state.value.status != OnlineCommandState.NOT_SUBMITTED) return@singleFlight
         // Once dispatched, exceptions/cancellation cannot prove that the server did not commit.
         mutableState.value = state.value.copy(status = OnlineCommandState.AWAITING_CONFIRMATION)
+        if (closed) return@singleFlight
         val result = plans.update(planId, payload, command)
         if (closed) return@singleFlight
         require(result.operationId == command.operationId)
@@ -96,7 +97,7 @@ class PlanEditOperation(
         if (closed || !mutex.tryLock()) return
         try {
             mutableState.value = state.value.copy(busy = true)
-            action()
+            if (!closed) action()
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {

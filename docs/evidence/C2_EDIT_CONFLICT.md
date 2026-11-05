@@ -30,3 +30,4 @@ actual lifecycle/device evidence remain open. Deactivation is a separate deliver
 The restoration tests use supplied journal records and do not prove durable recovery.
 No canonical event writer, authority-overlap algorithm or shared contract change is
 introduced. D01/D05/D06 full integration and human approvals are not claimed.
+2026-11-05 S2-108-01: two synchronous close-before-I/O counterexamples failed before the fix (14 operation tests, 2 failures). Recheck closed after busy and awaiting notifications. Final targeted count: 19 (5 draft + 14 operation).
