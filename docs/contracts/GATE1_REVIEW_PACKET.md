@@ -4,13 +4,15 @@
 
 [ADR-0009](../adr/0009-two-stage-baseline-and-gate1-acceptance.md) separates Stage A development-baseline publication from Stage B Gate 1 completion. Six real member contribution/review records and named Android/Server contract signatures remain Stage B obligations, not prerequisites for accessing the initial foundation. The lead's one-time PR #22 publication-approval exception permits its checked squash release and requires immediate restoration of regular approvals; ordinary CI/protection remain. Query GitHub for current PR/main state; #12 stays OPEN after publication.
 
-The r1 baseline and test results below describe historical code, not current V2 behavior acceptance. Read [accepted V2 product record #23](https://github.com/BRMRs/group33/issues/23), [its separate document PR #25](https://github.com/BRMRs/group33/pull/25) and [protocol/migration coordination #24](https://github.com/BRMRs/group33/issues/24). No V2 implementation or contract freeze is claimed by publishing this foundation. For role-scoped work use [the handoff](ROLE_REVIEW_HANDOFF.md); rehearsal findings are navigation evidence, not member signatures.
+Baseline: `T01-T07/2026-10-16-r1`. Status: **historical r1 code/check evidence; V2 migration required before affected contract freeze; Gate 1 is NOT closed**.
 
-Baseline: `T01-T07/2026-10-16-r1`. Status: **local contract code and checks ready for formal review; Gate 1 is NOT closed**.
+Current behavior is [ELDER_REMINDER_V2 / ADR-0008](../adr/0008-photo-first-elder-reminders-and-caregiver-handoff.md). The unchanged r1 two-hour fixture/WireContractTest duration matches the 2026-10-17 clarification, but is not proof of separate thirty-minute notification, T−5/T+5 probes or other V2 behavior. [V2-T01–T06](../ELDER_UI_TECHNICAL_REVIEW.md) list pending implementation review; the product decisions are no longer alternatives. The docs PR refreshes the artifact checksum manifest solely to identify its current review inputs, not to bless r1 as V2.
+
+For role-scoped work use [the handoff](ROLE_REVIEW_HANDOFF.md); rehearsal findings are navigation evidence, not member signatures.
 
 Stage A navigation evidence: [six independent read-only onboarding rehearsals](../evidence/GATE1_ONBOARDING_DRY_RUN.md), R1 fixes followed by R2 6/6 NAVIGATION_PASS. This is not six human reviews, executed candidate tests or V2 acceptance; final publication commit/check evidence remains in PR #22 / #12.
 
-The project lead authorized continuing Gate 1 implementation and explicitly deferred mapping E/C1/C2/C3/S1/S2 to GitHub accounts. Track the six role slots without inventing assignments or signatures. These are agent-prepared common artifacts, not six members' claimed contributions. Each member must still submit attributable code/tests and actual review evidence.
+The project lead originally deferred account mapping during baseline preparation. The confirmed 2026-10-22 assignments are now in [TEAM_ROSTER.md](../TEAM_ROSTER.md); actual signatures remain pending. These are agent-prepared common artifacts, not six members' claimed contributions. Each member must still submit attributable code/tests and actual review evidence.
 
 ## Delivered scope
 
@@ -21,7 +23,7 @@ The project lead authorized continuing Gate 1 implementation and explicitly defe
 - Missing required headers return structured 400 errors. Android maps P0 error codes to nonempty English/Chinese resources with an unknown-code fallback.
 - `gate1Check` aggregates Shared/Server/Android JVM tests, Server bootJar, Android lint and Debug APK assembly. CI runs `./gradlew gate1Check test`, preserving the additional Release JVM checks.
 
-## Executed local checks
+## Historical r1 checks (unchanged code in this docs PR)
 
 Run from the repository root:
 
@@ -60,7 +62,7 @@ Per the closed [delivery-gate decision](https://github.com/BRMRs/group33/issues/
 
 ## Six-role formal review queue
 
-All rows remain **PENDING**. No GitHub account is assigned by this packet.
+All formal review rows remain **PENDING**. Current named assignments are in [TEAM_ROSTER.md](../TEAM_ROSTER.md); the earlier deferral below is historical. See [separate S1 PR #37 (Ready for review)](https://github.com/BRMRs/group33/pull/37) for tested local policy boundaries; it is not included in #25 or a signature.
 
 | Role | Concrete review/code surface | Required next evidence |
 |---|---|---|
@@ -71,19 +73,21 @@ All rows remain **PENDING**. No GitHub account is assigned by this packet.
 | S1 | RepositoryModels, all Interface invariants, CommandContext/recovery/PhotoSource abstractions and Gradle check task | Review environment scope, missing/unknown result semantics and later atomic-storage obligations; contribute integration/harness tests |
 | S2 | All Shared wire DTOs, strict Boot mapper/BOM alignment, HTTP error handler and WireTransportContractTest | Review wire/status/header compatibility and future auth/transaction seams; contribute Server transport tests and actual review |
 
-Every review must record role, actual reviewer, date and the same manifest/fixture/commit version. GitHub-account mapping is deferred; it is not required to continue local contract work. At least one Android owner and one Server owner must jointly sign the same version. No member is credited with agent-prepared code merely because a role appears above. Member PRs and six real reviews remain required for completion.
+Every review must record role, actual reviewer, date and the same manifest/fixture/commit version. Use the confirmed roster; assignment alone never supplies this review evidence. At least one Android owner and one Server owner must jointly sign the same version. No member is credited with agent-prepared code merely because a role appears above. Member PRs and six real reviews remain required for completion.
 
 ## Publishing and completion state
 
+Current status (2026-10-22): Stage A was published through [PR #22](https://github.com/BRMRs/group33/pull/22), main `4e0916fcea0e81060413fd64f6c1c8359df6e4ce`; this PR #25 updates documents only. The preparation prose below is historical, not a claim that main is still empty. #12 remains OPEN for Stage B.
+
 The initial audit found an unborn `main` and no remote branches or PRs. On 2026-10-16 the project lead approved publishing exactly three bootstrap files to `main`, followed by the existing engineering baseline, Gate 1 common artifacts and collaboration rules on `feature/12-gate1-contracts`. See [submission scope](../INITIAL_SUBMISSION_SCOPE.md) for the historical versus current inventory and exclusions. Publication uses a Draft PR referencing #12, never a closure keyword; commit/PR links and remote CI results are recorded in Issue #12 after publication. Publication is not formal acceptance, and this packet does not claim a PR already reviewed or remote CI already passed.
 
-Publication hardening pins the official Gradle 8.9 distribution checksum and excludes private signing keys, local databases/journals, APK/AAB/heap dumps and Python caches. The review manifest covers every published file except itself, including the new governance documents and checker. ADR-0007 is the renumbered governance record; the original ADR-0005/0006 decisions are unchanged. Prototypes/photos stay local and are outside the manifest and PR. The newly added governance rules retain non-author approval, Android/Server review and six actual role contributions; no GitHub settings change is claimed by checking in a settings checklist.
+Publication hardening pins the official Gradle 8.9 distribution checksum and excludes private signing keys, local databases/journals, APK/AAB/heap dumps and Python caches. The review manifest covers every published file except itself, including the new governance documents and checker. ADR-0007 is the renumbered governance record; ADR-0005 retains sole-generator/DST and two-hour response choices; ADR-0008 adds the separate thirty-minute alert and scheduled probes; ADR-0006 remains unchanged. Prototypes/photos stay local and are outside the manifest and PR. The newly added governance rules retain non-author approval, Android/Server review and six actual role contributions; no GitHub settings change is claimed by checking in a settings checklist.
 
 - [x] Common wire types, nine Repository Interfaces and local contract test code delivered.
 - [x] Automated local checks executed; results and limits recorded.
 - [ ] Six actual role reviews and attributable member code/test PR evidence linked.
 - [ ] Android owner and Server owner formally sign the same reviewed artifact version.
-- [ ] Initial repository submission/PR workflow is established and reviewed artifacts published.
+- [x] Initial Stage A repository/PR workflow published through #22; this is not Stage B acceptance.
 - [ ] Project lead accepts Gate 1 closure against the evidence; Issue #12 remains OPEN meanwhile.
 
 No Pairing feature, plan/event reducer, Room adapter, sync worker, alarm, database migration, Storage adapter or deployment was implemented in this turn.
