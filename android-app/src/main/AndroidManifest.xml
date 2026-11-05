@@ -7,6 +7,7 @@
         android:allowBackup="true"
         android:fullBackupContent="@xml/elder_photo_backup"
         android:dataExtractionRules="@xml/elder_photo_extraction"
+        android:name=".Group33Application"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.Group33">
@@ -17,6 +18,14 @@
         </provider>
         <activity android:name=".elder.photo.ElderPhotoActivity" android:exported="false" />
         <activity
+            android:name=".SharedLoginActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
             android:name=".caregiver.CaregiverHomeActivity"
             android:exported="false" />
         <activity
@@ -24,12 +33,7 @@
             android:exported="false" />
         <activity
             android:name=".MainActivity"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+            android:exported="false" />
     </application>
 
 </manifest>
