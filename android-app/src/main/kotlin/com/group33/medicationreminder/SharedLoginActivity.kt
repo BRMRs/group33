@@ -2,9 +2,12 @@ package com.group33.medicationreminder
 
 import android.content.Intent
 import android.content.pm.ApplicationInfo
+import android.graphics.Rect
 import android.net.Uri
 import android.os.Bundle
+import android.view.Gravity
 import android.view.View
+import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -55,13 +58,27 @@ class SharedLoginActivity : AppCompatActivity() {
         WindowCompat.getInsetsController(window, binding.root).isAppearanceLightStatusBars = true
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            view.updatePadding(top = bars.top, bottom = bars.bottom)
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            view.updatePadding(top = bars.top, bottom = maxOf(bars.bottom, ime.bottom))
             insets
+        }
+        binding.root.addOnLayoutChangeListener { root, _, _, _, _, _, _, _, _ ->
+            val availableWidth = root.width - root.paddingLeft - root.paddingRight
+            if (availableWidth > 0) {
+                val maxWidth = resources.getDimensionPixelSize(R.dimen.group33_content_max_width)
+                val targetWidth = minOf(availableWidth, maxWidth)
+                val params = binding.loginContentContainer.layoutParams as FrameLayout.LayoutParams
+                if (params.width != targetWidth || params.gravity != Gravity.CENTER_HORIZONTAL) {
+                    params.width = targetWidth
+                    params.gravity = Gravity.CENTER_HORIZONTAL
+                    binding.loginContentContainer.layoutParams = params
+                }
+            }
         }
 
         val displayedLanguage = ConfigurationCompat.getLocales(resources.configuration)[0]?.language.orEmpty()
         binding.languageButton.setText(
-            if (displayedLanguage == "zh") R.string.language_chinese else R.string.language_english,
+            if (displayedLanguage == "zh") R.string.language_english else R.string.language_chinese,
         )
         binding.languageButton.contentDescription = getString(R.string.language_switch_action)
         binding.languageButton.setOnClickListener { switchLanguage(displayedLanguage) }
@@ -72,9 +89,7 @@ class SharedLoginActivity : AppCompatActivity() {
 
         binding.oneTapButton.setOnClickListener { startPhoneSignIn() }
         binding.otherMethodsButton.setOnClickListener { viewModel.toggleAlternatives() }
-        binding.smsButton.setOnClickListener {
-            if (localDemo) viewModel.showMethod(LoginMethod.SMS) else startPhoneSignIn()
-        }
+        binding.smsButton.setOnClickListener { viewModel.showMethod(LoginMethod.SMS) }
         binding.passwordButton.setOnClickListener { viewModel.showMethod(LoginMethod.PASSWORD) }
         binding.backToMethodsButton.setOnClickListener { viewModel.showMethod(LoginMethod.CHOICE) }
         binding.forgotPasswordButton.setOnClickListener { viewModel.showMethod(LoginMethod.RESET) }
@@ -98,9 +113,6 @@ class SharedLoginActivity : AppCompatActivity() {
                 viewModel.state.collect(::render)
             }
         }
-        binding.rolePreviewButton.setOnClickListener {
-            startActivity(Intent(this, MainActivity::class.java))
-        }
     }
 
     private fun submitForm() {
@@ -118,7 +130,6 @@ class SharedLoginActivity : AppCompatActivity() {
     private fun render(state: LoginFlowState) {
         val signingIn = state.step == LoginStep.SIGN_IN
         binding.loginHeader.visibility = if (signingIn) View.VISIBLE else View.GONE
-        binding.loginDescription.visibility = if (signingIn) View.VISIBLE else View.GONE
         binding.loginChoices.visibility = if (signingIn && state.method == LoginMethod.CHOICE) View.VISIBLE else View.GONE
         binding.loginForm.visibility = if (signingIn && state.method != LoginMethod.CHOICE) View.VISIBLE else View.GONE
         binding.roleSelection.visibility = if (state.step == LoginStep.CHOOSE_ROLE) View.VISIBLE else View.GONE
@@ -147,15 +158,49 @@ class SharedLoginActivity : AppCompatActivity() {
         )
 
         val notice = state.notice
-        binding.loginStatus.visibility = if (notice == null) View.GONE else View.VISIBLE
         if (notice == null) {
             announcedNotice = null
+            binding.choiceFeedbackCard.visibility = View.GONE
+            binding.formFeedbackCard.visibility = View.GONE
+            binding.loginStatus.visibility = View.GONE
         } else {
-            val message = getString(noticeResource(notice))
+            val message = getString(noticeResource(notice, state.method))
+            val isChoice = state.step == LoginStep.SIGN_IN && state.method == LoginMethod.CHOICE
+            val card = if (isChoice) binding.choiceFeedbackCard else binding.formFeedbackCard
+            val title = noticeTitle(notice, state.method, isChoice)
+            val titleView = if (isChoice) binding.choiceFeedbackTitle else binding.formFeedbackTitle
+            val messageView = if (isChoice) binding.choiceFeedbackMessage else binding.formFeedbackMessage
+            titleView.setText(title)
+            messageView.text = message
+            val isSuccess = notice == LoginNotice.CodeSent || notice == LoginNotice.PasswordReset
+            val containerColor = getColor(
+                if (isSuccess) R.color.group33_success_container else R.color.group33_error_container,
+            )
+            val outlineColor = getColor(
+                if (isSuccess) R.color.group33_success_outline else R.color.group33_error_outline,
+            )
+            card.setCardBackgroundColor(containerColor)
+            card.strokeColor = outlineColor
+            titleView.setTextAppearance(
+                if (isSuccess) R.style.TextAppearance_Group33_SuccessTitle else R.style.TextAppearance_Group33_ErrorTitle,
+            )
+            messageView.setTextAppearance(
+                if (isSuccess) R.style.TextAppearance_Group33_SuccessBody else R.style.TextAppearance_Group33_ErrorBody,
+            )
+            card.visibility = View.VISIBLE
+            binding.loginStatus.visibility = if (state.step == LoginStep.CHOOSE_ROLE ||
+                state.step == LoginStep.CAREGIVER_DETAILS || state.step == LoginStep.SIGNED_IN
+            ) View.VISIBLE else View.GONE
             binding.loginStatus.text = message
             if (notice != announcedNotice) {
-                binding.loginStatus.announceForAccessibility(message)
-                binding.loginScroll.post { binding.loginScroll.smoothScrollTo(0, binding.loginStatus.bottom) }
+                card.announceForAccessibility("${getString(title)}. $message")
+                binding.loginScroll.post {
+                    val target = if (binding.loginStatus.visibility == View.VISIBLE) binding.loginStatus else card
+                    val visibleArea = Rect()
+                    target.getDrawingRect(visibleArea)
+                    binding.loginScroll.offsetDescendantRectToMyCoords(target, visibleArea)
+                    binding.loginScroll.smoothScrollTo(0, visibleArea.top)
+                }
                 announcedNotice = notice
             }
         }
@@ -176,11 +221,25 @@ class SharedLoginActivity : AppCompatActivity() {
         }
         binding.formTitle.setText(title)
         binding.formSubmitButton.setText(
-            if (method == LoginMethod.RESET) R.string.login_reset_password_action else title,
+            if (method == LoginMethod.RESET) R.string.login_reset_password_action else R.string.login_sign_in_action,
         )
     }
 
-    private fun noticeResource(notice: LoginNotice): Int = when (notice) {
+    private fun noticeTitle(notice: LoginNotice, method: LoginMethod, isChoice: Boolean): Int = when (notice) {
+        LoginNotice.InvalidPhone -> R.string.login_phone_error_title
+        LoginNotice.InvalidCode -> R.string.login_code_error_title
+        LoginNotice.MissingPassword -> R.string.login_password_error_title
+        LoginNotice.InvalidName -> R.string.login_name_error_title
+        LoginNotice.CodeSent -> R.string.login_code_sent_title
+        LoginNotice.PasswordReset -> R.string.login_password_reset_title
+        is LoginNotice.AuthFailure -> when {
+            isChoice -> R.string.login_unavailable_title
+            method == LoginMethod.SMS -> R.string.login_code_unavailable_title
+            else -> R.string.login_form_unavailable_title
+        }
+    }
+
+    private fun noticeResource(notice: LoginNotice, method: LoginMethod): Int = when (notice) {
         LoginNotice.InvalidPhone -> R.string.login_invalid_phone
         LoginNotice.InvalidCode -> R.string.login_invalid_code
         LoginNotice.MissingPassword -> R.string.login_missing_password
@@ -188,7 +247,12 @@ class SharedLoginActivity : AppCompatActivity() {
         LoginNotice.CodeSent -> if (localDemo) R.string.login_demo_code_sent else R.string.login_code_sent
         LoginNotice.PasswordReset -> R.string.login_password_reset_done
         is LoginNotice.AuthFailure -> when (notice.error) {
-            PhoneAuthError.NOT_CONFIGURED -> R.string.login_auth_unavailable
+            PhoneAuthError.NOT_CONFIGURED -> when (method) {
+                LoginMethod.CHOICE -> R.string.login_auth_unavailable
+                LoginMethod.SMS -> R.string.login_sms_unavailable
+                LoginMethod.PASSWORD -> R.string.login_password_unavailable
+                LoginMethod.RESET -> R.string.login_reset_unavailable
+            }
             PhoneAuthError.INVALID_PHONE -> R.string.login_invalid_phone
             PhoneAuthError.INVALID_CODE -> R.string.login_invalid_code
             PhoneAuthError.CODE_EXPIRED -> R.string.login_code_expired
