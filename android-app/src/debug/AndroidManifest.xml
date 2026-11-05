@@ -1,5 +1,13 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application android:usesCleartextTraffic="true">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <application android:name=".integration.DebugChainApplication" android:usesCleartextTraffic="true">
+        <activity android:name=".MainActivity" tools:node="remove" />
+        <activity android:name=".integration.DebugChainActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
         <activity android:name=".caregiver.plan.PlanEditorDebugActivity" android:exported="false" />
     </application>
 </manifest>
