@@ -11,6 +11,12 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.group33.medicationreminder.BuildConfig
+import com.group33.medicationreminder.Group33Application
+import com.group33.medicationreminder.SharedLoginActivity
+import com.group33.medicationreminder.caregiver.CaregiverHomeActivity
+import com.group33.medicationreminder.elder.ElderHomeActivity
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
 import com.group33.medicationreminder.R
 import com.group33.medicationreminder.caregiver.plan.PlanEditorView
 import com.group33.medicationreminder.core.data.contract.*
@@ -39,7 +45,11 @@ class ChainOnlineFlowTest {
     private fun write(data: JSONObject) { bridge.writeText(data.toString()) }
     private fun screenshot(activity: Activity, name: String) {
         instrumentation.runOnMainSync {
-            descendants(activity.window.decorView).filterIsInstance<ScrollView>().first().fullScroll(View.FOCUS_DOWN)
+            val root = descendants(activity.window.decorView).firstOrNull { it is androidx.core.widget.NestedScrollView || it is ScrollView }
+            when (root) {
+                is androidx.core.widget.NestedScrollView -> root.fullScroll(View.FOCUS_DOWN)
+                is ScrollView -> root.fullScroll(View.FOCUS_DOWN)
+            }
         }
         instrumentation.waitForIdleSync()
         instrumentation.uiAutomation.takeScreenshot()?.let { bitmap ->
@@ -49,11 +59,36 @@ class ChainOnlineFlowTest {
     }
     private fun descendants(view: View): List<View> = listOf(view) +
         if (view is ViewGroup) (0 until view.childCount).flatMap { descendants(view.getChildAt(it)) } else emptyList()
-    private fun launch(): Activity = instrumentation.startActivitySync(Intent(app, DebugChainActivity::class.java)
-        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-    private fun click(activity: Activity, resource: Int) = instrumentation.runOnMainSync {
-        descendants(activity.window.decorView).filterIsInstance<Button>()
-            .first { it.text == activity.getString(resource) && it.isShown }.performClick()
+    private suspend fun foreground(type: Class<out Activity>): Activity {
+        var result: Activity? = null
+        waitUntil { instrumentation.runOnMainSync {
+            result = ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED)
+                .firstOrNull { type.isInstance(it) }
+        }; result != null }
+        return checkNotNull(result)
+    }
+    private suspend fun launch(): Activity {
+        val intent = checkNotNull(app.packageManager.getLaunchIntentForPackage(app.packageName))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        instrumentation.startActivitySync(intent)
+        val session = withTimeout(10_000) { s.auth.observeSession().first { it.readiness != AuthReadiness.RESTORING } }
+        return foreground(when (session.user?.role) {
+            UserRole.ELDER -> ElderHomeActivity::class.java
+            UserRole.CAREGIVER -> CaregiverHomeActivity::class.java
+            null -> SharedLoginActivity::class.java
+        })
+    }
+    private fun nav(activity: Activity, id: Int) = instrumentation.runOnMainSync {
+        activity.findViewById<View>(id).performClick()
+    }
+    private suspend fun click(activity: Activity, resource: Int) = waitUntil {
+        var clicked = false
+        instrumentation.runOnMainSync {
+            descendants(activity.window.decorView).filterIsInstance<Button>()
+                .firstOrNull { it.text == activity.getString(resource) && it.isShown && it.isEnabled }
+                ?.let { clicked = it.performClick() }
+        }
+        clicked
     }
     private suspend fun ready() = withTimeout(15_000) { s.auth.observeSession().first { it.readiness == AuthReadiness.READY } }
     private suspend fun waitUntil(check: suspend () -> Boolean) = withTimeout(20_000) { while (!check()) delay(50) }
@@ -62,14 +97,24 @@ class ChainOnlineFlowTest {
         return (outcome as Outcome.Success).value
     }
 
+    @Test fun configureLanguage(): Unit = runBlocking<Unit> {
+        val tag = InstrumentationRegistry.getArguments().getString("chainLanguage")
+        assumeTrue("Locale setup is explicit", tag != null)
+        val choice = if (tag!!.startsWith("zh")) LanguageChoice.SIMPLIFIED_CHINESE else LanguageChoice.ENGLISH
+        success(app.languageSettings.setChoice(choice))
+        instrumentation.runOnMainSync { Group33Application.applyLanguage(choice) }
+    }
+
     @Test fun realOnlinePhase(): Unit = runBlocking<Unit> {
         val phase = InstrumentationRegistry.getArguments().getString("chainPhase")
         assumeTrue("Run using the documented local two-emulator harness", phase != null)
         when (phase) {
             "elder-login" -> {
-                val activity = launch()
-                click(activity, R.string.chain_login_elder)
+                val entry = launch()
+                assertTrue(entry is SharedLoginActivity)
+                click(entry, R.string.chain_login_elder)
                 val session = ready()
+                val activity = foreground(ElderHomeActivity::class.java)
                 waitUntil { s.pairing.observeRelationships().first().access == AccessState.AUTHORIZED }
                 click(activity, R.string.chain_issue)
                 var code: String? = null
@@ -80,12 +125,15 @@ class ChainOnlineFlowTest {
                     }
                     code != null
                 }
-                write(JSONObject().put("code", code).put("elderId", session.user!!.id))
+                write(JSONObject().put("code", code).put("elderId", session.user!!.id).put("elderName", session.user.displayName))
             }
             "caregiver-request" -> {
-                val b = read(); val activity = launch()
-                click(activity, R.string.chain_login_caregiver)
+                val b = read(); val entry = launch()
+                assertTrue(entry is SharedLoginActivity)
+                click(entry, R.string.chain_login_caregiver)
                 val session = ready()
+                val activity = foreground(CaregiverHomeActivity::class.java)
+                nav(activity, R.id.nav_settings)
                 instrumentation.runOnMainSync {
                     descendants(activity.window.decorView).filterIsInstance<EditText>()
                         .single { it.hint == activity.getString(R.string.chain_enter_code) }.setText(b.getString("code"))
@@ -117,7 +165,7 @@ class ChainOnlineFlowTest {
             "elder-photo" -> {
                 val b = read(); ready(); val activity = launch()
                 val monitor = instrumentation.addMonitor(ElderPhotoActivity::class.java.name, null, false)
-                click(activity, R.string.chain_capture)
+                click(activity, R.string.photo_title)
                 val photoActivity = instrumentation.waitForMonitorWithTimeout(monitor, 5000)
                 assertNotNull(photoActivity)
                 val source = File(app.cacheDir, "elder-camera/fictional-source.png").apply { parentFile!!.mkdirs() }
@@ -195,6 +243,46 @@ class ChainOnlineFlowTest {
                 assertEquals(OnlineCommandState.CONFIRMED, record.state)
                 launch()
                 success(s.pairing.refresh()); success(s.photos.refresh(b.getString("elderId")))
+            }
+            "caregiver-navigation" -> {
+                val b = read(); ready()
+                var activity = launch()
+                assertTrue(activity is CaregiverHomeActivity)
+                val originalScope = s.scope.value
+                waitUntil { var matches = false
+                    instrumentation.runOnMainSync { matches = activity.findViewById<TextView>(R.id.current_elder_value).text.toString() == b.getString("elderName") }
+                    matches
+                }
+                nav(activity, R.id.nav_records)
+                instrumentation.runOnMainSync {
+                    assertEquals(activity.getString(R.string.caregiver_records_title), activity.findViewById<TextView>(R.id.page_title).text.toString())
+                    assertTrue(descendants(activity.window.decorView).filterIsInstance<PlanEditorView>().none { it.isShown })
+                }
+                nav(activity, R.id.nav_settings)
+                val wasChinese = androidx.core.os.ConfigurationCompat.getLocales(activity.resources.configuration)[0]?.language == "zh"
+                click(activity, if (wasChinese) R.string.language_chinese else R.string.language_english)
+                waitUntil {
+                    activity = foreground(CaregiverHomeActivity::class.java)
+                    var retained = false
+                    instrumentation.runOnMainSync {
+                        retained = activity.findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottom_navigation).selectedItemId == R.id.nav_settings &&
+                            activity.findViewById<Button>(R.id.language_button).text == activity.getString(if (wasChinese) R.string.language_english else R.string.language_chinese)
+                    }; retained
+                }
+                assertEquals(originalScope, s.scope.value)
+                click(activity, if (wasChinese) R.string.language_english else R.string.language_chinese)
+                waitUntil {
+                    activity = foreground(CaregiverHomeActivity::class.java)
+                    var restored = false
+                    instrumentation.runOnMainSync { restored = activity.findViewById<Button>(R.id.language_button).text ==
+                        activity.getString(if (wasChinese) R.string.language_chinese else R.string.language_english) }
+                    restored
+                }
+                instrumentation.runOnMainSync { (activity as CaregiverHomeActivity).onBackPressedDispatcher.onBackPressed() }
+                instrumentation.runOnMainSync {
+                    assertEquals(R.id.nav_plans, activity.findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottom_navigation).selectedItemId)
+                    assertEquals(b.getString("elderName"), activity.findViewById<TextView>(R.id.current_elder_value).text.toString())
+                }
             }
             "elder-sees-plan" -> {
                 val b = read(); assertEquals(b.getString("elderId"), ready().user!!.id)
@@ -331,8 +419,9 @@ class ChainOnlineFlowTest {
                 assertTrue(s.photos.refresh(b.getString("elderId")) is Outcome.Failure)
                 assertEquals(AuthReadiness.READY, s.auth.observeSession().first().readiness)
                 waitUntil { var cleared = false
-                    instrumentation.runOnMainSync { cleared = descendants(activity.window.decorView).filterIsInstance<PlanEditorView>().single().visibility == View.GONE &&
-                        descendants(activity.window.decorView).filterIsInstance<TextView>().none { it.text.contains("Fictional medicine") } }
+                    instrumentation.runOnMainSync { cleared = descendants(activity.window.decorView).filterIsInstance<PlanEditorView>().none { it.isShown } &&
+                        descendants(activity.window.decorView).filterIsInstance<TextView>().none { it.text.contains("Fictional medicine") } &&
+                        activity.findViewById<TextView>(R.id.current_elder_value).text == activity.getString(R.string.caregiver_no_current_elder) }
                     cleared
                 }
             }

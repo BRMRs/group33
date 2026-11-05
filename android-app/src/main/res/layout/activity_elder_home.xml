@@ -46,6 +46,10 @@
         android:layout_marginTop="24dp" android:minHeight="64dp" android:textSize="18sp" android:text="@string/photo_title"
         app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@id/elder_home_hint" />
+    <FrameLayout android:id="@+id/feature_content"
+        android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginTop="24dp"
+        app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/elder_photo_button" />
 </androidx.constraintlayout.widget.ConstraintLayout>
 
 

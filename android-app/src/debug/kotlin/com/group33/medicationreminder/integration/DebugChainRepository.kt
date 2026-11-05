@@ -18,13 +18,6 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 import org.json.JSONObject
 
-internal data class ChainServices(
-    val auth: AuthRepository, val pairing: PairingRepository, val photos: MedicationPhotoRepository,
-    val plans: ReminderPlanRepository, val commands: OnlineCommandRepository,
-    val scope: StateFlow<RepositoryScope?>, val trusted: StateFlow<TrustedSessionContext?>,
-    val signOut: suspend () -> Outcome<Unit>,
-)
-
 /** Debug-only composition of existing contracts, private session, journal and actual HTTP adapters. */
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class DebugChainRepository(

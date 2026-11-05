@@ -114,6 +114,8 @@
                         android:text="@string/language_english"
                         android:textSize="18sp"
                         android:visibility="gone" />
+                    <FrameLayout android:id="@+id/feature_content"
+                        android:layout_width="match_parent" android:layout_height="wrap_content" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>

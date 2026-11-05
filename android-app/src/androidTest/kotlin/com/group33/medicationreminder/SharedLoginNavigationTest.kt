@@ -1,51 +1,48 @@
 package com.group33.medicationreminder
 
 import android.content.Intent
-import androidx.appcompat.app.AppCompatDelegate
-import androidx.core.os.LocaleListCompat
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onView
-import androidx.test.espresso.Espresso.pressBack
-import androidx.test.espresso.action.ViewActions.click
-import androidx.test.espresso.action.ViewActions.scrollTo
+import androidx.test.espresso.action.ViewActions.*
 import androidx.test.espresso.assertion.ViewAssertions.matches
-import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
-import androidx.test.espresso.matcher.ViewMatchers.withId
-import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.espresso.matcher.ViewMatchers.*
 import androidx.test.platform.app.InstrumentationRegistry
+import com.group33.medicationreminder.core.data.contract.*
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeout
+import org.junit.Assert.assertEquals
 import org.junit.Test
-import org.junit.runner.RunWith
 
-@RunWith(AndroidJUnit4::class)
+/** The former role-preview detour is replaced by the shared entry and its original forms. */
 class SharedLoginNavigationTest {
-    @Test
-    fun englishLauncherKeepsBothRolePreviewsReachable() = verifyRoleNavigation("en")
-
-    @Test
-    fun chineseLauncherKeepsBothRolePreviewsReachable() = verifyRoleNavigation("zh-CN")
-
-    private fun verifyRoleNavigation(language: String) {
+    @Test fun englishLauncherUsesSharedEntryAndOriginalSmsForm() = verifyEntry(LanguageChoice.ENGLISH)
+    @Test fun chineseLauncherUsesSharedEntryAndOriginalSmsForm() = verifyEntry(LanguageChoice.SIMPLIFIED_CHINESE)
+    private fun verifyEntry(choice: LanguageChoice) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
-        instrumentation.runOnMainSync {
-            AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(language))
+        val context = instrumentation.targetContext
+        val app = context.applicationContext as Group33Application
+        runBlocking {
+            app.featureServices?.let { services ->
+                services.signOut()
+                withTimeout(5_000) { services.auth.observeSession().first { it.readiness == AuthReadiness.SIGNED_OUT } }
+            }
+            app.languageSettings.setChoice(choice)
         }
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        instrumentation.runOnMainSync { Group33Application.applyLanguage(choice) }
         val launcher = checkNotNull(context.packageManager.getLaunchIntentForPackage(context.packageName))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        assertEquals(SharedLoginActivity::class.java.name, launcher.component!!.className)
         try { ActivityScenario.launch<SharedLoginActivity>(launcher).use {
-            onView(withId(R.id.role_preview_button)).perform(scrollTo(), click())
-            onView(withId(R.id.elder_button)).perform(scrollTo(), click())
-            onView(withId(R.id.elder_title)).check(matches(isDisplayed()))
-            pressBack()
-            onView(withId(R.id.caregiver_button)).perform(scrollTo(), click())
-            onView(withId(R.id.caregiver_header)).check(matches(isDisplayed()))
-            pressBack()
-            pressBack()
+            onView(withId(R.id.one_tap_button)).perform(scrollTo()).check(matches(isDisplayed()))
+            onView(withId(R.id.other_methods_button)).perform(scrollTo(), click())
+            onView(withId(R.id.sms_button)).perform(scrollTo(), click())
+            onView(withId(R.id.phone_input)).perform(scrollTo()).check(matches(isDisplayed()))
+            onView(withId(R.id.back_to_methods_button)).perform(scrollTo(), click())
             onView(withId(R.id.one_tap_button)).perform(scrollTo()).check(matches(isDisplayed()))
         } } finally {
-            instrumentation.runOnMainSync {
-                AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList())
-            }
+            runBlocking { app.languageSettings.setChoice(LanguageChoice.FOLLOW_SYSTEM) }
+            instrumentation.runOnMainSync { Group33Application.applyLanguage(LanguageChoice.FOLLOW_SYSTEM) }
         }
     }
 }

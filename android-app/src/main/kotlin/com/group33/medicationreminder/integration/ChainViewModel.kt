@@ -99,12 +99,6 @@ internal class ChainViewModel(private val services: ChainServices) : ViewModel()
             finally { mutable.update { it.copy(busy = false) } }
         }
     }
-    fun login(role: UserRole, name: String) = action {
-        val result = services.auth.login(role, name)
-        mutable.update { it.copy(message = if (result is Outcome.Success) R.string.chain_signed_in else
-            if ((result as? Outcome.Failure)?.error.let { e -> (e as? RepositoryError.Remote)?.error?.code } == "INSTALLATION_ROLE_CONFLICT")
-                R.string.chain_fixed_role else R.string.chain_failed) }
-    }
     fun logout() {
         actionJob?.cancel(); photoJob?.cancel(); collection?.cancel()
         viewModelScope.launch { services.signOut(); mutable.value = ChainUi() }

@@ -8,7 +8,8 @@ import com.group33.medicationreminder.core.data.contract.LanguageChoice
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
-class Group33Application : Application() {
+open class Group33Application : Application() {
+    internal open val featureServices: com.group33.medicationreminder.integration.ChainServices? get() = null
     lateinit var languageSettings: LocalLanguageSettingsRepository
         private set
 

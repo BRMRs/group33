@@ -15,7 +15,7 @@ PKG = 'com.group33.medicationreminder'
 TEST = PKG + '.test/androidx.test.runner.AndroidJUnitRunner'
 PHASES = [('elder-login', 'elder'), ('caregiver-request', 'caregiver'), ('elder-accept', 'elder'),
           ('elder-photo', 'elder'), ('caregiver-plan-ui', 'caregiver'), ('caregiver-restart', 'caregiver'),
-          ('elder-sees-plan', 'elder'), ('caregiver-lost-reply', 'caregiver'),
+          ('elder-sees-plan', 'elder'), ('caregiver-navigation', 'caregiver'), ('caregiver-lost-reply', 'caregiver'),
           ('caregiver-recover', 'caregiver'), ('caregiver-stale-401', 'caregiver'),
           ('caregiver-read-failure', 'caregiver'),
           ('elder-revoke', 'elder'), ('caregiver-denied', 'caregiver')]
@@ -26,7 +26,7 @@ def main():
     parser.add_argument('--elder', default='emulator-5560')
     parser.add_argument('--caregiver', default='emulator-5562')
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--locale', help='API 33+ per-app locale, e.g. zh-CN or en-US')
+    parser.add_argument('--locale', help='Persist the shared language preference, e.g. zh-CN or en-US')
     parser.add_argument('--reset-test-apps', action='store_true', help='Clear only these two fictional emulator app installations')
     args = parser.parse_args()
     if not all(x.startswith('emulator-') for x in [args.elder, args.caregiver]) or args.elder == args.caregiver:
@@ -47,8 +47,10 @@ def main():
         if args.reset_test_apps:
             run(serial, 'shell', 'pm', 'clear', PKG)
         if args.locale:
-            run(serial, 'shell', 'cmd', 'locale', 'set-app-locales', PKG, '--locales', args.locale)
-        run(serial, 'shell', 'am', 'start', '-n', PKG + '/.integration.DebugChainActivity')
+            setup = run(serial, 'shell', 'am', 'instrument', '-w', '-r', '-e', 'class',
+                        PKG + '.integration.ChainOnlineFlowTest#configureLanguage', '-e', 'chainLanguage', args.locale, TEST)
+            if b'OK (1 test)' not in setup: raise RuntimeError('Shared language preference setup failed')
+        run(serial, 'shell', 'am', 'start', '-n', PKG + '/.SharedLoginActivity')
 
     bridge = None
     results = []
@@ -59,7 +61,7 @@ def main():
         if bridge is not None:
             run(serial, 'shell', f"run-as {PKG} sh -c 'cat > no_backup/chain-bridge.json'", data=bridge)
         output = run(serial, 'shell', 'am', 'instrument', '-w', '-r', '-e', 'class',
-                     PKG + '.integration.ChainOnlineFlowTest', '-e', 'chainPhase', phase, TEST)
+                     PKG + '.integration.ChainOnlineFlowTest#realOnlinePhase', '-e', 'chainPhase', phase, TEST)
         (args.output / (phase + '.log')).write_bytes(output)
         passed = b'OK (1 test)' in output and b'FAILURES' not in output
         results.append({'phase': phase, 'role': role, 'passed': passed})

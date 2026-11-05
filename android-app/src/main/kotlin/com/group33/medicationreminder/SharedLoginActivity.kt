@@ -1,7 +1,5 @@
 package com.group33.medicationreminder
 
-import android.content.Intent
-import android.content.pm.ApplicationInfo
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
@@ -12,7 +10,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
-import com.group33.medicationreminder.caregiver.CaregiverHomeActivity
+import com.group33.medicationreminder.integration.installSharedAuthentication
 import com.group33.medicationreminder.core.data.contract.LanguageChoice
 import com.group33.medicationreminder.core.data.contract.Outcome
 import com.group33.medicationreminder.databinding.ActivitySharedLoginBinding
@@ -71,17 +69,8 @@ class SharedLoginActivity : AppCompatActivity() {
         binding.forgotPasswordButton.setOnClickListener { showForm(LoginMode.RESET) }
         binding.requestCodeButton.setOnClickListener { showStatus(R.string.login_code_preview_only) }
         binding.formSubmitButton.setOnClickListener { showStatus(R.string.login_preview_only) }
-        if ((applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
-            binding.caregiverNavigationPreviewButton.visibility = View.VISIBLE
-            binding.caregiverNavigationPreviewButton.setOnClickListener {
-                startActivity(Intent(this, CaregiverHomeActivity::class.java).apply {
-                    putExtra("com.group33.medicationreminder.LOCAL_NAV_DEMO", true)
-                })
-            }
-        }
-        binding.rolePreviewButton.setOnClickListener {
-            startActivity(Intent(this, MainActivity::class.java))
-        }
+        installSharedAuthentication(this, binding.authenticationContent)
+        com.group33.medicationreminder.integration.routeSharedSession(this)
         render()
     }
 

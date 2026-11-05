@@ -22,6 +22,8 @@ import com.group33.medicationreminder.R
 import com.group33.medicationreminder.core.data.contract.Outcome
 import com.group33.medicationreminder.databinding.ActivityCaregiverHomeBinding
 import com.group33.medicationreminder.nextLanguageChoice
+import com.group33.medicationreminder.integration.OnlineFeatureContent
+import com.group33.shared.model.UserRole
 import kotlinx.coroutines.launch
 
 /** C1 navigation host. C2/C3 can replace the content destinations when their screens are ready. */
@@ -32,8 +34,9 @@ class CaregiverHomeActivity : AppCompatActivity() {
             intent.getBooleanExtra(EXTRA_LOCAL_NAV_DEMO, false)
     }
     private val viewModel: CaregiverNavigationViewModel by viewModels {
-        CaregiverNavigationViewModel.Factory(createCaregiverNavigationContextSource(localDemo))
+        CaregiverNavigationViewModel.Factory(createCaregiverNavigationContextSource(this, localDemo))
     }
+    private var content: OnlineFeatureContent? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,7 +44,7 @@ class CaregiverHomeActivity : AppCompatActivity() {
         setContentView(binding.root)
         WindowCompat.getInsetsController(window, binding.root).isAppearanceLightStatusBars = true
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime())
             view.updatePadding(top = bars.top, bottom = bars.bottom)
             WindowInsetsCompat.CONSUMED
         }
@@ -65,6 +68,13 @@ class CaregiverHomeActivity : AppCompatActivity() {
             viewModel.open(destination)
             binding.caregiverScroll.scrollTo(0, 0)
             true
+        }
+        if (!localDemo) content = OnlineFeatureContent.install(this, binding.featureContent, UserRole.CAREGIVER) { target ->
+            binding.bottomNavigation.selectedItemId = when (target) {
+                CaregiverDestination.PLANS -> R.id.nav_plans
+                CaregiverDestination.RECORDS -> R.id.nav_records
+                CaregiverDestination.SETTINGS -> R.id.nav_settings
+            }
         }
         binding.languageButton.setOnClickListener { switchLanguage() }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -115,6 +125,10 @@ class CaregiverHomeActivity : AppCompatActivity() {
                 }
             },
         )
+        binding.pageMessage.visibility = if (content != null &&
+            (state.destination == CaregiverDestination.SETTINGS ||
+                state.destination == CaregiverDestination.PLANS && elder != null)) View.GONE else View.VISIBLE
+        content?.show(state.destination)
         binding.languageButton.visibility = if (state.destination == CaregiverDestination.SETTINGS) View.VISIBLE else View.GONE
         val language = ConfigurationCompat.getLocales(resources.configuration)[0]?.language.orEmpty()
         binding.languageButton.setText(if (language == "zh") R.string.language_chinese else R.string.language_english)
@@ -125,6 +139,13 @@ class CaregiverHomeActivity : AppCompatActivity() {
         outState.putString(DESTINATION_KEY, viewModel.state.value.destination.name)
         super.onSaveInstanceState(outState)
     }
+    override fun onResume() {
+        super.onResume()
+        if (!localDemo) com.group33.medicationreminder.integration.featureModel(this)?.let {
+            if (it.state.value.session.readiness == com.group33.medicationreminder.core.data.contract.AuthReadiness.READY) it.refresh()
+        }
+    }
+    override fun onDestroy() { content?.close(); super.onDestroy() }
 
     private fun switchLanguage() {
         val language = ConfigurationCompat.getLocales(resources.configuration)[0]?.language.orEmpty()

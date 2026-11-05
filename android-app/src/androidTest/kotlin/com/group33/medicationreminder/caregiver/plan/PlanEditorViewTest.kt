@@ -13,20 +13,11 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PlanEditorViewTest {
-    @Test fun debugHomeEntryOpensBoundFormAndCanSaveFixture() {
+    @Test fun explicitDebugFixtureCanBindAndSave() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val monitor = instrumentation.addMonitor(PlanEditorDebugActivity::class.java.name, null, false)
-        val home = instrumentation.startActivitySync(android.content.Intent(instrumentation.targetContext,
-            com.group33.medicationreminder.caregiver.CaregiverHomeActivity::class.java)
-            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+        val host = instrumentation.startActivitySync(android.content.Intent(instrumentation.targetContext,
+            PlanEditorDebugActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
         try {
-            instrumentation.runOnMainSync {
-                descendants(home.window.decorView).filterIsInstance<Button>()
-                    .single { it.text.toString() == home.getString(R.string.c2_debug_open) }.performClick()
-            }
-            val host = instrumentation.waitForMonitorWithTimeout(monitor, 5000)
-            assertNotNull("Debug entry must open its test Activity", host)
-            try {
                 instrumentation.waitForIdleSync()
                 instrumentation.runOnMainSync {
                     val editor = descendants(host.window.decorView).filterIsInstance<PlanEditorView>().single()
@@ -42,11 +33,7 @@ class PlanEditorViewTest {
                     assertTrue(descendants(editor).filterIsInstance<EditText>().none { it.isEnabled })
                     assertFalse(descendants(editor).filterIsInstance<Button>().filterNot { it is CheckBox }.single().isEnabled)
                 }
-            } finally { host?.finish() }
-        } finally {
-            home.finish()
-            instrumentation.removeMonitor(monitor)
-        }
+        } finally { host.finish() }
     }
 
     @Test fun unboundEditorCannotSubmitAndClearRemovesSensitiveInputAndImage() {

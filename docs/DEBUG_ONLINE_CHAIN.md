@@ -1,4 +1,4 @@
-# Debug 双端照片与计划在线链路
+# 统一入口与导航的双端照片计划链路
 
 Refs #15, #10, #13, #14, #17. Integration owner: Rui / BRMRs.
 
@@ -7,8 +7,9 @@ The project lead explicitly authorized this integration on 2026-11-05: reuse exi
 ## What is connected
 
 ```text
-Debug launcher (two independent installations)
-  anonymous HTTP login → private encrypted session / captured generation
+SharedLoginActivity from #59 (two independent installations)
+  Debug-only anonymous controls → private encrypted session / captured generation
+  common session router → ElderHome / CaregiverHome from #92
   actual pairing request → Elder acceptance → authorized current-Elder context
   native photo component → retained private source → real multipart upload
   caregiver private content GET → bounded image decode → existing plan editor
@@ -16,14 +17,18 @@ Debug launcher (two independent installations)
   Elder refresh → Room observation → same medication, dose, time and date bounds
 ```
 
-The default Debug launcher uses these real adapters. UI calls ViewModels; ViewModels consume Repository interfaces. HTTP responses update private, account/environment/installation-scoped Room rows; they are not a separate UI data source. Multiple active relationships require selection from the server-authorized list. Pending requests grant no current-Elder context.
+The single shared launcher uses these real adapters in Debug. Caregiver Plans contains actual images/plans/editor; Settings contains pairing, authorized Elder selection, revocation, sign-out and the original language switch. The #92 header and destinations use the same Activity-owned business ViewModel and trusted current-Elder context. Records remains an explicit unfinished destination. UI calls ViewModels; ViewModels consume Repository interfaces. HTTP responses update private, account/environment/installation-scoped Room rows; they are not a separate UI data source. Multiple active relationships require selection from the server-authorized list. Pending requests grant no current-Elder context.
 
-The Android wiring, test launcher, HTTP client, cache and anonymous-login composition are in `src/debug`. Release keeps the pre-existing launcher and does not register this Application, Internet permission, cleartext opt-in or online Activity. This does not claim the Release app has this online flow.
+Entry routing, business ViewModel/content and interface-only service composition are shared in `src/main`. The HTTP/cache implementations and anonymous-login controls stay in `src/debug`; Release supplies no anonymous controls or authenticated provider and registers no Debug Application, Internet permission or cleartext opt-in. Both variants launch the original #59 SharedLoginActivity. Release phone forms remain unfinished; this does not claim production login is connected.
+
+The temporary DebugChainActivity, legacy MainActivity role chooser and duplicate entry buttons are removed. The original #82 photo Activity and #86 editor are mounted in the real role flow. The #92 explicit Debug preview and editor fixture remain test-only entry points using those same components, with no normal navigation link and no second business screen.
 
 ## Reused sources, with original authorship retained
 
 | PR | Exact assembled head | Reused scope |
 |---|---|---|
+| #59 | `3859dc6e92c51c0aecf49e53759bd88d55889e78` | Shared login entry, forms, language persistence and Application |
+| #92 | `c062e150cdd1d95bbc063cb7925e708c5217df0f` | Real caregiver Activity, bottom navigation, current-Elder header and destination/language restoration |
 | #99 | `42f44ebe7889d97d96fd679cd42c309a5b24fbd9` | Cumulative S2 pairing/photo/plan HTTP and persistence prerequisites, schema tooling and bounded SQL; includes upstream fixes |
 | #84 | `6bc1e4e8e45320bce0266e7c3198093d72bfac19` | Private environment-scoped session and installation identity |
 | #85 | `efd566e2373e1da80cdf6cd3e916658dce546792` | Original-operation journal recovery and platform clock |
@@ -50,12 +55,12 @@ The private local root must have POSIX 0700 permissions, as produced by `mktemp 
 ./gradlew :android-app:assembleDebug :android-app:assembleDebugAndroidTest
 ```
 
-The default address is `http://10.0.2.2:18082`, the emulator-to-host route. Install `android-app/build/outputs/apk/debug/android-app-debug.apk` on each emulator. Pick Elder on one and Caregiver on the other; an installation's first role is fixed by the actual service.
+The default address is `http://10.0.2.2:18082`, the emulator-to-host route. Install `android-app/build/outputs/apk/debug/android-app-debug.apk` on each emulator. Use the clearly labelled Debug anonymous section in the shared login page: pick Elder on one and Caregiver on the other; an installation's first role is fixed by the actual service.
 
 1. Elder: generate a pairing code.
-2. Caregiver: enter that code and request pairing.
+2. Caregiver: open Settings, enter that code and request pairing.
 3. Elder: refresh and explicitly accept the caregiver.
-4. Caregiver: refresh; choose from authorized Elders if more than one exists.
+4. Caregiver: refresh; choose from authorized Elders in Settings if more than one exists, then open Plans.
 5. Elder: photograph/select a fictional medicine box, inspect the preview, then submit.
 6. Caregiver: refresh, open the actual private image and create a plan using the existing editor. Confirm image inspection and the timezone comparison; unknown Elder timezone is not invented.
 7. Elder: refresh. The same medication, dose, times, execution zone, date range and active/inactive state appear from Room-backed authorized reads.
@@ -82,12 +87,13 @@ ANDROID_HOME=/path/to/sdk python3 scripts/run_debug_online_chain.py \
   --locale zh-CN --output /tmp/group33-chain-zh --reset-test-apps
 ```
 
-The harness refuses physical-device serials. `--reset-test-apps` explicitly clears only these designated fictional emulator installations. The per-app `--locale` option requires API 33+. Pairing codes and bridge IDs travel through process memory and app-private `no_backup` files, never command-line values or printed logs; no credentials enter the bridge.
+The harness refuses physical-device serials. `--reset-test-apps` explicitly clears only these designated fictional emulator installations. The `--locale` option persists the existing shared language preference before launch; it does not fight the Application startup preference. Pairing codes and bridge IDs travel through process memory and app-private `no_backup` files, never command-line values or printed logs; no credentials enter the bridge.
 
 The opt-in instrumentation sequence exercises the actual launcher login, pairing controls, original photo component, real editor save and Elder read-only view. Its photo source is a generated fictional PNG passed through the native private-source/preview/submission path, not a mocked upload. The separate native-camera smoke test uses the emulator's emulated camera, its shutter/Done result, the private preview, and a real confirmed JPEG upload.
 
 Additional phases verify:
 
+- The package launcher routes into the real role Activity; #92 Plans/Records/Settings, language recreation and Back preserve the authorized Elder context. Revocation clears both header and business content.
 - A pending relationship provides no access; unrelated/unknown content is refused without signing out a valid session.
 - A force-stopped caregiver process restores its encrypted session, original command record and actual Room plan; PIDs differ.
 - The real service commits a new plan, then a test transport drops the response. After another force-stop, recovery retains the original operation ID, returns the original receipt and leaves the plan count unchanged on repeated recovery.

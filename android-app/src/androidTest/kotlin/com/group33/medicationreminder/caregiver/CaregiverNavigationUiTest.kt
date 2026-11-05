@@ -26,6 +26,9 @@ class CaregiverNavigationUiTest {
 
     @Before
     fun useEnglishAndClearSavedLanguage() {
+        kotlinx.coroutines.runBlocking {
+            (context.applicationContext as com.group33.medicationreminder.Group33Application).featureServices?.signOut?.invoke()
+        }
         context.getSharedPreferences("language_settings", 0).edit().clear().commit()
         AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("en"))
     }
