@@ -1,10 +1,10 @@
 # ADR-0005: Use Elder-only occurrence generation with frozen time resolution
 
-Reading clarification (2026-10-17): conflicting interaction/reporting rules in this r1 record are partially superseded by the [latest accepted V2 product ADR-0008 in separate PR #25](https://github.com/BRMRs/group33/blob/5dc2683045a0c12393c60949d4143cd1575087e1/docs/adr/0008-photo-first-elder-reminders-and-caregiver-handoff.md). The original two-hour response duration is retained; thirty-minute Caregiver notification and T−5/T+5 connection checks are separate requirements, not implemented by that duration. Unaffected generation/history requirements remain. Migration/protocol work is tracked in [#24](https://github.com/BRMRs/group33/issues/24); no implementation is changed by this pointer.
+Reading clarification (2026-10-17): conflicting interaction/reporting rules in this r1 record are partially superseded by the [accepted V2 product ADR-0008 with the 2026-10-22 supplements](0008-photo-first-elder-reminders-and-caregiver-handoff.md). The original two-hour response duration is retained; thirty-minute Caregiver notification and T−5/T+5 connection checks are separate requirements, not implemented by that duration. Unaffected generation/history requirements remain. Migration/protocol work is tracked in [#24](https://github.com/BRMRs/group33/issues/24); no implementation is changed by this pointer.
 
 ## Status
 
-Accepted by the project lead on 2026-10-16, baseline `T01-T07/2026-10-16-r1`, T01/T02. Recorded in [Issue 12](https://github.com/BRMRs/group33/issues/12) and the [technical decision record](../contracts/TECHNICAL_RECOMMENDATIONS.md). Supplements ADR-0002/0003; does not reopen their product behavior.
+Accepted by the project lead on 2026-10-16, baseline `T01-T07/2026-10-16-r1`, T01/T02. Recorded in [Issue 12](https://github.com/BRMRs/group33/issues/12) and the [technical decision record](../contracts/TECHNICAL_RECOMMENDATIONS.md). Supplements ADR-0002/0003; preserves unrelated product behavior. The two-hour response duration is retained and separate thirty-minute notification/T−5,T+5 connection checks are defined by [ADR-0008](0008-photo-first-elder-reminders-and-caregiver-handoff.md); current duration below is ELDER_REMINDER_V2.
 
 ## Context and trade-off
 
@@ -16,7 +16,9 @@ The P0 Elder execution installation is the sole generator of real Dose events. I
 
 Every real generated event, including SCHEDULED, keeps its revision/text/nominal context/instant through edits and deactivation. Only ungenerated parts adopt a later synchronized plan. Retained old revision alone is never rejection; contradictory evidence preserves the local report for Needs attention instead of overwriting history. Generation timestamps are trusted P0 application evidence, not tamper-proof proof.
 
-P0_TIME_V1 shifts nonexistent local time by the full DST gap, chooses the earlier instant once in a fold, and freezes the offset/instant. The response window is `[plannedAt, plannedAt + 7_200_000ms)`. The exact deadline is late; timely offline Taken remains reconcilable. Android API 23/35 and Server must pass the same vectors; different TZDB versions cannot silently move a frozen event.
+The existing P0_TIME_V1 DST resolution algorithm shifts nonexistent local time by the full DST gap, chooses the earlier instant once in a fold, and freezes the offset/instant. The response window is `[plannedAt, plannedAt + 7_200_000ms)`. This is the two-hour Elder response interval; thirty minutes triggers Caregiver follow-up without expiry or Missed. Remove old reminder/actions only at the two-hour cutoff unless Taken/Help/acknowledged takeover ends prompting earlier. Existing r1 two-hour evidence agrees with duration but not the complete new behavior. Version/cutover is V2-T01 and must not silently reinterpret old records. The exact deadline is late; timely offline Taken remains reconcilable. Android API 23/35 and Server must pass the same vectors; different TZDB versions cannot silently move a frozen event.
+
+Server scheduled connection checks and Caregiver follow-up/entries are permitted without making Server an independent real-event generator. Expected-plan alerts remain distinct from canonical event identity; association/audit is V2-T03.
 
 ## Consequences
 
