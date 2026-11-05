@@ -60,7 +60,7 @@ The server listens on `0.0.0.0:8080`. Verify it with:
 curl http://localhost:8080/health
 ```
 
-The checked-in JWT secret is only a local-development fallback. Before any shared deployment, set a secret of at least 32 bytes:
+The checked-in JWT value is a local-development placeholder. The in-memory server generates a fresh private signing key for each server start; it never signs with that public placeholder. Restarting the development server requires signing in again. Before any shared deployment, set a stable private secret of at least 32 bytes:
 
 ```bash
 export JWT_SECRET='replace-with-a-random-secret-at-least-32-bytes'
