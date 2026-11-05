@@ -30,7 +30,7 @@ dependencies {
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation(libs.aliyun.dypns)
-    runtimeOnly("org.postgresql:postgresql")
+    implementation("org.postgresql:postgresql")
     runtimeOnly("com.h2database:h2")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
@@ -45,4 +45,23 @@ tasks.withType<Test> {
 
 tasks.processTestResources {
     from(rootProject.file("docs/contracts/examples.json")) { into("contracts") }
+}
+
+tasks.test { useJUnitPlatform { excludeTags("postgres") } }
+
+tasks.register<Test>("phonePostgresIntegrationTest") {
+    description = "Run phone account checks against the explicitly configured dedicated local PostgreSQL database"
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform { includeTags("postgres") }
+    maxParallelForks = 1
+    outputs.upToDateWhen { false }
+    outputs.cacheIf { false }
+    doFirst {
+        require(System.getenv("S2_PHONE_PG_URL") == "jdbc:postgresql://127.0.0.1:55432/group33_s2_local") {
+            "Explicit dedicated loopback phone PostgreSQL settings are required"
+        }
+        systemProperty("s2.phone.test.classpath", sourceSets.test.get().runtimeClasspath.asPath)
+    }
 }

@@ -13,6 +13,7 @@ import java.util.Base64
 import java.util.UUID
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
+import org.postgresql.ds.PGSimpleDataSource
 
 /** Separate phone accounts; anonymous installation identities are never silently linked. */
 @Repository
@@ -27,6 +28,33 @@ class PhoneAccountStore(
 
     fun findByPhone(phone: String): User? = connect().use { connection ->
         lookup(connection, hashPhone(phone))
+    }
+
+    /** Current-account reads never initialize tables or consume registration tickets. */
+    fun findByUserId(userId: String): User? {
+        if (runCatching { UUID.fromString(userId).toString() }.getOrNull() != userId) return null
+        if (url.isBlank() || hashKey.toByteArray(StandardCharsets.UTF_8).size < 32) throw FusionProviderException()
+        val connection = when {
+            url.startsWith("jdbc:postgresql:") -> PGSimpleDataSource().apply {
+                setURL(this@PhoneAccountStore.url); user = username; this.password = this@PhoneAccountStore.password
+                connectTimeout = 5; socketTimeout = 10; applicationName = "group33-phone-account-read"
+            }.connection
+            url.startsWith("jdbc:h2:") -> DriverManager.getConnection(url, username, password)
+            else -> throw FusionProviderException()
+        }
+        return connection.use { c ->
+            c.isReadOnly = true
+            c.autoCommit = false
+            try {
+                c.prepareStatement("SELECT user_id, display_name, role FROM phone_accounts WHERE user_id = ?").use { statement ->
+                    statement.queryTimeout = 5
+                    statement.setString(1, userId)
+                    statement.executeQuery().use { rows ->
+                        if (rows.next()) User(rows.getString(1), rows.getString(2), UserRole.valueOf(rows.getString(3))) else null
+                    }
+                }
+            } finally { c.rollback() }
+        }
     }
 
     fun newRegistrationTicket(phone: String): String {
