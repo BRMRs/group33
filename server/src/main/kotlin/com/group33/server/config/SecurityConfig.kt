@@ -19,6 +19,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder
 import org.springframework.security.web.SecurityFilterChain
 import java.nio.charset.StandardCharsets
 import javax.crypto.SecretKey
+import javax.crypto.KeyGenerator
 import javax.crypto.spec.SecretKeySpec
 
 @Configuration
@@ -44,6 +45,11 @@ class SecurityConfig {
 
     @Bean
     fun jwtSecretKey(@Value("\${app.jwt.secret}") secret: String): SecretKey {
+        // The checked-in local default is a sentinel, never usable signing material.
+        // Persistent runtimes separately require an explicit stable private secret.
+        if (secret == "GROUP33_LOCAL_DEVELOPMENT_SECRET_CHANGE_BEFORE_DEPLOYMENT_2026") {
+            return KeyGenerator.getInstance("HmacSHA256").apply { init(256) }.generateKey()
+        }
         require(secret.toByteArray(StandardCharsets.UTF_8).size >= 32) {
             "app.jwt.secret must contain at least 32 UTF-8 bytes"
         }
