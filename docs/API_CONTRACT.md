@@ -16,6 +16,8 @@ The [technical queue](ELDER_UI_TECHNICAL_REVIEW.md) lists V2-T01–V2-T06. It ca
 
 ## Review status and companion specifications
 
+**2026-10-31 phone identity proposal:** [exact account/installation/session/P0 actor binding](contracts/PHONE_IDENTITY_BINDING_PROPOSAL.md) and [Proposed ADR0010](adr/0010-phone-accounts-and-installation-binding.md) answer S1's #49 request. These are **DRAFT recommendations**, including incompatible trial fields, not accepted/implemented endpoints, claims or migrations. Existing anonymous examples/compiled Shared fixtures remain unchanged historical evidence; phone binding needs recorded Android/Server decisions and coordinated implementation. Account/userId is neither installation credential nor care permission.
+
 The behavior decisions are confirmed. The HTTP routes, new fields and return shapes below are an implementation-contract **review draft** for [Implement shared HTTP contracts, feature Repository interfaces, and contract tests](https://github.com/BRMRs/group33/issues/12), assigned to `BRMRs`. Existing development endpoints are identified separately. This document does not claim that the proposed endpoints or tests already exist or that the Android/Server review is complete.
 
 - [Shared data models and migration](contracts/SHARED_MODELS.md)
