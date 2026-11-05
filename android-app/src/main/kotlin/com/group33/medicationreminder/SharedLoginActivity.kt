@@ -1,8 +1,11 @@
 package com.group33.medicationreminder
 
 import android.content.Intent
+import android.graphics.Rect
 import android.os.Bundle
+import android.view.Gravity
 import android.view.View
+import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.os.ConfigurationCompat
@@ -34,8 +37,22 @@ class SharedLoginActivity : AppCompatActivity() {
         WindowCompat.getInsetsController(window, binding.root).isAppearanceLightStatusBars = true
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            view.updatePadding(top = bars.top, bottom = bars.bottom)
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            view.updatePadding(top = bars.top, bottom = maxOf(bars.bottom, ime.bottom))
             insets
+        }
+        binding.root.addOnLayoutChangeListener { root, _, _, _, _, _, _, _, _ ->
+            val availableWidth = root.width - root.paddingLeft - root.paddingRight
+            if (availableWidth > 0) {
+                val maxWidth = resources.getDimensionPixelSize(R.dimen.group33_content_max_width)
+                val targetWidth = minOf(availableWidth, maxWidth)
+                val params = binding.loginContentContainer.layoutParams as FrameLayout.LayoutParams
+                if (params.width != targetWidth || params.gravity != Gravity.CENTER_HORIZONTAL) {
+                    params.width = targetWidth
+                    params.gravity = Gravity.CENTER_HORIZONTAL
+                    binding.loginContentContainer.layoutParams = params
+                }
+            }
         }
         mode = savedInstanceState?.getString(MODE_KEY)?.let {
             LoginMode.entries.firstOrNull { mode -> mode.name == it }
@@ -44,14 +61,14 @@ class SharedLoginActivity : AppCompatActivity() {
 
         val displayedLanguage = ConfigurationCompat.getLocales(resources.configuration)[0]?.language.orEmpty()
         binding.languageButton.setText(
-            if (displayedLanguage == "zh") R.string.language_chinese else R.string.language_english,
+            if (displayedLanguage == "zh") R.string.language_english else R.string.language_chinese,
         )
         binding.languageButton.contentDescription = getString(R.string.language_switch_action)
         binding.languageButton.setOnClickListener { switchLanguage(displayedLanguage) }
         binding.oneTapButton.setOnClickListener {
             alternativesExpanded = true
             render()
-            showStatus(R.string.login_preview_only)
+            showStatus(R.string.login_unavailable_title, R.string.login_preview_only)
         }
         binding.otherMethodsButton.setOnClickListener {
             alternativesExpanded = !alternativesExpanded
@@ -67,8 +84,12 @@ class SharedLoginActivity : AppCompatActivity() {
             render()
         }
         binding.forgotPasswordButton.setOnClickListener { showForm(LoginMode.RESET) }
-        binding.requestCodeButton.setOnClickListener { showStatus(R.string.login_code_preview_only) }
-        binding.formSubmitButton.setOnClickListener { showStatus(R.string.login_preview_only) }
+        binding.requestCodeButton.setOnClickListener {
+            showStatus(R.string.login_code_unavailable_title, R.string.login_code_preview_only)
+        }
+        binding.formSubmitButton.setOnClickListener {
+            showStatus(R.string.login_form_unavailable_title, R.string.login_preview_only)
+        }
         binding.rolePreviewButton.setOnClickListener {
             startActivity(Intent(this, MainActivity::class.java))
         }
@@ -92,6 +113,8 @@ class SharedLoginActivity : AppCompatActivity() {
         binding.loginForm.visibility = if (mode == LoginMode.CHOICE) View.GONE else View.VISIBLE
         binding.alternativeMethods.visibility =
             if (alternativesExpanded) View.VISIBLE else View.GONE
+        binding.rolePreviewButton.visibility =
+            if (mode == LoginMode.CHOICE && !alternativesExpanded) View.VISIBLE else View.GONE
         binding.otherMethodsButton.setText(
             if (alternativesExpanded) R.string.login_hide_methods else R.string.login_other_methods,
         )
@@ -117,14 +140,25 @@ class SharedLoginActivity : AppCompatActivity() {
     }
 
     private fun hideStatus() {
-        binding.loginStatus.visibility = View.GONE
+        binding.choiceFeedbackCard.visibility = View.GONE
+        binding.formFeedbackCard.visibility = View.GONE
     }
 
-    private fun showStatus(message: Int) {
-        binding.loginStatus.setText(message)
-        binding.loginStatus.visibility = View.VISIBLE
-        binding.loginStatus.announceForAccessibility(getString(message))
-        binding.loginScroll.post { binding.loginScroll.smoothScrollTo(0, binding.loginStatus.bottom) }
+    private fun showStatus(title: Int, message: Int) {
+        val isChoice = mode == LoginMode.CHOICE
+        val card = if (isChoice) binding.choiceFeedbackCard else binding.formFeedbackCard
+        val titleView = if (isChoice) binding.choiceFeedbackTitle else binding.formFeedbackTitle
+        val messageView = if (isChoice) binding.choiceFeedbackMessage else binding.formFeedbackMessage
+        titleView.setText(title)
+        messageView.setText(message)
+        card.visibility = View.VISIBLE
+        card.announceForAccessibility("${getString(title)}. ${getString(message)}")
+        binding.loginScroll.post {
+            val visibleArea = Rect()
+            card.getDrawingRect(visibleArea)
+            binding.loginScroll.offsetDescendantRectToMyCoords(card, visibleArea)
+            binding.loginScroll.smoothScrollTo(0, visibleArea.top)
+        }
     }
 
     private fun switchLanguage(displayedLanguage: String) {
