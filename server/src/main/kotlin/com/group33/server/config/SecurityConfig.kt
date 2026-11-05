@@ -64,7 +64,8 @@ class SecurityConfig {
 
     @Bean
     fun jwtSecretKey(@Value("\${app.jwt.secret}") secret: String): SecretKey {
-        // Retain the existing PR #81 fix: the repository sentinel is never signing material.
+        // The checked-in local default is a sentinel, never usable signing material.
+        // Persistent runtimes separately require an explicit stable private secret.
         if (secret == "GROUP33_LOCAL_DEVELOPMENT_SECRET_CHANGE_BEFORE_DEPLOYMENT_2026") {
             return KeyGenerator.getInstance("HmacSHA256").apply { init(256) }.generateKey()
         }
