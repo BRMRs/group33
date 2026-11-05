@@ -165,7 +165,7 @@ PR titles use the same Conventional Commit form as final commits. A PR must:
 
 Prefer no more than 500 changed non-generated lines. A larger PR is allowed only when the description explains why splitting it would make the change less safe or less reviewable. Generated fixtures, lock files, and mechanical migrations are excluded from this guideline.
 
-The lead-approved initial development-baseline publication may be a Draft PR while role-to-account mapping remains deferred. The accountable lead is BRMRs; role review slots remain unassigned until recorded by the team. [ADR-0009](adr/0009-two-stage-baseline-and-gate1-acceptance.md), accepted on 2026-10-17, defines two separate checkpoints:
+During historical Stage A preparation, the lead-approved initial publication could be a Draft PR while mapping was deferred. The accountable lead remains BRMRs; current named roles are now recorded in [TEAM_ROSTER.md](TEAM_ROSTER.md). [ADR-0009](adr/0009-two-stage-baseline-and-gate1-acceptance.md), accepted on 2026-10-17, defines two separate checkpoints:
 
 - **Stage A — development baseline:** reproducible build/CI, truthful scaffold/legacy/fake boundaries, six independent agent-onboarding briefs and resolved navigation defects. Any later merge still requires non-author approval, resolved discussions, current-main checks and applicable real Android/Server boundary review. Future six-member code PRs and full Gate 1 signatures are not prerequisites merely to publish the foundation.
 - **Stage B — Gate 1 completion:** six actual member contributions/reviews, attributable code/test PRs, named Android/Server same-version contract sign-off and agreed current contract/test evidence. These remain required before closing #12; a Stage A merge does not satisfy them.
@@ -326,6 +326,8 @@ Environment switches do not imply that identities, pairing, photos, or pending a
 - Dependency and security updates follow the normal PR and CI process; a high-impact active vulnerability is prioritized by the lead.
 
 ## 16. UI, localization, and accessibility
+
+The sole current product/UI baseline is [ELDER_REMINDER_V2 / ADR-0008](adr/0008-photo-first-elder-reminders-and-caregiver-handoff.md) and [Elder UI baseline](ELDER_UI_BASELINE.md). Former conflicting Issue/UI paragraphs are superseded. Remaining [technical questions](ELDER_UI_TECHNICAL_REVIEW.md) gate affected protocol freeze, not selection between old and new product behavior.
 
 Shared color, typography, spacing, shape, elevation, icon, and component-state tokens are centrally owned. Feature branches do not invent local design systems.
 
