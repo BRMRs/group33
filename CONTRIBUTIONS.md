@@ -14,3 +14,5 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 2026-10-22：负责人已确认的产品规则、初版参数及六人分工随文档PR #25统一；独立S1代码在[PR #37](https://github.com/BRMRs/group33/pull/37)，不计入本PR的代码贡献。各人正式review/同版签署仍待完成。
 
 | 1 | XinyanXue — S2 | [#13](https://github.com/BRMRs/group33/issues/13) / [#20](https://github.com/BRMRs/group33/issues/20): private local photo object adapter | Local preparation only; no formal branch/PR/commit | 18 real filesystem/concurrency/process tests passed; see `docs/evidence/S2_LOCAL_PHOTO_STORAGE.md` | Prototype; scope and named persistence/security review pending; no READY/API completion |
+
+2026-11-06 — Iris-wly / C2, Refs #53: explicit plan deactivation consumer with immutable revision/key, unknown-result recovery, cache-pending reconciliation and synchronous close isolation. Nine targeted JVM cases, lintDebug and assembleDebug pass on the same main base and feature files. [Evidence and remaining host/HTTP/UI work](docs/evidence/C2_PLAN_DEACTIVATION.md). Partial state-only delivery; no actual stop-button or two-device acceptance claimed.
