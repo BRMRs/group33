@@ -16,7 +16,12 @@ dependencyResolutionManagement {
 
 rootProject.name = "group33"
 
-include(":android-app")
 include(":server")
 include(":shared")
+
+// Server-only container builds do not need an Android SDK. Normal local and CI
+// builds keep the Android application included.
+if (!providers.gradleProperty("serverOnly").isPresent) {
+    include(":android-app")
+}
 
