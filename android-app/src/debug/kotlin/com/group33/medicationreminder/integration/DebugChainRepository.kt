@@ -5,11 +5,16 @@ import androidx.room.withTransaction
 import com.group33.medicationreminder.core.data.contract.*
 import com.group33.medicationreminder.core.data.journal.*
 import com.group33.medicationreminder.core.session.*
+import com.group33.medicationreminder.core.reminder.InitialTiming
+import com.group33.medicationreminder.elder.*
 import com.group33.shared.contract.*
 import com.group33.shared.model.*
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.security.MessageDigest
+import java.time.Clock
+import java.time.ZoneOffset
+import java.util.UUID
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
@@ -221,6 +226,70 @@ internal class DebugChainRepository(
             put(l, "plans", elderId, json.encodeToString(ReminderPlanCollection.serializer(), plans))
             put(l, "medications", elderId, json.encodeToString(ListSerializer(MedicationView.serializer()), medications))
         } }
+    }
+
+    internal suspend fun localElderDoses(
+        expected: TrustedSessionContext,
+        time: Clock,
+        action: Pair<ElderDoseGroup, DoseActionKind>? = null,
+    ): Outcome<LocalDoseUpdate> = safely {
+        val lease = lease()
+        if (lease.scope != expected.scope) throw Failed(local(LocalFailureCode.SESSION_NOT_READY))
+        publish(lease) {
+            if (mutableTrusted.value != expected || mutableSession.value.user?.role != UserRole.ELDER)
+                throw Failed(local(LocalFailureCode.SESSION_NOT_READY))
+            val elderId = lease.scope.userId
+            cache.withTransaction {
+                val now = time.instant()
+                val frozenClock = Clock.fixed(now, ZoneOffset.UTC)
+                val dao = cache.documents()
+                val planRow = dao.read(rowId(lease.scope, "plans", elderId))
+                val medicationRow = dao.read(rowId(lease.scope, "medications", elderId))
+                val hasPlanSnapshot = planRow?.access == AccessState.AUTHORIZED.name &&
+                    medicationRow?.access == AccessState.AUTHORIZED.name
+                if (hasPlanSnapshot && planRow != null && medicationRow != null) {
+                    val plans = json.decodeFromString(ReminderPlanCollection.serializer(), planRow.body).items
+                        .filter { it.elderId == elderId }
+                    val medications = json.decodeFromString(ListSerializer(MedicationView.serializer()), medicationRow.body)
+                    nextElderOccurrences(plans, medications, now, planRow.syncedAt).forEach { occurrence ->
+                        val id = rowId(lease.scope, "elder-dose", doseTarget(occurrence.key))
+                        if (dao.read(id) == null) storeElderOccurrence(lease, occurrence)
+                    }
+                }
+                val occurrences = dao.readSince(scopeId(lease.scope), "elder-dose",
+                    now.minus(InitialTiming.responseWindow).toEpochMilli()).map {
+                    json.decodeFromString(LocalElderOccurrence.serializer(), it.body)
+                }
+                if (action == null) return@withTransaction LocalDoseUpdate(occurrences, hasPlanSnapshot, false)
+                val due = dueElderDose(occurrences, frozenClock)
+                val (requested, kind) = action
+                if (due == null || due.plannedAt != requested.plannedAt || due.keys.toSet() != requested.keys.toSet() ||
+                    (kind == DoseActionKind.REMIND_LATER && !due.canSnooze)) {
+                    return@withTransaction LocalDoseUpdate(occurrences, hasPlanSnapshot, false)
+                }
+                val timestamp = now.toEpochMilli()
+                val keys = due.keys.toSet()
+                val updated = occurrences.map { occurrence ->
+                    if (occurrence.key !in keys) occurrence
+                    else when (kind) {
+                        DoseActionKind.TAKEN -> occurrence.copy(takenAt = timestamp, snoozedUntil = null)
+                        DoseActionKind.REMIND_LATER -> occurrence.copy(
+                            snoozedUntil = now.plus(InitialTiming.snooze).toEpochMilli())
+                    }.also { storeElderOccurrence(lease, it) }
+                }
+                val receipt = LocalElderAction(UUID.randomUUID().toString(), due.keys, kind, timestamp)
+                put(lease, "elder-dose-action", receipt.id, json.encodeToString(LocalElderAction.serializer(), receipt))
+                LocalDoseUpdate(updated, hasPlanSnapshot, true)
+            }
+        }
+    }
+
+    private fun doseTarget(key: OccurrenceKey) = "${key.planId}/${key.localDate}/${key.localTime}"
+
+    private suspend fun storeElderOccurrence(lease: SessionLease, occurrence: LocalElderOccurrence) {
+        val target = doseTarget(occurrence.key)
+        cache.documents().put(ChainDocument(rowId(lease.scope, "elder-dose", target), scopeId(lease.scope),
+            "elder-dose", target, json.encodeToString(LocalElderOccurrence.serializer(), occurrence), occurrence.plannedAt))
     }
 
     override suspend fun loadContent(photoId: String): Outcome<PhotoContent> = safely {

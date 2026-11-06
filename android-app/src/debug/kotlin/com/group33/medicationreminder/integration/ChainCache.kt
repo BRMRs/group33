@@ -23,6 +23,8 @@ internal data class ChainDocument(
 internal interface ChainDocuments {
     @Query("SELECT * FROM chain_documents WHERE id = :id") fun observe(id: String): Flow<ChainDocument?>
     @Query("SELECT * FROM chain_documents WHERE id = :id") suspend fun read(id: String): ChainDocument?
+    @Query("SELECT * FROM chain_documents WHERE scopeId = :scope AND kind = :kind AND syncedAt >= :since ORDER BY syncedAt, id")
+    suspend fun readSince(scope: String, kind: String, since: Long): List<ChainDocument>
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun put(row: ChainDocument)
     @Query("UPDATE chain_documents SET access = 'UNKNOWN', stale = 1 WHERE scopeId = :scope")
     suspend fun invalidateAuthority(scope: String)

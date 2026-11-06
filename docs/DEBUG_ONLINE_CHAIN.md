@@ -104,6 +104,14 @@ Additional phases verify:
 
 Fault responses exist only in instrumentation transport subclasses around real HTTP calls. The normal Debug launcher registers the actual transport without faults or fake feature repositories.
 
+## Debug Elder local reminder and dose actions
+
+The live-dose integration reuses the due-card controls and bilingual labels from #35 and the timing policy from #37. After a confirmed Elder plan is read through the existing authenticated HTTP and Room path, the Elder installation freezes occurrences for the next 24 hours, using the plan execution time zone and the nominal occurrence key. Android schedules a local alarm and posts a generic notification when the corresponding group is due. Delivery is inexact and depends on Android background policy and notification permission. A normal process restart can reload persisted rows for the same authenticated Elder.
+
+The due page applies Taken or Remind later to the whole displayed group. An atomic Room transaction rechecks the active account, membership and exclusive response deadline, updates the occurrences, and persists one local action ID. Snooze schedules the next prompt ten minutes later within the original response window. The UI acknowledges local recording. Server dose-action submission, caregiver acknowledgment, Help, and the full V2 follow-up/probe protocol are separate. Unseen remote plan changes arrive through the existing refresh path.
+
+Run the two-emulator harness with `--live-dose` to also create a time-bound plan through real HTTP and exercise the OS notification, the Taken button, a time-controlled Room snooze, and cold-process readback. The fixture uses fictional medication data.
+
 ## Persistence and concurrency boundaries
 
 Credentials remain in #84's encrypted private store. Business snapshots and operation payloads live in private `noBackupFilesDir` Room databases; photo draft and replay files stay private and are retained for unresolved operations. No destructive migration, automatic age deletion, or upload cleanup is added.

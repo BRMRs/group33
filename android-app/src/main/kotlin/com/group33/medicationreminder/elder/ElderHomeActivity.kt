@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 
 class ElderHomeActivity : AppCompatActivity() {
     private var content: com.group33.medicationreminder.integration.OnlineFeatureContent? = null
+    private val elderDoses get() = (application as com.group33.medicationreminder.Group33Application).elderDoses
     private lateinit var binding: ActivityElderHomeBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,6 +31,7 @@ class ElderHomeActivity : AppCompatActivity() {
         content = com.group33.medicationreminder.integration.OnlineFeatureContent.install(this,
             binding.featureContent, com.group33.shared.model.UserRole.ELDER)
         if (content != null) {
+            elderDoses?.let { ElderDosePanel(this, binding.elderDosePanel, it) }
             binding.todayScheduleCount.visibility = android.view.View.GONE
             binding.elderHomeHint.visibility = android.view.View.GONE
             return
@@ -42,6 +44,7 @@ class ElderHomeActivity : AppCompatActivity() {
     }
     override fun onResume() {
         super.onResume()
+        lifecycleScope.launch { elderDoses?.refresh() }
         com.group33.medicationreminder.integration.featureModel(this)?.let {
             if (it.state.value.session.readiness == com.group33.medicationreminder.core.data.contract.AuthReadiness.READY) it.refresh(reportStatus = false)
         }
