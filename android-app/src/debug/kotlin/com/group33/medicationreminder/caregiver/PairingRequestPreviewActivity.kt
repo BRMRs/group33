@@ -6,11 +6,12 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
-import com.google.android.material.button.MaterialButton
+import com.google.android.material.appbar.MaterialToolbar
 import com.group33.medicationreminder.R
 import com.group33.medicationreminder.core.data.contract.*
 import com.group33.shared.contract.*
@@ -40,9 +41,14 @@ class PairingRequestPreviewActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(getColor(R.color.group33_background))
         }
-        val back = MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-            setText(R.string.pairing_back)
+        val toolbar = MaterialToolbar(this).apply {
+            setBackgroundColor(getColor(R.color.group33_background))
+            navigationIcon = ContextCompat.getDrawable(this@PairingRequestPreviewActivity, R.drawable.ic_arrow_back_24)
+            setNavigationIconTint(getColor(R.color.group33_text_primary))
+            navigationContentDescription = getString(R.string.pairing_back)
+            minimumHeight = (56 * resources.displayMetrics.density).toInt()
             setOnClickListener { finish() }
+            setNavigationOnClickListener { finish() }
         }
         val banner = TextView(this).apply {
             setText(R.string.pairing_preview_banner)
@@ -50,8 +56,8 @@ class PairingRequestPreviewActivity : AppCompatActivity() {
             val pad = resources.getDimensionPixelSize(R.dimen.group33_screen_padding)
             setPadding(pad, 0, pad, 0)
         }
-        root.addView(back, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT,
+        root.addView(toolbar, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT,
         ))
         root.addView(banner)
