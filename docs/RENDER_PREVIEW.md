@@ -15,15 +15,17 @@ the PR #110 integration revision. It is not a production environment.
 ## Wake and keep-alive
 
 Render spins a free web service down after 15 minutes without inbound traffic.
-Configure one free external HTTP monitor to request:
+The container starts a small keep-alive loop when `KEEP_ALIVE_ENABLED=true`.
+Every 600 seconds it requests its own public Render URL:
 
 ```text
 https://<service>.onrender.com/health
 ```
 
-The monitor interval must be shorter than 15 minutes. The selected monitor for
-this preview is UptimeRobot Free at its five-minute interval. It both keeps the
-preview active during the test window and reports failed health checks.
+The interval is deliberately shorter than 15 minutes. Because the request goes
+through the public Render URL, it arrives as inbound traffic and resets the idle
+timer. The loop runs in the same container, so it prevents idle spin-down but
+cannot wake an instance that Render has already stopped for another reason.
 
 For an on-demand wake-up from a developer machine:
 
@@ -35,6 +37,8 @@ scripts/wake_render_preview.sh https://<service>.onrender.com
 
 - Keeping `/health` active prevents idle spin-down only. Render can still
   restart or replace a free instance.
+- The self-check produces a tiny amount of outbound and inbound traffic. Render
+  can suspend free services that exceed workspace usage limits.
 - A restart, redeploy, or spin-down loses all in-memory state and local photos.
 - The 750 free instance hours are shared by all free services in the Render
   workspace. A continuously active preview can use almost the full allowance.

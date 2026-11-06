@@ -14,13 +14,19 @@ RUN chmod +x gradlew \
 
 FROM eclipse-temurin:17-jre-jammy
 
-RUN groupadd --system app \
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system app \
     && useradd --system --gid app --home-dir /app app \
     && mkdir -p /app /tmp/group33-preview-photos \
     && chown -R app:app /app /tmp/group33-preview-photos
 
 WORKDIR /app
 COPY --from=build --chown=app:app /tmp/server.jar /app/server.jar
+COPY --chown=app:app scripts/run_render_preview.sh /app/run-render-preview
+
+RUN chmod 0555 /app/run-render-preview
 
 USER app
 
@@ -28,4 +34,4 @@ ENV JAVA_TOOL_OPTIONS="-XX:+UseSerialGC -XX:InitialRAMPercentage=20 -XX:MaxRAMPe
 
 EXPOSE 10000
 
-ENTRYPOINT ["java", "-jar", "/app/server.jar"]
+ENTRYPOINT ["/app/run-render-preview"]
