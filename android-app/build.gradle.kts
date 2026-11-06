@@ -19,6 +19,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            val serverUrl = providers.gradleProperty("debugServerUrl").getOrElse("http://10.0.2.2:18082")
+            require(serverUrl.matches(Regex("https?://[A-Za-z0-9.:-]+/?")))
+            buildConfigField("String", "DEBUG_SERVER_URL", "\"$serverUrl\"")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -36,6 +41,7 @@ android {
 
     buildFeatures {
         viewBinding = true
+        buildConfig = true
     }
 
     sourceSets.getByName("test").resources.srcDir(rootProject.file("docs"))

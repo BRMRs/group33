@@ -1,0 +1,16 @@
+<resources>
+    <string name="c2_debug_open">Open C2 form test (Debug)</string>
+    <string name="c2_debug_notice">DEBUG TEST ONLY: synthetic image and in-memory responses. No login, server save or Elder delivery. Leaving or rotating resets this test.</string>
+    <string name="c2_debug_scenario">Response scenario; press Reset to apply</string>
+    <string name="c2_debug_reset">Reset test form</string>
+    <string name="c2_debug_name">Test medication — fictional</string>
+    <string name="c2_debug_dose">Test dose — fictional</string>
+    <string name="c2_debug_elder">Test Elder</string>
+    <string-array name="c2_debug_scenarios">
+        <item>Saved</item>
+        <item>Saved, cache pending</item>
+        <item>Unknown; query resolves saved</item>
+        <item>Not submitted</item>
+        <item>Rejected</item>
+    </string-array>
+</resources>
