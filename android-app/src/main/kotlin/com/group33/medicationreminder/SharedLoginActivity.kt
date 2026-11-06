@@ -44,9 +44,11 @@ internal fun nextLanguageChoice(displayedLanguage: String): LanguageChoice =
 /** Shared phone-auth entry; the server verifies Fusion results before account or session creation. */
 class SharedLoginActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySharedLoginBinding
+    private val isDebugBuild by lazy {
+        (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+    }
     private val localDemo by lazy {
-        (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0 &&
-            intent.getBooleanExtra(EXTRA_LOCAL_AUTH_DEMO, false)
+        isDebugBuild && intent.getBooleanExtra(EXTRA_LOCAL_AUTH_DEMO, false)
     }
     private val viewModel: LoginFlowViewModel by viewModels {
         LoginFlowViewModel.Factory(createPhoneAuthRepository(localDemo, applicationContext))
@@ -91,6 +93,15 @@ class SharedLoginActivity : AppCompatActivity() {
         // reports unavailable until the password-auth work-plan step is implemented.
         binding.passwordButton.visibility = View.VISIBLE
         binding.registrationPasswordField.visibility = View.VISIBLE
+
+        // Debug builds can enter caregiver navigation without phone authentication.
+        if (isDebugBuild) {
+            binding.caregiverNavigationPreviewButton.setOnClickListener {
+                startActivity(Intent(this, CaregiverHomeActivity::class.java).apply {
+                    putExtra(EXTRA_LOCAL_NAV_DEMO, true)
+                })
+            }
+        }
 
         binding.oneTapButton.setOnClickListener { startPhoneSignIn { viewModel.oneTap() } }
         binding.otherMethodsButton.setOnClickListener { viewModel.toggleAlternatives() }
@@ -185,6 +196,8 @@ class SharedLoginActivity : AppCompatActivity() {
 
     private fun render(state: LoginFlowState) {
         val signingIn = state.step == LoginStep.SIGN_IN
+        binding.caregiverNavigationPreviewButton.visibility =
+            if (isDebugBuild && signingIn && state.method == LoginMethod.CHOICE) View.VISIBLE else View.GONE
         binding.loginHeader.visibility = if (signingIn) View.VISIBLE else View.GONE
         binding.loginChoices.visibility = if (signingIn && state.method == LoginMethod.CHOICE) View.VISIBLE else View.GONE
         binding.loginForm.visibility = if (signingIn && state.method != LoginMethod.CHOICE) View.VISIBLE else View.GONE
@@ -393,5 +406,6 @@ class SharedLoginActivity : AppCompatActivity() {
 
     private companion object {
         const val EXTRA_LOCAL_AUTH_DEMO = "com.group33.medicationreminder.LOCAL_AUTH_DEMO"
+        const val EXTRA_LOCAL_NAV_DEMO = "com.group33.medicationreminder.LOCAL_NAV_DEMO"
     }
 }

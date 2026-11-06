@@ -19,6 +19,18 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class SharedLoginNavigationTest {
     @Test
+    fun debugShortcutOpensCaregiverNavigationWithoutPhoneAuthentication() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        ActivityScenario.launch<SharedLoginActivity>(Intent(context, SharedLoginActivity::class.java)).use {
+            onView(withId(R.id.caregiver_navigation_preview_button))
+                .check(matches(isDisplayed()))
+                .perform(scrollTo(), click())
+            onView(withId(R.id.bottom_navigation)).check(matches(isDisplayed()))
+            onView(withId(R.id.demo_banner)).check(matches(isDisplayed()))
+        }
+    }
+
+    @Test
     fun englishDebugRolePreviewKeepsBothHomesReachable() = verifyRoleNavigation("en")
 
     @Test
@@ -36,7 +48,7 @@ class SharedLoginNavigationTest {
             onView(withId(R.id.elder_title)).check(matches(isDisplayed()))
             pressBack()
             onView(withId(R.id.caregiver_button)).perform(scrollTo(), click())
-            onView(withId(R.id.caregiver_title)).check(matches(isDisplayed()))
+            onView(withId(R.id.caregiver_header)).check(matches(isDisplayed()))
             pressBack()
             onView(withId(R.id.caregiver_button)).check(matches(isDisplayed()))
         } } finally {
