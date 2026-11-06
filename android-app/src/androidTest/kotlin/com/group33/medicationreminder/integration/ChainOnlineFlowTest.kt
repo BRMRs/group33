@@ -341,7 +341,8 @@ class ChainOnlineFlowTest {
                     instrumentation.runOnMainSync { shown = descendants(activity.window.decorView).filterIsInstance<TextView>()
                         .any { it.text.contains("Fictional medicine") && it.text.contains("One demo unit") && it.text.contains("08:00") }
                         assertTrue(descendants(activity.window.decorView).filterIsInstance<Button>().none {
-                            it.text == activity.getString(R.string.chain_refresh) || it.text == activity.getString(R.string.chain_recover)
+                            it.isShown && (it.text == activity.getString(R.string.chain_refresh) ||
+                                it.text == activity.getString(R.string.chain_recover))
                         })
                         assertTrue(descendants(activity.window.decorView).filterIsInstance<TextView>().none {
                             it.isShown && it.text == activity.getString(R.string.chain_refreshed)
@@ -478,6 +479,11 @@ class ChainOnlineFlowTest {
                         activity.findViewById<TextView>(R.id.current_elder_value).text == activity.getString(R.string.caregiver_no_current_elder) }
                     cleared
                 }
+                nav(activity, R.id.nav_settings)
+                click(activity, R.string.chain_logout)
+                foreground(SharedLoginActivity::class.java)
+                assertEquals(AuthReadiness.SIGNED_OUT, s.auth.observeSession().first().readiness)
+                assertNull(s.trusted.value)
             }
             else -> error("Unknown integration phase")
         }

@@ -36,4 +36,12 @@
     <string name="chain_manage_pairing">配对或选择长辈</string>
     <string name="chain_elder_failed">暂时未能完成，请稍后重试。</string>
     <string name="chain_elder_pending">这次请求仍在核对中。</string>
+    <string name="chain_sign_out_failed">未能清除本机保存的登录凭据。请重试退出。</string>
+    <string name="chain_retry_sign_out">重试退出</string>
+    <string name="chain_confirmed_refresh_required">服务已确认此更改。请核对待确认提交以更新本机资料。</string>
+    <string name="chain_rejected">服务拒绝了此更改。</string>
+    <string name="chain_not_submitted">此更改未发送。请检查网络后重试。</string>
+    <string name="chain_pairing_accepted">已同意配对申请。</string>
+    <string name="chain_pairing_declined">已拒绝配对申请。</string>
+    <string name="chain_revoked">已撤销访问权限。</string>
 </resources>

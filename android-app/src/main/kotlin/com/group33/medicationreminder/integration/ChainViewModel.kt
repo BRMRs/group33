@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.*
 
 internal data class ViewedPhoto(val metadata: MedicationPhotoView, val bitmap: Bitmap,
                                 val scope: RepositoryScope, val generation: Long, val elderId: String)
+internal enum class SignOutStatus { IDLE, CLEARING, FAILED, COMPLETE }
+
 internal data class ChainUi(
     val session: SessionView = SessionView(AuthReadiness.RESTORING, null),
     val requests: List<PairingRequestView> = emptyList(), val relationships: List<CareRelationshipView> = emptyList(),
@@ -26,6 +28,7 @@ internal data class ChainUi(
     val photo: CaregiverPhotoState = CaregiverPhotoState(),
     val browser: PlanBrowserState = PlanBrowserState(), val viewed: ViewedPhoto? = null,
     val photoDecodeFailed: Boolean = false, val editorPhotoId: String? = null,
+    val signOut: SignOutStatus = SignOutStatus.IDLE,
     val code: PairingCodeView? = null, val busy: Boolean = false, val message: Int = R.string.chain_ready,
 )
 
@@ -61,7 +64,9 @@ internal class ChainViewModel(private val services: ChainServices,
                     account = nextAccount; selected.value = null; collection?.cancel(); photoJob?.cancel()
                     actionJob?.cancel()
                     bindFeatures(null)
-                    mutable.value = ChainUi(session = session)
+                    mutable.update {
+                        ChainUi(session = session, signOut = if (trusted == null) it.signOut else SignOutStatus.IDLE)
+                    }
                 }
                 val safeRelationships = relationships.value.takeIf { relationships.access == AccessState.AUTHORIZED } ?: emptyList()
                 // Auto-select only a single server-authorized relationship; multiple Elders require an explicit choice.
@@ -92,7 +97,7 @@ internal class ChainViewModel(private val services: ChainServices,
     }
 
     private fun action(block: suspend () -> Unit) {
-        if (mutable.value.busy) return
+        if (mutable.value.busy || mutable.value.signOut != SignOutStatus.IDLE) return
         val trusted = services.trusted.value
         mutable.update { it.copy(busy = true) }
         actionJob = viewModelScope.launch {
@@ -103,18 +108,30 @@ internal class ChainViewModel(private val services: ChainServices,
         }
     }
     fun logout() {
-        actionJob?.cancel(); bindFeatures(null)
-        viewModelScope.launch { services.signOut(); mutable.value = ChainUi() }
+        if (mutable.value.signOut == SignOutStatus.CLEARING || mutable.value.signOut == SignOutStatus.COMPLETE) return
+        actionJob?.cancel()
+        bindFeatures(null)
+        mutable.value = ChainUi(signOut = SignOutStatus.CLEARING)
+        viewModelScope.launch {
+            val status = when (services.signOut()) {
+                is Outcome.Success -> SignOutStatus.COMPLETE
+                is Outcome.Failure -> SignOutStatus.FAILED
+            }
+            mutable.update { it.copy(signOut = status) }
+        }
     }
     fun select(relationshipId: String) { selected.value = relationshipId }
-    fun refresh() = action {
+    fun refresh(reportStatus: Boolean = true) = action {
         val result = services.pairing.refresh()
-        if (result is Outcome.Failure) { mutable.update { it.copy(message = R.string.chain_failed) }; return@action }
+        if (result is Outcome.Failure) {
+            if (reportStatus) mutable.update { it.copy(message = R.string.chain_failed) }
+            return@action
+        }
         val user = mutable.value.session.user
         val elder = if (user?.role == UserRole.ELDER) user.id else (mutable.value.context as? CaregiverContextState.Active)?.context?.elderId
         val trusted = services.trusted.value
         if (elder != null && trusted != null) refreshBusiness(elder, trusted,
-            (mutable.value.context as? CaregiverContextState.Active)?.context)
+            (mutable.value.context as? CaregiverContextState.Active)?.context, reportStatus)
     }
     private fun isCurrentCollection(state: ChainUi, trusted: TrustedSessionContext, elder: String,
                                     caregiverContext: CaregiverElderContext?): Boolean {
@@ -125,7 +142,7 @@ internal class ChainViewModel(private val services: ChainServices,
             ?.let(caregiverContext::isCurrentFor) == true
     }
     private suspend fun refreshBusiness(elder: String, trusted: TrustedSessionContext,
-                                        caregiverContext: CaregiverElderContext?) {
+                                        caregiverContext: CaregiverElderContext?, reportStatus: Boolean = false) {
         val today = LocalDate.now(clock)
         if (isCurrentCollection(mutable.value, trusted, elder, caregiverContext) &&
             features?.browser?.state?.value?.range != PlanBrowserViewModel.sevenDayRange(today)) {
@@ -136,31 +153,55 @@ internal class ChainViewModel(private val services: ChainServices,
             if (features?.photos?.state?.value?.observationError != null) features?.photos?.retryObservation()
             if (features?.browser?.state?.value?.observationFailed == true) features?.browser?.retryObservation()
         }
-        mutable.update {
+        if (reportStatus) mutable.update {
             if (!isCurrentCollection(it, trusted, elder, caregiverContext)) return@update it
-            it.copy(message = if (result is Outcome.Success) R.string.chain_refreshed else R.string.chain_failed) }
-    }
-    fun issue() = action {
-        val command = (services.commands.begin(OnlineCommandKind.ISSUE_PAIRING_CODE, null) as? Outcome.Success)?.value ?: return@action
-        when (val result = services.pairing.issueCode(command)) {
-            is OnlineCommandResult.Confirmed -> mutable.update { it.copy(code = result.value, message = R.string.chain_code_ready) }
-            else -> mutable.update { it.copy(message = R.string.chain_pending) }
+            it.copy(message = if (result is Outcome.Success) R.string.chain_refreshed else R.string.chain_failed)
         }
     }
-    fun request(code: String) = action {
-        val command = (services.commands.begin(OnlineCommandKind.REQUEST_PAIRING, null) as? Outcome.Success)?.value ?: return@action
-        val result = services.pairing.requestPairing(code, command)
-        mutable.update { it.copy(message = if (result is OnlineCommandResult.Confirmed) R.string.chain_waiting else R.string.chain_failed) }
+    private fun pairingCommand(
+        kind: OnlineCommandKind,
+        targetId: String?,
+        confirmedMessage: Int,
+        submit: suspend (CommandContext) -> OnlineCommandResult<*>,
+    ) = action {
+        val trusted = services.trusted.value ?: return@action
+        val command = services.commands.begin(kind, targetId)
+        val result = when (command) {
+            is Outcome.Success -> submit(command.value)
+            is Outcome.Failure -> null
+        }
+        currentCoroutineContext().ensureActive()
+        if (trusted != services.trusted.value) return@action
+        val message = when (result) {
+            is OnlineCommandResult.Confirmed -> if (result.cacheState == CacheState.REFRESH_REQUIRED)
+                R.string.chain_confirmed_refresh_required else confirmedMessage
+            is OnlineCommandResult.AwaitingConfirmation -> R.string.chain_pending
+            is OnlineCommandResult.Rejected -> R.string.chain_rejected
+            is OnlineCommandResult.NotSubmitted, null -> R.string.chain_not_submitted
+        }
+        mutable.update {
+            it.copy(code = (result as? OnlineCommandResult.Confirmed)?.value as? PairingCodeView ?: it.code,
+                message = message)
+        }
     }
-    fun respond(id: String, accept: Boolean) = action {
-        val command = (services.commands.begin(OnlineCommandKind.RESPOND_PAIRING, id) as? Outcome.Success)?.value ?: return@action
-        val result = services.pairing.respond(id, accept, command)
-        mutable.update { it.copy(message = if (result is OnlineCommandResult.Confirmed) R.string.chain_refreshed else R.string.chain_pending) }
+
+    fun issue() = pairingCommand(OnlineCommandKind.ISSUE_PAIRING_CODE, null, R.string.chain_code_ready) {
+        services.pairing.issueCode(it)
     }
-    fun revoke(id: String) = action {
-        val command = (services.commands.begin(OnlineCommandKind.REVOKE_RELATIONSHIP, id) as? Outcome.Success)?.value ?: return@action
-        services.pairing.revoke(id, command)
+
+    fun request(code: String) = pairingCommand(OnlineCommandKind.REQUEST_PAIRING, null, R.string.chain_waiting) {
+        services.pairing.requestPairing(code, it)
     }
+
+    fun respond(id: String, accept: Boolean) = pairingCommand(OnlineCommandKind.RESPOND_PAIRING, id,
+        if (accept) R.string.chain_pairing_accepted else R.string.chain_pairing_declined) {
+        services.pairing.respond(id, accept, it)
+    }
+
+    fun revoke(id: String) = pairingCommand(OnlineCommandKind.REVOKE_RELATIONSHIP, id, R.string.chain_revoked) {
+        services.pairing.revoke(id, it)
+    }
+
     fun recover() = action {
         var pending = false
         var rejected = false

@@ -142,7 +142,7 @@ class CaregiverHomeActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (!localDemo) com.group33.medicationreminder.integration.featureModel(this)?.let {
-            if (it.state.value.session.readiness == com.group33.medicationreminder.core.data.contract.AuthReadiness.READY) it.refresh()
+            if (it.state.value.session.readiness == com.group33.medicationreminder.core.data.contract.AuthReadiness.READY) it.refresh(reportStatus = false)
         }
     }
     override fun onDestroy() { content?.close(); super.onDestroy() }

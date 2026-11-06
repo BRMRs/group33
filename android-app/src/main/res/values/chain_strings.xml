@@ -36,4 +36,12 @@
     <string name="chain_manage_pairing">Pair or choose an Elder</string>
     <string name="chain_elder_failed">Could not complete this step. Please try again later.</string>
     <string name="chain_elder_pending">This request is still being checked.</string>
+    <string name="chain_sign_out_failed">Could not remove the saved sign-in from this device. Retry sign-out.</string>
+    <string name="chain_retry_sign_out">Retry sign-out</string>
+    <string name="chain_confirmed_refresh_required">The service confirmed the change. Check pending submissions to update this device.</string>
+    <string name="chain_rejected">The service rejected this change.</string>
+    <string name="chain_not_submitted">This change was not sent. Check your connection and try again.</string>
+    <string name="chain_pairing_accepted">Pairing request accepted.</string>
+    <string name="chain_pairing_declined">Pairing request declined.</string>
+    <string name="chain_revoked">Access removed.</string>
 </resources>
