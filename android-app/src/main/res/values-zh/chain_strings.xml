@@ -47,4 +47,5 @@
     <string name="chain_photo_read_failed">无法打开这张照片。</string>
     <string name="chain_photo_retry">重试打开照片</string>
     <string name="chain_plans_unavailable">暂时无法查看计划。</string>
+    <string name="chain_code_expired">恢复的配对码已过期，请生成新的配对码。</string>
 </resources>

@@ -44,7 +44,7 @@ internal class DebugChainRepository(
     private val json = ContractProtocol.json
     private val uploads = File(context.noBackupFilesDir, "debug-online-uploads").apply { mkdirs() }
     val services = ChainServices(this, this, this, this, this, mutableScope.asStateFlow(),
-        mutableTrusted.asStateFlow(), ::signOut)
+        mutableTrusted.asStateFlow(), ::resumePairingCode, ::signOut)
 
     init {
         jobs.launch {
@@ -244,13 +244,31 @@ internal class DebugChainRepository(
         override suspend fun isCurrent() = this@DebugChainRepository.isCurrent(lease)
     }
 
-    private suspend fun coordinator(j: RoomCommandJournal): CommandRecoveryCoordinator {
+    private fun coordinator(
+        j: RoomCommandJournal,
+        recoveryLease: SessionLease? = null,
+        onPairingCode: ((PairingCodeView) -> Unit)? = null,
+    ): CommandRecoveryCoordinator {
+        var pairingCodeBody: String? = null
         val adapter = object : CommandRecoveryAdapter {
-            override suspend fun execute(claim: CommandClaim, session: RecoverySession) =
-                dispatch(claim, (session as NetworkSession).lease).first
+            override suspend fun execute(claim: CommandClaim, session: RecoverySession): RecoveryReply {
+                val (reply, body) = dispatch(claim, (session as NetworkSession).lease)
+                if (onPairingCode != null) pairingCodeBody = body
+                return reply
+            }
             override suspend fun reconcile(record: OnlineCommandRecord, session: RecoverySession): Outcome<Unit> = safely {
                 val l = (session as NetworkSession).lease
                 when (record.commandKind) {
+                    OnlineCommandKind.ISSUE_PAIRING_CODE -> {
+                        if (onPairingCode == null) value(refresh())
+                        else {
+                            // A restart can leave an already confirmed record awaiting reconciliation.
+                            val body = pairingCodeBody ?: replayPairingCode(l, record.operationId)
+                            val code = json.decodeFromString(PairingCodeView.serializer(), body)
+                            check(record.resultRef == CommandResultRef(CommandResultKind.PAIRING_CODE, code.id))
+                            publish(l) { onPairingCode(code) }
+                        }
+                    }
                     OnlineCommandKind.SUBMIT_PHOTO -> refreshGate.withLock { refreshPhotos(l, l.scope.userId) }
                     OnlineCommandKind.CONFIRM_PLAN, OnlineCommandKind.UPDATE_PLAN, OnlineCommandKind.DEACTIVATE_PLAN ->
                         refreshGate.withLock { refreshPlans(l, checkNotNull(record.targetId)) }
@@ -258,7 +276,7 @@ internal class DebugChainRepository(
                 }
             }
         }
-        return CommandRecoveryCoordinator(j, RecoveryAccess { safely { NetworkSession(lease()) } },
+        return CommandRecoveryCoordinator(j, RecoveryAccess { safely { NetworkSession(recoveryLease ?: lease()) } },
             supported.associateWith { adapter }, clock::now)
     }
 
@@ -278,6 +296,24 @@ internal class DebugChainRepository(
     private suspend fun recover(id: String, rejected: Boolean): Outcome<OnlineCommandRecord> = safely {
         val c = coordinator(journal(lease().scope))
         value(if (rejected) c.retryRejected(id) else c.resume(id))
+    }
+
+    private suspend fun resumePairingCode(id: String): Outcome<PairingCodeRecovery> = safely {
+        val l = lease()
+        val j = journal(l.scope)
+        if (j.find(id)?.commandKind != OnlineCommandKind.ISSUE_PAIRING_CODE)
+            throw Failed(local(LocalFailureCode.INVALID_INPUT))
+        var code: PairingCodeView? = null
+        val record = value(coordinator(j, l) { code = it }.resume(id))
+        publish(l) { PairingCodeRecovery(record, code) }
+    }
+
+    private suspend fun replayPairingCode(l: SessionLease, id: String): String {
+        val response = http.call("POST", "/api/v1/pairing-codes", value(sessionStore.credential(l)).value,
+            id, json = "{}")
+        handleAuthentication(l, response)
+        if (response.status != 201) throw Failed(remote(response))
+        return response.text()
     }
 
     private fun envelope(method: String, path: String, body: String = "{}") = JSONObject()

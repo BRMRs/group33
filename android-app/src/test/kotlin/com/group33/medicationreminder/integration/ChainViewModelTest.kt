@@ -30,8 +30,9 @@ class ChainViewModelTest {
     @Before fun setUp() { Dispatchers.setMain(dispatcher) }
     @After fun tearDown() { stores.forEach { it.clear() }; Dispatchers.resetMain() }
 
-    private inner class Fixture : AuthRepository, PairingRepository, MedicationPhotoRepository, ReminderPlanRepository, OnlineCommandRepository {
-        val session = MutableStateFlow(SessionView(AuthReadiness.READY, caregiver))
+    private inner class Fixture(user: User = caregiver) : AuthRepository, PairingRepository, MedicationPhotoRepository, ReminderPlanRepository, OnlineCommandRepository {
+        private val scope = this@ChainViewModelTest.scope.copy(userId = user.id)
+        val session = MutableStateFlow(SessionView(AuthReadiness.READY, user))
         val trusted = MutableStateFlow<TrustedSessionContext?>(TrustedSessionContext(scope, 1))
         val relationships = MutableStateFlow(cached(listOf(relation("rel-a", elderA), relation("rel-b", elderB))))
         val photos = listOf(elderA, elderB).associate { it.id to MutableStateFlow(cached(listOf(photo(it)))) }
@@ -47,8 +48,14 @@ class ChainViewModelTest {
         var revokeResult: OnlineCommandResult<CareRelationshipView> =
             OnlineCommandResult.NotSubmitted(operationId, RepositoryError.Local(LocalFailureCode.OFFLINE))
         var resumeResult: Outcome<OnlineCommandRecord> = failure
+        var pairingCodeRecovery: Outcome<PairingCodeRecovery> = failure
         var refreshGate: CompletableDeferred<Unit>? = null
-        val model = ChainViewModel(ChainServices(this, this, this, this, this, MutableStateFlow(scope), trusted) {
+        val model = ChainViewModel(ChainServices(this, this, this, this, this, MutableStateFlow(scope), trusted, { id ->
+            resumedOperationId = id
+            pairingCodeRecovery.also { outcome ->
+                if (outcome is Outcome.Success) records.value = listOf(outcome.value.record)
+            }
+        }) {
             signOutCalls++
             trusted.value = null
             session.value = SessionView(AuthReadiness.SIGNED_OUT, null)
@@ -129,6 +136,24 @@ class ChainViewModelTest {
         f.model.recover(); runCurrent()
         assertEquals(f.submitted!!.operationId, f.resumedOperationId)
         assertEquals(R.string.chain_pending, f.model.state.value.message)
+    }
+
+    @Test fun `restored Elder journal exposes recovery and publishes the original code`() = runTest(dispatcher) {
+        val f = Fixture(elderA)
+        val record = f.pending().copy(operationId = f.operationId, commandKind = OnlineCommandKind.ISSUE_PAIRING_CODE,
+            targetId = null)
+        f.records.value = listOf(record)
+        runCurrent()
+        assertEquals(R.string.chain_ready, f.model.state.value.message)
+        assertTrue(f.model.state.value.hasPendingPairing)
+        val code = PairingCodeView("original-code-id", "01234567", Long.MAX_VALUE)
+        f.pairingCodeRecovery = Outcome.Success(PairingCodeRecovery(record.copy(
+            state = OnlineCommandState.CONFIRMED, cacheState = CacheState.APPLIED), code))
+        f.model.recover(); runCurrent()
+        assertEquals(record.operationId, f.resumedOperationId)
+        assertEquals(code, f.model.state.value.code)
+        assertEquals(R.string.chain_code_ready, f.model.state.value.message)
+        assertFalse(f.model.state.value.hasPendingPairing)
     }
 
     @Test fun `offline revocation replaces the previous refresh success`() = runTest(dispatcher) {

@@ -13,7 +13,7 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[1]
 PKG = 'com.group33.medicationreminder'
 TEST = PKG + '.test/androidx.test.runner.AndroidJUnitRunner'
-PHASES = [('elder-login', 'elder'), ('caregiver-request', 'caregiver'), ('elder-accept', 'elder'),
+PHASES = [('elder-login', 'elder'), ('elder-recover-code', 'elder'), ('caregiver-request', 'caregiver'), ('elder-accept', 'elder'),
           ('elder-photo', 'elder'), ('caregiver-plan-ui', 'caregiver'), ('caregiver-restart', 'caregiver'),
           ('elder-sees-plan', 'elder'), ('caregiver-navigation', 'caregiver'), ('caregiver-lost-reply', 'caregiver'),
           ('caregiver-recover', 'caregiver'), ('caregiver-stale-401', 'caregiver'),
@@ -61,7 +61,7 @@ def main():
     results = []
     for phase, role in PHASES:
         serial = devices[role]
-        if phase in ['caregiver-restart', 'elder-sees-plan', 'caregiver-recover']:
+        if phase in ['elder-recover-code', 'caregiver-restart', 'elder-sees-plan', 'caregiver-recover']:
             run(serial, 'shell', 'am', 'force-stop', PKG)
         if bridge is not None:
             run(serial, 'shell', f"run-as {PKG} sh -c 'cat > no_backup/chain-bridge.json'", data=bridge)
@@ -78,7 +78,7 @@ def main():
             image = 'caregiver-plan' if role == 'caregiver' else 'elder-plan'
             (args.output / (image + '.png')).write_bytes(run(serial, 'exec-out', 'run-as', PKG,
                 'cat', f'no_backup/chain-{image}.png'))
-        if phase in ['elder-login', 'caregiver-request', 'elder-accept', 'elder-photo', 'caregiver-plan-ui', 'caregiver-lost-reply']:
+        if phase in ['elder-login', 'elder-recover-code', 'caregiver-request', 'elder-accept', 'elder-photo', 'caregiver-plan-ui', 'caregiver-lost-reply']:
             bridge = run(serial, 'exec-out', 'run-as', PKG, 'cat', 'no_backup/chain-bridge.json')
             json.loads(bridge)
     print('All two-emulator local HTTP phases passed. Physical-device and production-login acceptance remain separate.')

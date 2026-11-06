@@ -22,6 +22,7 @@ internal data class ChainUi(
     val photos: List<MedicationPhotoView> = emptyList(), val plans: List<ReminderPlanView> = emptyList(),
     val medications: List<MedicationView> = emptyList(), val viewed: ViewedPhoto? = null,
     val signOut: SignOutStatus = SignOutStatus.IDLE,
+    val hasPendingPairing: Boolean = false,
     val failedPhotoId: String? = null, val plansKnown: Boolean = false,
     val code: PairingCodeView? = null, val busy: Boolean = false, val message: Int = R.string.chain_ready,
     val stale: Boolean = false,
@@ -40,8 +41,12 @@ internal class ChainViewModel(private val services: ChainServices) : ViewModel()
 
     init {
         viewModelScope.launch {
+            val pendingPairing = services.commands.observeCommands().map { records ->
+                records.filter { it.isPairingRecovery() }.map { it.scope }.toSet()
+            }.distinctUntilChanged().onStart { emit(emptySet()) }.catch { emit(emptySet()) }
             combine(services.auth.observeSession(), services.trusted, services.pairing.observeRelationships(),
-                services.pairing.observeRequests(), selected) { session, trusted, relationships, requests, choice ->
+                services.pairing.observeRequests(), combine(selected, pendingPairing, ::Pair)) {
+                session, trusted, relationships, requests, (choice, pendingScopes) ->
                 val nextAccount = trusted?.scope to trusted?.generation
                 if (nextAccount != account) {
                     account = nextAccount; selected.value = null; collection?.cancel(); photoJob?.cancel()
@@ -63,6 +68,7 @@ internal class ChainViewModel(private val services: ChainServices) : ViewModel()
                         plansKnown = false, medications = emptyList()) }
                 }
                 mutable.update { it.copy(session = session, context = context,
+                    hasPendingPairing = trusted != null && trusted.scope in pendingScopes,
                     relationships = safeRelationships,
                     requests = requests.value.takeIf { requests.access == AccessState.AUTHORIZED } ?: emptyList()) }
                 Triple(session, trusted, now?.context)
@@ -196,22 +202,50 @@ internal class ChainViewModel(private val services: ChainServices) : ViewModel()
         services.pairing.revoke(id, it)
     }
 
+    private fun OnlineCommandRecord.needsRecovery() =
+        state == OnlineCommandState.AWAITING_CONFIRMATION ||
+            state == OnlineCommandState.CONFIRMED && cacheState == CacheState.REFRESH_REQUIRED
+
+    private fun OnlineCommandRecord.isPairingRecovery() = needsRecovery() && commandKind in setOf(
+        OnlineCommandKind.ISSUE_PAIRING_CODE, OnlineCommandKind.RESPOND_PAIRING,
+        OnlineCommandKind.REVOKE_RELATIONSHIP,
+    )
+
     fun recover() = action {
+        val trusted = services.trusted.value ?: return@action
+        val elder = mutable.value.session.user?.role == UserRole.ELDER
         var pending = false
         var rejected = false
+        var recoveredCode: PairingCodeView? = null
         services.commands.observeCommands().first().filter {
-            it.state == OnlineCommandState.AWAITING_CONFIRMATION || it.state == OnlineCommandState.CONFIRMED && it.cacheState == CacheState.REFRESH_REQUIRED
-        }.forEach {
-            val result = services.commands.resume(it.operationId)
+            it.scope == trusted.scope && (if (elder) it.isPairingRecovery() else it.needsRecovery())
+        }.forEach { record ->
+            currentCoroutineContext().ensureActive()
+            if (trusted != services.trusted.value) return@action
+            val result = if (record.commandKind == OnlineCommandKind.ISSUE_PAIRING_CODE) {
+                when (val recovery = services.resumePairingCode(record.operationId)) {
+                    is Outcome.Failure -> recovery
+                    is Outcome.Success -> {
+                        recoveredCode = recovery.value.code ?: recoveredCode
+                        Outcome.Success(recovery.value.record)
+                    }
+                }
+            } else services.commands.resume(record.operationId)
             if (result is Outcome.Success && result.value.state in
                 setOf(OnlineCommandState.REJECTED, OnlineCommandState.NOT_SUBMITTED)) rejected = true
             else if (result !is Outcome.Success || result.value.state != OnlineCommandState.CONFIRMED ||
                 result.value.cacheState != CacheState.APPLIED) pending = true
         }
         val refreshed = services.pairing.refresh() is Outcome.Success
-        mutable.update { it.copy(message = when {
+        currentCoroutineContext().ensureActive()
+        if (trusted != services.trusted.value) return@action
+        val code = recoveredCode
+        val validCode = code?.takeIf { it.expiresAtEpochMillis > System.currentTimeMillis() }
+        mutable.update { it.copy(code = if (code == null) it.code else validCode, message = when {
             !refreshed || rejected -> R.string.chain_failed
             pending -> R.string.chain_pending
+            validCode != null -> R.string.chain_code_ready
+            code != null -> R.string.chain_code_expired
             else -> R.string.chain_refreshed
         }, stale = it.stale || !refreshed) }
     }
