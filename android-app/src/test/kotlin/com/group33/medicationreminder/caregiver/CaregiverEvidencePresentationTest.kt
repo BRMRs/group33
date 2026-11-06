@@ -30,6 +30,27 @@ class CaregiverEvidencePresentationTest {
         assertNotEquals(report.receivedAtEpochMillis, row.syncedReports.single().recordedAtEpochMillis)
     }
 
+    @Test fun `server accepted late reports keep their own times and never become local sync evidence`() {
+        val state = event(snapshot.doseEvents.first())
+        val remote = listOf(
+            ServerAcceptedLateTakenReport("remote-1", 100L, 200L),
+            ServerAcceptedLateTakenReport("remote-2", 300L, 400L),
+        )
+
+        val lateState = state.copy(lastAcceptedStatus = DoseStatus.MISSED,
+            serverAcceptedLateTakenReports = remote)
+        val row = lateState.toCaregiverEventRow()
+
+        assertEquals(lateState.lastAcceptedStatus, row.acceptedStatus)
+        assertEquals(DoseStatus.MISSED, row.acceptedStatus)
+        assertEquals(emptyList<CaregiverSyncedReport>(), row.syncedReports)
+        assertTrue(row.localSyncStates.isEmpty())
+        assertFalse(row.hasUnlinkedReports)
+        assertEquals(remote.map { CaregiverServerAcceptedLateReport(
+            it.actionId, it.recordedAtEpochMillis, it.receivedAtEpochMillis,
+        ) }, row.serverAcceptedLateReports)
+    }
+
     @Test fun `every local action classification hides unconfirmed details until Synced`() {
         val state = event(snapshot.doseEvents.first())
         for (classification in LocalActionClassification.entries) {
