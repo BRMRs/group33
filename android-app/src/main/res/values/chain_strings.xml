@@ -12,7 +12,7 @@
     <string name="chain_choose_elder">Choose an Elder</string>
     <string name="chain_select_name">Choose %1$s</string>
     <string name="chain_inspect">View photo and create plan</string>
-    <string name="chain_inspect_number">View photo %1$d and create plan</string>
+    <string name="chain_view_photo_number">View photo %1$d</string>
     <string name="chain_elder_identity">Elder: %1$s</string>
     <string name="chain_caregiver_identity">Caregiver: %1$s</string>
     <string name="chain_signed_out">Signed out</string>

@@ -210,11 +210,11 @@ class ChainOnlineFlowTest {
                 waitUntil {
                     var exists = false
                     instrumentation.runOnMainSync { exists = descendants(activity.window.decorView).filterIsInstance<Button>()
-                        .any { it.text == activity.getString(R.string.chain_inspect_number, 1) } }
+                        .any { it.text == activity.getString(R.string.chain_view_photo_number, 1) } }
                     exists
                 }
                 instrumentation.runOnMainSync { descendants(activity.window.decorView).filterIsInstance<Button>()
-                    .single { it.text == activity.getString(R.string.chain_inspect_number, 1) }.performClick() }
+                    .single { it.text == activity.getString(R.string.chain_view_photo_number, 1) }.performClick() }
                 click(activity, R.string.browse_create_plan)
                 waitUntil {
                     var bound = false

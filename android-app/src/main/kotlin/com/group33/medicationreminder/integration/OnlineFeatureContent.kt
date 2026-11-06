@@ -205,7 +205,7 @@ internal class OnlineFeatureContent private constructor(
         if (photo.observationError != null) button(data, R.string.browse_retry_observation) { model.retryPhotoObservation() }
         photo.photos.forEachIndexed { i, metadata ->
             button(data, R.string.chain_inspect) { model.viewPhoto(metadata.id) }
-                .text = activity.getString(R.string.chain_inspect_number, i + 1)
+                .text = activity.getString(R.string.chain_view_photo_number, i + 1)
         }
         when {
             state.photoDecodeFailed -> {
