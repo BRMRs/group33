@@ -135,7 +135,8 @@ internal class ChainViewModel(private val services: ChainServices,
     }
     private fun isCurrentCollection(state: ChainUi, trusted: TrustedSessionContext, elder: String,
                                     caregiverContext: CaregiverElderContext?): Boolean {
-        if (services.trusted.value != trusted || state.session.readiness != AuthReadiness.READY ||
+        if (state.signOut != SignOutStatus.IDLE || services.trusted.value != trusted ||
+            state.session.readiness != AuthReadiness.READY ||
             state.session.user?.id != trusted.scope.userId) return false
         return if (state.session.user.role == UserRole.ELDER) state.session.user.id == elder
         else caregiverContext != null && (state.context as? CaregiverContextState.Active)?.context
@@ -289,7 +290,7 @@ internal class ChainViewModel(private val services: ChainServices,
         photoJob = viewModelScope.launch {
             try {
                 val bitmap = decode(content)
-                if (target == next && decodedContent === content &&
+                if (isActive && target == next && decodedContent === content &&
                     bound.photos.state.value.selectedPhotoId == metadata.id &&
                     isCurrentCollection(mutable.value, next.trusted, next.elderId, next.caregiver)) {
                     mutable.update { it.copy(viewed = ViewedPhoto(metadata, bitmap, next.trusted.scope,
@@ -297,8 +298,11 @@ internal class ChainViewModel(private val services: ChainServices,
                 } else bitmap.recycle()
             } catch (cancelled: CancellationException) { throw cancelled
             } catch (_: Exception) {
-                if (target == next && decodedContent === content)
+                if (isActive && target == next && decodedContent === content &&
+                    bound.photos.state.value.selectedPhotoId == metadata.id &&
+                    isCurrentCollection(mutable.value, next.trusted, next.elderId, next.caregiver)) {
                     mutable.update { it.copy(viewed = null, photoDecodeFailed = true) }
+                }
             }
         }
     }

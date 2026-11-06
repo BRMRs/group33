@@ -224,9 +224,11 @@ internal class OnlineFeatureContent private constructor(
 
     private fun renderPlans(state: ChainUi) {
         val browser = state.browser
+        val browserMessage = if (browser.message == PlanBrowserMessage.EMPTY && browser.plans?.isStale == true)
+            PlanBrowserMessage.UNAVAILABLE else browser.message
         if (role == UserRole.CAREGIVER) text(data, R.string.browse_plans_title)
             .apply { androidx.core.view.ViewCompat.setAccessibilityHeading(this, true) }
-        val message = when (browser.message) {
+        val message = when (browserMessage) {
             PlanBrowserMessage.SELECT_ELDER -> R.string.chain_manage_pairing
             PlanBrowserMessage.LOADING -> R.string.browse_loading
             PlanBrowserMessage.ACCESS_UNKNOWN -> R.string.browse_access_unknown
@@ -251,7 +253,7 @@ internal class OnlineFeatureContent private constructor(
             }
         }
         if (role != UserRole.CAREGIVER) {
-            val elderMessage = when (browser.message) {
+            val elderMessage = when (browserMessage) {
                 PlanBrowserMessage.RESULTS -> null
                 PlanBrowserMessage.EMPTY -> R.string.browse_elder_empty
                 PlanBrowserMessage.LOADING -> R.string.browse_elder_loading
