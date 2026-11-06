@@ -28,7 +28,7 @@ Open on emulator:
 adb -s emulator-5554 shell am start -n com.group33.medicationreminder/.caregiver.CaregiverNavigationPreviewActivity --ez C2_FORM_PREVIEW true
 ```
 
-Publish as a partial Draft against #110 feature branch. Retarget after parent integration; do not infer approval or main readiness.
+Originally published against the #110 feature branch. After #110 merged, PR #113 targets main; the 2026-11-06 synchronization below supersedes the old dependency. No human approval is inferred.
 
 ## Calendar follow-up
 
@@ -43,3 +43,8 @@ Android Debug JVM suite: 113 tests passed. lintDebug, assembleDebug, assembleRel
 English [form](c2-editor-refresh/en-top.png), English [calendar](c2-editor-refresh/en-calendar.png), and Simplified Chinese [form](c2-editor-refresh/zh-top.png) are actual emulator captures. Chinese was explicitly selected with platform app locale for screenshot inspection, not proof of the parent cold-start language fix. The English drawn test image remains a labeled synthetic fixture.
 
 Remaining #51: C1 shared-style/host review, full Chinese/English small-screen and 200% font matrix, TalkBack and API27 calendar confirmation checks, actual HTTP/device acceptance. Screenshots and tests are not human approval.
+## Main synchronization — 2026-11-06
+
+Merged main `9d5f6df` without rewriting the feature branch history. Preserved current main integration fixes and only this PR's existing scope. Repository policy and whitespace checks pass. Android Debug JVM suite: 119 tests, zero failures/errors/skips; lintDebug, assembleDebug and assembleRelease pass. Nine PlanEditorViewTest instrumentation cases also passed on emulator-5554 (API37); no API27/TalkBack/cloud acceptance was rerun.
+
+The attempted full gate1Check on synchronized #113 on Windows could not pass the inherited POSIX photo-store/server tests (627 executed, 310 failures); this is not a green full local gate. Ubuntu CI must verify the final merge head. This update adds no new feature, human approval or main merge.

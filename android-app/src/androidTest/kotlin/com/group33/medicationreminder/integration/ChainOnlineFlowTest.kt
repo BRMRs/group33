@@ -72,11 +72,18 @@ class ChainOnlineFlowTest {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         instrumentation.startActivitySync(intent)
         val session = withTimeout(10_000) { s.auth.observeSession().first { it.readiness != AuthReadiness.RESTORING } }
-        return foreground(when (session.user?.role) {
+        val activity = foreground(when (session.user?.role) {
             UserRole.ELDER -> ElderHomeActivity::class.java
             UserRole.CAREGIVER -> CaregiverHomeActivity::class.java
             null -> SharedLoginActivity::class.java
         })
+        val choice = app.languageSettings.observeChoice().first()
+        if (choice != LanguageChoice.FOLLOW_SYSTEM) instrumentation.runOnMainSync {
+            assertEquals("Actual Activity locale must match the saved preference",
+                if (choice == LanguageChoice.SIMPLIFIED_CHINESE) "zh" else "en",
+                androidx.core.os.ConfigurationCompat.getLocales(activity.resources.configuration)[0]?.language)
+        }
+        return activity
     }
     private fun nav(activity: Activity, id: Int) = instrumentation.runOnMainSync {
         activity.findViewById<View>(id).performClick()
@@ -102,7 +109,7 @@ class ChainOnlineFlowTest {
         assumeTrue("Locale setup is explicit", tag != null)
         val choice = if (tag!!.startsWith("zh")) LanguageChoice.SIMPLIFIED_CHINESE else LanguageChoice.ENGLISH
         success(app.languageSettings.setChoice(choice))
-        instrumentation.runOnMainSync { Group33Application.applyLanguage(choice) }
+        instrumentation.runOnMainSync { Group33Application.applyLanguage(choice, app) }
     }
 
     @Test fun realOnlinePhase(): Unit = runBlocking<Unit> {
@@ -114,18 +121,68 @@ class ChainOnlineFlowTest {
                 assertTrue(entry is SharedLoginActivity)
                 click(entry, R.string.chain_login_elder)
                 val session = ready()
-                val activity = foreground(ElderHomeActivity::class.java)
-                waitUntil { s.pairing.observeRelationships().first().access == AccessState.AUTHORIZED }
-                click(activity, R.string.chain_issue)
-                var code: String? = null
-                waitUntil {
-                    instrumentation.runOnMainSync {
-                        code = descendants(activity.window.decorView).filterIsInstance<TextView>()
-                            .mapNotNull { Regex("[0-9]{8}").find(it.text)?.value }.firstOrNull()
+                var original: PairingCodeView? = null
+                val transport = object : ChainHttp(BuildConfig.DEBUG_SERVER_URL) {
+                    override suspend fun call(method: String, path: String, token: String?, operationId: String?,
+                        json: String?, photo: File?, photoType: String?): Reply {
+                        val actual = super.call(method, path, token, operationId, json, photo, photoType)
+                        if (path == "/api/v1/pairing-codes" && actual.status == 201) {
+                            original = ContractProtocol.json.decodeFromString(PairingCodeView.serializer(), actual.text())
+                            throw IOException("Test pairing response delivery failure")
+                        }
+                        return actual
                     }
-                    code != null
                 }
-                write(JSONObject().put("code", code).put("elderId", session.user!!.id).put("elderName", session.user.displayName))
+                val fault = DebugChainRepository(app, BuildConfig.DEBUG_SERVER_URL, http = transport)
+                try {
+                    withTimeout(10_000) { fault.observeSession().first { it.readiness == AuthReadiness.READY } }
+                    val command = success(fault.begin(OnlineCommandKind.ISSUE_PAIRING_CODE, null))
+                    val result = fault.issueCode(command)
+                    assertTrue(result is OnlineCommandResult.AwaitingConfirmation)
+                    assertEquals(command.operationId, result.operationId)
+                    val code = checkNotNull(original)
+                    write(JSONObject().put("code", code.code).put("codeId", code.id)
+                        .put("codeExpiry", code.expiresAtEpochMillis).put("codeOperation", command.operationId)
+                        .put("codePid", android.os.Process.myPid()).put("elderId", session.user!!.id)
+                        .put("elderName", session.user.displayName))
+                } finally { fault.close() }
+            }
+            "elder-recover-code" -> {
+                val b = read()
+                val operationId = b.getString("codeOperation")
+                assertNotEquals(b.getInt("codePid"), android.os.Process.myPid())
+                assertEquals(b.getString("elderId"), ready().user!!.id)
+                val activity = launch() as ElderHomeActivity
+                val model = checkNotNull(featureModel(activity))
+                val before = s.commands.observeCommands().first().single { it.operationId == operationId }
+                assertEquals(OnlineCommandState.AWAITING_CONFIRMATION, before.state)
+
+                // Repeating Issue must not allocate a new ID or remove the durable recovery entry.
+                click(activity, R.string.chain_issue)
+                waitUntil { model.state.value.message == R.string.chain_not_submitted }
+                assertTrue(model.state.value.hasPendingPairing)
+                click(activity, R.string.chain_recover)
+                val state = withTimeout(20_000) { model.state.first { it.code != null && !it.busy } }
+                val code = checkNotNull(state.code)
+                assertTrue("Recovered code must match the original", b.getString("code") == code.code)
+                assertEquals(b.getString("codeId"), code.id)
+                assertEquals(b.getLong("codeExpiry"), code.expiresAtEpochMillis)
+                val journal = s.commands.observeCommands().first().filter {
+                    it.commandKind == OnlineCommandKind.ISSUE_PAIRING_CODE
+                }.single()
+                assertEquals(operationId, journal.operationId)
+                assertEquals(OnlineCommandState.CONFIRMED, journal.state)
+                assertEquals(CacheState.APPLIED, journal.cacheState)
+                waitUntil {
+                    var visible = false
+                    instrumentation.runOnMainSync {
+                        visible = descendants(activity.window.decorView).filterIsInstance<TextView>()
+                            .any { it.isShown && it.text == activity.getString(R.string.chain_code, code.code) }
+                    }
+                    visible
+                }
+                listOf("codeId", "codeExpiry", "codeOperation", "codePid").forEach { b.remove(it) }
+                write(b)
             }
             "caregiver-request" -> {
                 val b = read(); val entry = launch()
@@ -293,7 +350,8 @@ class ChainOnlineFlowTest {
                     instrumentation.runOnMainSync { shown = descendants(activity.window.decorView).filterIsInstance<TextView>()
                         .any { it.text.contains("Fictional medicine") && it.text.contains("One demo unit") && it.text.contains("08:00") }
                         assertTrue(descendants(activity.window.decorView).filterIsInstance<Button>().none {
-                            it.text == activity.getString(R.string.chain_refresh) || it.text == activity.getString(R.string.chain_recover)
+                            it.isShown && (it.text == activity.getString(R.string.chain_refresh) ||
+                                it.text == activity.getString(R.string.chain_recover))
                         })
                         assertTrue(descendants(activity.window.decorView).filterIsInstance<TextView>().none {
                             it.isShown && it.text == activity.getString(R.string.chain_refreshed)
@@ -430,6 +488,11 @@ class ChainOnlineFlowTest {
                         activity.findViewById<TextView>(R.id.current_elder_value).text == activity.getString(R.string.caregiver_no_current_elder) }
                     cleared
                 }
+                nav(activity, R.id.nav_settings)
+                click(activity, R.string.chain_logout)
+                foreground(SharedLoginActivity::class.java)
+                assertEquals(AuthReadiness.SIGNED_OUT, s.auth.observeSession().first().readiness)
+                assertNull(s.trusted.value)
             }
             else -> error("Unknown integration phase")
         }

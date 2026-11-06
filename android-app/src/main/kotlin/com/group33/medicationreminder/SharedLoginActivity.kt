@@ -132,7 +132,7 @@ class SharedLoginActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val settings = (application as Group33Application).languageSettings
             when (settings.setChoice(target)) {
-                is Outcome.Success -> Group33Application.applyLanguage(target)
+                is Outcome.Success -> Group33Application.applyLanguage(target, this@SharedLoginActivity)
                 is Outcome.Failure -> {
                     binding.languageButton.isEnabled = true
                     Toast.makeText(this@SharedLoginActivity, R.string.language_save_failed, Toast.LENGTH_LONG).show()
