@@ -9,6 +9,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import androidx.core.app.NotificationManagerCompat
 import com.group33.medicationreminder.R
 import com.group33.medicationreminder.SharedLoginActivity
 import com.group33.medicationreminder.core.data.contract.AuthReadiness
@@ -93,7 +94,7 @@ internal class DebugDoseReminders(
         if (trusted != repo.services.trusted.value) return false
         val update = (result as? Outcome.Success)?.value
         val due = update?.let { dueElderDose(it.occurrences, clock) }
-        val enabled = notifications.areNotificationsEnabled() &&
+        val enabled = NotificationManagerCompat.from(app).areNotificationsEnabled() &&
             (Build.VERSION.SDK_INT < 26 || notifications.getNotificationChannel(CHANNEL_ID)?.importance != NotificationManager.IMPORTANCE_NONE)
         mutableState.value = ElderDoseScreen(trusted, due, enabled,
             update != null && (update.hasPlanSnapshot || update.occurrences.isNotEmpty()))
