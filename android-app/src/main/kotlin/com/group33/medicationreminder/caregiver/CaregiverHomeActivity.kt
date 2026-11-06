@@ -3,6 +3,7 @@ package com.group33.medicationreminder.caregiver
 import android.content.pm.ApplicationInfo
 import android.content.res.ColorStateList
 import android.os.Bundle
+import android.view.ViewGroup
 import android.view.View
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
@@ -17,16 +18,20 @@ import androidx.core.view.updatePadding
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.annotation.MainThread
 import com.group33.medicationreminder.Group33Application
 import com.group33.medicationreminder.R
 import com.group33.medicationreminder.core.data.contract.Outcome
 import com.group33.medicationreminder.databinding.ActivityCaregiverHomeBinding
 import com.group33.medicationreminder.nextLanguageChoice
 import kotlinx.coroutines.launch
+import java.util.EnumMap
 
 /** C1 navigation host. C2/C3 can replace the content destinations when their screens are ready. */
-class CaregiverHomeActivity : AppCompatActivity() {
+class CaregiverHomeActivity : AppCompatActivity(), CaregiverNavigationHost {
     private lateinit var binding: ActivityCaregiverHomeBinding
+    private val mountedContent = EnumMap<CaregiverDestination, View>(CaregiverDestination::class.java)
+    private var renderedContext: CaregiverNavigationContext? = null
     private val localDemo by lazy {
         (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0 &&
             intent.getBooleanExtra(EXTRA_LOCAL_NAV_DEMO, false)
@@ -35,6 +40,9 @@ class CaregiverHomeActivity : AppCompatActivity() {
         CaregiverNavigationViewModel.Factory(createCaregiverNavigationContextSource(localDemo))
     }
 
+    override val navigationState get() = viewModel.state
+    override val fragmentManager get() = supportFragmentManager
+    override val isLocalNavigationPreview get() = localDemo
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityCaregiverHomeBinding.inflate(layoutInflater)
@@ -81,6 +89,12 @@ class CaregiverHomeActivity : AppCompatActivity() {
     }
 
     private fun render(state: CaregiverNavigationState) {
+        if (renderedContext != state.context) {
+            // Never keep a prior account/Elder page mounted after scope changes or becomes unavailable.
+            binding.destinationContent.removeAllViews()
+            mountedContent.clear()
+            renderedContext = state.context
+        }
         val selectedItem = when (state.destination) {
             CaregiverDestination.PLANS -> R.id.nav_plans
             CaregiverDestination.RECORDS -> R.id.nav_records
@@ -115,10 +129,45 @@ class CaregiverHomeActivity : AppCompatActivity() {
                 }
             },
         )
+        binding.destinationContent.removeAllViews()
+        val destinationView = mountedContent[state.destination]
+        if (destinationView == null) {
+            binding.pageMessage.visibility = View.VISIBLE
+            binding.destinationContent.addView(binding.pageMessage)
+        } else {
+            binding.pageMessage.visibility = View.GONE
+            (destinationView.parent as? ViewGroup)?.removeView(destinationView)
+            binding.destinationContent.addView(destinationView)
+        }
         binding.languageButton.visibility = if (state.destination == CaregiverDestination.SETTINGS) View.VISIBLE else View.GONE
         val language = ConfigurationCompat.getLocales(resources.configuration)[0]?.language.orEmpty()
-        binding.languageButton.setText(if (language == "zh") R.string.language_chinese else R.string.language_english)
+        binding.languageButton.setText(if (language == "zh") R.string.language_english else R.string.language_chinese)
         binding.languageButton.contentDescription = getString(R.string.language_switch_action)
+    }
+
+    @MainThread
+    override fun mountDestinationContent(destination: CaregiverDestination, content: View) {
+        (content.parent as? ViewGroup)?.removeView(content)
+        mountedContent[destination] = content
+        render(viewModel.state.value)
+    }
+
+    @MainThread
+    override fun clearDestinationContent(destination: CaregiverDestination) {
+        mountedContent.remove(destination)
+        render(viewModel.state.value)
+    }
+
+    @MainThread
+    override fun navigateTo(destination: CaregiverDestination) {
+        binding.bottomNavigation.selectedItemId = when (destination) {
+            CaregiverDestination.PLANS -> R.id.nav_plans
+            CaregiverDestination.RECORDS -> R.id.nav_records
+            CaregiverDestination.SETTINGS -> R.id.nav_settings
+        }
+        viewModel.open(destination)
+        render(viewModel.state.value)
+        binding.caregiverScroll.scrollTo(0, 0)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

@@ -98,12 +98,19 @@
                     android:orientation="vertical"
                     android:padding="20dp">
 
-                    <TextView
-                        android:id="@+id/page_message"
+                    <FrameLayout
+                        android:id="@+id/destination_content"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="@string/caregiver_feature_pending"
-                        android:textAppearance="@style/TextAppearance.Group33.Body" />
+                        android:minHeight="48dp">
+
+                        <TextView
+                            android:id="@+id/page_message"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/caregiver_feature_pending"
+                            android:textAppearance="@style/TextAppearance.Group33.Body" />
+                    </FrameLayout>
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/language_button"

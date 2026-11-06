@@ -1,12 +1,14 @@
 package com.group33.medicationreminder.caregiver
 
 import android.content.Intent
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.action.ViewActions.click
 import androidx.test.espresso.assertion.ViewAssertions.matches
+import androidx.test.espresso.assertion.ViewAssertions.doesNotExist
 import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
 import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.espresso.matcher.ViewMatchers.withText
@@ -69,12 +71,34 @@ class CaregiverNavigationUiTest {
             onView(withId(R.id.nav_settings)).perform(click())
             onView(withId(R.id.language_button)).perform(click())
             onView(withId(R.id.page_title)).check(matches(withText(R.string.caregiver_settings_title)))
-            onView(withId(R.id.language_button)).check(matches(withText(R.string.language_chinese)))
+            onView(withId(R.id.language_button)).check(matches(withText(R.string.language_english)))
             scenario.onActivity { activity ->
                 assertSelectedDestination(activity, R.id.nav_settings)
                 assertEquals("计划", activity.findViewById<BottomNavigationView>(R.id.bottom_navigation)
                     .menu.findItem(R.id.nav_plans).title.toString())
             }
+        }
+    }
+
+    @Test
+    fun featurePageCanMountIntoSelectedDestinationWithoutTreatingPreviewAsAuthorized() {
+        val intent = Intent(context, CaregiverHomeActivity::class.java)
+            .putExtra("com.group33.medicationreminder.LOCAL_NAV_DEMO", true)
+        ActivityScenario.launch<CaregiverHomeActivity>(intent).use { scenario ->
+            scenario.onActivity { activity ->
+                val host = activity as CaregiverNavigationHost
+                assertEquals(true, host.isLocalNavigationPreview)
+                host.mountDestinationContent(
+                    CaregiverDestination.RECORDS,
+                    TextView(activity).apply { text = "Mounted records feature test" },
+                )
+                host.navigateTo(CaregiverDestination.RECORDS)
+            }
+            onView(withText("Mounted records feature test")).check(matches(isDisplayed()))
+            onView(withId(R.id.nav_plans)).perform(click())
+            onView(withText("Mounted records feature test")).check(doesNotExist())
+            onView(withId(R.id.nav_records)).perform(click())
+            onView(withText("Mounted records feature test")).check(matches(isDisplayed()))
         }
     }
 
