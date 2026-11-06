@@ -31,3 +31,9 @@ The restoration tests use supplied journal records and do not prove durable reco
 No canonical event writer, authority-overlap algorithm or shared contract change is
 introduced. D01/D05/D06 full integration and human approvals are not claimed.
 2026-11-05 S2-108-01: two synchronous close-before-I/O counterexamples failed before the fix (14 operation tests, 2 failures). Recheck closed after busy and awaiting notifications. Final targeted count: 19 (5 draft + 14 operation).
+
+## Main synchronization — 2026-11-06
+
+Merged main `9d5f6df` without rewriting the feature branch history. Preserved current main integration fixes and only this PR's existing scope. Repository policy and whitespace checks pass. Android Debug JVM suite: 138 tests, zero failures/errors/skips; lintDebug, assembleDebug and assembleRelease pass. Includes 19 edit/revision state tests. No real edit adapter or device acceptance was added.
+
+The attempted full gate1Check on synchronized #113 on Windows could not pass the inherited POSIX photo-store/server tests (627 executed, 310 failures); this is not a green full local gate. Ubuntu CI must verify the final merge head. This update adds no new feature, human approval or main merge.
