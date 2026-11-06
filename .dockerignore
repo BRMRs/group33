@@ -7,5 +7,4 @@ local.properties
 .env
 .env.*
 docs
-scripts
 android-app

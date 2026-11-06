@@ -24,3 +24,7 @@ services:
         value: "true"
       - key: OCCURRENCE_ENABLED
         value: "true"
+      - key: KEEP_ALIVE_ENABLED
+        value: "true"
+      - key: KEEP_ALIVE_INTERVAL_SECONDS
+        value: "600"
