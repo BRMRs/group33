@@ -26,3 +26,9 @@ Validation command: :android-app:testDebugUnitTest :android-app:lintDebug :andro
 Remaining: trusted host/journal.begin wiring, explicit confirmation UI and bilingual
 prospective explanation, rejected retry UI, real adapters, actual process/device and
 cross-device acceptance. No shared API/schema/permission or migration change.
+
+## Main synchronization — 2026-11-06
+
+Merged main `9d5f6df` without rewriting branch history. Preserved main integration code and the original state-only scope. Android Debug JVM suite: 128 tests (including 9 deactivation cases), zero failures/errors/skips; lintDebug, assembleDebug and assembleRelease pass. Repository policy and whitespace checks pass. No new UI, real adapter, cloud or device acceptance.
+
+The full gate1Check attempt on synchronized #113 on Windows encountered inherited POSIX photo-store/server failures (627 executed, 310 failures). That is not a passing full local gate; Ubuntu CI must validate each final merge head.

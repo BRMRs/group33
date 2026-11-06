@@ -1,0 +1,9 @@
+1	V1__pairing_code.sql	1063243537
+2	V2__pairing_request.sql	1315873108
+3	V3__pairing_decision.sql	2089550516
+4	V4__pairing_directory.sql	-653946539
+5	V5__anonymous_identity.sql	-799719344
+6	V6__medication_photo.sql	206324030
+7	V7__plan_confirmation.sql	1972188479
+8	V8__plan_mutation.sql	-1752780730
+9	V9__occurrence_registration.sql	1089233088
