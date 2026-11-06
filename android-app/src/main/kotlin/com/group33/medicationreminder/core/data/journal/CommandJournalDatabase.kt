@@ -35,6 +35,7 @@ internal interface CommandDao {
     @Update suspend fun update(row: CommandRow)
     @Query("SELECT * FROM commands WHERE operationId = :id") suspend fun find(id: String): CommandRow?
     @Query("SELECT * FROM commands ORDER BY operationId") fun observe(): Flow<List<CommandRow>>
+    @Query("SELECT * FROM commands ORDER BY operationId") suspend fun snapshot(): List<CommandRow>
 }
 
 @Database(entities = [CommandRow::class], version = 1, exportSchema = true)
