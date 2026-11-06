@@ -1,0 +1,11 @@
+.git
+.gradle
+.idea
+**/build
+**/.DS_Store
+local.properties
+.env
+.env.*
+docs
+scripts
+android-app
