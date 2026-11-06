@@ -142,7 +142,7 @@ class CaregiverHomeActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (!localDemo) com.group33.medicationreminder.integration.featureModel(this)?.let {
-            if (it.state.value.session.readiness == com.group33.medicationreminder.core.data.contract.AuthReadiness.READY) it.refresh()
+            if (it.state.value.session.readiness == com.group33.medicationreminder.core.data.contract.AuthReadiness.READY) it.refresh(reportStatus = false)
         }
     }
     override fun onDestroy() { content?.close(); super.onDestroy() }
@@ -154,7 +154,7 @@ class CaregiverHomeActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val settings = (application as Group33Application).languageSettings
             when (settings.setChoice(choice)) {
-                is Outcome.Success -> Group33Application.applyLanguage(choice)
+                is Outcome.Success -> Group33Application.applyLanguage(choice, this@CaregiverHomeActivity)
                 is Outcome.Failure -> {
                     binding.languageButton.isEnabled = true
                     Toast.makeText(this@CaregiverHomeActivity, R.string.language_save_failed, Toast.LENGTH_LONG).show()

@@ -20,7 +20,7 @@
     <string name="chain_request_from">%1$s申请照护</string>
     <string name="chain_current_elder">当前长辈：%1$s</string>
     <string name="chain_no_elder">尚无当前长辈。待同意的申请不提供访问权限。</string>
-    <string name="chain_no_plans">尚未加载已确认的计划。</string>
+    <string name="chain_no_plans">暂无计划。</string>
     <string name="chain_plan">%1$s — %2$s\n%3$s（%4$s）\n%5$s — %6$s · %7$s</string>
     <string name="chain_no_end">无结束日期</string>
     <string name="chain_active">已启用</string>
@@ -36,4 +36,15 @@
     <string name="chain_manage_pairing">配对或选择长辈</string>
     <string name="chain_elder_failed">暂时未能完成，请稍后重试。</string>
     <string name="chain_elder_pending">这次请求仍在核对中。</string>
+    <string name="chain_sign_out_failed">未能清除本机保存的登录凭据。请重试退出。</string>
+    <string name="chain_retry_sign_out">重试退出</string>
+    <string name="chain_confirmed_refresh_required">服务已确认此更改。请核对待确认提交以更新本机资料。</string>
+    <string name="chain_rejected">服务拒绝了此更改。</string>
+    <string name="chain_not_submitted">此更改未发送。请检查网络后重试。</string>
+    <string name="chain_pairing_accepted">已同意配对申请。</string>
+    <string name="chain_pairing_declined">已拒绝配对申请。</string>
+    <string name="chain_revoked">已撤销访问权限。</string>
+    <string name="chain_photo_read_failed">无法打开这张照片。</string>
+    <string name="chain_photo_retry">重试打开照片</string>
+    <string name="chain_plans_unavailable">暂时无法查看计划。</string>
 </resources>

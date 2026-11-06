@@ -72,11 +72,18 @@ class ChainOnlineFlowTest {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         instrumentation.startActivitySync(intent)
         val session = withTimeout(10_000) { s.auth.observeSession().first { it.readiness != AuthReadiness.RESTORING } }
-        return foreground(when (session.user?.role) {
+        val activity = foreground(when (session.user?.role) {
             UserRole.ELDER -> ElderHomeActivity::class.java
             UserRole.CAREGIVER -> CaregiverHomeActivity::class.java
             null -> SharedLoginActivity::class.java
         })
+        val choice = app.languageSettings.observeChoice().first()
+        if (choice != LanguageChoice.FOLLOW_SYSTEM) instrumentation.runOnMainSync {
+            assertEquals("Actual Activity locale must match the saved preference",
+                if (choice == LanguageChoice.SIMPLIFIED_CHINESE) "zh" else "en",
+                androidx.core.os.ConfigurationCompat.getLocales(activity.resources.configuration)[0]?.language)
+        }
+        return activity
     }
     private fun nav(activity: Activity, id: Int) = instrumentation.runOnMainSync {
         activity.findViewById<View>(id).performClick()
@@ -102,7 +109,7 @@ class ChainOnlineFlowTest {
         assumeTrue("Locale setup is explicit", tag != null)
         val choice = if (tag!!.startsWith("zh")) LanguageChoice.SIMPLIFIED_CHINESE else LanguageChoice.ENGLISH
         success(app.languageSettings.setChoice(choice))
-        instrumentation.runOnMainSync { Group33Application.applyLanguage(choice) }
+        instrumentation.runOnMainSync { Group33Application.applyLanguage(choice, app) }
     }
 
     @Test fun realOnlinePhase(): Unit = runBlocking<Unit> {
@@ -293,7 +300,8 @@ class ChainOnlineFlowTest {
                     instrumentation.runOnMainSync { shown = descendants(activity.window.decorView).filterIsInstance<TextView>()
                         .any { it.text.contains("Fictional medicine") && it.text.contains("One demo unit") && it.text.contains("08:00") }
                         assertTrue(descendants(activity.window.decorView).filterIsInstance<Button>().none {
-                            it.text == activity.getString(R.string.chain_refresh) || it.text == activity.getString(R.string.chain_recover)
+                            it.isShown && (it.text == activity.getString(R.string.chain_refresh) ||
+                                it.text == activity.getString(R.string.chain_recover))
                         })
                         assertTrue(descendants(activity.window.decorView).filterIsInstance<TextView>().none {
                             it.isShown && it.text == activity.getString(R.string.chain_refreshed)
@@ -430,6 +438,11 @@ class ChainOnlineFlowTest {
                         activity.findViewById<TextView>(R.id.current_elder_value).text == activity.getString(R.string.caregiver_no_current_elder) }
                     cleared
                 }
+                nav(activity, R.id.nav_settings)
+                click(activity, R.string.chain_logout)
+                foreground(SharedLoginActivity::class.java)
+                assertEquals(AuthReadiness.SIGNED_OUT, s.auth.observeSession().first().readiness)
+                assertNull(s.trusted.value)
             }
             else -> error("Unknown integration phase")
         }

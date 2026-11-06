@@ -44,6 +44,17 @@ internal class OnlineFeatureContent private constructor(
     private val data = section()
     private val editor = PlanEditorView(activity).apply { visibility = View.GONE; column.addView(this) }
     private val code: TextView
+    private val signOutPanel = LinearLayout(activity).apply {
+        orientation = LinearLayout.VERTICAL
+        visibility = View.GONE
+        host.addView(this)
+    }
+    private val signOutStatus = text(signOutPanel).apply {
+        accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+    }
+    private val retrySignOut = button(signOutPanel, R.string.chain_retry_sign_out) { model.logout() }
+    private val checkElderSubmission = if (role == UserRole.ELDER)
+        button(controls, R.string.chain_recover) { model.recover() } else null
     private var editorKey: String? = null
     private var destination = CaregiverDestination.PLANS
     private var signedIn = false
@@ -74,11 +85,19 @@ internal class OnlineFeatureContent private constructor(
 
     private fun render(state: ChainUi) {
         val user = state.session.user
-        if (user == null || user.role != role) {
+        if (state.signOut != SignOutStatus.IDLE || user == null || user.role != role) {
             editor.clear(); editorKey = null; column.visibility = View.GONE
-            if (signedIn && state.session.readiness == AuthReadiness.SIGNED_OUT) openSharedLogin(activity)
+            val clearing = state.signOut == SignOutStatus.CLEARING
+            val failed = state.signOut == SignOutStatus.FAILED
+            signOutPanel.visibility = if (clearing || failed) View.VISIBLE else View.GONE
+            if (clearing || failed) {
+                signOutStatus.setText(if (clearing) R.string.chain_working else R.string.chain_sign_out_failed)
+                retrySignOut.visibility = if (failed) View.VISIBLE else View.GONE
+            } else if (state.signOut == SignOutStatus.COMPLETE ||
+                signedIn && state.session.readiness == AuthReadiness.SIGNED_OUT) openSharedLogin(activity)
             return
         }
+        signOutPanel.visibility = View.GONE
         signedIn = true
         val settings = role == UserRole.ELDER || destination == CaregiverDestination.SETTINGS
         val plans = role == UserRole.ELDER || destination == CaregiverDestination.PLANS
@@ -91,10 +110,14 @@ internal class OnlineFeatureContent private constructor(
                 R.string.chain_code_ready -> R.string.chain_code_ready
                 R.string.chain_failed -> R.string.chain_elder_failed
                 R.string.chain_pending -> R.string.chain_elder_pending
+                R.string.chain_confirmed_refresh_required, R.string.chain_rejected, R.string.chain_not_submitted,
+                R.string.chain_pairing_accepted, R.string.chain_pairing_declined, R.string.chain_revoked -> state.message
                 else -> null
             }
             status.visibility = if (message == null) View.GONE else View.VISIBLE
             message?.let(status::setText)
+            checkElderSubmission?.visibility = if (state.message == R.string.chain_pending ||
+                state.message == R.string.chain_confirmed_refresh_required) View.VISIBLE else View.GONE
         }
         pairing.visibility = if (settings) View.VISIBLE else View.GONE
         requests.visibility = if (settings) View.VISIBLE else View.GONE
@@ -123,7 +146,12 @@ internal class OnlineFeatureContent private constructor(
                     if (role == UserRole.CAREGIVER) button(data, R.string.chain_inspect) { model.viewPhoto(photo.id) }
                         .text = activity.getString(R.string.chain_inspect_number, i + 1)
                 }
-                if (state.plans.isEmpty()) text(data, R.string.chain_no_plans)
+                state.failedPhotoId?.let { id ->
+                    text(data, R.string.chain_photo_read_failed).accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+                    button(data, R.string.chain_photo_retry) { model.viewPhoto(id) }
+                }
+                if (state.plans.isEmpty()) text(data,
+                    if (state.plansKnown) R.string.chain_no_plans else R.string.chain_plans_unavailable)
                 state.plans.forEach { plan ->
                     val medication = state.medications.firstOrNull { it.id == plan.medicationId } ?: return@forEach
                     text(data).text = activity.getString(R.string.chain_plan, medication.displayName, medication.dosageText,
