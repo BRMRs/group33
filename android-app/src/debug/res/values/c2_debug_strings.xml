@@ -1,8 +1,8 @@
 <resources>
     <string name="c2_debug_open">Open C2 form test (Debug)</string>
-    <string name="c2_debug_notice">DEBUG TEST ONLY: synthetic image and in-memory responses. No login, server save or Elder delivery. Leaving or rotating resets this test.</string>
+    <string name="c2_debug_notice">DEBUG · Simulated photo and saves; no sign-in or delivery. Exit or rotation resets the form.</string>
     <string name="c2_debug_scenario">Response scenario; press Reset to apply</string>
-    <string name="c2_debug_reset">Reset test form</string>
+    <string name="c2_debug_reset">Reset</string>
     <string name="c2_debug_name">Test medication — fictional</string>
     <string name="c2_debug_dose">Test dose — fictional</string>
     <string name="c2_debug_elder">Test Elder</string>

@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="c2_editor_confirm_date">确认</string>
+    <string name="c2_editor_date_placeholder">点击选择日期</string>
+    <string name="c2_editor_calendar_help">从日历中选择，开始日和结束日均包含在内。结束日期留空表示不设结束日期。</string>
+    <string name="c2_editor_no_end">不设结束日期</string>
+    <string name="c2_editor_heading">新建用药提醒计划</string>
+    <string name="c2_editor_for_elder">为 %1$s 设置</string>
+    <string name="c2_editor_section_photo">01  核对药盒照片</string>
+    <string name="c2_editor_section_medication">02  药品信息</string>
+    <string name="c2_editor_section_schedule">03  提醒安排</string>
+    <string name="c2_editor_section_zone">04  确认执行时区</string>
     <string name="c2_editor_photo_viewed">我已查看当前显示的药品照片</string>
     <string name="c2_editor_photo_description">%1$s的药品照片</string>
     <string name="c2_editor_times_hint">每行填写一个HH:mm时间，例如08:00</string>
