@@ -19,6 +19,7 @@ import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
 import androidx.test.runner.lifecycle.Stage
 import com.group33.medicationreminder.R
 import com.group33.medicationreminder.caregiver.plan.PlanEditorView
+import com.group33.medicationreminder.caregiver.caregiverInstant
 import com.group33.medicationreminder.core.data.contract.*
 import com.group33.medicationreminder.elder.photo.*
 import com.group33.shared.contract.*
@@ -482,7 +483,9 @@ class ChainOnlineFlowTest {
                 val result = s.plans.confirm(elderId, request, command)
                 assertTrue("Real plan must be confirmed", result is OnlineCommandResult.Confirmed)
                 val plan = (result as OnlineCommandResult.Confirmed).value.plan
-                write(b.put("liveDosePlan", plan.id).put("liveDoseAt", scheduled.toInstant().toEpochMilli()))
+                val online = InstrumentationRegistry.getArguments().getString("doseUpload") == "true"
+                write(b.put("liveDosePlan", plan.id).put("liveDoseAt", scheduled.toInstant().toEpochMilli())
+                    .put("verifyDoseUpload", online))
             }
             "elder-live-dose" -> {
                 val b = read()
@@ -522,19 +525,33 @@ class ChainOnlineFlowTest {
                 assertNull(app.elderDoses.state.value.due)
                 waitUntil { manager.activeNotifications.none { it.id == 14001 } }
 
-                // Test the next occurrence's snooze transaction without advancing the emulator clock.
-                val tomorrow = taken.occurrences.first { it.key.planId == planId && it.plannedAt > plannedAt }
-                val instant = java.time.Instant.ofEpochMilli(tomorrow.plannedAt + 1)
-                val clock = java.time.Clock.fixed(instant, java.time.ZoneOffset.UTC)
-                val futureGroup = checkNotNull(com.group33.medicationreminder.elder.dueElderDose(taken.occurrences, clock))
-                assertTrue(futureGroup.keys.contains(tomorrow.key))
-                val snooze = success(repository.localElderDoses(trusted, clock, futureGroup to DoseActionKind.REMIND_LATER))
-                assertTrue(snooze.actionRecorded)
-                val snoozed = snooze.occurrences.single { it.key == tomorrow.key }
-                assertEquals(tomorrow.plannedAt + 600_001L, snoozed.snoozedUntil)
-                assertEquals(tomorrow.plannedAt, snoozed.plannedAt)
-                assertFalse(success(repository.localElderDoses(trusted, clock,
-                    futureGroup to DoseActionKind.REMIND_LATER)).actionRecorded)
+                if (b.optBoolean("verifyDoseUpload")) {
+                    val scope = trusted.scope
+                    val scopeId = ChainCache.digest(listOf(scope.environmentId, scope.installationId, scope.userId)
+                        .joinToString("") { "${it.length}:$it" })
+                    val cache = ChainCache.open(app)
+                    try {
+                        waitUntil {
+                            assertTrue("The server must accept the queued action",
+                                cache.documents().readKind(scopeId, "elder-dose-action-needs-attention", 1).isEmpty())
+                            cache.documents().readKind(scopeId, "elder-dose-action-synced", 2).size == 1
+                        }
+                    } finally { cache.close() }
+                } else {
+                    // Test the next occurrence's snooze transaction without advancing the emulator clock.
+                    val tomorrow = taken.occurrences.first { it.key.planId == planId && it.plannedAt > plannedAt }
+                    val instant = java.time.Instant.ofEpochMilli(tomorrow.plannedAt + 1)
+                    val clock = java.time.Clock.fixed(instant, java.time.ZoneOffset.UTC)
+                    val futureGroup = checkNotNull(com.group33.medicationreminder.elder.dueElderDose(taken.occurrences, clock))
+                    assertTrue(futureGroup.keys.contains(tomorrow.key))
+                    val snooze = success(repository.localElderDoses(trusted, clock, futureGroup to DoseActionKind.REMIND_LATER))
+                    assertTrue(snooze.actionRecorded)
+                    val snoozed = snooze.occurrences.single { it.key == tomorrow.key }
+                    assertEquals(tomorrow.plannedAt + 600_001L, snoozed.snoozedUntil)
+                    assertEquals(tomorrow.plannedAt, snoozed.plannedAt)
+                    assertFalse(success(repository.localElderDoses(trusted, clock,
+                        futureGroup to DoseActionKind.REMIND_LATER)).actionRecorded)
+                }
                 write(b.put("localTakenAt", recorded.takenAt).put("localDosePid", android.os.Process.myPid()))
             }
             "elder-live-dose-restart" -> {
@@ -546,6 +563,43 @@ class ChainOnlineFlowTest {
                 assertEquals(b.getLong("localTakenAt"), occurrences.single {
                     it.key.planId == b.getString("liveDosePlan") && it.plannedAt == b.getLong("liveDoseAt")
                 }.takenAt)
+            }
+            "caregiver-sees-taken" -> {
+                val b = read()
+                ready()
+                val activity = launch()
+                success(s.pairing.refresh())
+                val elderId = b.getString("elderId")
+                val date = java.time.Instant.ofEpochMilli(b.getLong("liveDoseAt"))
+                    .atZone(java.time.ZoneId.of("Asia/Shanghai")).toLocalDate().toString()
+                val range = LocalDateRange(date, date)
+                val planId = b.getString("liveDosePlan")
+                var accepted: DoseEventState? = null
+                println("Checking accepted server dose")
+                waitUntil {
+                    success(repository.refresh(elderId, range))
+                    accepted = repository.observeEvents(elderId, range).first().value.singleOrNull {
+                        it.occurrence.planId == planId && it.lastAcceptedStatus == com.group33.shared.model.DoseStatus.TAKEN
+                    }
+                    accepted != null
+                }
+                assertEquals(b.getLong("localTakenAt"), checkNotNull(accepted).serverAcceptedTakenAtEpochMillis)
+                println("Checking overview dose display")
+                fun hasAcceptedText(): Boolean {
+                    var found = false
+                    instrumentation.runOnMainSync {
+                        val expected = activity.getString(R.string.dose_records_taken, "Live reminder fixture",
+                            activity.caregiverInstant(b.getLong("localTakenAt")))
+                        found = descendants(activity.window.decorView).filterIsInstance<TextView>()
+                            .any { it.isShown && it.text.contains(expected) }
+                    }
+                    return found
+                }
+                click(activity, R.string.dose_records_refresh)
+                waitUntil { hasAcceptedText() }
+                println("Checking history dose display")
+                nav(activity, R.id.nav_records)
+                waitUntil { hasAcceptedText() }
             }
             "elder-revoke" -> {
                 val b = read(); ready(); val activity = launch()
@@ -559,6 +613,11 @@ class ChainOnlineFlowTest {
                 val b = read(); ready(); val activity = launch(); success(s.pairing.refresh())
                 assertTrue(s.photos.loadContent(b.getString("photoId")) is Outcome.Failure)
                 assertTrue(s.photos.refresh(b.getString("elderId")) is Outcome.Failure)
+                if (b.optBoolean("verifyDoseUpload")) {
+                    val date = java.time.Instant.ofEpochMilli(b.getLong("liveDoseAt"))
+                        .atZone(java.time.ZoneId.of("Asia/Shanghai")).toLocalDate().toString()
+                    assertTrue(repository.refresh(b.getString("elderId"), LocalDateRange(date, date)) is Outcome.Failure)
+                }
                 assertEquals(AuthReadiness.READY, s.auth.observeSession().first().readiness)
                 waitUntil { var cleared = false
                     instrumentation.runOnMainSync { cleared = descendants(activity.window.decorView).filterIsInstance<PlanEditorView>().none { it.isShown } &&

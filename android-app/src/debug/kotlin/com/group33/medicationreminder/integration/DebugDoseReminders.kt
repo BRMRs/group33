@@ -48,9 +48,13 @@ internal class DebugDoseReminders(
     private val notifications = app.getSystemService(NotificationManager::class.java)
     private val alarmIntent = PendingIntent.getBroadcast(app, 0, Intent(app, DebugDoseAlarmReceiver::class.java),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+    private var actionSync: Job? = null
+    private var anotherSyncRequested = false
+    private lateinit var appScope: CoroutineScope
     private var notifiedGroup: Long? = null
 
     fun start(scope: CoroutineScope) {
+        appScope = scope
         scope.launch {
             combine(repo.services.auth.observeSession(), repo.services.trusted) { session, trusted ->
                 trusted?.takeIf { session.readiness == AuthReadiness.READY &&
@@ -78,6 +82,7 @@ internal class DebugDoseReminders(
         if (expected != null && trusted != expected) return false
         val user = repo.services.auth.observeSession().first().user
         if (trusted == null || user?.role != UserRole.ELDER || user.id != trusted.scope.userId) {
+            actionSync?.cancel()
             alarms.cancel(alarmIntent)
             notifications.cancel(NOTIFICATION_ID)
             notifiedGroup = null
@@ -94,6 +99,22 @@ internal class DebugDoseReminders(
             update != null && (update.hasPlanSnapshot || update.occurrences.isNotEmpty()))
         updateNotification(due, enabled)
         scheduleNext(update?.occurrences.orEmpty())
+        if (::appScope.isInitialized) {
+            if (actionSync?.isActive == true) {
+                if (update?.actionRecorded == true) anotherSyncRequested = true
+            } else {
+                actionSync = appScope.launch {
+                    do {
+                        anotherSyncRequested = false
+                        for (attempt in 0..2) {
+                            if (trusted != repo.services.trusted.value) return@launch
+                            if (repo.syncLocalElderActions(trusted) is Outcome.Success) break
+                            if (attempt < 2) delay(5_000L * (attempt + 1))
+                        }
+                    } while (anotherSyncRequested)
+                }
+            }
+        }
         return update?.actionRecorded == true
     }
 

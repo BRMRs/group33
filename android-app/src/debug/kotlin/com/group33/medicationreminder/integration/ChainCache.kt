@@ -25,11 +25,15 @@ internal interface ChainDocuments {
     @Query("SELECT * FROM chain_documents WHERE id = :id") suspend fun read(id: String): ChainDocument?
     @Query("SELECT * FROM chain_documents WHERE scopeId = :scope AND kind = :kind AND syncedAt >= :since ORDER BY syncedAt, id")
     suspend fun readSince(scope: String, kind: String, since: Long): List<ChainDocument>
+    @Query("SELECT * FROM chain_documents WHERE scopeId = :scope AND kind = :kind ORDER BY syncedAt, id LIMIT :limit")
+    suspend fun readKind(scope: String, kind: String, limit: Int): List<ChainDocument>
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun put(row: ChainDocument)
     @Query("UPDATE chain_documents SET access = 'UNKNOWN', stale = 1 WHERE scopeId = :scope")
     suspend fun invalidateAuthority(scope: String)
     @Query("UPDATE chain_documents SET stale = 1 WHERE scopeId = :scope AND kind = :kind AND target = :target")
     suspend fun markStale(scope: String, kind: String, target: String)
+    @Query("UPDATE chain_documents SET access = 'UNKNOWN', stale = 1 WHERE scopeId = :scope AND kind = :kind AND target = :target")
+    suspend fun invalidateKind(scope: String, kind: String, target: String)
     @Query("UPDATE chain_documents SET access = 'REVOKED', stale = 1 WHERE scopeId = :scope AND target = :target")
     suspend fun revoke(scope: String, target: String)
 }

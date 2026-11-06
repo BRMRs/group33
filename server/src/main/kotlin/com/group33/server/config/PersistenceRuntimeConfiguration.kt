@@ -34,6 +34,10 @@ internal class PersistenceRuntimeConfiguration {
         val mode = env.getProperty("app.persistence.mode", "memory")
         val requireVersioned = env.getProperty("app.persistence.require-versioned-schema", Boolean::class.java, false)
         require(!requireVersioned || mode == "postgres-local") { "Versioned schema startup validation requires postgres-local persistence" }
+        val doseGroupsEnabled = env.getProperty("app.dose-group.enabled", Boolean::class.java, false)
+        require(!doseGroupsEnabled || mode == "memory" && occurrencesEnabled) {
+            "Debug dose groups require the memory and occurrence registration runtime"
+        }
         if (mode == "memory") return PersistenceRuntime(InMemoryAnonymousIdentityStore(), InMemoryPairingCodeStore())
         require(mode == "postgres-local") { "app.persistence.mode must be memory or postgres-local" }
         fun setting(name: String) = env.getProperty(name)?.takeIf { it.isNotBlank() }
