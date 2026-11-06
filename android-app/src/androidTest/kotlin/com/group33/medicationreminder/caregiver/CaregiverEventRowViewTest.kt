@@ -197,6 +197,32 @@ class CaregiverEventRowViewTest {
         }
     }
 
+    @Test fun serverAcceptedLateEvidenceWrapsAt320DpAnd200PercentInBothLanguages() {
+        val remoteReports = listOf(
+            ServerAcceptedLateTakenReport("server-action-1", planned + 7_201_000, planned + 7_209_000),
+            ServerAcceptedLateTakenReport("server-action-2", planned + 7_301_000, planned + 7_309_000),
+        )
+        for (language in listOf("en", "zh")) withRow(language, scale = 2f, widthDp = 320,
+            afterLayout = { _, row ->
+                val evidence = row.serverAcceptedLateReports
+                assertEquals(View.VISIBLE, evidence.visibility)
+                val layout = checkNotNull(evidence.layout)
+                assertTrue("$language report must wrap at 320dp", layout.lineCount > 3)
+                for (line in 0 until layout.lineCount) assertEquals("$language line $line", 0, layout.getEllipsisCount(line))
+                assertTrue(evidence.height >= layout.height + evidence.totalPaddingTop + evidence.totalPaddingBottom)
+                val text = evidence.text.toString()
+                assertTrue(text, text.contains(if (language == "en") "2026" else "2026年10月20日"))
+                assertTrue(text, text.contains(if (language == "en") "2:00:01" else "2:00:01"))
+                assertTrue(text, text.contains(if (language == "en") "2:00:09" else "2:00:09"))
+            }) { row ->
+            row.bindEvent(event.copy(
+                medicationSnapshot = MedicationText("Fictional medication / 虚构药品 ".repeat(8),
+                    "Fictional dosage / 虚构剂量 ".repeat(6)),
+                serverAcceptedLateTakenReports = remoteReports,
+            ).toCaregiverEventRow())
+        }
+    }
+
     @Test fun debugHostKeepsScrolledReportAboveSystemBars() = withRow(scale = 2f, widthDp = 320,
         afterLayout = { host, row ->
             val scroll = host.container
