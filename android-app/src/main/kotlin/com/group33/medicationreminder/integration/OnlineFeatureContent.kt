@@ -114,7 +114,7 @@ internal class OnlineFeatureContent private constructor(
         // Session/cache refresh is automatic; Elders do not manage synchronization.
         if (role == UserRole.ELDER) {
             val message = when (state.message) {
-                R.string.chain_code_ready -> R.string.chain_code_ready
+                R.string.chain_code_ready, R.string.chain_code_expired -> state.message
                 R.string.chain_failed -> R.string.chain_elder_failed
                 R.string.chain_pending -> R.string.chain_elder_pending
                 R.string.chain_confirmed_refresh_required, R.string.chain_rejected, R.string.chain_not_submitted,
@@ -123,8 +123,7 @@ internal class OnlineFeatureContent private constructor(
             }
             status.visibility = if (message == null) View.GONE else View.VISIBLE
             message?.let(status::setText)
-            checkElderSubmission?.visibility = if (state.message == R.string.chain_pending ||
-                state.message == R.string.chain_confirmed_refresh_required) View.VISIBLE else View.GONE
+            checkElderSubmission?.visibility = if (state.hasPendingPairing) View.VISIBLE else View.GONE
         }
         pairing.visibility = if (settings) View.VISIBLE else View.GONE
         requests.visibility = if (settings) View.VISIBLE else View.GONE

@@ -121,18 +121,68 @@ class ChainOnlineFlowTest {
                 assertTrue(entry is SharedLoginActivity)
                 click(entry, R.string.chain_login_elder)
                 val session = ready()
-                val activity = foreground(ElderHomeActivity::class.java)
-                waitUntil { s.pairing.observeRelationships().first().access == AccessState.AUTHORIZED }
-                click(activity, R.string.chain_issue)
-                var code: String? = null
-                waitUntil {
-                    instrumentation.runOnMainSync {
-                        code = descendants(activity.window.decorView).filterIsInstance<TextView>()
-                            .mapNotNull { Regex("[0-9]{8}").find(it.text)?.value }.firstOrNull()
+                var original: PairingCodeView? = null
+                val transport = object : ChainHttp(BuildConfig.DEBUG_SERVER_URL) {
+                    override suspend fun call(method: String, path: String, token: String?, operationId: String?,
+                        json: String?, photo: File?, photoType: String?): Reply {
+                        val actual = super.call(method, path, token, operationId, json, photo, photoType)
+                        if (path == "/api/v1/pairing-codes" && actual.status == 201) {
+                            original = ContractProtocol.json.decodeFromString(PairingCodeView.serializer(), actual.text())
+                            throw IOException("Test pairing response delivery failure")
+                        }
+                        return actual
                     }
-                    code != null
                 }
-                write(JSONObject().put("code", code).put("elderId", session.user!!.id).put("elderName", session.user.displayName))
+                val fault = DebugChainRepository(app, BuildConfig.DEBUG_SERVER_URL, http = transport)
+                try {
+                    withTimeout(10_000) { fault.observeSession().first { it.readiness == AuthReadiness.READY } }
+                    val command = success(fault.begin(OnlineCommandKind.ISSUE_PAIRING_CODE, null))
+                    val result = fault.issueCode(command)
+                    assertTrue(result is OnlineCommandResult.AwaitingConfirmation)
+                    assertEquals(command.operationId, result.operationId)
+                    val code = checkNotNull(original)
+                    write(JSONObject().put("code", code.code).put("codeId", code.id)
+                        .put("codeExpiry", code.expiresAtEpochMillis).put("codeOperation", command.operationId)
+                        .put("codePid", android.os.Process.myPid()).put("elderId", session.user!!.id)
+                        .put("elderName", session.user.displayName))
+                } finally { fault.close() }
+            }
+            "elder-recover-code" -> {
+                val b = read()
+                val operationId = b.getString("codeOperation")
+                assertNotEquals(b.getInt("codePid"), android.os.Process.myPid())
+                assertEquals(b.getString("elderId"), ready().user!!.id)
+                val activity = launch() as ElderHomeActivity
+                val model = checkNotNull(featureModel(activity))
+                val before = s.commands.observeCommands().first().single { it.operationId == operationId }
+                assertEquals(OnlineCommandState.AWAITING_CONFIRMATION, before.state)
+
+                // Repeating Issue must not allocate a new ID or remove the durable recovery entry.
+                click(activity, R.string.chain_issue)
+                waitUntil { model.state.value.message == R.string.chain_not_submitted }
+                assertTrue(model.state.value.hasPendingPairing)
+                click(activity, R.string.chain_recover)
+                val state = withTimeout(20_000) { model.state.first { it.code != null && !it.busy } }
+                val code = checkNotNull(state.code)
+                assertTrue("Recovered code must match the original", b.getString("code") == code.code)
+                assertEquals(b.getString("codeId"), code.id)
+                assertEquals(b.getLong("codeExpiry"), code.expiresAtEpochMillis)
+                val journal = s.commands.observeCommands().first().filter {
+                    it.commandKind == OnlineCommandKind.ISSUE_PAIRING_CODE
+                }.single()
+                assertEquals(operationId, journal.operationId)
+                assertEquals(OnlineCommandState.CONFIRMED, journal.state)
+                assertEquals(CacheState.APPLIED, journal.cacheState)
+                waitUntil {
+                    var visible = false
+                    instrumentation.runOnMainSync {
+                        visible = descendants(activity.window.decorView).filterIsInstance<TextView>()
+                            .any { it.isShown && it.text == activity.getString(R.string.chain_code, code.code) }
+                    }
+                    visible
+                }
+                listOf("codeId", "codeExpiry", "codeOperation", "codePid").forEach { b.remove(it) }
+                write(b)
             }
             "caregiver-request" -> {
                 val b = read(); val entry = launch()
