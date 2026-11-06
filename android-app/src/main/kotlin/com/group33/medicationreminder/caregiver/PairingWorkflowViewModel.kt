@@ -27,7 +27,9 @@ class PairingWorkflowViewModel(
     init {
         viewModelScope.launch {
             repository.observeRequests().collect { cached ->
-                mutableState.value = mutableState.value.copy(requests = cached.value)
+                mutableState.value = mutableState.value.copy(
+                    requests = if (cached.access == AccessState.AUTHORIZED) cached.value else emptyList(),
+                )
             }
         }
     }
@@ -41,7 +43,8 @@ class PairingWorkflowViewModel(
 
     fun submitCode() {
         val code = state.value.code
-        if (code.length != PAIRING_CODE_LENGTH || state.value.busy) {
+        if (state.value.busy) return
+        if (code.length != PAIRING_CODE_LENGTH) {
             mutableState.value = state.value.copy(notice = PairingNotice.InvalidCode)
             return
         }
@@ -80,7 +83,11 @@ class PairingWorkflowViewModel(
             val outcome = try { repository.refresh() } catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { Outcome.Failure(RepositoryError.Local(LocalFailureCode.SOURCE_UNAVAILABLE)) }
             if (generation != refreshGeneration) return@launch
-            publish(if (outcome is Outcome.Success) PairingNotice.Refreshed else PairingNotice.RefreshFailed)
+            publish(when {
+                outcome is Outcome.Failure -> PairingNotice.RefreshFailed
+                state.value.notice == PairingNotice.ResultUnknown -> PairingNotice.ResultUnknown
+                else -> PairingNotice.Refreshed
+            })
         }
     }
 
@@ -93,7 +100,10 @@ class PairingWorkflowViewModel(
 
     private fun runCommand(context: CommandContext, action: suspend (CommandContext) -> OnlineCommandResult<*>) {
         val generation = ++requestGeneration
-        mutableState.value = state.value.copy(busy = true, notice = null, lastOperationId = context.operationId)
+        mutableState.value = state.value.copy(
+            busy = true, notice = null, lastOperationId = context.operationId,
+            lastCommandKind = context.commandKind,
+        )
         viewModelScope.launch {
             val result = try { action(context) }
             catch (cancelled: CancellationException) { throw cancelled }
@@ -148,6 +158,7 @@ data class PairingWorkflowState(
     val busy: Boolean = false,
     val notice: PairingNotice? = null,
     val lastOperationId: String? = null,
+    val lastCommandKind: OnlineCommandKind? = null,
 )
 
 sealed interface PairingNotice {

@@ -75,6 +75,7 @@ class CaregiverHomeActivity : AppCompatActivity(), CaregiverNavigationHost {
             true
         }
         binding.languageButton.setOnClickListener { switchLanguage() }
+        binding.pairingPreviewButton.setOnClickListener { PairingPreviewEntry.open(this) }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (viewModel.state.value.destination == CaregiverDestination.PLANS) finish()
@@ -140,6 +141,8 @@ class CaregiverHomeActivity : AppCompatActivity(), CaregiverNavigationHost {
             binding.destinationContent.addView(destinationView)
         }
         binding.languageButton.visibility = if (state.destination == CaregiverDestination.SETTINGS) View.VISIBLE else View.GONE
+        binding.pairingPreviewButton.visibility =
+            if (localDemo && state.destination == CaregiverDestination.PLANS) View.VISIBLE else View.GONE
         val language = ConfigurationCompat.getLocales(resources.configuration)[0]?.language.orEmpty()
         binding.languageButton.setText(if (language == "zh") R.string.language_english else R.string.language_chinese)
         binding.languageButton.contentDescription = getString(R.string.language_switch_action)

@@ -50,6 +50,7 @@ class PairingWorkflowViewModelTest {
         runCurrent()
         assertEquals(1, repository.requestCount)
         assertEquals("00123456", model.state.value.code)
+        assertEquals(PairingNotice.ResultUnknown, model.state.value.notice)
     }
 
     @Test fun `server confirmed pending request stays pending and is never treated as an active relationship`() = runTest(dispatcher) {
@@ -65,6 +66,21 @@ class PairingWorkflowViewModelTest {
         assertEquals(PairingNotice.CommandConfirmed, model.state.value.notice)
         assertEquals(listOf(pending), model.state.value.requests)
         assertEquals(PairingRequestStatus.PENDING, model.state.value.requests.single().status)
+    }
+
+    @Test fun `closed request survives refresh and revoked cache clears the visible list`() = runTest(dispatcher) {
+        val closed = PairingRequestView(
+            "request-closed", "elder-1", User("caregiver", "Caregiver", UserRole.CAREGIVER),
+            PairingRequestStatus.REJECTED, 10_000L, PairingClosedReason.ELDER_REJECTED,
+        )
+        val model = model(); runCurrent()
+        repository.requests.value = repository.requests.value.copy(value = listOf(closed))
+        runCurrent()
+        model.refresh(); runCurrent()
+        assertEquals(listOf(closed), model.state.value.requests)
+        repository.requests.value = repository.requests.value.copy(access = AccessState.REVOKED)
+        runCurrent()
+        assertTrue(model.state.value.requests.isEmpty())
     }
 
     private fun model() = PairingWorkflowViewModel(repository, provider).also { store.put("pairing", it) }
