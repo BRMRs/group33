@@ -264,7 +264,7 @@ internal class OccurrenceRegistrationTest : OccurrenceRegistrationContract() {
         val second = evidence(secondPlan)
         accepted(register(first, second))
         clock.now.set(first.plannedAtEpochMillis + 1_000)
-        val service = DebugDoseGroups(store as InMemoryPairingCodeStore, clock)
+        val service = DebugDoseGroups(store, clock)
         val input = DebugDoseGroupRequest(key().toString(), listOf(first.occurrence, second.occurrence),
             DoseActionKind.TAKEN, clock.millis())
         val original = service.submit(elder, elder.id, input)

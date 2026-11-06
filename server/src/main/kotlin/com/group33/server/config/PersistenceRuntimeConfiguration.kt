@@ -35,8 +35,8 @@ internal class PersistenceRuntimeConfiguration {
         val requireVersioned = env.getProperty("app.persistence.require-versioned-schema", Boolean::class.java, false)
         require(!requireVersioned || mode == "postgres-local") { "Versioned schema startup validation requires postgres-local persistence" }
         val doseGroupsEnabled = env.getProperty("app.dose-group.enabled", Boolean::class.java, false)
-        require(!doseGroupsEnabled || mode == "memory" && occurrencesEnabled) {
-            "Debug dose groups require the memory and occurrence registration runtime"
+        require(!doseGroupsEnabled || occurrencesEnabled) {
+            "Dose groups require the occurrence registration runtime"
         }
         if (mode == "memory") return PersistenceRuntime(InMemoryAnonymousIdentityStore(), InMemoryPairingCodeStore())
         require(mode == "postgres-local") { "app.persistence.mode must be memory or postgres-local" }
@@ -91,6 +91,10 @@ internal class PersistenceRuntimeConfiguration {
                         listOf("SELECT actor_id, operation_id, installation_id, elder_id, canonicalization_version, request_payload, response_payload, rejection_payload FROM occurrence_registration_operation LIMIT 0",
                             "SELECT id, plan_id, local_date, local_time, plan_revision, elder_id, medication_id, installation_id, generation_id, origin_operation_id, receipt_payload FROM registered_occurrence LIMIT 0")
                             .forEach { sql -> s.executeQuery(sql).close() }
+                    }
+                    if (doseGroupsEnabled) {
+                        s.executeQuery("SELECT elder_id, operation_id, installation_id, request_payload, response_payload FROM dose_group_operation LIMIT 0").close()
+                        s.executeQuery("SELECT occurrence_id, last_recorded_at, status, taken_recorded_at, snoozed_until, server_updated_at FROM recorded_dose_event LIMIT 0").close()
                     }
                 }
             }

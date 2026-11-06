@@ -100,6 +100,33 @@ internal class PostgresOccurrenceRegistrationTest : OccurrenceRegistrationContra
         process(evidence(time="20:00"),key(),clock.millis()+1234)
         assertEquals(first,process(e,op,clock.millis()+86_400_000));assertEquals(listOf(2,2),counts())
     }
+    @Test fun `dose projection rolls back with its receipt and a fresh adapter replays one row`() {
+        val event = evidence()
+        val registered = accepted(register(event)).items.single().event
+        sql("INSERT INTO anonymous_identity VALUES ('${elder.id}', '${elder.installationId}', 'Fixture', 'ELDER')")
+        sql(checkNotNull(javaClass.getResource("/db/migration/V10__dose_action_groups.sql")).readText())
+        clock.now.set(event.plannedAtEpochMillis + 1_000)
+        val action = DebugDoseGroupRequest(key().toString(), listOf(event.occurrence), DoseActionKind.TAKEN, clock.millis())
+        val date = java.time.LocalDate.parse(event.occurrence.localDate)
+        sql("ALTER TABLE dose_group_operation ADD CONSTRAINT reject_fixture CHECK (false)")
+        assertThrows(SQLException::class.java) { DebugDoseGroups(adapter(), clock).submit(elder, elder.id, action) }
+        assertTrue(DebugDoseGroups(adapter(), clock).read(caregiver, elder.id, date, date).isEmpty())
+        sql("ALTER TABLE dose_group_operation DROP CONSTRAINT reject_fixture")
+        val original = DebugDoseGroups(adapter(), clock).submit(elder, elder.id, action)
+        clock.now.addAndGet(7_200_000)
+        val restarted = DebugDoseGroups(adapter(), clock)
+        assertEquals(original, restarted.submit(elder, elder.id, action))
+        assertEquals(registered.id, original.events.single().id)
+        assertEquals(original.events, restarted.read(caregiver, elder.id, date, date))
+        dataSource(schema).connection.use { connection -> connection.createStatement().use { statement ->
+            for (table in listOf("recorded_dose_event", "dose_group_operation")) {
+                statement.executeQuery("SELECT count(*) FROM $table").use { rows ->
+                    assertTrue(rows.next())
+                    assertEquals(1, rows.getInt(1))
+                }
+            }
+        } }
+    }
     @Test fun `schema reapplication retains evidence and accepted operation`() {
         val e=evidence();val op=key();val first=accepted(register(e,operation=op))
         sql(checkNotNull(javaClass.getResource("/db/prototypes/occurrence-registration-store-v9.sql")).readText())

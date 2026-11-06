@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.group33.server.auth.AnonymousUser
 import com.group33.server.config.PersistenceRuntime
 import com.group33.server.pairing.CodeStoreBusy
-import com.group33.server.pairing.InMemoryPairingCodeStore
 import com.group33.server.pairing.VerifiedPairingActorResolver
 import com.group33.server.web.ApiErrors
 import com.group33.server.web.ApiException
@@ -28,23 +27,20 @@ import java.time.temporal.ChronoUnit
 import java.util.Collections
 import java.util.UUID
 
-/** Explicit local-runtime preview. The receipt and projections commit under the existing scope guard. */
-internal class DebugDoseGroups(private val store: InMemoryPairingCodeStore, private val clock: Clock) {
-    private data class Operation(val installation: String, val request: DebugDoseGroupRequest, val receipt: DebugDoseGroupReceipt)
-    private data class StoredEvent(val event: DoseEventView, val lastRecordedAt: Long)
-    private val operations = mutableMapOf<Pair<String, String>, Operation>()
-    private val events = mutableMapOf<OccurrenceKey, StoredEvent>()
-
+/** Occurrence projections and the original operation receipt share the registration transaction. */
+internal class DebugDoseGroups(private val store: OccurrenceRegistrationStore, private val clock: Clock) {
     fun submit(actor: AnonymousUser, elderId: String, input: DebugDoseGroupRequest): DebugDoseGroupReceipt {
         if (actor.id != elderId) inaccessible()
         if (actor.role != UserRole.ELDER) fail(HttpStatus.FORBIDDEN, "ROLE_NOT_ALLOWED")
-        if (input.occurrences.size !in 1..100 || input.occurrences.distinct().size != input.occurrences.size)
+        if (input.occurrences.size !in 1..100 || input.occurrences.distinct().size != input.occurrences.size ||
+            input.occurrences.any { canonicalUuid(it.planId) == null })
             fail(HttpStatus.UNPROCESSABLE_ENTITY, "VALIDATION_FAILED")
-        val request = input.copy(occurrences = input.occurrences.toList())
+        val operationId = canonicalUuid(input.actionId) ?: fail(HttpStatus.BAD_REQUEST, "MALFORMED_REQUEST")
+        val request = input.copy(occurrences = Collections.unmodifiableList(input.occurrences.toList()))
         return store.registrationTransaction { tx ->
-            val key = actor.id to request.actionId
-            operations[key]?.let {
-                if (it.installation != actor.installationId || it.request != request)
+            val key = RegistrationKey(actor.id, operationId)
+            tx.doseGroupOperation(key)?.let {
+                if (it.installationId != actor.installationId || it.request != request)
                     fail(HttpStatus.CONFLICT, "IDEMPOTENCY_KEY_REUSED")
                 return@registrationTransaction it.receipt
             }
@@ -53,7 +49,7 @@ internal class DebugDoseGroups(private val store: InMemoryPairingCodeStore, priv
                 val registered = tx.occurrence(occurrence) ?: inaccessible()
                 val event = registered.receipt.event
                 if (event.elderId != actor.id || registered.installationId != actor.installationId) inaccessible()
-                events[occurrence] ?: StoredEvent(event, Long.MIN_VALUE)
+                tx.recordedDoseEvent(event.id) ?: RecordedDoseEvent(event, Long.MIN_VALUE)
             }
             val planned = group.first().event.plannedAtEpochMillis
             val deadline = group.first().event.responseDeadlineEpochMillis
@@ -77,12 +73,14 @@ internal class DebugDoseGroups(private val store: InMemoryPairingCodeStore, priv
                                 snoozedUntilEpochMillis = until, serverUpdatedAtEpochMillis = now)
                         }
                     }
-                    StoredEvent(updated, maxOf(old.lastRecordedAt, request.recordedAtEpochMillis))
+                    RecordedDoseEvent(updated, maxOf(old.lastRecordedAt, request.recordedAtEpochMillis))
                 }
             }
             val receipt = DebugDoseGroupReceipt(request.actionId, now, Collections.unmodifiableList(applied.map { it.event }))
-            applied.forEach { events[it.event.occurrence] = it }
-            operations[key] = Operation(actor.installationId, request, receipt)
+            applied.zip(group).forEach { (updated, previous) ->
+                if (updated !== previous) tx.putRecordedDoseEvent(updated)
+            }
+            tx.insertDoseGroupOperation(key, DoseGroupOperation(actor.installationId, request, receipt))
             receipt
         }
     }
@@ -95,9 +93,7 @@ internal class DebugDoseGroups(private val store: InMemoryPairingCodeStore, priv
             }
             if (!authorized) inaccessible()
             val now = clock.millis()
-            events.values.asSequence().map { it.event }.filter {
-                it.elderId == elderId && it.occurrence.localDate >= from.toString() && it.occurrence.localDate <= through.toString()
-            }.map { event ->
+            tx.recordedDoseEvents(elderId, from.toString(), through.toString()).map { event ->
                 if (event.status == DoseStatus.TAKEN) event
                 else if (now >= event.responseDeadlineEpochMillis) event.copy(status = DoseStatus.MISSED)
                 else if ((event.snoozedUntilEpochMillis ?: Long.MIN_VALUE) <= now) event.copy(status = DoseStatus.DUE)
@@ -117,9 +113,7 @@ internal class DebugDoseGroupController(
     clock: Clock,
     mapper: ObjectMapper,
 ) {
-    private val groups = DebugDoseGroups(checkNotNull(runtime.pairing as? InMemoryPairingCodeStore) {
-        "The Debug dose group integration requires explicit memory persistence"
-    }, clock)
+    private val groups = DebugDoseGroups(checkNotNull(runtime.pairing as? OccurrenceRegistrationStore), clock)
 
     private val reader = mapper.readerFor(JsonNode::class.java).with(
         DeserializationFeature.FAIL_ON_TRAILING_TOKENS, DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY)
@@ -130,7 +124,7 @@ internal class DebugDoseGroupController(
         val actor = actors.resolve(jwt)
         val key = Collections.list(request.getHeaders(ContractProtocol.IDEMPOTENCY_HEADER)).singleOrNull()
         if (request.parameterMap.isNotEmpty() || body.length > 32_768 ||
-            key == null || runCatching { UUID.fromString(key).toString() }.getOrNull() != key) malformed()
+            key == null || canonicalUuid(key) == null) malformed()
         val input = decode(body)
         if (input.actionId != key) malformed()
         groups.submit(actor, elderId, input)
@@ -182,3 +176,6 @@ internal class DebugDoseGroupController(
 
     private fun malformed(): Nothing = throw ApiException(HttpStatus.BAD_REQUEST, "MALFORMED_REQUEST", "Malformed dose group request")
 }
+
+private fun canonicalUuid(value: String): UUID? =
+    runCatching { UUID.fromString(value).takeIf { it.toString() == value } }.getOrNull()
