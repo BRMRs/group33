@@ -5,8 +5,11 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import com.google.android.material.button.MaterialButton
 import com.group33.medicationreminder.R
 import com.group33.medicationreminder.core.data.contract.*
@@ -50,12 +53,14 @@ internal class CaregiverDosePanel(
             // Cover the current day in any plan zone without inferring one from the caregiver device.
             val today = LocalDate.now(ZoneOffset.UTC)
             val range = LocalDateRange(today.minusDays(29).toString(), today.plusDays(1).toString())
-            val overviewModel = CaregiverFeedbackViewModel(dashboard, elder.id, range, context.scope)
-            val historyModel = CaregiverHistoryViewModel(events, context.scope, elder, range)
+            val models = ViewModelProvider.create(store, viewModelFactory {
+                initializer { CaregiverFeedbackViewModel(dashboard, elder.id, range, context.scope) }
+                initializer { CaregiverHistoryViewModel(events, context.scope, elder, range) }
+            })
+            val overviewModel = models[CaregiverFeedbackViewModel::class]
+            val historyModel = models[CaregiverHistoryViewModel::class]
             overview = overviewModel
             history = historyModel
-            store.put("overview", overviewModel)
-            store.put("history", historyModel)
             overviewJob = activity.lifecycleScope.launch { overviewModel.state.collect { render() } }
             historyJob = activity.lifecycleScope.launch { historyModel.state.collect { render() } }
             overviewModel.refresh()
