@@ -101,6 +101,8 @@ internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000
 
     private var registrations = mutableMapOf<RegistrationKey, RegistrationOperation>()
     private var occurrences = mutableMapOf<com.group33.shared.contract.OccurrenceKey, RegisteredOccurrence>()
+    private var doseGroupOperations = mutableMapOf<RegistrationKey, DoseGroupOperation>()
+    private var recordedDoseEvents = mutableMapOf<String, RecordedDoseEvent>()
     override fun <T> registrationTransaction(work: (OccurrenceRegistrationTransaction) -> T): T {
         if (!lock.tryLock(lockWaitMillis, TimeUnit.MILLISECONDS)) throw CodeStoreBusy()
         try {
@@ -119,12 +121,26 @@ internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000
             val stagedPhotos = photos.toMutableMap()
             val stagedRegistrations = registrations.toMutableMap()
             val stagedOccurrences = occurrences.toMutableMap()
+            val stagedDoseGroups = doseGroupOperations.toMutableMap()
+            val stagedDoseEvents = recordedDoseEvents.toMutableMap()
             val stagedMutations = mutations.toMutableMap()
             val stagedConfirmations = confirmations.toMutableMap()
             val stagedMedications = medications.toMutableMap()
             val stagedPlans = plans.toMutableMap()
             val stagedRevisions = revisions.toMutableMap()
             val result = work(object : OccurrenceRegistrationTransaction {
+                override fun doseGroupOperation(key: RegistrationKey) = stagedDoseGroups[key]
+                override fun insertDoseGroupOperation(key: RegistrationKey, operation: DoseGroupOperation) {
+                    check(stagedDoseGroups.putIfAbsent(key, operation) == null)
+                }
+                override fun recordedDoseEvent(id: String) = stagedDoseEvents[id]
+                override fun putRecordedDoseEvent(value: RecordedDoseEvent) {
+                    stagedDoseEvents[value.event.id] = value
+                }
+                override fun recordedDoseEvents(elderId: String, from: String, through: String) =
+                    stagedDoseEvents.values.map { it.event }.filter {
+                        it.elderId == elderId && it.occurrence.localDate in from..through
+                    }
                 override fun registrationOperation(key: RegistrationKey) = stagedRegistrations[key]?.let(RegistrationCopies::operation)
                 override fun putRegistrationOperation(key: RegistrationKey, value: RegistrationOperation) {
                     check(key.actorId == value.binding.elderId)
@@ -367,6 +383,8 @@ internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000
             }
             registrations = stagedRegistrations
             occurrences = stagedOccurrences
+            doseGroupOperations = stagedDoseGroups
+            recordedDoseEvents = stagedDoseEvents
             mutations = stagedMutations
             confirmations = stagedConfirmations
             medications = stagedMedications

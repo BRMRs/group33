@@ -104,6 +104,16 @@ Additional phases verify:
 
 Fault responses exist only in instrumentation transport subclasses around real HTTP calls. The normal Debug launcher registers the actual transport without faults or fake feature repositories.
 
+## Debug Elder local reminder and dose actions
+
+The live-dose integration reuses the due-card controls and bilingual labels from #35 and the timing policy from #37. After a confirmed Elder plan is read through the existing authenticated HTTP and Room path, the Elder installation freezes occurrences for the next 24 hours, using the plan execution time zone and the nominal occurrence key. Android schedules a local alarm and posts a generic notification when the corresponding group is due. Delivery is inexact and depends on Android background policy and notification permission. A normal process restart can reload persisted rows for the same authenticated Elder.
+
+The due page applies Taken or Remind later to the whole displayed group. An atomic Room transaction rechecks the active account, membership and exclusive response deadline, updates the occurrences, and persists one local action ID. Snooze schedules the next prompt ten minutes later within the original response window. The UI acknowledges local recording. Unseen remote plan changes arrive through the existing refresh path.
+
+The dose-action slice is opt-in with `OCCURRENCE_ENABLED=true DOSE_GROUP_ENABLED=true`. Android registers the group's frozen occurrences and submits with the original action ID. A transport failure retains the Android queue and a retry sends the same action. The paired Caregiver overview and history consume the same cache and display the accepted Taken time. In `postgres-local` mode, apply and validate the matching Flyway release before starting the service. The event projection and original receipt commit in one transaction, and a restarted Server can replay the receipt. The memory runtime remains available for development fixtures and loses its records on restart. The full V2 protocol, Help, and Caregiver follow-up remain separate.
+
+Run the two-emulator harness with `--dose-upload` to create a timed plan through real HTTP, verify the OS notification, record Taken from the Elder screen, and check that the Caregiver sees the accepted event in both overview and history. The `--live-dose` variant additionally exercises a time-controlled local snooze without uploading the artificial clock fixture. Both variants use fictional data.
+
 ## Persistence and concurrency boundaries
 
 Credentials remain in #84's encrypted private store. Business snapshots and operation payloads live in private `noBackupFilesDir` Room databases; photo draft and replay files stay private and are retained for unresolved operations. No destructive migration, automatic age deletion, or upload cleanup is added.

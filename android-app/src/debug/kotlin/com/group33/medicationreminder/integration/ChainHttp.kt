@@ -24,7 +24,8 @@ internal open class ChainHttp(base: String) {
 
     open suspend fun call(method: String, path: String, token: String? = null, operationId: String? = null,
                      json: String? = null, photo: File? = null, photoType: String? = null): Reply = withContext(Dispatchers.IO) {
-        require(path.startsWith("/api/v1/") && !path.contains('?') && !path.contains('#'))
+        require(path.startsWith("/api/v1/") && !path.contains('#') &&
+            (!path.contains('?') || DOSE_EVENTS_PATH.matches(path)))
         val connection = URL(baseUrl + path).openConnection() as HttpURLConnection
         try {
             connection.instanceFollowRedirects = false
@@ -60,6 +61,10 @@ internal open class ChainHttp(base: String) {
             Reply(status, bytes, connection.contentType?.substringBefore(';'),
                 connection.getHeaderField("Retry-After"), connection.getHeaderField("X-Request-ID"))
         } finally { connection.disconnect() }
+    }
+
+    private companion object {
+        val DOSE_EVENTS_PATH = Regex("/api/v1/elders/[A-Za-z0-9_-]+/dose-events[?]fromDate=[0-9-]{10}&throughDate=[0-9-]{10}")
     }
 
     private fun bounded(input: InputStream, limit: Int): ByteArray {

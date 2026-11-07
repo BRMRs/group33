@@ -127,7 +127,7 @@ class CaregiverHomeActivity : AppCompatActivity() {
         )
         binding.pageMessage.visibility = if (content != null &&
             (state.destination == CaregiverDestination.SETTINGS ||
-                state.destination == CaregiverDestination.PLANS && elder != null)) View.GONE else View.VISIBLE
+                (state.destination == CaregiverDestination.PLANS || state.destination == CaregiverDestination.RECORDS) && elder != null)) View.GONE else View.VISIBLE
         content?.show(state.destination)
         binding.languageButton.visibility = if (state.destination == CaregiverDestination.SETTINGS) View.VISIBLE else View.GONE
         val language = ConfigurationCompat.getLocales(resources.configuration)[0]?.language.orEmpty()
