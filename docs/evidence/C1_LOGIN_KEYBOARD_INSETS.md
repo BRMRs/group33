@@ -36,6 +36,9 @@ reports its existing preview-only boundary; this is not real sign-in acceptance.
 - Physical Mi Pad 4 Plus, Android8.1/API27, original size/density/font settings:
   six English/Chinese keyboard cases passed (21.529s). Screenshots were inspected
   for full submit visibility above the keyboard. Total device cases: 24 passing.
+- Member manually inspected the repair on the physical tablet and reported no
+  remaining issue on 2026-11-07, then authorized publication. The language toggle
+  continues to display the current language, following the existing #19 rule.
 - Each case opens the final field and a real keyboard, scrolls to submit, waits
   for keyboard/scroll frames, checks the complete button is above the IME, taps
   it to reveal inline status, dismisses the keyboard and returns to login choices.
