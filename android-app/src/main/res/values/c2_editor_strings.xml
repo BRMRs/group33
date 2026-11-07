@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="c2_editor_confirm_date">Confirm</string>
+    <string name="c2_editor_date_placeholder">Select a date</string>
+    <string name="c2_editor_calendar_help">Choose dates from the calendar. Both dates are included. Leave the end date empty for no end date.</string>
+    <string name="c2_editor_no_end">No end date</string>
+    <string name="c2_editor_heading">Create a reminder plan</string>
+    <string name="c2_editor_for_elder">For %1$s</string>
+    <string name="c2_editor_section_photo">01  Check the medication photo</string>
+    <string name="c2_editor_section_medication">02  Medication details</string>
+    <string name="c2_editor_section_schedule">03  Reminder schedule</string>
+    <string name="c2_editor_section_zone">04  Confirm the time zone</string>
     <string name="c2_editor_photo_viewed">I have inspected the displayed medication photo</string>
     <string name="c2_editor_photo_description">Medication photo for %1$s</string>
     <string name="c2_editor_times_hint">One HH:mm time per line, for example 08:00</string>

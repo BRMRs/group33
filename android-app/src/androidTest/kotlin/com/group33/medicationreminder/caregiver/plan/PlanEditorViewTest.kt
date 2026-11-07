@@ -13,6 +13,36 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PlanEditorViewTest {
+    @androidx.test.filters.SdkSuppress(minSdkVersion = 29)
+    @Test fun calendarSelectionUsesIsoFormatAndOptionalEndCanBeCleared() = withBoundEditor { _, editor, _ ->
+        fun dialogControls() = android.view.inspector.WindowInspector.getGlobalWindowViews().flatMap { descendants(it) }
+        onUi {
+            assertNull(edits(editor)[4].keyListener)
+            assertFalse(edits(editor)[4].showSoftInputOnFocus)
+            edits(editor)[4].performClick()
+        }
+        onUi {
+            dialogControls().filterIsInstance<android.widget.DatePicker>().single().apply {
+                clearFocus()
+                updateDate(2028, 1, 29)
+            }
+        }
+        onUi {
+            dialogControls().single { it.id == android.R.id.button1 }.performClick()
+        }
+        onUi {
+            assertEquals("2028-02-29", edits(editor)[4].text.toString())
+            edits(editor)[5].setText("2028-03-01")
+            edits(editor)[5].performClick()
+        }
+        onUi { dialogControls().single { it.id == android.R.id.button2 }.performClick() }
+        onUi {
+            assertEquals("2028-03-01", edits(editor)[5].text.toString())
+            edits(editor)[5].performClick()
+        }
+        onUi { dialogControls().single { it.id == android.R.id.button3 }.performClick() }
+        onUi { assertEquals("", edits(editor)[5].text.toString()) }
+    }
     @Test fun explicitDebugFixtureCanBindAndSave() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val host = instrumentation.startActivitySync(android.content.Intent(instrumentation.targetContext,
