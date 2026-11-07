@@ -98,8 +98,12 @@ source. Device accounts are fictional local-service accounts.
 ![English form after the real flow](c1-pairing-main/en-confirmed-api27.png)
 ![Chinese request history after the real flow](c1-pairing-main/zh-confirmed-api27.png)
 
-Automated device checks and screenshot inspection do not complete member usability
-acceptance. Manual input/keyboard/scrolling/Back, 200% fonts and TalkBack remain
+On 2026-11-07, the member manually entered and submitted a fresh fictional Elder
+code on the Chinese form. A device screenshot confirmed the pending state. The
+test Elder then accepted via HTTP; refreshing showed acceptance, and selecting
+C1 manual review Elder showed an active relationship in the host header.
+This confirms manual input/submission and the observed pending-to-active result.
+Dedicated keyboard, scrolling/Back usability, 200% fonts and TalkBack checks remain
 pending. Device offline/unknown-result and account-switch fault injection were not
 run; the ViewModel regression suite covers those caller-state protections.
 
@@ -111,8 +115,9 @@ scrolling and Back. Record actual outcomes before marking device acceptance.
 
 ## Publication and review
 
-This is an unpublished local candidate. Obtain the member's confirmation before
-push/PR changes, then update the PR base/dependency description and run CI on the
-uploaded head. Keep PR #112 Draft until the recorded Ready criteria are met.
+The member authorized publication after the local checks and manual submission.
+PR #112 is updated against main with the integrated form, preserving the original
+draft history without a force-push. CI must run on the uploaded head. Keep PR #112
+Draft until the recorded Ready criteria are met.
 Required non-author Android review and applicable C1/S2 authorization and E
 accessibility perspectives follow the team roster.
