@@ -1,5 +1,6 @@
 package com.group33.medicationreminder.caregiver
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.ViewGroup
 import android.widget.LinearLayout
@@ -69,6 +70,14 @@ class CaregiverOverviewTestActivity : AppCompatActivity() {
             .get(CaregiverFeedbackViewModel::class.java)
         overview.bind(this, model) { _, _ ->
             Toast.makeText(this, "History navigation is not connected in this debug preview.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /** Shell-only preview command: refresh without touching the currently focused record. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.getBooleanExtra("c3PreviewRefresh", false)) {
+            ViewModelProvider(this)[CaregiverFeedbackViewModel::class.java].refresh()
         }
     }
 

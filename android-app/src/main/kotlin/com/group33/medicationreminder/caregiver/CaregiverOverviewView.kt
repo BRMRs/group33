@@ -15,6 +15,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.group33.medicationreminder.R
 import com.group33.medicationreminder.core.data.contract.LocalDateRange
+import com.group33.medicationreminder.core.data.contract.RepositoryScope
 import com.group33.medicationreminder.databinding.ItemCaregiverOverviewEventBinding
 import com.group33.medicationreminder.databinding.ViewCaregiverOverviewBinding
 import com.group33.shared.contract.DeliveryCondition
@@ -37,6 +38,13 @@ class CaregiverOverviewView @JvmOverloads constructor(
 ) : FrameLayout(context, attrs) {
     private val binding = ViewCaregiverOverviewBinding.inflate(LayoutInflater.from(context), this, true)
     private var collection: Job? = null
+    private data class RenderedEvents(
+        val scope: RepositoryScope?,
+        val elderId: String?,
+        val range: LocalDateRange?,
+        val events: List<OverviewEventRow>,
+    )
+    private var renderedEvents: RenderedEvents? = null
 
     init {
         ViewCompat.setAccessibilityHeading(binding.overviewTitle, true)
@@ -125,11 +133,17 @@ class CaregiverOverviewView @JvmOverloads constructor(
         binding.refreshButton.isEnabled = screen.canRefresh
         binding.refreshButton.setText(if (state.isRefreshing) R.string.c3_refreshing else R.string.c3_refresh)
         binding.historyButton.isEnabled = screen.canOpenHistory
-        binding.eventRows.removeAllViews()
-        content?.events?.forEach { event ->
-            val row = ItemCaregiverOverviewEventBinding.inflate(LayoutInflater.from(context), binding.eventRows, false)
-            row.bindEvent(event)
-            binding.eventRows.addView(row.root)
+        val events = content?.let { RenderedEvents(state.scope, state.elderId, state.range, it.events) }
+        // Keep existing accessibility nodes when only refresh/capability/sync metadata changes.
+        // Scope and selection are part of the key so another context cannot reuse private rows.
+        if (events != renderedEvents) {
+            binding.eventRows.removeAllViews()
+            events?.events?.forEach { event ->
+                val row = ItemCaregiverOverviewEventBinding.inflate(LayoutInflater.from(context), binding.eventRows, false)
+                row.bindEvent(event)
+                binding.eventRows.addView(row.root)
+            }
+            renderedEvents = events
         }
     }
 

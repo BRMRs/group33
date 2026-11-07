@@ -40,12 +40,21 @@ class CaregiverOverviewViewTest {
         ActivityScenario.launch<CaregiverOverviewTestActivity>(
             Intent(instrumentation.targetContext, CaregiverOverviewTestActivity::class.java),
         ).use { scenario ->
+            lateinit var row: View
             scenario.onActivity { activity ->
                 val texts = descendants(activity.window.decorView).filterIsInstance<TextView>().map { it.text.toString() }
                 assertTrue(texts.any { it.startsWith("DEBUG PREVIEW") && it.contains("no account or server connection") })
                 assertTrue(texts.any { it.contains("Demo elder") })
                 assertTrue(texts.contains(activity.getString(R.string.c3_stale)))
                 assertTrue(texts.any { it.contains(activity.getString(R.string.c3_capability_degraded)) })
+                row = activity.findViewById<ViewGroup>(R.id.event_rows).getChildAt(0)
+                instrumentation.callActivityOnNewIntent(activity, Intent().putExtra("c3PreviewRefresh", true))
+            }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                assertSame(row, activity.findViewById<ViewGroup>(R.id.event_rows).getChildAt(0))
+                assertEquals(activity.getString(R.string.c3_refresh_failed),
+                    activity.findViewById<TextView>(R.id.refresh_message).text)
             }
         }
     }
@@ -190,6 +199,61 @@ class CaregiverOverviewViewTest {
             assertEquals(context.getString(R.string.c3_stale), view.findViewById<TextView>(R.id.freshness).text)
             assertTrue(view.findViewById<View>(R.id.refresh_button).isEnabled)
         }
+    }
+
+    @Test fun refreshFailureAndSyncMetadataKeepUnchangedEventNodes() = withScreen {
+        lateinit var row: View
+        lateinit var outcome: TextView
+        onMain {
+            row = view.findViewById<ViewGroup>(R.id.event_rows).getChildAt(0)
+            outcome = row.findViewById(R.id.outcome)
+            view.findViewById<View>(R.id.refresh_button).performClick()
+        }
+        onMain {
+            assertSame(row, view.findViewById<ViewGroup>(R.id.event_rows).getChildAt(0))
+            repository.result.complete(Outcome.Failure(RepositoryError.Local(LocalFailureCode.OFFLINE)))
+        }
+        onMain {
+            assertSame(row, view.findViewById<ViewGroup>(R.id.event_rows).getChildAt(0))
+            assertSame(outcome, view.findViewById<TextView>(R.id.outcome))
+            assertEquals(context.getString(R.string.c3_offline), view.findViewById<TextView>(R.id.refresh_message).text)
+            repository.updates.value = repository.updates.value.copy(lastSuccessfulSyncAtEpochMillis = 86_400_003L)
+        }
+        onMain {
+            assertSame(row, view.findViewById<ViewGroup>(R.id.event_rows).getChildAt(0))
+            assertSame(outcome, view.findViewById<TextView>(R.id.outcome))
+        }
+    }
+
+    @Test fun changedEventEvidenceReplacesOldNodesEvenForTheSameOccurrence() = withScreen {
+        lateinit var oldRow: View
+        onMain {
+            oldRow = view.findViewById<ViewGroup>(R.id.event_rows).getChildAt(0)
+            repository.updates.value = repository.updates.value.let { cached ->
+                cached.copy(value = cached.value.copy(events = cached.value.events.map {
+                    it.copy(effectiveStatus = DoseStatus.MISSED, lastAcceptedStatus = DoseStatus.MISSED)
+                }))
+            }
+        }
+        onMain {
+            assertNotSame(oldRow, view.findViewById<ViewGroup>(R.id.event_rows).getChildAt(0))
+            assertNull(oldRow.parent)
+            assertEquals(context.getString(R.string.c3_outcome_missed), view.findViewById<TextView>(R.id.outcome).text)
+        }
+    }
+
+    @Test fun contextReplacementDoesNotReusePreviousSessionEventNodes() = withScreen {
+        lateinit var oldRow: View
+        onMain {
+            oldRow = view.findViewById<ViewGroup>(R.id.event_rows).getChildAt(0)
+            model.selectContext(repository, scope.copy(userId = "other-test-caregiver"), "test-elder", range)
+        }
+        onMain {
+            assertNotSame(oldRow, view.findViewById<ViewGroup>(R.id.event_rows).getChildAt(0))
+            assertNull(oldRow.parent)
+        }
+        onMain { model.clearContext() }
+        onMain { assertEquals(0, view.findViewById<ViewGroup>(R.id.event_rows).childCount) }
     }
 
     @Test fun lifecycleRestartRendersLatestStateInsteadOfPreviousElder() = withScreen {
