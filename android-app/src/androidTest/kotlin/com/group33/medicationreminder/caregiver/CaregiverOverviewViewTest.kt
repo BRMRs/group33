@@ -225,7 +225,7 @@ class CaregiverOverviewViewTest {
         }
     }
 
-    @Test fun changedEventEvidenceReplacesOldNodesEvenForTheSameOccurrence() = withScreen {
+    @Test fun changedAcceptedOutcomeReplacesOldNodesEvenForTheSameOccurrence() = withScreen {
         lateinit var oldRow: View
         onMain {
             oldRow = view.findViewById<ViewGroup>(R.id.event_rows).getChildAt(0)
@@ -239,6 +239,69 @@ class CaregiverOverviewViewTest {
             assertNotSame(oldRow, view.findViewById<ViewGroup>(R.id.event_rows).getChildAt(0))
             assertNull(oldRow.parent)
             assertEquals(context.getString(R.string.c3_outcome_missed), view.findViewById<TextView>(R.id.outcome).text)
+        }
+    }
+
+    @Test fun localReportEvidenceChangesReplaceNodesWithoutChangingAcceptedOutcome() = withScreen {
+        lateinit var oldRow: View
+        var oldReportText = ""
+        val occurrence = repository.updates.value.value.events.single().occurrence
+        val pending = LocalActionReceipt("test-evidence-change", occurrence, DoseActionKind.TAKEN,
+            LocalActionClassification.TIMELY_TAKEN, 86_400_001L, SyncState.PENDING_SYNC)
+        val reports = listOf(pending, pending.copy(syncState = SyncState.SYNCED),
+            pending.copy(syncState = SyncState.SYNCED, recordedAtEpochMillis = 172_800_001L))
+        for ((index, report) in reports.withIndex()) {
+            onMain {
+                oldRow = view.findViewById<ViewGroup>(R.id.event_rows).getChildAt(0)
+                repository.updates.value = repository.updates.value.let { cached ->
+                    cached.copy(value = cached.value.copy(events = cached.value.events.map {
+                        it.copy(localReports = listOf(report))
+                    }))
+                }
+            }
+            onMain {
+                val row = view.findViewById<ViewGroup>(R.id.event_rows).getChildAt(0)
+                assertNotSame(oldRow, row)
+                assertNull(oldRow.parent)
+                val syncCopy = if (index == 0) R.string.c3_sync_pending else R.string.c3_sync_synced
+                assertEquals(context.getString(R.string.c3_local_sync, context.getString(syncCopy)),
+                    row.findViewById<TextView>(R.id.local_sync).text)
+                val text = row.findViewById<TextView>(R.id.synced_reports)
+                assertEquals(if (index == 0) View.GONE else View.VISIBLE, text.visibility)
+                if (index > 0) assertTrue(text.text.contains(context.getString(R.string.c3_report_timely_taken)))
+                if (index == 2) assertNotEquals(oldReportText, text.text.toString())
+                oldReportText = text.text.toString()
+                assertEquals(context.getString(R.string.c3_outcome_taken), row.findViewById<TextView>(R.id.outcome).text)
+                assertEquals(DoseStatus.TAKEN, repository.updates.value.value.events.single().lastAcceptedStatus)
+            }
+        }
+    }
+
+    @Test fun removingAttachedViewClearsPrivateRowsAndStopsRenderingUpdates() {
+        ActivityScenario.launch<CaregiverOverviewTestActivity>(
+            Intent(instrumentation.targetContext, CaregiverOverviewTestActivity::class.java),
+        ).use { scenario ->
+            lateinit var overview: CaregiverOverviewView
+            scenario.onActivity { activity ->
+                overview = descendants(activity.window.decorView).filterIsInstance<CaregiverOverviewView>().single()
+                assertTrue(overview.isAttachedToWindow)
+                val oldRow = overview.findViewById<ViewGroup>(R.id.event_rows).getChildAt(0)
+                assertNotNull(oldRow)
+                (overview.parent as ViewGroup).removeView(overview)
+                assertFalse(overview.isAttachedToWindow)
+                assertNull(oldRow.parent)
+                assertEquals(0, overview.findViewById<ViewGroup>(R.id.event_rows).childCount)
+                assertEquals("", overview.findViewById<TextView>(R.id.elder_name).text.toString())
+                assertFalse(overview.findViewById<View>(R.id.refresh_button).hasOnClickListeners())
+                assertFalse(overview.findViewById<View>(R.id.history_button).hasOnClickListeners())
+                instrumentation.callActivityOnNewIntent(activity, Intent().putExtra("c3PreviewRefresh", true))
+            }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity {
+                assertEquals(0, overview.findViewById<ViewGroup>(R.id.event_rows).childCount)
+                assertEquals("", overview.findViewById<TextView>(R.id.elder_name).text.toString())
+                assertEquals("", overview.findViewById<TextView>(R.id.refresh_message).text.toString())
+            }
         }
     }
 
