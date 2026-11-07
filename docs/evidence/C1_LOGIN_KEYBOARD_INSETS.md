@@ -33,6 +33,9 @@ reports its existing preview-only boundary; this is not real sign-in acceptance.
   English/Chinese SMS, password and reset (45.208s).
 - API35 real Gboard, 360dp portrait, font scale 2.0: six tests passed (46.762s).
 - API35, 360dp portrait, normal font scale 1.0: six tests passed (45.248s).
+- Physical Mi Pad 4 Plus, Android8.1/API27, original size/density/font settings:
+  six English/Chinese keyboard cases passed (21.529s). Screenshots were inspected
+  for full submit visibility above the keyboard. Total device cases: 24 passing.
 - Each case opens the final field and a real keyboard, scrolls to submit, waits
   for keyboard/scroll frames, checks the complete button is above the IME, taps
   it to reveal inline status, dismisses the keyboard and returns to login choices.
@@ -41,9 +44,10 @@ reports its existing preview-only boundary; this is not real sign-in acceptance.
   is made beyond the tested portrait configurations.
 
 Automated keyboard checks are not a complete TalkBack, contrast, grayscale or
-production-phone-authentication acceptance. Physical API27 compatibility has not run because the tablet is locked; it is not
-marked passed by the emulator results. Current-head
-GitHub CI is pending publication. No Server/Shared source changes; the known
+production-phone-authentication acceptance. The API27 run used a temporary isolated `.keyboard19` package; the existing
+`.review113` pairing application and its data were preserved. The temporary app
+and test package were removed after retrieving screenshots. No tablet display or
+font settings were changed. Current-head GitHub CI is pending publication. No Server/Shared source changes; the known
 Windows POSIX Server-test limitation is not silently reported as a passing full
 local gate.
 
@@ -67,6 +71,9 @@ in source is unchanged. Restore test-device settings after running.
 
 ![English password button above the real keyboard](c1-login-keyboard/en-password-api35-320dp-200pct.png)
 ![Chinese password button above the real keyboard](c1-login-keyboard/zh-password-api35-320dp-200pct.png)
+
+![Physical API27 English password](c1-login-keyboard/en-password-api27-tablet.png)
+![Physical API27 Chinese reset](c1-login-keyboard/zh-reset-api27-tablet.png)
 
 ## Rollback
 
