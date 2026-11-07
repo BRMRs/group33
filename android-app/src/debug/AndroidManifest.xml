@@ -1,9 +1,8 @@
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application android:usesCleartextTraffic="true">
-        <activity
-            android:name=".caregiver.CaregiverEventRowTestActivity"
-            android:exported="false" />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <application android:name=".integration.DebugChainApplication" android:usesCleartextTraffic="true" tools:replace="android:name">
+        <activity android:name=".caregiver.plan.PlanEditorDebugActivity" android:exported="false" />
+        <activity android:name=".caregiver.CaregiverNavigationPreviewActivity" android:exported="true" />
+        <activity android:name=".caregiver.CaregiverEventRowTestActivity" android:exported="false" />
     </application>
 </manifest>
-
