@@ -1,0 +1,41 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="pairing_request_title">Pair with an Elder</string>
+    <string name="pairing_request_intro">Enter the eight-digit code shown on the Elder’s device. Their approval is required before you can view their information.</string>
+    <string name="pairing_code_label">Eight-digit pairing code</string>
+    <string name="pairing_submit">Send pairing request</string>
+    <string name="pairing_requests_title">Your requests</string>
+    <string name="pairing_refresh">Refresh status</string>
+    <string name="pairing_requests_empty">No pairing request yet.</string>
+    <string name="pairing_cancel">Cancel request</string>
+    <string name="pairing_status_pending">Waiting for Elder approval</string>
+    <string name="pairing_status_accepted">Approved by Elder</string>
+    <string name="pairing_status_rejected">Declined by Elder</string>
+    <string name="pairing_status_cancelled">Request cancelled</string>
+    <string name="pairing_status_expired">Code expired</string>
+    <string name="pairing_notice_invalid_title">Check the pairing code</string>
+    <string name="pairing_notice_invalid_body">Enter all eight digits, including any zeros at the beginning.</string>
+    <string name="pairing_notice_session_title">Please sign in again</string>
+    <string name="pairing_notice_session_body">Your account is not ready. Return to login and try again.</string>
+    <string name="pairing_notice_pending_title">Request sent</string>
+    <string name="pairing_notice_pending_body">Wait for the Elder to approve it. Sending a request does not give access yet.</string>
+    <string name="pairing_notice_cancelled_title">Request cancelled</string>
+    <string name="pairing_notice_cancelled_body">This request can no longer be approved. Ask the Elder for a new code to start again.</string>
+    <string name="pairing_notice_unknown_title">Checking submission status</string>
+    <string name="pairing_notice_unknown_body">Refresh to check the latest result. Do not send another request while this check is pending. The app will not send a second request automatically.</string>
+    <string name="pairing_notice_refresh_failed_title">Could not refresh</string>
+    <string name="pairing_notice_refresh_failed_body">Check your connection and try refreshing again.</string>
+    <string name="pairing_notice_refresh_title">Status updated</string>
+    <string name="pairing_notice_refresh_body">The latest available request status is shown below.</string>
+    <string name="pairing_notice_rate_title">Too many attempts</string>
+    <string name="pairing_notice_rate_body">Please wait a while before trying again.</string>
+    <string name="pairing_notice_rejected_title">Request not sent</string>
+    <string name="pairing_notice_rejected_body">Check the code or ask the Elder for a new one, then try again.</string>
+    <string name="pairing_notice_offline_title">No internet connection</string>
+    <string name="pairing_notice_offline_body">Connect to the internet and try again.</string>
+    <string name="pairing_notice_unavailable_title">Unable to send request</string>
+    <string name="pairing_notice_unavailable_body">Please try again later.</string>
+    <string name="pairing_requests_unavailable">Request history is not available yet. Refresh to check.</string>
+    <string name="pairing_requests_stale">Showing saved requests. Refresh to check their latest status.</string>
+    <string name="pairing_request_summary">Request %1$d: %2$s\nCode expiry: %3$s</string>
+</resources>

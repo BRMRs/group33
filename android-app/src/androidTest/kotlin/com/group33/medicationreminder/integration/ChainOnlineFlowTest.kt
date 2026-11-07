@@ -191,11 +191,17 @@ class ChainOnlineFlowTest {
                 val session = ready()
                 val activity = foreground(CaregiverHomeActivity::class.java)
                 nav(activity, R.id.nav_settings)
-                instrumentation.runOnMainSync {
-                    descendants(activity.window.decorView).filterIsInstance<EditText>()
-                        .single { it.hint == activity.getString(R.string.chain_enter_code) }.setText(b.getString("code"))
+                waitUntil {
+                    var enabled = false
+                    instrumentation.runOnMainSync {
+                        enabled = activity.findViewById<View>(R.id.pairing_submit_button)?.isEnabled == true
+                    }
+                    enabled
                 }
-                click(activity, R.string.chain_pair)
+                instrumentation.runOnMainSync {
+                    activity.findViewById<EditText>(R.id.pairing_code_input).setText(b.getString("code"))
+                }
+                click(activity, R.string.pairing_submit)
                 val request = withTimeout(20_000) { s.pairing.observeRequests().first { row ->
                     row.access == AccessState.AUTHORIZED && row.value.any { it.status == PairingRequestStatus.PENDING }
                 } }.value.single { it.status == PairingRequestStatus.PENDING }
