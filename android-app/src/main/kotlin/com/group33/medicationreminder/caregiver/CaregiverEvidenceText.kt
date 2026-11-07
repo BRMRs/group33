@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.core.os.ConfigurationCompat
 import com.group33.medicationreminder.R
 import com.group33.medicationreminder.core.data.contract.LocalActionClassification
+import com.group33.shared.contract.ExactAlarmAccess
+import com.group33.shared.contract.ReminderCapabilityView
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -23,4 +25,17 @@ internal fun Context.syncedReportText(report: CaregiverSyncedReport): String = g
         LocalActionClassification.REMIND_LATER -> R.string.c3_report_remind_later
     }),
     caregiverInstant(report.recordedAtEpochMillis),
+)
+
+/** Last-known permission facts, not proof of notification delivery or a live connection. */
+internal fun Context.capabilityDetails(capability: ReminderCapabilityView): String = getString(
+    R.string.c3_capability_details,
+    getString(if (capability.notificationPermissionGranted) R.string.c3_permission_granted else R.string.c3_permission_denied),
+    getString(if (capability.channelEnabled) R.string.c3_channel_enabled else R.string.c3_channel_disabled),
+    getString(when (capability.exactAlarmAccess) {
+        ExactAlarmAccess.NOT_REQUIRED -> R.string.c3_permission_not_required
+        ExactAlarmAccess.GRANTED -> R.string.c3_permission_granted
+        ExactAlarmAccess.DENIED -> R.string.c3_permission_denied
+    }),
+    caregiverInstant(capability.receivedAtEpochMillis),
 )
