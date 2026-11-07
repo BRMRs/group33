@@ -15,7 +15,7 @@ PKG = 'com.group33.medicationreminder'
 TEST = PKG + '.test/androidx.test.runner.AndroidJUnitRunner'
 PHASES = [('elder-login', 'elder'), ('elder-recover-code', 'elder'), ('caregiver-request', 'caregiver'), ('elder-accept', 'elder'),
           ('elder-photo', 'elder'), ('caregiver-plan-ui', 'caregiver'), ('caregiver-restart', 'caregiver'),
-          ('elder-sees-plan', 'elder'), ('caregiver-navigation', 'caregiver'), ('caregiver-lost-reply', 'caregiver'),
+          ('elder-sees-plan', 'elder'), ('caregiver-browser', 'caregiver'), ('caregiver-navigation', 'caregiver'), ('caregiver-lost-reply', 'caregiver'),
           ('caregiver-recover', 'caregiver'), ('caregiver-stale-401', 'caregiver'),
           ('caregiver-read-failure', 'caregiver'),
           ('elder-revoke', 'elder'), ('caregiver-denied', 'caregiver')]
@@ -78,6 +78,10 @@ def main():
             image = 'caregiver-plan' if role == 'caregiver' else 'elder-plan'
             (args.output / (image + '.png')).write_bytes(run(serial, 'exec-out', 'run-as', PKG,
                 'cat', f'no_backup/chain-{image}.png'))
+        if phase == 'caregiver-browser':
+            for image in ['caregiver-browser', 'caregiver-photo']:
+                (args.output / (image + '.png')).write_bytes(run(serial, 'exec-out', 'run-as', PKG,
+                    'cat', f'no_backup/chain-{image}.png'))
         if phase in ['elder-login', 'elder-recover-code', 'caregiver-request', 'elder-accept', 'elder-photo', 'caregiver-plan-ui', 'caregiver-lost-reply']:
             bridge = run(serial, 'exec-out', 'run-as', PKG, 'cat', 'no_backup/chain-bridge.json')
             json.loads(bridge)

@@ -12,7 +12,7 @@
     <string name="chain_choose_elder">选择当前长辈</string>
     <string name="chain_select_name">选择%1$s</string>
     <string name="chain_inspect">查看照片并建立计划</string>
-    <string name="chain_inspect_number">查看照片%1$d并建立计划</string>
+    <string name="chain_view_photo_number">查看照片 %1$d</string>
     <string name="chain_elder_identity">长辈：%1$s</string>
     <string name="chain_caregiver_identity">照护者：%1$s</string>
     <string name="chain_signed_out">尚未登录</string>
@@ -20,7 +20,7 @@
     <string name="chain_request_from">%1$s申请照护</string>
     <string name="chain_current_elder">当前长辈：%1$s</string>
     <string name="chain_no_elder">尚无当前长辈。待同意的申请不提供访问权限。</string>
-    <string name="chain_no_plans">暂无计划。</string>
+    <string name="chain_no_plans">尚未加载已确认的计划。</string>
     <string name="chain_plan">%1$s — %2$s\n%3$s（%4$s）\n%5$s — %6$s · %7$s</string>
     <string name="chain_no_end">无结束日期</string>
     <string name="chain_active">已启用</string>
@@ -44,8 +44,5 @@
     <string name="chain_pairing_accepted">已同意配对申请。</string>
     <string name="chain_pairing_declined">已拒绝配对申请。</string>
     <string name="chain_revoked">已撤销访问权限。</string>
-    <string name="chain_photo_read_failed">无法打开这张照片。</string>
-    <string name="chain_photo_retry">重试打开照片</string>
-    <string name="chain_plans_unavailable">暂时无法查看计划。</string>
     <string name="chain_code_expired">恢复的配对码已过期，请生成新的配对码。</string>
 </resources>
