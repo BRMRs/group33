@@ -98,30 +98,39 @@ class CaregiverHistoryViewModel(
         if (!denied && !invalid) observe()
     }
 
+    /** Check draft dates without applying them, replacing cached results, or opening an observation. */
+    @MainThread
+    fun validateRangeDraft(fromText: String, throughText: String): Boolean {
+        if (selection == null) return false
+        val error = draftError(fromText, throughText)
+        mutableState.update { it.copy(rangeError = error) }
+        return error == null
+    }
+
     /** Invalid drafts keep the applied range/cache; they neither query nor delete history. */
     @MainThread
     fun applyRange(fromText: String, throughText: String): Boolean {
         val current = selection ?: return false
+        if (!validateRangeDraft(fromText, throughText)) return false
+        val range = LocalDateRange(LocalDate.parse(fromText.trim()).toString(), LocalDate.parse(throughText.trim()).toString())
+        selectContext(current.repository, current.scope, current.elder, range)
+        return true
+    }
+
+    private fun draftError(fromText: String, throughText: String): HistoryRangeError? {
         val from: LocalDate
         val through: LocalDate
         try {
             from = LocalDate.parse(fromText.trim())
             through = LocalDate.parse(throughText.trim())
         } catch (_: DateTimeParseException) {
-            mutableState.update { it.copy(rangeError = HistoryRangeError.INVALID_DATE) }
-            return false
+            return HistoryRangeError.INVALID_DATE
         }
-        val error = when {
+        return when {
             through.isBefore(from) -> HistoryRangeError.REVERSED
             ChronoUnit.DAYS.between(from, through) + 1 > MAX_DATES -> HistoryRangeError.TOO_MANY_DATES
             else -> null
         }
-        if (error != null) {
-            mutableState.update { it.copy(rangeError = error) }
-            return false
-        }
-        selectContext(current.repository, current.scope, current.elder, LocalDateRange(from.toString(), through.toString()))
-        return true
     }
 
     @MainThread
