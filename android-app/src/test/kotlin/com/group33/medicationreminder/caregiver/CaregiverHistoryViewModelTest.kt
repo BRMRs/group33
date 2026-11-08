@@ -92,6 +92,32 @@ class CaregiverHistoryViewModelTest {
         assertEquals(1, repo.queries.size)
     }
 
+    @Test fun `calendar draft validation clears old errors without applying dates or rereading history`() = runTest(dispatcher) {
+        val repo = Repository(cached())
+        val model = model(repo); runCurrent()
+        model.selectEvent(events().first().occurrence)
+        for ((from, through, error) in listOf(
+            Triple("2026-02-30", "2026-10-30", HistoryRangeError.INVALID_DATE),
+            Triple("2026-10-30", "2026-10-01", HistoryRangeError.REVERSED),
+            Triple("2026-01-01", "2026-04-01", HistoryRangeError.TOO_MANY_DATES),
+        )) {
+            assertFalse(model.applyRange(from, through)); runCurrent()
+            assertEquals(error, model.state.value.rangeError)
+            val previous = model.state.value
+            assertTrue(model.validateRangeDraft("2026-10-22", "2026-10-23")); runCurrent()
+            assertEquals(previous.copy(rangeError = null), model.state.value)
+            assertEquals(1, repo.queries.size)
+        }
+        assertFalse(model.validateRangeDraft("2026-01-01", "2026-04-01")); runCurrent()
+        assertEquals(HistoryRangeError.TOO_MANY_DATES, model.state.value.rangeError)
+        assertEquals(range, model.state.value.range)
+        assertEquals(1, repo.queries.size)
+        model.clearContext()
+        val cleared = model.state.value
+        assertFalse(model.validateRangeDraft("2026-10-22", "2026-10-23")); runCurrent()
+        assertEquals(cleared, model.state.value)
+    }
+
     @Test fun `oversized initial range cannot query and a corrected range recovers`() = runTest(dispatcher) {
         val repo = Repository(cached(emptyList()))
         val model = CaregiverHistoryViewModel(repo, scope, snapshot.elder, LocalDateRange("2026-01-01", "2026-04-01"))

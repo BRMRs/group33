@@ -135,6 +135,52 @@ class CaregiverHistoryViewTest {
         } finally { TimeZone.setDefault(originalZone) }
     }
 
+    @Test fun validCalendarConfirmationClearsPriorRangeErrorsWithoutReading() {
+        for (language in listOf("en", "zh")) withScreen(language) {
+            val original = model.state.value
+            val reads = repository.queries.size
+            onMain { filter("2026-10-30", "2026-10-01") }
+            onMain {
+                assertDateInputErrors(context.getString(R.string.c3_history_reversed))
+                assertTrue(text(R.id.history_range_error).isShown)
+                openPicker()
+            }
+            chooseDay("22"); chooseDay("23")
+            onView(withId(R.id.history_dialog_cancel)).inRoot(withDecorView(equalTo(checkNotNull(calendarRoot)))).perform(scrollTo(), click())
+            onMain {
+                assertDateInputErrors(context.getString(R.string.c3_history_reversed))
+                assertEquals("2026-10-30", text(R.id.history_from).text.toString())
+                assertEquals(reads, repository.queries.size)
+                openPicker()
+            }
+            chooseDay("22"); chooseDay("23")
+            onView(withId(R.id.history_dialog_confirm)).inRoot(withDecorView(equalTo(checkNotNull(calendarRoot)))).perform(scrollTo(), click())
+            onMain {
+                assertEquals("2026-10-22", text(R.id.history_from).text.toString())
+                assertEquals("2026-10-23", text(R.id.history_through).text.toString())
+                assertNull(model.state.value.rangeError)
+                assertEquals("", text(R.id.history_range_error).text.toString())
+                assertFalse(text(R.id.history_range_error).isShown)
+                assertDateInputErrors(null)
+                assertEquals(original.range, model.state.value.range)
+                assertSame(original.cached, model.state.value.cached)
+                assertEquals(reads, repository.queries.size)
+                // A later source update must not restore the rejected draft's old error.
+                repository.updates.value = repository.updates.value.copy(lastSuccessfulSyncAtEpochMillis = 124L)
+            }
+            onMain {
+                assertNull(model.state.value.rangeError)
+                assertDateInputErrors(null)
+                assertEquals(reads, repository.queries.size)
+                header.findViewById<View>(R.id.history_apply).performClick()
+            }
+            onMain {
+                assertEquals(LocalDateRange("2026-10-22", "2026-10-23"), model.state.value.range)
+                assertEquals(reads + 1, repository.queries.size)
+            }
+        }
+    }
+
     @Test fun contextClearAndRevocationDismissTheDialogAndIgnoreItsOldConfirmControl() = withScreen {
         var oldConfirm: View? = null
         var picker: DialogFragment? = null

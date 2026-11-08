@@ -122,6 +122,7 @@ class CaregiverHistoryView @JvmOverloads constructor(context: Context, attrs: At
                 Triple(current.scope, current.elder?.id, current.range) == selection) {
                 header.historyFrom.setText(fromText)
                 header.historyThrough.setText(throughText)
+                viewModel.validateRangeDraft(fromText, throughText)
                 // Reading is explicit: confirming dates must not query or replace the current results.
             }
         }
