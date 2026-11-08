@@ -122,7 +122,8 @@ Physical API27 entry and cancelled-consent screenshots (no supplier invocation):
 | Local-trial consent, cancelled | [image](phone-main/profile-consent-en.png) | [image](phone-main/profile-consent-zh.png) |
 | Actual IME and reachable submit | [password](phone-main/keyboard-ENGLISH-password.png) | [SMS](phone-main/keyboard-SIMPLIFIED_CHINESE-sms.png) |
 
-Audit APK SHA-256 (external suffix, not a supplier-registered package):
+Initial client-only audit APK SHA-256 (external suffix, missing the two original
+Umeng runtime dependencies; retained as a regression baseline, not a team SDK build):
 `71c73d47d353040acf6aca85b106422f3eb38d2efe6d3cd21ce3106b127aabd5`.
 Raw build/configuration/device reports and six original IME captures are retained
 outside Git under `D:/w/review-20261108/phone-main/`.
@@ -131,6 +132,45 @@ The `phone88` application ID suffix is an external audit init script setting onl
 it is not the registered supplier package and must not be used to claim real SDK
 acceptance. The normal team build checks the actual registered package/certificate.
 Original `review113` pairing application and data are preserved.
+
+### Existing PR #88 update verification — 2026-11-08
+
+The full update preserves the original PR as an ancestor and main `dc1e2fb` as an
+ancestor; no force push or replacement PR is required. The two original Umeng
+AARs are restored in Debug, and the server trial implementation remains disabled
+by default. The tablet install script now uses the certificate-checked build task
+and the standard ADB port 5037; its PowerShell syntax parses successfully.
+
+- Final build: Debug 143, Release 133, Shared 18 (up-to-date), targeted Server auth
+  7 JVM cases, all with zero failures/errors/skips. Debug/Release/AndroidTest APKs
+  and Server bootJar build successfully. Debug Lint: zero errors, 42 warnings.
+  The original Umeng bytecode emits D8 stack-map warnings; it is not upgraded or
+  suppressed here. This targeted Windows run does not claim a full Server/Gate 1
+  pass; the unmodified POSIX photo tests still require Linux CI.
+- The existing phone-registration MockMvc case now also verifies that a signed
+  phone token receives 401 from actual care-relationship and pairing-code routes.
+  Success on the old `/schedules` scaffold does not grant business authorization.
+- API27 negative control: the new non-initializing dependency-loading case fails
+  on the saved initial client-only APK with missing `UMConfigure`, reproducing the
+  omitted dependency. No provider initialization or SMS is used.
+- Complete APK: OK (37 reported cases), 48.046 seconds: 36 pass and one
+  intentionally skipped default-profile-only case. Includes the three provider
+  runtime classes loaded without initialization, two configured entry cases,
+  bilingual navigation, all six real-IME cases, common session/HTTP/store cases.
+  Six final IME captures are retained outside Git; the two linked IME images were
+  refreshed. Entry/consent UI source is unchanged from the earlier captures.
+- Final Release DEX excludes Fusion, gatewayauth and Umeng classes and native
+  libraries; merged permissions remain POST_NOTIFICATIONS and the app-local
+  dynamic-receiver permission only. Debug retains the original SDK permissions.
+- The two `phone88` packages were uninstalled after testing; `review113` data and
+  the original Caregiver foreground screen remain intact.
+
+Final isolated audit APK SHA-256:
+`7d1fe01877f9e579b716e5bdec6329a7ae33ae9c03bffa6242fa76ad55914867`.
+Logs: `pr88-final-checks.log`, `pr88-final-unit-results.json`,
+`pr88-missing-dependencies-counterexample.log`, `pr88-complete-device-tests.log`
+under the external audit directory above. None demonstrates real supplier sign-in,
+public phone service deployment or phone-authorized business access.
 
 The session tests use fictional verified responses with the actual Keystore and
 S1 store; business HTTP tests use explicit response fixtures. Transport tests use

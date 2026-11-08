@@ -55,6 +55,12 @@ class PhoneAuthHttpTest {
         assertEquals("CAREGIVER", session["user"]["role"].asText())
         mvc.perform(get("/api/v1/schedules").header("Authorization", "Bearer ${session["accessToken"].asText()}"))
             .andExpect(status().isOk)
+        // The old authenticated scaffold route is not proof of a phone-to-business actor binding.
+        mvc.perform(get("/api/v1/care-relationships").header("Authorization", "Bearer ${session["accessToken"].asText()}"))
+            .andExpect(status().isUnauthorized)
+        mvc.perform(post("/api/v1/pairing-codes").contentType(MediaType.APPLICATION_JSON).content("{}")
+            .header("Authorization", "Bearer ${session["accessToken"].asText()}"))
+            .andExpect(status().isUnauthorized)
         mvc.perform(post("/api/v1/auth/phone/register").contentType(MediaType.APPLICATION_JSON).content(register))
             .andExpect(status().isUnprocessableEntity)
         val later = mvc.perform(
