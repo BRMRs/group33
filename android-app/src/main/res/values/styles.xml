@@ -28,4 +28,24 @@
     <style name="Widget.Group33.LanguageAction" parent="Widget.Material3.Button.TextButton">
         <item name="android:textColor">@color/group33_action</item>
     </style>
+
+<style name="TextAppearance.Group33.ErrorTitle" parent="TextAppearance.Material3.TitleMedium">
+        <item name="android:textColor">@color/group33_error</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="TextAppearance.Group33.ErrorBody" parent="TextAppearance.Material3.BodyLarge">
+        <item name="android:textColor">@color/group33_error</item>
+        <item name="android:textSize">18sp</item>
+    </style>
+    <style name="TextAppearance.Group33.SuccessTitle" parent="TextAppearance.Material3.TitleMedium">
+        <item name="android:textColor">@color/group33_success</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="TextAppearance.Group33.SuccessBody" parent="TextAppearance.Material3.BodyLarge">
+        <item name="android:textColor">@color/group33_success</item>
+        <item name="android:textSize">18sp</item>
+    </style>
+
 </resources>

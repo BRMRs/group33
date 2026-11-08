@@ -25,9 +25,10 @@ internal class DebugChainRepository(
     baseUrl: String,
     namespace: String = "debug-online",
     private val http: ChainHttp = ChainHttp(baseUrl),
+    private val environment: String = "debug-anonymous:${http.baseUrl}",
+    private val sessionStore: PrivateSessionStore = PrivateSessionStore(context, environment, namespace),
+    private val anonymousLoginAllowed: Boolean = true,
 ) : AuthRepository, PairingRepository, MedicationPhotoRepository, ReminderPlanRepository, OnlineCommandRepository {
-    private val environment = "debug-anonymous:${http.baseUrl}"
-    private val sessionStore = PrivateSessionStore(context, environment, namespace)
     private val cache = ChainCache.open(context)
     private val gate = Mutex()
     private val refreshGate = Mutex()
@@ -77,6 +78,7 @@ internal class DebugChainRepository(
     override fun observeSession(): Flow<SessionView> = mutableSession.asStateFlow()
 
     override suspend fun login(role: UserRole, displayName: String): Outcome<UserView> = safely {
+        if (!anonymousLoginAllowed) throw Failed(local(LocalFailureCode.SESSION_NOT_READY))
         val attempt = gate.withLock {
             mutableScope.value = null; mutableTrusted.value = null
             mutableSession.value = SessionView(AuthReadiness.SIGNED_OUT, null)

@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
 open class Group33Application : Application() {
+    internal open val phoneAuth: com.group33.medicationreminder.auth.PhoneAuthRepository? get() = null
     internal open val featureServices: com.group33.medicationreminder.integration.ChainServices? get() = null
     lateinit var languageSettings: LocalLanguageSettingsRepository
         private set
