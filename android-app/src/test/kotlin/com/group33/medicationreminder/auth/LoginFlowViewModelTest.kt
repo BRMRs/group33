@@ -140,6 +140,35 @@ class LoginFlowViewModelTest {
 
     private fun model(): LoginFlowViewModel = LoginFlowViewModel(repository).also { store.put("login", it) }
 
+    @Test fun `restore storage failure is visible instead of pretending there is no session`() = runTest(dispatcher) {
+        repository.failRestore = true
+        val model = model(); runCurrent()
+        assertNull(model.state.value.account)
+        assertFalse(model.state.value.busy)
+        assertEquals(LoginNotice.AuthFailure(PhoneAuthError.STORAGE), model.state.value.notice)
+    }
+
+    @Test fun `late restore cannot replace signed out presentation`() = runTest(dispatcher) {
+        repository.delayedRestore = CompletableDeferred()
+        val model = model(); runCurrent()
+        model.signOut(); runCurrent()
+        repository.delayedRestore!!.complete(PhoneAccount("old", UserRole.ELDER, "Old")); runCurrent()
+        assertEquals(LoginStep.SIGN_IN, model.state.value.step)
+        assertNull(model.state.value.account)
+    }
+
+    @Test fun `late registration cannot replace signed out presentation`() = runTest(dispatcher) {
+        repository.delayedRegister = CompletableDeferred()
+        val model = model(); runCurrent()
+        model.verifySms("13800000000", "123456"); runCurrent()
+        model.chooseRole(UserRole.ELDER); runCurrent()
+        model.signOut(); runCurrent()
+        repository.delayedRegister!!.complete(PhoneAuthResult.SignedIn(PhoneAccount("old", UserRole.ELDER, "Old")))
+        runCurrent()
+        assertEquals(LoginStep.SIGN_IN, model.state.value.step)
+        assertNull(model.state.value.account)
+    }
+
     private class FakeRepository : PhoneAuthRepository {
         var restored: PhoneAccount? = null
         var verifications = 0
@@ -153,8 +182,14 @@ class LoginFlowViewModelTest {
         var oneTapResult: PhoneAuthResult = PhoneAuthResult.RegistrationRequired
         var delayedOneTap: CompletableDeferred<PhoneAuthResult>? = null
         var failSignOut = false
+        var failRestore = false
+        var delayedRestore: CompletableDeferred<PhoneAccount?>? = null
+        var delayedRegister: CompletableDeferred<PhoneAuthResult>? = null
 
-        override suspend fun restore() = restored
+        override suspend fun restore(): PhoneAccount? {
+            check(!failRestore)
+            return delayedRestore?.await() ?: restored
+        }
         override suspend fun oneTap(): PhoneAuthResult {
             oneTapCalls++
             return delayedOneTap?.await() ?: oneTapResult
@@ -178,7 +213,7 @@ class LoginFlowViewModelTest {
             registeredRole = role
             registeredName = displayName
             registeredPassword = password
-            return PhoneAuthResult.SignedIn(PhoneAccount("new", role, displayName.orEmpty()))
+            return delayedRegister?.await() ?: PhoneAuthResult.SignedIn(PhoneAccount("new", role, displayName.orEmpty()))
         }
         override suspend fun signOut() { check(!failSignOut) }
     }

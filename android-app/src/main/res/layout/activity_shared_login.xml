@@ -462,18 +462,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:text="@string/login_demo_no_real_session"
+                android:text="@string/login_real_session_pending"
                 android:textAppearance="@style/TextAppearance.Group33.Body" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/open_home_button"
-                style="@style/Widget.Group33.PrimaryAction"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="32dp"
-                android:minHeight="64dp"
-                android:text="@string/login_open_home_preview"
-                android:textSize="20sp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/sign_out_button"
@@ -493,6 +484,9 @@
             android:textAppearance="@style/TextAppearance.Group33.Body"
             android:visibility="gone" />
 
+        <FrameLayout android:id="@+id/authentication_content"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="24dp" />
     </LinearLayout>
     </androidx.core.widget.NestedScrollView>
     </LinearLayout>

@@ -1,7 +1,6 @@
 package com.group33.medicationreminder
 
 import android.content.Intent
-import android.content.pm.ApplicationInfo
 import android.graphics.Rect
 import android.net.Uri
 import android.os.Bundle
@@ -29,12 +28,9 @@ import com.group33.medicationreminder.auth.LoginMethod
 import com.group33.medicationreminder.auth.LoginNotice
 import com.group33.medicationreminder.auth.LoginStep
 import com.group33.medicationreminder.auth.PhoneAuthError
-import com.group33.medicationreminder.auth.createPhoneAuthRepository
-import com.group33.medicationreminder.caregiver.CaregiverHomeActivity
 import com.group33.medicationreminder.core.data.contract.LanguageChoice
 import com.group33.medicationreminder.core.data.contract.Outcome
 import com.group33.medicationreminder.databinding.ActivitySharedLoginBinding
-import com.group33.medicationreminder.elder.ElderHomeActivity
 import com.group33.shared.model.UserRole
 import kotlinx.coroutines.launch
 
@@ -44,26 +40,25 @@ internal fun nextLanguageChoice(displayedLanguage: String): LanguageChoice =
 /** Shared phone-auth entry; the server verifies Fusion results before account or session creation. */
 class SharedLoginActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySharedLoginBinding
-    private val localDemo by lazy {
-        (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0 &&
-            intent.getBooleanExtra(EXTRA_LOCAL_AUTH_DEMO, false)
-    }
     private val viewModel: LoginFlowViewModel by viewModels {
-        LoginFlowViewModel.Factory(createPhoneAuthRepository(localDemo, applicationContext))
+        LoginFlowViewModel.Factory((application as Group33Application).phoneAuth
+            ?: com.group33.medicationreminder.auth.UnconfiguredPhoneAuthRepository)
     }
     private var announcedNotice: LoginNotice? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         binding = ActivitySharedLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
         configureKeyboardDismissal()
         viewModel.attachActivity(this)
         WindowCompat.getInsetsController(window, binding.root).isAppearanceLightStatusBars = true
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
-            view.updatePadding(top = bars.top, bottom = maxOf(bars.bottom, ime.bottom))
+            val occupied = insets.getInsets(WindowInsetsCompat.Type.systemBars() or
+                WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.ime())
+            view.updatePadding(left = occupied.left, top = occupied.top,
+                right = occupied.right, bottom = occupied.bottom)
             insets
         }
         binding.root.addOnLayoutChangeListener { root, _, _, _, _, _, _, _, _ ->
@@ -82,7 +77,7 @@ class SharedLoginActivity : AppCompatActivity() {
 
         val displayedLanguage = ConfigurationCompat.getLocales(resources.configuration)[0]?.language.orEmpty()
         binding.languageButton.setText(
-            if (displayedLanguage == "zh") R.string.language_english else R.string.language_chinese,
+            if (displayedLanguage == "zh") R.string.language_chinese else R.string.language_english,
         )
         binding.languageButton.contentDescription = getString(R.string.language_switch_action)
         binding.languageButton.setOnClickListener { switchLanguage(displayedLanguage) }
@@ -110,15 +105,17 @@ class SharedLoginActivity : AppCompatActivity() {
         binding.backToRoleButton.setOnClickListener { viewModel.backToRole() }
         binding.completeRegistrationButton.setOnClickListener {
             val password = binding.registrationPasswordInput.text.toString()
-            if (!localDemo && password.isNotBlank()) viewModel.showPasswordSetupPending()
+            if (password.isNotBlank()) viewModel.showPasswordSetupPending()
             else viewModel.completeCaregiver(binding.displayNameInput.text.toString(), password)
         }
         binding.skipPasswordButton.setOnClickListener {
             binding.registrationPasswordInput.text?.clear()
             viewModel.completeCaregiver(binding.displayNameInput.text.toString(), null)
         }
-        binding.openHomeButton.setOnClickListener { openDemoHome() }
         binding.signOutButton.setOnClickListener { viewModel.signOut() }
+
+        com.group33.medicationreminder.integration.installSharedAuthentication(this, binding.authenticationContent)
+        com.group33.medicationreminder.integration.routeSharedSession(this)
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -130,16 +127,14 @@ class SharedLoginActivity : AppCompatActivity() {
     private fun submitForm() {
         val phone = binding.phoneInput.text.toString()
         when (viewModel.state.value.method) {
-            LoginMethod.SMS -> if (localDemo) viewModel.verifySms(phone, binding.codeInput.text.toString())
-                else {
-                    hideKeyboard(binding.phoneInput)
-                    startPhoneSignIn { viewModel.smsSignIn(phone) }
-                }
-            LoginMethod.PASSWORD -> if (localDemo) viewModel.passwordSignIn(phone, binding.passwordInput.text.toString())
-                else viewModel.showPasswordUnavailable()
-            LoginMethod.RESET -> if (localDemo) viewModel.resetPassword(
-                phone, binding.codeInput.text.toString(), binding.newPasswordInput.text.toString(),
-            ) else startPhoneSignIn { viewModel.resetPasswordWithSms(phone, binding.newPasswordInput.text.toString()) }
+            LoginMethod.SMS -> {
+                hideKeyboard(binding.phoneInput)
+                startPhoneSignIn { viewModel.smsSignIn(phone) }
+            }
+            LoginMethod.PASSWORD -> viewModel.showPasswordUnavailable()
+            LoginMethod.RESET -> startPhoneSignIn {
+                viewModel.resetPasswordWithSms(phone, binding.newPasswordInput.text.toString())
+            }
             LoginMethod.CHOICE -> Unit
         }
     }
@@ -209,9 +204,8 @@ class SharedLoginActivity : AppCompatActivity() {
             val role = getString(if (account.role == UserRole.ELDER) R.string.elder_role else R.string.caregiver_role)
             binding.signedInTitle.text = getString(R.string.login_signed_in_as, account.displayName, role)
         }
-        binding.openHomeButton.visibility = View.VISIBLE
         binding.signedInDescription.setText(
-            if (localDemo) R.string.login_demo_no_real_session else R.string.login_real_session_pending,
+            R.string.login_real_session_pending,
         )
 
         val notice = state.notice
@@ -264,9 +258,9 @@ class SharedLoginActivity : AppCompatActivity() {
     }
 
     private fun renderForm(method: LoginMethod) {
-        val usesCode = localDemo && (method == LoginMethod.SMS || method == LoginMethod.RESET)
-        binding.codeField.visibility = if (usesCode) View.VISIBLE else View.GONE
-        binding.requestCodeButton.visibility = if (usesCode) View.VISIBLE else View.GONE
+        // SMS proof is handled by the existing Alibaba scene, not a local code verifier.
+        binding.codeField.visibility = View.GONE
+        binding.requestCodeButton.visibility = View.GONE
         binding.passwordField.visibility = if (method == LoginMethod.PASSWORD) View.VISIBLE else View.GONE
         binding.forgotPasswordButton.visibility = if (method == LoginMethod.PASSWORD) View.VISIBLE else View.GONE
         binding.newPasswordField.visibility = if (method == LoginMethod.RESET) View.VISIBLE else View.GONE
@@ -277,12 +271,11 @@ class SharedLoginActivity : AppCompatActivity() {
             LoginMethod.CHOICE -> return
         }
         binding.formTitle.setText(title)
-        binding.formSubmitButton.setText(
-            if (method == LoginMethod.RESET) {
-                if (localDemo) R.string.login_reset_password_action else R.string.login_sms_reset_password_action
-            } else if (method == LoginMethod.SMS && !localDemo) R.string.login_continue_to_verification
-            else R.string.login_sign_in_action,
-        )
+        binding.formSubmitButton.setText(when (method) {
+            LoginMethod.RESET -> R.string.login_sms_reset_password_action
+            LoginMethod.SMS -> R.string.login_continue_to_verification
+            else -> R.string.login_sign_in_action
+        })
     }
 
     private fun noticeTitle(notice: LoginNotice, method: LoginMethod, lastAuthEntry: LoginMethod, isChoice: Boolean): Int = when (notice) {
@@ -309,7 +302,7 @@ class SharedLoginActivity : AppCompatActivity() {
         LoginNotice.InvalidPassword -> R.string.login_invalid_new_password
         LoginNotice.PasswordSetupPending -> R.string.login_password_setup_pending
         LoginNotice.InvalidName -> R.string.login_invalid_name
-        LoginNotice.CodeSent -> if (localDemo) R.string.login_demo_code_sent else R.string.login_code_sent
+        LoginNotice.CodeSent -> R.string.login_code_sent
         LoginNotice.PasswordReset -> R.string.login_password_reset_done
         is LoginNotice.AuthFailure -> when (notice.error) {
             PhoneAuthError.NOT_CONFIGURED -> when (method) {
@@ -338,17 +331,11 @@ class SharedLoginActivity : AppCompatActivity() {
         }
     }
 
-    private fun openDemoHome() {
-        val role = viewModel.state.value.account?.role ?: return
-        val destination = if (role == UserRole.ELDER) ElderHomeActivity::class.java else CaregiverHomeActivity::class.java
-        startActivity(Intent(this, destination))
-    }
-
     private fun startPhoneSignIn(onContinue: () -> Unit) {
         val policyUrl = BuildConfig.PHONE_AUTH_PRIVACY_POLICY_URL
         val localTrial = BuildConfig.DEBUG && BuildConfig.PHONE_AUTH_LOCAL_TRIAL &&
             isLoopbackTrialUrl(BuildConfig.PHONE_AUTH_BASE_URL)
-        if (localTrial && !localDemo) {
+        if (localTrial) {
             AlertDialog.Builder(this)
                 .setTitle(R.string.login_trial_privacy_title)
                 .setMessage(R.string.login_trial_privacy_message)
@@ -357,7 +344,7 @@ class SharedLoginActivity : AppCompatActivity() {
                 .show()
             return
         }
-        if (localDemo || BuildConfig.PHONE_AUTH_BASE_URL.isBlank() || !policyUrl.startsWith("https://")) {
+        if (BuildConfig.PHONE_AUTH_BASE_URL.isBlank() || !policyUrl.startsWith("https://")) {
             onContinue()
             return
         }
@@ -382,7 +369,7 @@ class SharedLoginActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val settings = (application as Group33Application).languageSettings
             when (settings.setChoice(target)) {
-                is Outcome.Success -> Group33Application.applyLanguage(target)
+                is Outcome.Success -> Group33Application.applyLanguage(target, this@SharedLoginActivity)
                 is Outcome.Failure -> {
                     binding.languageButton.isEnabled = true
                     Toast.makeText(this@SharedLoginActivity, R.string.language_save_failed, Toast.LENGTH_LONG).show()
@@ -391,7 +378,4 @@ class SharedLoginActivity : AppCompatActivity() {
         }
     }
 
-    private companion object {
-        const val EXTRA_LOCAL_AUTH_DEMO = "com.group33.medicationreminder.LOCAL_AUTH_DEMO"
-    }
 }

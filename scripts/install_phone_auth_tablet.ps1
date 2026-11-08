@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$Serial,
-    [int]$AdbPort = 5038,
+    [int]$AdbPort = 5037,
+    [string]$SigningMd5 = 'de4612d56e3c0dbe3cee3b76bc3ab294',
     [string]$AdbPath = ''
 )
 
@@ -25,8 +26,8 @@ try {
 
 Push-Location $taskRoot
 try {
-    & .\gradlew.bat :android-app:assembleDebug --offline `
-        '-PphoneAuthBaseUrl=http://127.0.0.1:8080' '-PphoneAuthLocalTrial=true'
+    & .\gradlew.bat :android-app:assemblePhoneTest --offline `
+        '-PphoneAuthBaseUrl=http://127.0.0.1:8080' '-PphoneAuthLocalTrial=true' "-PphoneAuthSigningMd5=$SigningMd5"
     if ($LASTEXITCODE -ne 0) { throw 'Android build failed.' }
     & $AdbPath -P $AdbPort -s $Serial install -r $taskApk
     if ($LASTEXITCODE -ne 0) { throw 'Tablet installation failed.' }

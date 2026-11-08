@@ -1,6 +1,9 @@
 package com.group33.medicationreminder.auth
 
 import com.group33.shared.model.UserRole
+import android.app.Activity
+
+internal interface ActivityBoundPhoneAuth { fun attach(activity: Activity) }
 
 /** UI-facing boundary only. S1/S2 still need to agree the real wire and session contract. */
 interface PhoneAuthRepository {

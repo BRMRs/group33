@@ -48,7 +48,12 @@ class LoginFlowViewModel(private val repository: PhoneAuthRepository) : ViewMode
     init {
         val request = ++generation
         viewModelScope.launch {
-            val account = try { repository.restore() } catch (_: Exception) { null }
+            val account = try { repository.restore() }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) {
+                if (request == generation) mutableState.value = LoginFlowState(notice = LoginNotice.AuthFailure(PhoneAuthError.STORAGE))
+                return@launch
+            }
             if (request != generation) return@launch
             mutableState.value = if (account == null) LoginFlowState() else
                 LoginFlowState(step = LoginStep.SIGNED_IN, account = account)
@@ -167,7 +172,7 @@ class LoginFlowViewModel(private val repository: PhoneAuthRepository) : ViewMode
         val request = ++generation
         mutableState.value = state.value.copy(busy = true, notice = null)
         viewModelScope.launch {
-            val result = try { block() } catch (_: Exception) { PhoneAuthResult.Failed(PhoneAuthError.UNKNOWN) }
+            val result = try { block() } catch (cancelled: CancellationException) { throw cancelled } catch (_: Exception) { PhoneAuthResult.Failed(PhoneAuthError.UNKNOWN) }
             if (request != generation) return@launch
             val current = state.value
             mutableState.value = when (result) {
@@ -194,7 +199,7 @@ class LoginFlowViewModel(private val repository: PhoneAuthRepository) : ViewMode
         val request = ++generation
         mutableState.value = state.value.copy(busy = true, notice = null)
         viewModelScope.launch {
-            val result = try { block() } catch (_: Exception) { PhoneActionResult.Failed(PhoneAuthError.UNKNOWN) }
+            val result = try { block() } catch (cancelled: CancellationException) { throw cancelled } catch (_: Exception) { PhoneActionResult.Failed(PhoneAuthError.UNKNOWN) }
             if (request != generation) return@launch
             mutableState.value = state.value.copy(busy = false)
             when (result) {

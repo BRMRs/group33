@@ -2,16 +2,21 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
 
     <application
         android:allowBackup="true"
+        android:fullBackupContent="@xml/elder_photo_backup"
+        android:dataExtractionRules="@xml/elder_photo_extraction"
         android:name=".Group33Application"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.Group33">
 
+        <provider android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.elderphotos" android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/elder_photo_paths" />
+        </provider>
+        <activity android:name=".elder.photo.ElderPhotoActivity" android:exported="false" />
         <activity
             android:name=".SharedLoginActivity"
             android:exported="true"
@@ -27,35 +32,6 @@
         <activity
             android:name=".elder.ElderHomeActivity"
             android:exported="false" />
-        <activity
-            android:name=".MainActivity"
-            android:exported="false" />
-        <activity android:name="com.alicom.fusion.auth.numberauth.FusionNumberAuthActivity"
-            android:exported="false" android:configChanges="orientation|keyboardHidden|screenSize"
-            android:screenOrientation="behind" android:theme="@style/NumberAuthTheme" />
-        <activity android:name="com.alicom.fusion.auth.smsauth.FusionSmsActivity"
-            android:exported="false" android:configChanges="orientation|keyboardHidden|screenSize"
-            android:screenOrientation="behind" android:windowSoftInputMode="adjustResize" />
-        <activity android:name="com.alicom.fusion.auth.graphauth.FusionGraphAuthActivity"
-            android:exported="false" android:configChanges="orientation|keyboardHidden|screenSize"
-            android:screenOrientation="behind" />
-        <activity android:name="com.alicom.fusion.auth.upsms.AlicomFusionUpSmsActivity"
-            android:exported="false" android:configChanges="orientation|keyboardHidden|screenSize"
-            android:screenOrientation="behind" />
-        <activity android:name="com.mobile.auth.gatewayauth.LoginAuthActivity"
-            android:exported="false" android:configChanges="orientation|keyboardHidden|screenSize"
-            android:launchMode="singleTop" android:screenOrientation="behind"
-            android:theme="@style/authsdk_activity_dialog" />
-        <activity android:name="com.mobile.auth.gatewayauth.PrivacyDialogActivity"
-            android:exported="false" android:configChanges="orientation|keyboardHidden|screenSize"
-            android:launchMode="singleTop" android:screenOrientation="behind"
-            android:theme="@style/authsdk_activity_dialog" />
-        <activity android:name=".auth.FusionProtocolActivity" android:exported="false">
-            <intent-filter>
-                <action android:name="com.fusion.auth" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </activity>
     </application>
 
 </manifest>

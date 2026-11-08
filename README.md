@@ -69,6 +69,8 @@ export JWT_SECRET='replace-with-a-random-secret-at-least-32-bytes'
 
 Android Studio normally creates `local.properties` automatically. If it does not, create it locally with your Android SDK path. Never commit that file.
 
+For the optional Alibaba phone-auth Debug candidate, see [team test configuration](docs/PHONE_TEAM_TEST.md). It requires a deployed phone/business service and the registered signing certificate; the default build and a healthy business server alone do not enable phone sign-in.
+
 ## Start here
 
 New to development? Start with the Chinese [agent onboarding guide](docs/AGENT_START_HERE.md): copy the read-only startup prompt, supply your role, and ask for one bounded first task. For Gate 1, use the [six-role review handoff](docs/contracts/ROLE_REVIEW_HANDOFF.md) for files, code/tests, evidence and same-revision signature forms. These are navigation/checklists, not automatic implementation, approval or merge permission.
