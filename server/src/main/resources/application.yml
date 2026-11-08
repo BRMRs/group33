@@ -1,7 +1,44 @@
+spring:
+  servlet:
+    multipart:
+      # Transport safety caps allow complete near-boundary rejected files to bind their original hash/key.
+      # The business validator still enforces exactly 5,242,880 file bytes.
+      max-file-size: 6291456B
+      max-request-size: 7340032B
+      file-size-threshold: 0B
+
 server:
+  # Local direct-peer limiter. Trusted proxy support requires a separate reviewed configuration.
+  forward-headers-strategy: none
   port: ${PORT:8080}
 
 app:
+  fusion:
+    enabled: ${PHONE_AUTH_ENABLED:false}
+    access-key-id: ${ALIBABA_CLOUD_ACCESS_KEY_ID:}
+    access-key-secret: ${ALIBABA_CLOUD_ACCESS_KEY_SECRET:}
+    scheme-code: ${PHONE_AUTH_SCHEME_CODE:}
+    package-name: ${PHONE_AUTH_PACKAGE_NAME:com.group33.medicationreminder}
+    package-sign: ${PHONE_AUTH_PACKAGE_SIGN:}
+    database-url: ${PHONE_AUTH_DATABASE_URL:}
+    database-user: ${PHONE_AUTH_DATABASE_USER:}
+    database-password: ${PHONE_AUTH_DATABASE_PASSWORD:}
+    phone-hash-key: ${PHONE_AUTH_HASH_KEY:}
+  occurrence:
+    enabled: ${OCCURRENCE_ENABLED:false}
+  plan:
+    enabled: ${PLAN_ENABLED:false}
+  photo:
+    enabled: ${PHOTO_ENABLED:false}
+    root: ${PHOTO_OBJECT_ROOT:}
+  persistence:
+    mode: ${PERSISTENCE_MODE:memory}
+    require-versioned-schema: ${PERSISTENCE_REQUIRE_VERSIONED_SCHEMA:false}
+    jdbc-url: ${PERSISTENCE_JDBC_URL:}
+    schema: ${PERSISTENCE_SCHEMA:}
+    username: ${PERSISTENCE_USERNAME:}
+    password: ${PERSISTENCE_PASSWORD:}
+    receipt-key-file: ${PERSISTENCE_RECEIPT_KEY_FILE:}
   jwt:
     issuer: group33-server
     expires-in-seconds: 86400
