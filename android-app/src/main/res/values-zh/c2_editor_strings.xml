@@ -17,4 +17,8 @@
     <string name="c2_editor_no_context">请选择已授权的长者以编辑计划。</string>
     <string name="c2_editor_zone_example">首次提醒示例：%1$s。照护者：%2$s。长者：%3$s。</string>
     <string name="c2_editor_example_pending">请填写有效的开始日期、提醒时间和时区以查看示例。</string>
+    <string name="c2_editor_add_time">添加提醒时间</string>
+    <string name="c2_editor_edit_time">修改提醒时间 %1$s</string>
+    <string name="c2_editor_remove_time">删除</string>
+    <string name="c2_editor_remove_named_time">删除提醒时间 %1$s</string>
 </resources>

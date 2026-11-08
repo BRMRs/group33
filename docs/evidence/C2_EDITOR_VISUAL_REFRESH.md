@@ -48,3 +48,11 @@ Remaining #51: C1 shared-style/host review, full Chinese/English small-screen an
 Merged main `9d5f6df` without rewriting the feature branch history. Preserved current main integration fixes and only this PR's existing scope. Repository policy and whitespace checks pass. Android Debug JVM suite: 119 tests, zero failures/errors/skips; lintDebug, assembleDebug and assembleRelease pass. Nine PlanEditorViewTest instrumentation cases also passed on emulator-5554 (API37); no API27/TalkBack/cloud acceptance was rerun.
 
 The attempted full gate1Check on synchronized #113 on Windows could not pass the inherited POSIX photo-store/server tests (627 executed, 310 failures); this is not a green full local gate. Ubuntu CI must verify the final merge head. This update adds no new feature, human approval or main merge.
+
+## Local form-usability follow-up — 2026-11-08
+
+Implements the two non-blocking #51 suggestions: photo confirmation immediately precedes Save, and reminder times use a 24-hour picker with add/edit/remove rows. ISO HH:mm formatting is locale-independent; existing duplicate/required/invalid validation and original save/recovery semantics remain. Dialog callbacks are generation/enablement guarded and dismissed on clear or non-editable save state. English and Chinese labels and named accessibility actions are provided.
+
+Final local Android JVM: 119 passed, zero failures/errors/skips. lintDebug, assembleDebug, assembleRelease and assembleDebugAndroidTest pass. Emulator API37 PlanEditorViewTest: 10/10 passed, including add/edit/remove, duplicate rejection, cancel, confirmation placement and dialog cleanup; existing date and save/recovery regressions remain green. Chinese actual layout inspected in the explicit synthetic Debug fixture. No API27/TalkBack/cloud/two-device result claimed; no real plan was saved. This follow-up is submitted for renewed review; prior approvals do not establish acceptance of these new UI changes. Final-head remote CI is tracked in PR Checks.
+
+Chinese time-list layout: [actual Debug fixture](c2-editor-refresh/zh-times.png). The fixture data and save are simulated.

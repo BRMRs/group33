@@ -2,6 +2,7 @@ package com.group33.medicationreminder.caregiver.plan
 
 import android.content.Context
 import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.graphics.Bitmap
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -74,7 +75,7 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
         setTextColor(color(R.color.group33_text_primary))
         buttonTintList = ColorStateList.valueOf(color(R.color.group33_action))
         minHeight = dp(48)
-        photoSection.addView(this, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
+
     }
     private val fields = linkedMapOf<PlanFormField, EditText>()
     private fun field(parent: LinearLayout, key: PlanFormField?, title: Int, hint: Int? = null): EditText {
@@ -107,7 +108,14 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
     }
     private val scheduleSection = section(R.string.c2_editor_section_schedule)
     private val times = field(scheduleSection, PlanFormField.TIMES, R.string.c2_plan_times, R.string.c2_editor_times_hint).apply {
-        inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+        keyListener = null; showSoftInputOnFocus = false; isCursorVisible = false
+        visibility = View.GONE
+    }
+    private val timeRows = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; scheduleSection.addView(this) }
+    private val timeError = label(scheduleSection).apply { accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE }
+    private val addTime = Button(context).apply {
+        setText(R.string.c2_editor_add_time); minHeight = dp(48); isAllCaps = false
+        scheduleSection.addView(this); setOnClickListener { openTimePicker(null) }
     }
     private val start = field(scheduleSection, PlanFormField.START_DATE, R.string.c2_plan_start_date, R.string.c2_editor_date_placeholder).apply { calendarField(this, false) }
     private val end = field(scheduleSection, PlanFormField.END_DATE, R.string.c2_plan_end_date, R.string.c2_editor_date_placeholder).apply { calendarField(this, true) }
@@ -134,6 +142,7 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
         setPadding(dp(16), dp(16), dp(16), dp(16))
         background = surface(color(R.color.group33_navigation_selected))
     }
+    private val photoConfirmation = viewed.also { column.addView(it, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) }) }
     private val action = Button(context).apply {
         minHeight = dp(56); textSize = 16f; isAllCaps = false
         setTypeface(typeface, Typeface.BOLD)
@@ -155,6 +164,55 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
     private var updating = false
     private var generation = 0
     private var dateDialog: DatePickerDialog? = null
+    private var timeDialog: TimePickerDialog? = null
+
+    private fun openTimePicker(index: Int?) {
+        if (!times.isEnabled || form == null) return
+        timeDialog?.dismiss()
+        val token = generation
+        val entries = input().localTimes
+        val selected = index?.let { entries.getOrNull(it) }?.let { runCatching { LocalTime.parse(it) }.getOrNull() } ?: LocalTime.of(8, 0)
+        val dialog = TimePickerDialog(context, { _, hour, minute ->
+            if (token == generation && times.isEnabled && form != null) {
+                val value = String.format(java.util.Locale.ROOT, "%02d:%02d", hour, minute)
+                val updated = input().localTimes.toMutableList()
+                if (index == null) updated.add(value) else if (index in updated.indices) updated[index] = value
+                times.setText(updated.joinToString("\n"))
+            }
+        }, selected.hour, selected.minute, true)
+        timeDialog = dialog
+        dialog.setOnDismissListener { if (timeDialog === dialog) timeDialog = null }
+        dialog.show()
+        listOf(android.content.DialogInterface.BUTTON_POSITIVE, android.content.DialogInterface.BUTTON_NEGATIVE).forEach {
+            dialog.getButton(it).apply {
+                setTextColor(color(R.color.group33_action)); minHeight = dp(48)
+                backgroundTintList = ColorStateList.valueOf(color(R.color.group33_surface))
+                isAllCaps = false
+            }
+        }
+    }
+
+    private fun renderTimes() {
+        timeRows.removeAllViews()
+        input().localTimes.forEachIndexed { index, value ->
+            val row = LinearLayout(context)
+            val edit = Button(context).apply {
+                text = value; minHeight = dp(48); isAllCaps = false; isEnabled = times.isEnabled
+                contentDescription = context.getString(R.string.c2_editor_edit_time, value)
+                setOnClickListener { openTimePicker(index) }
+            }
+            row.addView(edit, LinearLayout.LayoutParams(0, -2, 1f))
+            row.addView(Button(context).apply {
+                setText(R.string.c2_editor_remove_time); minHeight = dp(48); isAllCaps = false; isEnabled = times.isEnabled
+                contentDescription = context.getString(R.string.c2_editor_remove_named_time, value)
+                setOnClickListener {
+                    if (times.isEnabled) times.setText(input().localTimes.filterIndexed { i, _ -> i != index }.joinToString("\n"))
+                }
+            })
+            timeRows.addView(row)
+        }
+        addTime.isEnabled = times.isEnabled
+    }
 
     private fun calendarField(edit: EditText, optional: Boolean) {
         edit.keyListener = null
@@ -215,6 +273,7 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
                 form?.updateInput(input())
                 acknowledgement.isChecked = false
                 renderZones()
+                if (edit === times) renderTimes()
             }
         } }
         clear()
@@ -241,6 +300,7 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
         instructions.setText(initial.instructions); times.setText(initial.localTimes.joinToString("\n"))
         start.setText(initial.startDate); end.setText(initial.endDate); zone.setText(initial.executionTimeZoneId)
         updating = false
+        renderTimes()
         renderZones()
         post { if (generation == boundGeneration) scrollTo(0, 0) }
         action.setOnClickListener {
@@ -274,6 +334,7 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
                 owner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                     launch { formModel.state.collect { state ->
                         fields.forEach { (key, edit) -> edit.error = state.errors[key]?.let { context.getString(errorResource(it)) } }
+                        timeError.text = state.errors[PlanFormField.TIMES]?.let { context.getString(errorResource(it)) }.orEmpty()
                     } }
                     launch { saveModel.state.collect { renderSave(it) } }
                 }
@@ -286,6 +347,7 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
     fun clear() {
         generation++
         dateDialog?.dismiss(); dateDialog = null
+        timeDialog?.dismiss(); timeDialog = null
         rejectionReviewed = false
         form = null; save = null
         binding?.cancel(); binding = null
@@ -297,6 +359,7 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
         updating = true
         (fields.values + instructions).forEach { it.setText(""); it.error = null; it.isEnabled = false }
         updating = false
+        renderTimes(); timeError.text = ""
         elder.text = ""; comparison.text = ""
         status.setText(R.string.c2_editor_no_context)
         action.isEnabled = false; action.setText(R.string.c2_plan_save); action.setOnClickListener(null)
@@ -337,6 +400,8 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
         action.isEnabled = p.action != PlanDisplayAction.NONE
         val editable = state.status in setOf(PlanSaveStatus.IDLE, PlanSaveStatus.NOT_SUBMITTED, PlanSaveStatus.REJECTED)
         (fields.values + instructions).forEach { it.isEnabled = editable }
+        renderTimes()
+        if (!editable) { timeDialog?.dismiss(); timeDialog = null }
         acknowledgement.isEnabled = editable
         viewed.isEnabled = editable && photoMetadata != null
     }

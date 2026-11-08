@@ -17,4 +17,8 @@
     <string name="c2_editor_no_context">Select an authorized Elder to edit a plan.</string>
     <string name="c2_editor_zone_example">First reminder example: %1$s. Caregiver: %2$s. Elder: %3$s.</string>
     <string name="c2_editor_example_pending">Enter a valid start date, time and time zone to see an example.</string>
+    <string name="c2_editor_add_time">Add reminder time</string>
+    <string name="c2_editor_edit_time">Edit reminder time %1$s</string>
+    <string name="c2_editor_remove_time">Remove</string>
+    <string name="c2_editor_remove_named_time">Remove reminder time %1$s</string>
 </resources>

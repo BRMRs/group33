@@ -14,6 +14,38 @@ import org.junit.Test
 
 class PlanEditorViewTest {
     @androidx.test.filters.SdkSuppress(minSdkVersion = 29)
+    @Test fun timePickerAddsEditsRemovesAndRejectsDuplicates() = withBoundEditor { host, editor, fixture ->
+        fun controls() = android.view.inspector.WindowInspector.getGlobalWindowViews().flatMap { descendants(it) }
+        fun add() = descendants(editor).filterIsInstance<Button>().single { it.text == host.getString(R.string.c2_editor_add_time) }
+        onUi { add().performClick() }
+        onUi { controls().filterIsInstance<android.widget.TimePicker>().single().apply { hour = 18; minute = 5 } }
+        onUi { controls().single { it.id == android.R.id.button1 }.performClick() }
+        onUi {
+            assertEquals("08:00\n18:05", edits(editor)[3].text.toString())
+            descendants(editor).filterIsInstance<Button>().single { it.text == "18:05" }.performClick()
+        }
+        onUi { controls().filterIsInstance<android.widget.TimePicker>().single().apply { hour = 8; minute = 0 } }
+        onUi { controls().single { it.id == android.R.id.button1 }.performClick() }
+        onUi { checks(editor).first().isChecked = true; action(editor).performClick() }
+        onUi {
+            assertEquals(0, fixture.begins)
+            assertNotNull(edits(editor)[3].error)
+            descendants(editor).filterIsInstance<Button>().last { it.text == host.getString(R.string.c2_editor_remove_time) }.performClick()
+            assertEquals("08:00", edits(editor)[3].text.toString())
+            add().performClick()
+        }
+        onUi { controls().single { it.id == android.R.id.button2 }.performClick() }
+        onUi {
+            assertEquals("08:00", edits(editor)[3].text.toString())
+            val parent = action(editor).parent as ViewGroup
+            assertSame(checks(editor).first(), parent.getChildAt(parent.indexOfChild(action(editor)) - 1))
+            add().performClick()
+            editor.clear()
+        }
+        onUi { assertTrue(controls().filterIsInstance<android.widget.TimePicker>().isEmpty()); assertEquals("", edits(editor)[3].text.toString()) }
+    }
+
+    @androidx.test.filters.SdkSuppress(minSdkVersion = 29)
     @Test fun calendarSelectionUsesIsoFormatAndOptionalEndCanBeCleared() = withBoundEditor { _, editor, _ ->
         fun dialogControls() = android.view.inspector.WindowInspector.getGlobalWindowViews().flatMap { descendants(it) }
         onUi {
@@ -55,13 +87,13 @@ class PlanEditorViewTest {
                     assertEquals(7, controls.filterIsInstance<EditText>().size)
                     assertTrue(controls.filterIsInstance<EditText>().all { it.isEnabled })
                     controls.filterIsInstance<CheckBox>().single { it.visibility == View.VISIBLE }.isChecked = true
-                    controls.filterIsInstance<Button>().filterNot { it is CheckBox }.single().performClick()
+                    controls.filterIsInstance<Button>().filterNot { it is CheckBox }.last().performClick()
                 }
                 instrumentation.waitForIdleSync()
                 instrumentation.runOnMainSync {
                     val editor = descendants(host.window.decorView).filterIsInstance<PlanEditorView>().single()
                     assertTrue(descendants(editor).filterIsInstance<EditText>().none { it.isEnabled })
-                    assertFalse(descendants(editor).filterIsInstance<Button>().filterNot { it is CheckBox }.single().isEnabled)
+                    assertFalse(descendants(editor).filterIsInstance<Button>().filterNot { it is CheckBox }.last().isEnabled)
                 }
         } finally { host.finish() }
     }
@@ -72,7 +104,7 @@ class PlanEditorViewTest {
             val view = PlanEditorView(ContextThemeWrapper(instrumentation.targetContext, R.style.Theme_Group33))
             val controls = descendants(view)
             assertEquals(7, controls.filterIsInstance<EditText>().size)
-            assertFalse(controls.filterIsInstance<Button>().filterNot { it is CheckBox }.single().isEnabled)
+            assertFalse(controls.filterIsInstance<Button>().filterNot { it is CheckBox }.last().isEnabled)
             controls.filterIsInstance<EditText>().forEach { it.setText("private draft"); it.error = "error" }
             controls.filterIsInstance<ImageView>().single().setImageResource(android.R.drawable.ic_menu_camera)
             view.clear()
@@ -216,8 +248,8 @@ class PlanEditorViewTest {
         instrumentation.waitForIdleSync()
     }
     private fun edits(editor: PlanEditorView) = descendants(editor).filterIsInstance<EditText>()
-    private fun checks(editor: PlanEditorView) = descendants(editor).filterIsInstance<CheckBox>()
-    private fun action(editor: PlanEditorView) = descendants(editor).filterIsInstance<Button>().filterNot { it is CheckBox }.single()
+    private fun checks(editor: PlanEditorView) = descendants(editor).filterIsInstance<CheckBox>().sortedBy { if (it.text == editor.context.getString(R.string.c2_editor_photo_viewed)) 0 else 1 }
+    private fun action(editor: PlanEditorView) = descendants(editor).filterIsInstance<Button>().filterNot { it is CheckBox }.last()
 
     private fun withBoundEditor(test: (PlanEditorDebugActivity, PlanEditorView, PlanEditorFixture) -> Unit) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
