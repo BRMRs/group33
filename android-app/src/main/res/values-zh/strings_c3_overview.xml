@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="c3_overview_title">用药记录概览</string>
+  <string name="c3_range">日期：%1$s 至 %2$s</string>
+  <string name="c3_refresh">刷新记录</string>
+  <string name="c3_refreshing">正在刷新…</string>
+  <string name="c3_refresh_complete">刷新已完成。</string>
+  <string name="c3_refresh_failed">未能完整更新记录。如有最后已知记录，将保留显示。请再次刷新。</string>
+  <string name="c3_offline">当前离线；如有本地记录，将继续显示。联网后请刷新。</string>
+  <string name="c3_capability_unknown">提醒能力：未知。这不代表服药结果或设备连接情况。</string>
+  <string name="c3_capability">最后上报的提醒能力：%1$s。观测时间（本机时区）：%2$s。这不是实时连接检测。</string>
+  <string name="c3_capability_available">可用</string>
+  <string name="c3_capability_degraded">受限</string>
+  <string name="c3_capability_unavailable">不可用</string>
+  <string name="c3_capability_details">通知权限：%1$s\n通知渠道：%2$s\n精确闹钟权限：%3$s\n能力报告的服务接收时间（本机时区）：%4$s</string>
+  <string name="c3_permission_granted">已授予</string>
+  <string name="c3_permission_denied">未授予</string>
+  <string name="c3_permission_not_required">不要求</string>
+  <string name="c3_channel_enabled">已启用</string>
+  <string name="c3_channel_disabled">未启用</string>
+  <string name="c3_refresh_storage_unavailable">本地存储不可用，记录未能完整更新；已有记录可能过期，请稍后再次刷新。</string>
+  <string name="c3_refresh_invalid_input">刷新请求不合法，请检查所选长者和日期后再试。已有记录可能过期。</string>
+  <string name="c3_refresh_range_too_large">所选日期或记录数量超过下载上限，未显示截短结果。请尝试缩小日期范围；已有记录可能过期。</string>
+  <string name="c3_refresh_service_unavailable">服务暂时不可用，已有记录可能过期，请稍后再次刷新。</string>
+  <string name="c3_refresh_retry_later">服务要求稍后重试，已有记录可能过期，请等待后再刷新。</string>
+</resources>
