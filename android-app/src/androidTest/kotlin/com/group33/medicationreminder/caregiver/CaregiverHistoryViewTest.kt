@@ -1,7 +1,11 @@
 package com.group33.medicationreminder.caregiver
 
 import android.content.Intent
+import android.content.ContentValues
 import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.os.Environment
+import android.provider.MediaStore
 import android.view.ContextThemeWrapper
 import android.view.View
 import android.view.ViewGroup
@@ -21,7 +25,11 @@ import androidx.test.espresso.matcher.ViewMatchers.*
 import androidx.fragment.app.DialogFragment
 import com.google.android.material.button.MaterialButton
 import android.widget.GridLayout
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import org.hamcrest.Matchers.equalTo
 import org.hamcrest.Matchers.allOf
 import java.util.TimeZone
@@ -348,6 +356,124 @@ class CaregiverHistoryViewTest {
         assertEquals(2, repository.updates.value.value.size)
     }
 
+    @Test fun historyListAndDetailsShowServerAcceptedLateEvidenceWithoutChangingMissed() {
+        for (language in listOf("en", "zh")) withScreen(language) {
+            val recorded = 1_792_483_201_000L
+            val received = 1_792_483_209_000L
+            onMain {
+                val missed = event(20).copy(
+                    effectiveStatus = DoseStatus.MISSED,
+                    lastAcceptedStatus = DoseStatus.MISSED,
+                    serverAcceptedLateTakenReports = listOf(
+                        ServerAcceptedLateTakenReport("server-action", recorded, received),
+                    ),
+                )
+                // Keep one event so adapter position 1 unambiguously refers to this MISSED event.
+                repository.updates.value = repository.updates.value.copy(value = listOf(missed))
+            }
+            awaitLayoutFrame(view)
+            onMain {
+                val row = list.adapter.getView(1, null, list)
+                val expectedOutcome = if (language == "en") "no on-time confirmation" else "未及时确认"
+                val rowOutcome = row.findViewById<TextView>(R.id.outcome).text.toString()
+                assertTrue("$language outcome: $rowOutcome", rowOutcome.contains(
+                    expectedOutcome, ignoreCase = language == "en"))
+                assertTrue(row.findViewById<TextView>(R.id.server_accepted_late_reports).text.toString().contains(
+                    if (language == "en") "Server-accepted late report" else "服务器已接受的迟报"))
+                model.selectEvent(event(20).occurrence)
+                showDetails()
+            }
+            awaitLayoutFrame(view)
+            onMain {
+                val detail = details().findViewById<View>(R.id.history_detail_event)
+                assertTrue(detail.findViewById<TextView>(R.id.outcome).text.toString().contains(
+                    if (language == "en") "no on-time confirmation" else "未及时确认"))
+                val evidence = detail.findViewById<TextView>(R.id.server_accepted_late_reports)
+                assertEquals(View.VISIBLE, evidence.visibility)
+                assertTrue(evidence.text.toString().contains(if (language == "en") "Recorded" else "记录时间"))
+                assertTrue(evidence.text.toString().contains(
+                    if (language == "en") "Service received" else "服务接收时间"))
+            }
+        }
+    }
+
+    @Test fun narrowLargeFontHistoryDetailsKeepBilingualLateReportTimesReachable() {
+        for (language in listOf("en", "zh")) withScreen(language, fontScale = 2f) {
+            val recorded = 1_792_483_201_000L
+            val received = 1_792_483_209_000L
+            val reports = listOf(ServerAcceptedLateTakenReport("server-action", recorded, received))
+            val missed = event(20).copy(
+                medicationSnapshot = MedicationText("Fictional medication / 虚构测试药品",
+                    "Fictional dosage / 虚构测试剂量", "Fictional instructions / 虚构说明"),
+                effectiveStatus = DoseStatus.MISSED,
+                lastAcceptedStatus = DoseStatus.MISSED,
+                serverAcceptedLateTakenReports = reports,
+            )
+            onMain {
+                repository.updates.value = repository.updates.value.copy(value = (10..29).map { day ->
+                    if (day == 20) missed else event(day)
+                })
+                measure(320)
+                model.selectEvent(missed.occurrence)
+            }
+            awaitLayoutFrame(view)
+            onMain { showDetails() }
+            awaitLayoutFrame(view)
+            onMain {
+                val detail = details()
+                val outcome = detail.findViewById<TextView>(R.id.outcome)
+                val evidence = detail.findViewById<TextView>(R.id.server_accepted_late_reports)
+                assertEquals(2f, context.resources.configuration.fontScale, 0f)
+                assertTrue("Details must be attached at 320dp", detail.isAttachedToWindow)
+                assertEquals(View.VISIBLE, evidence.visibility)
+                assertTrue(outcome.text.toString(), outcome.text.contains(
+                    if (language == "en") "no on-time confirmation" else "未及时确认"))
+                assertReadable(detail)
+                val text = evidence.text.toString()
+                val timestampFormatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM)
+                    .withLocale(Locale.forLanguageTag(language)).withZone(ZoneId.systemDefault())
+                val expectedRecorded = timestampFormatter.format(Instant.ofEpochMilli(recorded))
+                val expectedReceived = timestampFormatter.format(Instant.ofEpochMilli(received))
+                assertTrue("Missing complete recorded timestamp $expectedRecorded in: $text", text.contains(expectedRecorded))
+                assertTrue("Missing complete service-received timestamp $expectedReceived in: $text", text.contains(expectedReceived))
+
+                // Bring the complete evidence block into the actual viewport, then scroll onward
+                // to verify the detail action remains reachable below it.
+                assertTrue("The list must have content below the selected detail", list.canScrollVertically(1))
+                val listPosition = IntArray(2).also(list::getLocationOnScreen)
+                val evidencePosition = IntArray(2).also(evidence::getLocationOnScreen)
+                val scrollToEvidence = evidencePosition[1] - listPosition[1] - list.paddingTop
+                assertTrue("The report must begin below the current viewport", scrollToEvidence > 0)
+                list.scrollListBy(scrollToEvidence)
+            }
+            awaitLayoutFrame(view)
+            var evidenceScreenshot: Bitmap? = null
+            onMain {
+                val detail = details()
+                val evidence = detail.findViewById<TextView>(R.id.server_accepted_late_reports)
+                val listPosition = IntArray(2).also(list::getLocationOnScreen)
+                val evidencePosition = IntArray(2).also(evidence::getLocationOnScreen)
+                assertTrue("Report label must be visible after scrolling",
+                    evidencePosition[1] >= listPosition[1] + list.paddingTop)
+                assertTrue("Both report timestamps must fit in the viewport after scrolling",
+                    evidencePosition[1] + evidence.height <= listPosition[1] + list.height - list.paddingBottom)
+                evidenceScreenshot = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+                val close = detail.findViewById<View>(R.id.history_close_details)
+                val closePosition = IntArray(2).also(close::getLocationOnScreen)
+                val closeScroll = closePosition[1] + close.height -
+                    (listPosition[1] + list.height - list.paddingBottom)
+                if (closeScroll > 0) list.scrollListBy(closeScroll)
+                assertTrue("The close control must be attached after scrolling below the report", close.isAttachedToWindow)
+                val visibleClosePosition = IntArray(2).also(close::getLocationOnScreen)
+                assertTrue("The close control must be reachable in the viewport",
+                    visibleClosePosition[1] + close.height <= listPosition[1] + list.height - list.paddingBottom)
+            }
+            try {
+                saveEvidenceScreenshot(checkNotNull(evidenceScreenshot), "c3-history-late-$language-320dp-200-bottom.png")
+            } finally { evidenceScreenshot?.recycle() }
+        }
+    }
+
     @Test fun selectedDetailsStayAfterTheirRecordWithoutJumpingToFilters() = withScreen {
         var anchor = -1
         var closed: View? = null
@@ -520,6 +646,28 @@ class CaregiverHistoryViewTest {
         instrumentation.runOnMainSync { view.postOnAnimation { view.postOnAnimation { frame.countDown() } } }
         assertTrue("Attached window did not deliver a layout frame", frame.await(5, TimeUnit.SECONDS))
         instrumentation.waitForIdleSync()
+    }
+
+    private fun saveEvidenceScreenshot(bitmap: Bitmap, fileName: String) {
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
+            put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+            put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/C3-Evidence")
+            put(MediaStore.Images.Media.IS_PENDING, 1)
+        }
+        val resolver = instrumentation.targetContext.contentResolver
+        val uri = checkNotNull(resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values))
+        try {
+            checkNotNull(resolver.openOutputStream(uri)).use { output ->
+                check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output))
+            }
+            resolver.update(uri, ContentValues().apply {
+                put(MediaStore.Images.Media.IS_PENDING, 0)
+            }, null, null)
+        } catch (failure: Throwable) {
+            resolver.delete(uri, null, null)
+            throw failure
+        }
     }
 
     private fun onMain(block: () -> Unit) {

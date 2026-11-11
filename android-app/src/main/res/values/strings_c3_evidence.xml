@@ -12,6 +12,7 @@
   <string name="c3_sync_synced">synced</string>
   <string name="c3_sync_attention">needs attention</string>
   <string name="c3_synced_report">Synced report: %1$s\nRecorded (device time zone): %2$s\nService receipt time: unknown. Syncing a report does not itself change the accepted event result.</string>
+  <string name="c3_server_accepted_late_report">Server-accepted late report: the Elder reported taking medication after the response window. This does not change the accepted event result.\nRecorded (device time zone): %1$s\nService received (device time zone): %2$s</string>
   <string name="c3_report_timely_taken">reported taking medication within the response window; ingestion is not verified</string>
   <string name="c3_report_late_taken">reported taking medication after the response window; this does not turn a Missed event into Taken</string>
   <string name="c3_report_remind_later">previously requested a later reminder; this does not promise another reminder</string>

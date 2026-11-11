@@ -289,6 +289,7 @@ class CaregiverHistoryView @JvmOverloads constructor(context: Context, attrs: At
         outcome.text = ""
         localSync.text = ""
         syncedReports.text = ""
+        serverAcceptedLateReports.text = ""
         reportLinkError.text = ""
         root.setOnClickListener(null)
     }
