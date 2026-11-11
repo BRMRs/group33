@@ -74,5 +74,12 @@
     <plurals name="today_schedule_count">
         <item quantity="other">今天有 %d 个用药计划</item>
     </plurals>
+    <string name="reminder_channel_name">用药提醒</string>
+    <string name="reminder_channel_description">长辈用药时的声音提醒</string>
+    <string name="reminder_notification_title">用药提醒</string>
+    <string name="reminder_notification_text">%1$s · %2$s</string>
+    <string name="reminder_action_taken">我已服用</string>
+    <string name="reminder_action_snooze">十分钟后提醒</string>
+    <string name="reminder_action_help">需要帮助</string>
 </resources>
 

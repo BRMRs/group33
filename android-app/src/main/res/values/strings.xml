@@ -76,4 +76,11 @@
         <item quantity="one">%d reminder plan today</item>
         <item quantity="other">%d reminder plans today</item>
     </plurals>
+    <string name="reminder_channel_name">Medication reminders</string>
+    <string name="reminder_channel_description">Audible medication reminders for the Elder</string>
+    <string name="reminder_notification_title">Medication reminder</string>
+    <string name="reminder_notification_text">%1$s · %2$s</string>
+    <string name="reminder_action_taken">Taken</string>
+    <string name="reminder_action_snooze">Remind me in 10 minutes</string>
+    <string name="reminder_action_help">Need help</string>
 </resources>
