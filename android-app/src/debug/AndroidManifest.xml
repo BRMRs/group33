@@ -12,5 +12,10 @@
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
             </intent-filter>
         </receiver>
+        <activity
+            android:name=".caregiver.CaregiverOverviewTestActivity"
+            android:exported="true"
+            android:permission="android.permission.DUMP"
+            android:label="C3 Overview Preview (Debug)" />
     </application>
 </manifest>
