@@ -87,7 +87,7 @@ internal class SupabasePhotoObjectStore(
     private fun load(key: PhotoObjectKey, budget: Budget): ByteArray {
         val response = exchange("/object/authenticated/$bucket/${key.objectId}.blob", budget,
             key.byteCount.toInt() + 1, PhotoObjectFailure.INTEGRITY_MISMATCH)
-        if (response.statusCode() == 404 && errorCode(response.body()) == "NoSuchKey") fail(PhotoObjectFailure.MISSING)
+        if (isMissingObject(response)) fail(PhotoObjectFailure.MISSING)
         if (response.statusCode() != 200) unavailable()
         return response.body().also { verify(key, it); budget.remaining() }
     }
@@ -129,8 +129,19 @@ internal class SupabasePhotoObjectStore(
     }
     private fun json(bytes: ByteArray): JsonNode = reader.readValue<JsonNode?>(bytes)?.takeIf { it.isObject } ?: unavailable()
     private fun errorCode(bytes: ByteArray): String? {
-        val node = json(bytes)
+        return errorCode(json(bytes))
+    }
+    private fun errorCode(node: JsonNode): String? {
         return (node["code"] ?: node["error"])?.takeIf { it.isTextual }?.textValue()
+    }
+    private fun isMissingObject(response: HttpResponse<ByteArray>): Boolean {
+        if (response.statusCode() == 404) return errorCode(response.body()) == "NoSuchKey"
+        if (response.statusCode() != 400) return false
+        // Real hosted Storage also wraps missing objects in HTTP400 with an explicit inner404.
+        // Neither a generic not_found message nor a missing bucket grants permission to upload.
+        val node = json(response.body()); val status = node["statusCode"] ?: return false
+        return errorCode(node) == "NoSuchKey" && (status.isTextual && status.textValue() == "404" ||
+            status.isIntegralNumber && status.canConvertToInt() && status.intValue() == 404)
     }
     private class Budget(duration: Duration) {
         private val start = System.nanoTime(); private val nanos = duration.toNanos()
