@@ -3,4 +3,7 @@
     <dimen name="group33_screen_padding">24dp</dimen>
     <dimen name="group33_action_min_height">64dp</dimen>
     <dimen name="group33_touch_min_height">56dp</dimen>
+    <dimen name="group33_spacing_small">8dp</dimen>
+    <dimen name="group33_spacing_medium">12dp</dimen>
+    <dimen name="group33_elevation_flat">0dp</dimen>
 </resources>
