@@ -73,6 +73,7 @@ data class DoseEventState(
     val lastAcceptedStatus: DoseStatus?,
     val localReports: List<LocalActionReceipt>,
     val serverAcceptedLateTakenReports: List<ServerAcceptedLateTakenReport> = emptyList(),
+    val serverAcceptedTakenAtEpochMillis: Long? = null,
 )
 
 /** A calculated candidate has no canonical event ID, status or action history. */

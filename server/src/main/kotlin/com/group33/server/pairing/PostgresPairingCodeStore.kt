@@ -105,6 +105,60 @@ internal class PostgresPairingCodeStore(
     }
 
     private class Transaction(private val db: Connection, private val cipher: PairingReceiptCipher) : OccurrenceRegistrationTransaction {
+        override fun doseGroupOperation(key: RegistrationKey) = query(
+            "SELECT installation_id, request_payload, response_payload FROM dose_group_operation WHERE elder_id = ? AND operation_id = ?",
+            listOf(key.actorId, key.operationId),
+        ) { row -> DoseGroupOperation(
+            row.getString("installation_id"),
+            mapper.readValue(row.getString("request_payload"), DebugDoseGroupRequest::class.java),
+            mapper.readValue(row.getString("response_payload"), DebugDoseGroupReceipt::class.java),
+        ) }.singleOrNull()
+
+        override fun insertDoseGroupOperation(key: RegistrationKey, operation: DoseGroupOperation) {
+            check(update("""
+                INSERT INTO dose_group_operation (elder_id, operation_id, installation_id, request_payload, response_payload)
+                VALUES (?, ?, ?, CAST(? AS jsonb), CAST(? AS jsonb))
+            """.trimIndent(), listOf(key.actorId, key.operationId, operation.installationId,
+                mapper.writeValueAsString(operation.request), mapper.writeValueAsString(operation.receipt))) == 1)
+        }
+
+        private fun readRecordedDoseEvent(row: ResultSet): RecordedDoseEvent {
+            val occurrence = mapper.readValue(row.getString("receipt_payload"), OccurrenceRegistrationReceipt::class.java)
+            return RecordedDoseEvent(occurrence.event.copy(
+                status = com.group33.shared.model.DoseStatus.valueOf(row.getString("status")),
+                takenRecordedAtEpochMillis = row.getObject("taken_recorded_at", Long::class.javaObjectType),
+                snoozedUntilEpochMillis = row.getObject("snoozed_until", Long::class.javaObjectType),
+                serverUpdatedAtEpochMillis = row.getLong("server_updated_at"),
+            ), row.getLong("last_recorded_at"))
+        }
+
+        private val recordedDoseSelect = """
+            SELECT recorded.*, occurrence.receipt_payload
+            FROM recorded_dose_event AS recorded JOIN registered_occurrence AS occurrence ON occurrence.id = recorded.occurrence_id
+        """.trimIndent()
+
+        override fun recordedDoseEvent(id: String) = query(
+            "$recordedDoseSelect WHERE recorded.occurrence_id = ?", listOf(UUID.fromString(id)), ::readRecordedDoseEvent,
+        ).singleOrNull()
+
+        override fun putRecordedDoseEvent(value: RecordedDoseEvent) {
+            val event = value.event
+            check(update("""
+                INSERT INTO recorded_dose_event
+                    (occurrence_id, last_recorded_at, status, taken_recorded_at, snoozed_until, server_updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT (occurrence_id) DO UPDATE SET last_recorded_at = EXCLUDED.last_recorded_at,
+                    status = EXCLUDED.status, taken_recorded_at = EXCLUDED.taken_recorded_at,
+                    snoozed_until = EXCLUDED.snoozed_until, server_updated_at = EXCLUDED.server_updated_at
+            """.trimIndent(), listOf(UUID.fromString(event.id), value.lastRecordedAt, event.status.name,
+                event.takenRecordedAtEpochMillis, event.snoozedUntilEpochMillis, event.serverUpdatedAtEpochMillis)) == 1)
+        }
+
+        override fun recordedDoseEvents(elderId: String, from: String, through: String) = query(
+            "$recordedDoseSelect WHERE occurrence.elder_id = ? AND occurrence.local_date BETWEEN ? AND ?",
+            listOf(elderId, from, through),
+        ) { readRecordedDoseEvent(it).event }
+
         override fun registrationOperation(key: RegistrationKey) = query(
             "SELECT * FROM occurrence_registration_operation WHERE actor_id = ? AND operation_id = ?", listOf(key.actorId, key.operationId),
         ) { row -> RegistrationOperation(

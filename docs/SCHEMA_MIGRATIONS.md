@@ -16,6 +16,8 @@ The independent `schemaMigration` source set builds an administrative distributi
 
 Once a version enters main, never edit or rename it: correct it with a later forward migration. Capability/group/action/follow-up/notification tables are not silently folded into these versions. The released tool requires exactly its known applied sequence and rejects future, missing, changed or incomplete history; it cannot run an old release against an already newer schema.
 
+The additive dose-action migration `V10__dose_action_groups.sql` creates a receipt table and a current-event projection keyed by the registered occurrence. Apply the migration with the release tool before enabling `DOSE_GROUP_ENABLED` on a PostgreSQL runtime. Leaving the flag disabled keeps the tables available for a subsequent rollout. The pending #102 index migration also uses V10. Allocate consecutive versions and regenerate the release history in the later merge candidate before either combined schema is deployed.
+
 All pending versions run in a single PostgreSQL transaction (`group=true`, no mixed nontransactional statements). Flyway records `group33_schema_history` in the explicitly selected schema. Concurrent migrators use Flyway's PostgreSQL lock; lock retries are bounded. The CLI exposes only `migrate` and `validate`, never `clean`, `repair`, `baseline` or `undo`. `validate` is read-only, verifies original checksums and rejects pending versions. An error exits nonzero with a redacted message; no private cause, connection string, SQL or credential is echoed.
 
 ## Explicit invocation
