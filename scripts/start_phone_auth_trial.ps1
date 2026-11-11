@@ -1,4 +1,4 @@
-param([string]$SchemeCode = "")
+param([string]$SchemeCode = "FA000000009797892118")
 
 $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
@@ -8,9 +8,6 @@ if (-not (Test-Path -LiteralPath $taskJar)) {
 }
 if (Get-NetTCPConnection -LocalPort 8080 -State Listen -ErrorAction SilentlyContinue) {
     throw 'Port 8080 is already in use. Stop the existing service before starting the trial.'
-}
-if ([string]::IsNullOrWhiteSpace($SchemeCode)) {
-    $SchemeCode = Read-Host 'Fusion authentication scheme code'
 }
 if ([string]::IsNullOrWhiteSpace($SchemeCode)) { throw 'A scheme code is required.' }
 

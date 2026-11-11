@@ -1,5 +1,21 @@
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application android:usesCleartextTraffic="true" />
-</manifest>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <application android:name=".integration.DebugChainApplication" android:usesCleartextTraffic="true" tools:replace="android:name">
+        <activity android:name=".caregiver.plan.PlanEditorDebugActivity" android:exported="false" />
+        <activity android:name=".caregiver.CaregiverNavigationPreviewActivity" android:exported="true" />
 
+<activity xmlns:ns0="http://schemas.android.com/apk/res/android" android:name="com.alicom.fusion.auth.numberauth.FusionNumberAuthActivity" android:exported="false" android:configChanges="orientation|keyboardHidden|screenSize" android:screenOrientation="behind" android:theme="@style/NumberAuthTheme" />
+        <activity xmlns:ns0="http://schemas.android.com/apk/res/android" android:name="com.alicom.fusion.auth.smsauth.FusionSmsActivity" android:exported="false" android:configChanges="orientation|keyboardHidden|screenSize" android:screenOrientation="behind" android:windowSoftInputMode="adjustResize" />
+        <activity xmlns:ns0="http://schemas.android.com/apk/res/android" android:name="com.alicom.fusion.auth.graphauth.FusionGraphAuthActivity" android:exported="false" android:configChanges="orientation|keyboardHidden|screenSize" android:screenOrientation="behind" />
+        <activity xmlns:ns0="http://schemas.android.com/apk/res/android" android:name="com.alicom.fusion.auth.upsms.AlicomFusionUpSmsActivity" android:exported="false" android:configChanges="orientation|keyboardHidden|screenSize" android:screenOrientation="behind" />
+        <activity xmlns:ns0="http://schemas.android.com/apk/res/android" android:name="com.mobile.auth.gatewayauth.LoginAuthActivity" android:exported="false" android:configChanges="orientation|keyboardHidden|screenSize" android:launchMode="singleTop" android:screenOrientation="behind" android:theme="@style/authsdk_activity_dialog" />
+        <activity xmlns:ns0="http://schemas.android.com/apk/res/android" android:name="com.mobile.auth.gatewayauth.PrivacyDialogActivity" android:exported="false" android:configChanges="orientation|keyboardHidden|screenSize" android:launchMode="singleTop" android:screenOrientation="behind" android:theme="@style/authsdk_activity_dialog" />
+        <activity xmlns:ns0="http://schemas.android.com/apk/res/android" android:name=".auth.FusionProtocolActivity" android:exported="false">
+            <intent-filter>
+                <action android:name="com.fusion.auth" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+    </application>
+</manifest>
