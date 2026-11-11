@@ -1,0 +1,9 @@
+<resources>
+    <string name="dose_records_history">Confirmed doses</string>
+    <string name="dose_records_overview">Latest confirmed dose</string>
+    <string name="dose_records_refresh">Check medication records</string>
+    <string name="dose_records_loading">Loading medication records…</string>
+    <string name="dose_records_unavailable">Medication records are unavailable.</string>
+    <string name="dose_records_empty">No confirmed doses.</string>
+    <string name="dose_records_taken">%1$s · Taken at %2$s</string>
+</resources>

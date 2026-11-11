@@ -26,7 +26,22 @@ internal class RegisteredOccurrence(val installationId: String, val origin: Regi
 internal interface OccurrenceRegistrationStore : PlanMutationStore {
     fun <T> registrationTransaction(work: (OccurrenceRegistrationTransaction) -> T): T
 }
+internal class DoseGroupOperation(
+    val installationId: String,
+    val request: DebugDoseGroupRequest,
+    val receipt: DebugDoseGroupReceipt,
+) {
+    override fun toString() = "DoseGroupOperation(REDACTED)"
+}
+internal class RecordedDoseEvent(val event: DoseEventView, val lastRecordedAt: Long)
+
 internal interface OccurrenceRegistrationTransaction : PlanMutationTransaction {
+    fun doseGroupOperation(key: RegistrationKey): DoseGroupOperation?
+    fun insertDoseGroupOperation(key: RegistrationKey, operation: DoseGroupOperation)
+    fun recordedDoseEvent(id: String): RecordedDoseEvent?
+    fun putRecordedDoseEvent(value: RecordedDoseEvent)
+    fun recordedDoseEvents(elderId: String, from: String, through: String): List<DoseEventView>
+
     fun registrationOperation(key: RegistrationKey): RegistrationOperation?
     fun putRegistrationOperation(key: RegistrationKey, value: RegistrationOperation)
     fun occurrence(key: OccurrenceKey): RegisteredOccurrence?

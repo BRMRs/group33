@@ -1,0 +1,12 @@
+<resources>
+    <string name="elder_due_now_label">现在需要服药</string>
+    <string name="elder_action_taken">我已服用</string>
+    <string name="elder_action_remind_later">稍后提醒我</string>
+    <string name="elder_action_not_recorded">本次没有记录，请重试。</string>
+    <string name="elder_action_saved_on_device">已在本机记录。</string>
+    <string name="elder_snoozed_on_device">将在 10 分钟后提醒。</string>
+    <string name="elder_no_dose_due">现在没有到点的用药。</string>
+    <string name="elder_dose_unavailable">正在等待已确认的计划。</string>
+    <string name="elder_enable_dose_notifications">开启用药提醒通知</string>
+    <string name="elder_dose_notification_channel">用药提醒</string>
+</resources>

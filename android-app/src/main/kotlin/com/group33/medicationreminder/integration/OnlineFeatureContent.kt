@@ -41,6 +41,9 @@ internal class OnlineFeatureContent private constructor(
     private val pairing = section()
     private val requests = section()
     private val relationships = section()
+    private val dosePanel = if (role == UserRole.CAREGIVER && services.caregiverDashboard != null && services.doseEvents != null)
+        com.group33.medicationreminder.caregiver.CaregiverDosePanel(activity, section(), services.caregiverDashboard, services.doseEvents)
+        else null
     private val data = section()
     private val editor = PlanEditorView(activity).apply { visibility = View.GONE; column.addView(this) }
     private val code: TextView
@@ -86,6 +89,7 @@ internal class OnlineFeatureContent private constructor(
     private fun render(state: ChainUi) {
         val user = state.session.user
         if (state.signOut != SignOutStatus.IDLE || user == null || user.role != role) {
+            dosePanel?.clear()
             editor.clear(); editorKey = null; column.visibility = View.GONE
             val clearing = state.signOut == SignOutStatus.CLEARING
             val failed = state.signOut == SignOutStatus.FAILED
@@ -101,7 +105,12 @@ internal class OnlineFeatureContent private constructor(
         signedIn = true
         val settings = role == UserRole.ELDER || destination == CaregiverDestination.SETTINGS
         val plans = role == UserRole.ELDER || destination == CaregiverDestination.PLANS
-        column.visibility = if (settings || plans) View.VISIBLE else View.GONE
+        val records = role == UserRole.CAREGIVER && destination == CaregiverDestination.RECORDS
+        column.visibility = if (settings || plans || records) View.VISIBLE else View.GONE
+        controls.visibility = if (records) View.GONE else View.VISIBLE
+        val active = (state.context as? CaregiverContextState.Active)?.context
+        val elder = state.relationships.firstOrNull { it.id == active?.relationshipId }?.elder
+        dosePanel?.show(active.takeIf { !settings }, elder, records)
         identity.text = activity.getString(if (role == UserRole.ELDER) R.string.chain_elder_identity else R.string.chain_caregiver_identity, user.displayName)
         status.setText(if (state.busy) R.string.chain_working else state.message)
         // Session/cache refresh is automatic; Elders do not manage synchronization.
@@ -192,7 +201,7 @@ internal class OnlineFeatureContent private constructor(
         }
     }
 
-    fun close() { editor.clear() }
+    fun close() { dosePanel?.clear(); editor.clear() }
     companion object {
         fun install(activity: AppCompatActivity, host: FrameLayout, role: UserRole,
                     navigate: (CaregiverDestination) -> Unit = {}): OnlineFeatureContent? {

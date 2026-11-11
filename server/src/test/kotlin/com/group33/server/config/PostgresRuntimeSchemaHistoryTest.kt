@@ -46,12 +46,12 @@ internal class PostgresRuntimeSchemaHistoryTest {
     @AfterEach fun cleanup() { dataSource().connection.use { it.createStatement().use { s -> s.execute("DROP SCHEMA IF EXISTS $schema CASCADE") } } }
 
     @Test fun `actual Flyway history matches release manifest and database enforced read only gate does not mutate it`() {
-        assertEquals(9, migrate())
+        assertEquals(SchemaMigrations.VERSION.toInt(), migrate())
         val before = history()
         RuntimeSchemaHistory.validate(dataSource(schema).apply { options = "-c default_transaction_read_only=on" }, schema)
         assertNotNull(PersistenceRuntimeConfiguration().create(environment()).pairing)
         assertEquals(before, history())
-        assertEquals("9", scalar("SELECT count(*) FROM group33_schema_history"))
+        assertEquals(SchemaMigrations.VERSION, scalar("SELECT count(*) FROM group33_schema_history"))
     }
 
     @Test fun `empty schema fails without installing tables or history`() {
@@ -78,7 +78,7 @@ internal class PostgresRuntimeSchemaHistoryTest {
         rejects()
         assertEquals(before, history())
         assertNull(scalar("SELECT to_regclass('$schema.medication_photo')::text"))
-        assertEquals(4, migrate())
+        assertEquals(SchemaMigrations.VERSION.toInt() - 5, migrate())
         assertNotNull(PersistenceRuntimeConfiguration().create(environment()).pairing)
     }
 
@@ -86,15 +86,16 @@ internal class PostgresRuntimeSchemaHistoryTest {
     @ValueSource(strings = ["checksum", "missing", "future", "failed", "script", "type", "null-checksum", "rank"])
     fun `incompatible history blocks startup without changing or repairing it`(kind: String) {
         migrate()
+        val future = SchemaMigrations.VERSION.toInt() + 1
         sql(when (kind) {
             "checksum" -> "UPDATE group33_schema_history SET checksum=checksum+1 WHERE version='3'"
             "missing" -> "DELETE FROM group33_schema_history WHERE version='3'"
-            "future" -> "INSERT INTO group33_schema_history VALUES (10,'10','future','SQL','V10__future.sql',1,current_user,current_timestamp,0,true)"
+            "future" -> "INSERT INTO group33_schema_history VALUES ($future,'$future','future','SQL','V${future}__future.sql',1,current_user,current_timestamp,0,true)"
             "failed" -> "UPDATE group33_schema_history SET success=false WHERE version='3'"
             "script" -> "UPDATE group33_schema_history SET script='V3__other.sql' WHERE version='3'"
             "type" -> "UPDATE group33_schema_history SET type='BASELINE' WHERE version='3'"
             "null-checksum" -> "UPDATE group33_schema_history SET checksum=null WHERE version='3'"
-            else -> "UPDATE group33_schema_history SET installed_rank=11 WHERE version='3'"
+            else -> "UPDATE group33_schema_history SET installed_rank=$future WHERE version='3'"
         })
         val before = history()
         rejects()

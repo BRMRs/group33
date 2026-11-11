@@ -257,7 +257,34 @@ internal abstract class OccurrenceRegistrationContract {
         assertFalse(stored(e).toString().contains("虚构"));assertFalse(first.toString().contains("password"))
     }
 }
-internal class OccurrenceRegistrationTest : OccurrenceRegistrationContract()
+internal class OccurrenceRegistrationTest : OccurrenceRegistrationContract() {
+    @Test fun `dose replay returns original receipt and caregiver read respects revocation`() {
+        val first = evidence()
+        val secondPlan = confirm(ReminderPlanDraft(listOf("08:00"), "2026-01-01", "Asia/Shanghai")).plan
+        val second = evidence(secondPlan)
+        accepted(register(first, second))
+        clock.now.set(first.plannedAtEpochMillis + 1_000)
+        val service = DebugDoseGroups(store, clock)
+        val input = DebugDoseGroupRequest(key().toString(), listOf(first.occurrence, second.occurrence),
+            DoseActionKind.TAKEN, clock.millis())
+        val original = service.submit(elder, elder.id, input)
+        clock.now.addAndGet(5_000)
+        assertEquals(original, service.submit(elder, elder.id, input))
+        assertEquals(2, original.events.size)
+        assertTrue(original.events.all { it.status == DoseStatus.TAKEN && it.takenRecordedAtEpochMillis == input.recordedAtEpochMillis })
+        val reused = assertThrows(com.group33.server.web.ApiException::class.java) {
+            service.submit(elder, elder.id, input.copy(recordedAtEpochMillis = clock.millis()))
+        }
+        assertEquals("IDEMPOTENCY_KEY_REUSED", reused.code)
+        val date = LocalDate.parse(first.occurrence.localDate)
+        assertEquals(original.events.toSet(), service.read(caregiver, elder.id, date, date).toSet())
+        PairingDecisionService(store, clock).revoke(elder, relation.id, key())
+        val denied = assertThrows(com.group33.server.web.ApiException::class.java) {
+            service.read(caregiver, elder.id, date, date)
+        }
+        assertEquals("RESOURCE_NOT_ACCESSIBLE", denied.code)
+    }
+}
 internal class RegistrationClock : Clock() {
     val now=AtomicLong(Instant.parse("2026-10-27T00:00:00Z").toEpochMilli())
     override fun instant(): Instant = Instant.ofEpochMilli(now.get())
