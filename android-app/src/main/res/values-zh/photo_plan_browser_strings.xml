@@ -1,0 +1,31 @@
+<resources>
+    <string name="browse_photos_title">药盒照片</string>
+    <string name="browse_plans_title">已确认计划</string>
+    <string name="browse_loading">正在加载…</string>
+    <string name="browse_access_revoked">查看权限已撤销。</string>
+    <string name="browse_access_unknown">尚未确认查看权限。请刷新，或到设置查看照护关系。</string>
+    <string name="browse_no_local_data">尚无已保存资料，请刷新加载。</string>
+    <string name="browse_photos_unavailable">暂时无法读取已保存的照片列表。</string>
+    <string name="browse_photos_empty">尚未分享药盒照片。</string>
+    <string name="browse_retry_observation">重新读取已保存资料</string>
+    <string name="browse_photo_loading">正在打开药盒照片…</string>
+    <string name="browse_photo_failed">暂时无法打开这张照片。</string>
+    <string name="browse_photo_decode_failed">暂时无法显示这张照片，请重试。</string>
+    <string name="browse_retry_photo">重新打开照片</string>
+    <string name="browse_plans_unavailable">暂时无法读取已保存的计划。</string>
+    <string name="browse_plans_empty">尚无已确认计划。</string>
+    <string name="browse_plan_details">计划详情</string>
+    <string name="browse_plan_row">%1$s — %2$s · %3$s</string>
+    <string name="browse_medication_unknown">暂时无法读取药品详情。</string>
+    <string name="browse_plan_photo">查看原药盒照片</string>
+    <string name="browse_close_details">收起详情</string>
+    <string name="browse_preview_unavailable">暂时无法提供接下来的提醒预览，不代表没有提醒。</string>
+    <string name="browse_preview_results">接下来的提醒</string>
+    <string name="browse_preview_empty">所选日期范围内没有提醒。</string>
+    <string name="browse_preview_waiting">正在等待与当前计划版本一致的提醒预览。</string>
+    <string name="browse_preview_candidate">%1$s %2$s (%3$s)</string>
+    <string name="browse_create_plan">用这张照片建立计划</string>
+    <string name="browse_elder_empty">暂时还没有分享给您的计划。</string>
+    <string name="browse_elder_loading">正在载入您的计划…</string>
+    <string name="browse_elder_unavailable">暂时无法查看计划，请稍后再回来。</string>
+</resources>
