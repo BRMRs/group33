@@ -1,7 +1,13 @@
 package com.group33.medicationreminder.caregiver.plan
 
 import android.content.Context
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.graphics.Bitmap
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.content.res.ColorStateList
+import android.text.InputType
 import android.util.AttributeSet
 import android.view.View
 import android.widget.*
@@ -27,37 +33,126 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
     ScrollView(context, attrs) {
     private val column = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
-    private fun text() = TextView(context).apply { textSize = 16f; column.addView(this) }
-    private val elder = text()
+    private fun color(id: Int) = androidx.core.content.ContextCompat.getColor(context, id)
+    private fun surface(fill: Int, border: Int? = null) = GradientDrawable().apply {
+        setColor(fill); cornerRadius = dp(16).toFloat()
+        border?.let { setStroke(dp(1), it) }
+    }
+    private fun label(parent: LinearLayout, size: Float = 16f) = TextView(context).apply {
+        textSize = size; setTextColor(color(R.color.group33_text_primary))
+        setLineSpacing(dp(3).toFloat(), 1f)
+        parent.addView(this, LinearLayout.LayoutParams(-1, -2))
+    }
+    private val heading = label(column, 28f).apply {
+        setText(R.string.c2_editor_heading); setTypeface(typeface, Typeface.BOLD)
+        androidx.core.view.ViewCompat.setAccessibilityHeading(this, true)
+    }
+    private val elder = label(column, 16f).apply {
+        setTextColor(color(R.color.group33_text_secondary)); setPadding(0, dp(8), 0, dp(20))
+    }
+    private fun section(title: Int): LinearLayout = LinearLayout(context).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(16), dp(18), dp(16), dp(18))
+        background = surface(color(R.color.group33_surface))
+        column.addView(this, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(16) })
+        label(this, 18f).apply {
+            setText(title); setTypeface(typeface, Typeface.BOLD)
+            setPadding(0, 0, 0, dp(16))
+            androidx.core.view.ViewCompat.setAccessibilityHeading(this, true)
+        }
+    }
+    private val photoSection = section(R.string.c2_editor_section_photo)
     private val photo = ImageView(context).apply {
         adjustViewBounds = true
-        column.addView(this, LinearLayout.LayoutParams(-1, dp(200)))
+        scaleType = ImageView.ScaleType.FIT_CENTER
+        background = surface(color(R.color.group33_background))
+        clipToOutline = true
+        setPadding(dp(8), dp(8), dp(8), dp(8))
+        photoSection.addView(this, LinearLayout.LayoutParams(-1, dp(156)))
     }
     private val viewed = CheckBox(context).apply {
-        setText(R.string.c2_editor_photo_viewed); minHeight = dp(48); column.addView(this)
+        setText(R.string.c2_editor_photo_viewed); textSize = 16f
+        setTextColor(color(R.color.group33_text_primary))
+        buttonTintList = ColorStateList.valueOf(color(R.color.group33_action))
+        minHeight = dp(48)
+
     }
     private val fields = linkedMapOf<PlanFormField, EditText>()
-    private fun field(key: PlanFormField?, label: Int, hint: Int? = null): EditText {
-        val edit = EditText(context).apply { id = View.generateViewId(); textSize = 16f; minHeight = dp(48); minimumHeight = dp(48) }
-        text().apply { setText(label); labelFor = edit.id }
+    private fun field(parent: LinearLayout, key: PlanFormField?, title: Int, hint: Int? = null): EditText {
+        val edit = EditText(context).apply {
+            id = View.generateViewId(); textSize = 16f; minHeight = dp(56); minimumHeight = dp(56)
+            setTextColor(color(R.color.group33_text_primary))
+            setHintTextColor(color(R.color.group33_text_secondary))
+            background = surface(color(R.color.group33_background))
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            setOnFocusChangeListener { _, focused ->
+                background = surface(color(R.color.group33_background),
+                    if (focused) color(R.color.group33_action) else null)
+            }
+        }
+        label(parent, 14f).apply {
+            setText(title); labelFor = edit.id; setTypeface(typeface, Typeface.BOLD)
+            setPadding(0, 0, 0, dp(6))
+        }
         hint?.let { edit.setHint(it) }
-        column.addView(edit)
+        parent.addView(edit, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(16) })
         key?.let { fields[it] = edit }
         return edit
     }
-    private val name = field(PlanFormField.NAME, R.string.c2_plan_medication_name)
-    private val dosage = field(PlanFormField.DOSAGE, R.string.c2_plan_dosage)
-    private val instructions = field(null, R.string.c2_plan_instructions)
-    private val times = field(PlanFormField.TIMES, R.string.c2_plan_times, R.string.c2_editor_times_hint)
-    private val start = field(PlanFormField.START_DATE, R.string.c2_plan_start_date, R.string.c2_plan_date_hint)
-    private val end = field(PlanFormField.END_DATE, R.string.c2_plan_end_date, R.string.c2_plan_date_hint)
-    private val zone = field(PlanFormField.TIME_ZONE, R.string.c2_plan_execution_zone)
-    private val comparison = text()
-    private val acknowledgement = CheckBox(context).apply {
-        setText(R.string.c2_plan_zone_acknowledgement); minHeight = dp(48); column.addView(this)
+    private val medicationSection = section(R.string.c2_editor_section_medication)
+    private val name = field(medicationSection, PlanFormField.NAME, R.string.c2_plan_medication_name)
+    private val dosage = field(medicationSection, PlanFormField.DOSAGE, R.string.c2_plan_dosage)
+    private val instructions = field(medicationSection, null, R.string.c2_plan_instructions).apply {
+        inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
     }
-    private val status = text().apply { accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE }
-    private val action = Button(context).apply { minHeight = dp(48); column.addView(this) }
+    private val scheduleSection = section(R.string.c2_editor_section_schedule)
+    private val times = field(scheduleSection, PlanFormField.TIMES, R.string.c2_plan_times, R.string.c2_editor_times_hint).apply {
+        keyListener = null; showSoftInputOnFocus = false; isCursorVisible = false
+        visibility = View.GONE
+    }
+    private val timeRows = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; scheduleSection.addView(this) }
+    private val timeError = label(scheduleSection).apply { accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE }
+    private val addTime = Button(context).apply {
+        setText(R.string.c2_editor_add_time); minHeight = dp(48); isAllCaps = false
+        scheduleSection.addView(this); setOnClickListener { openTimePicker(null) }
+    }
+    private val start = field(scheduleSection, PlanFormField.START_DATE, R.string.c2_plan_start_date, R.string.c2_editor_date_placeholder).apply { calendarField(this, false) }
+    private val end = field(scheduleSection, PlanFormField.END_DATE, R.string.c2_plan_end_date, R.string.c2_editor_date_placeholder).apply { calendarField(this, true) }
+    private val dateHelp = label(scheduleSection, 14f).apply {
+        setText(R.string.c2_editor_calendar_help); setTextColor(color(R.color.group33_text_secondary))
+    }
+    private val zoneSection = section(R.string.c2_editor_section_zone)
+    private val zone = field(zoneSection, PlanFormField.TIME_ZONE, R.string.c2_plan_execution_zone).apply {
+        inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+    }
+    private val comparison = label(zoneSection, 14f).apply {
+        setTextColor(color(R.color.group33_text_secondary))
+        setPadding(dp(12), dp(12), dp(12), dp(12))
+        background = surface(color(R.color.group33_background))
+    }
+    private val acknowledgement = CheckBox(context).apply {
+        setText(R.string.c2_plan_zone_acknowledgement); textSize = 16f
+        setTextColor(color(R.color.group33_text_primary))
+        buttonTintList = ColorStateList.valueOf(color(R.color.group33_action))
+        minHeight = dp(48); zoneSection.addView(this)
+    }
+    private val status = label(column).apply {
+        accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+        setPadding(dp(16), dp(16), dp(16), dp(16))
+        background = surface(color(R.color.group33_navigation_selected))
+    }
+    private val photoConfirmation = viewed.also { column.addView(it, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) }) }
+    private val action = Button(context).apply {
+        minHeight = dp(56); textSize = 16f; isAllCaps = false
+        setTypeface(typeface, Typeface.BOLD)
+        setTextColor(ColorStateList(arrayOf(intArrayOf(android.R.attr.state_enabled), intArrayOf()),
+            intArrayOf(color(R.color.group33_surface), color(R.color.group33_text_secondary))))
+        background = surface(color(R.color.group33_action))
+        backgroundTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_enabled), intArrayOf()),
+            intArrayOf(color(R.color.group33_action), color(R.color.group33_navigation_selected)))
+        column.addView(this, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(16) })
+    }
     private var binding: Job? = null
     private var operation: Job? = null
     private var form: PlanFormViewModel? = null
@@ -68,9 +163,109 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
     private var rejectionReviewed = false
     private var updating = false
     private var generation = 0
+    private var dateDialog: DatePickerDialog? = null
+    private var timeDialog: TimePickerDialog? = null
+
+    private fun openTimePicker(index: Int?) {
+        if (!times.isEnabled || form == null) return
+        timeDialog?.dismiss()
+        val token = generation
+        val entries = input().localTimes
+        val selected = index?.let { entries.getOrNull(it) }?.let { runCatching { LocalTime.parse(it) }.getOrNull() } ?: LocalTime.of(8, 0)
+        val dialog = TimePickerDialog(context, { _, hour, minute ->
+            if (token == generation && times.isEnabled && form != null) {
+                val value = String.format(java.util.Locale.ROOT, "%02d:%02d", hour, minute)
+                val updated = input().localTimes.toMutableList()
+                if (index == null) updated.add(value) else if (index in updated.indices) updated[index] = value
+                times.setText(updated.joinToString("\n"))
+            }
+        }, selected.hour, selected.minute, true)
+        timeDialog = dialog
+        dialog.setOnDismissListener { if (timeDialog === dialog) timeDialog = null }
+        dialog.show()
+        listOf(android.content.DialogInterface.BUTTON_POSITIVE, android.content.DialogInterface.BUTTON_NEGATIVE).forEach {
+            dialog.getButton(it).apply {
+                setTextColor(color(R.color.group33_action)); minHeight = dp(48)
+                backgroundTintList = ColorStateList.valueOf(color(R.color.group33_surface))
+                isAllCaps = false
+            }
+        }
+    }
+
+    private fun renderTimes() {
+        timeRows.removeAllViews()
+        input().localTimes.forEachIndexed { index, value ->
+            val row = LinearLayout(context)
+            val edit = Button(context).apply {
+                text = value; minHeight = dp(48); isAllCaps = false; isEnabled = times.isEnabled
+                contentDescription = context.getString(R.string.c2_editor_edit_time, value)
+                setOnClickListener { openTimePicker(index) }
+            }
+            row.addView(edit, LinearLayout.LayoutParams(0, -2, 1f))
+            row.addView(Button(context).apply {
+                setText(R.string.c2_editor_remove_time); minHeight = dp(48); isAllCaps = false; isEnabled = times.isEnabled
+                contentDescription = context.getString(R.string.c2_editor_remove_named_time, value)
+                setOnClickListener {
+                    if (times.isEnabled) times.setText(input().localTimes.filterIndexed { i, _ -> i != index }.joinToString("\n"))
+                }
+            })
+            timeRows.addView(row)
+        }
+        addTime.isEnabled = times.isEnabled
+    }
+
+    private fun calendarField(edit: EditText, optional: Boolean) {
+        edit.keyListener = null
+        edit.showSoftInputOnFocus = false
+        edit.isCursorVisible = false
+        edit.setCompoundDrawablesRelativeWithIntrinsicBounds(0, 0, R.drawable.c2_calendar, 0)
+        edit.compoundDrawablePadding = dp(12)
+        edit.setOnClickListener {
+            if (!edit.isEnabled) return@setOnClickListener
+            dateDialog?.dismiss()
+            val requestedGeneration = generation
+            val selected = runCatching { LocalDate.parse(edit.text) }.getOrElse {
+                runCatching { LocalDate.parse(start.text) }.getOrElse { LocalDate.now() }
+            }
+            fun stillCurrent() = generation == requestedGeneration && edit.isEnabled && form != null
+            val dialog = DatePickerDialog(context, R.style.C2CalendarDialog,
+                { _, year, month, day ->
+                    if (stillCurrent()) edit.setText(LocalDate.of(year, month + 1, day).toString())
+                }, selected.year, selected.monthValue - 1, selected.dayOfMonth)
+            dialog.setTitle(if (optional) R.string.c2_plan_end_date else R.string.c2_plan_start_date)
+            if (optional) dialog.setButton(android.content.DialogInterface.BUTTON_NEUTRAL,
+                context.getString(R.string.c2_editor_no_end)) { _, _ ->
+                if (stillCurrent()) edit.setText("")
+            }
+            dialog.setOnDismissListener { if (dateDialog === dialog) dateDialog = null }
+            dateDialog = dialog
+            dialog.show()
+            // Explicit contrast: platform dialog buttons can inherit unsuitable text styling.
+            listOf(android.content.DialogInterface.BUTTON_POSITIVE,
+                android.content.DialogInterface.BUTTON_NEGATIVE,
+                android.content.DialogInterface.BUTTON_NEUTRAL).forEach { which ->
+                dialog.getButton(which)?.apply {
+                    setTextColor(color(R.color.group33_action))
+                    backgroundTintList = ColorStateList.valueOf(color(R.color.group33_surface))
+                    minHeight = dp(48)
+                    textSize = 16f
+                    isAllCaps = false
+                }
+            }
+            dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).apply {
+                setText(R.string.c2_editor_confirm_date)
+                setTextColor(color(R.color.group33_surface))
+                backgroundTintList = null
+                background = surface(color(R.color.group33_action))
+            }
+        }
+    }
 
     init {
         column.setPadding(dp(16), dp(16), dp(16), dp(24))
+        column.isFocusableInTouchMode = true
+        column.descendantFocusability = android.view.ViewGroup.FOCUS_BEFORE_DESCENDANTS
+        setBackgroundColor(color(R.color.group33_background))
         addView(column)
         isFillViewport = true
         (fields.values + instructions).forEach { edit -> edit.doAfterTextChanged {
@@ -78,9 +273,11 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
                 form?.updateInput(input())
                 acknowledgement.isChecked = false
                 renderZones()
+                if (edit === times) renderTimes()
             }
         } }
         clear()
+        column.requestFocus()
     }
 
     /** decodedPhoto must match metadata and have been obtained by the trusted host. */
@@ -91,7 +288,7 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
         val boundGeneration = generation
         form = formModel; save = saveModel
         caregiverZone = caregiverTimeZone; elderZone = elderTimeZone
-        elder.text = elderName
+        elder.text = context.getString(R.string.c2_editor_for_elder, elderName)
         photo.contentDescription = context.getString(R.string.c2_editor_photo_description, elderName)
         val usablePhoto = metadata != null && decodedPhoto != null && !decodedPhoto.isRecycled
         photoMetadata = metadata.takeIf { usablePhoto }
@@ -103,7 +300,9 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
         instructions.setText(initial.instructions); times.setText(initial.localTimes.joinToString("\n"))
         start.setText(initial.startDate); end.setText(initial.endDate); zone.setText(initial.executionTimeZoneId)
         updating = false
+        renderTimes()
         renderZones()
+        post { if (generation == boundGeneration) scrollTo(0, 0) }
         action.setOnClickListener {
             if (operation?.isActive == true || !owner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return@setOnClickListener
             if (saveModel.state.value.status == PlanSaveStatus.REJECTED && !rejectionReviewed) {
@@ -135,6 +334,7 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
                 owner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                     launch { formModel.state.collect { state ->
                         fields.forEach { (key, edit) -> edit.error = state.errors[key]?.let { context.getString(errorResource(it)) } }
+                        timeError.text = state.errors[PlanFormField.TIMES]?.let { context.getString(errorResource(it)) }.orEmpty()
                     } }
                     launch { saveModel.state.collect { renderSave(it) } }
                 }
@@ -146,6 +346,8 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
 
     fun clear() {
         generation++
+        dateDialog?.dismiss(); dateDialog = null
+        timeDialog?.dismiss(); timeDialog = null
         rejectionReviewed = false
         form = null; save = null
         binding?.cancel(); binding = null
@@ -157,6 +359,7 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
         updating = true
         (fields.values + instructions).forEach { it.setText(""); it.error = null; it.isEnabled = false }
         updating = false
+        renderTimes(); timeError.text = ""
         elder.text = ""; comparison.text = ""
         status.setText(R.string.c2_editor_no_context)
         action.isEnabled = false; action.setText(R.string.c2_plan_save); action.setOnClickListener(null)
@@ -176,8 +379,9 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
             execution.takeIf { it in known } ?: unknown)
         val example = runCatching {
             val at = LocalDate.parse(start.text).atTime(LocalTime.parse(input().localTimes.first())).atZone(ZoneId.of(execution))
-            fun inZone(id: String?) = id?.takeIf { it in known }?.let { at.withZoneSameInstant(ZoneId.of(it)).toString() } ?: unknown
-            context.getString(R.string.c2_editor_zone_example, at.toString(), inZone(caregiverZone), inZone(elderZone))
+            val format = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm XXX")
+            fun inZone(id: String?) = id?.takeIf { it in known }?.let { at.withZoneSameInstant(ZoneId.of(it)).format(format) } ?: unknown
+            context.getString(R.string.c2_editor_zone_example, at.format(format), inZone(caregiverZone), inZone(elderZone))
         }.getOrElse { context.getString(R.string.c2_editor_example_pending) }
         comparison.text = "$summary\n$example"
     }
@@ -196,6 +400,8 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
         action.isEnabled = p.action != PlanDisplayAction.NONE
         val editable = state.status in setOf(PlanSaveStatus.IDLE, PlanSaveStatus.NOT_SUBMITTED, PlanSaveStatus.REJECTED)
         (fields.values + instructions).forEach { it.isEnabled = editable }
+        renderTimes()
+        if (!editable) { timeDialog?.dismiss(); timeDialog = null }
         acknowledgement.isEnabled = editable
         viewed.isEnabled = editable && photoMetadata != null
     }

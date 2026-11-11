@@ -1,0 +1,9 @@
+<resources>
+    <style name="C2CalendarDialog" parent="android:style/Theme.Material.Light.Dialog.Alert">
+        <item name="android:colorAccent">@color/group33_action</item>
+        <item name="android:datePickerStyle">@style/C2CalendarPicker</item>
+    </style>
+    <style name="C2CalendarPicker" parent="android:style/Widget.Material.Light.DatePicker">
+        <item name="android:datePickerMode">calendar</item>
+    </style>
+</resources>
