@@ -7,6 +7,7 @@ import com.group33.shared.contract.UpdateReminderPlanRequest
  * The host must discard it on session/Elder/access changes and freeze a separate
  * command payload before submitting; unknown operations must never be rebased.
  */
+@ConsistentCopyVisibility
 data class PlanEditDraft private constructor(
     val confirmed: ReminderPlanView,
     val input: UpdateReminderPlanRequest,
