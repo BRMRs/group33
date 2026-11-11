@@ -143,7 +143,7 @@ internal class OnlineFeatureContent private constructor(
             } else {
                 state.photos.forEachIndexed { i, photo ->
                     if (role == UserRole.CAREGIVER) button(data, R.string.chain_inspect) { model.viewPhoto(photo.id) }
-                        .text = activity.getString(R.string.chain_inspect_number, i + 1)
+                        .text = activity.getString(R.string.chain_inspect_number, Integer.valueOf(i + 1))
                 }
                 state.failedPhotoId?.let { id ->
                     text(data, R.string.chain_photo_read_failed).accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
