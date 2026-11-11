@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="c3_overview_title">Medication records overview</string>
+  <string name="c3_elder">Elder: %1$s</string>
+  <string name="c3_range">Dates: %1$s – %2$s</string>
+  <string name="c3_select_elder">Sign in and select a paired Elder to view records.</string>
+  <string name="c3_loading">Loading records…</string>
+  <string name="c3_access_unknown">Access is not yet confirmed. No records are shown. Refresh or check your Elder selection.</string>
+  <string name="c3_revoked">Access has been revoked. Select an authorized Elder through pairing.</string>
+  <string name="c3_unavailable">Records are unavailable or access could not be confirmed. Check your sign-in and Elder selection, then refresh.</string>
+  <string name="c3_no_local_data">No local records have been loaded. Refresh to check; this does not mean there are no medication events.</string>
+  <string name="c3_empty">No medication events in the selected dates. This is not evidence of whether medication was taken.</string>
+  <string name="c3_results">Last known event results</string>
+  <string name="c3_refresh">Refresh records</string>
+  <string name="c3_history">View event history</string>
+  <string name="c3_refreshing">Refreshing…</string>
+  <string name="c3_refresh_complete">Refresh completed.</string>
+  <string name="c3_refresh_failed">Records could not be fully updated. Last known records are retained when available. Try refreshing again.</string>
+  <string name="c3_offline">Offline. Showing local records when available; refresh after reconnecting.</string>
+  <string name="c3_stale">Out of date — these records may have changed.</string>
+  <string name="c3_last_sync">Last successful sync (device time zone): %1$s</string>
+  <string name="c3_sync_time_unknown">Last successful sync time: unknown</string>
+  <string name="c3_capability_unknown">Reminder capability: unknown. This does not indicate a medication outcome or device connectivity.</string>
+  <string name="c3_capability">Last reported reminder capability: %1$s. Observed (device time zone): %2$s. This is not a live connection check.</string>
+  <string name="c3_capability_available">available</string>
+  <string name="c3_capability_degraded">limited</string>
+  <string name="c3_capability_unavailable">unavailable</string>
+  <string name="c3_capability_details">Notification permission: %1$s\nNotification channel: %2$s\nExact alarm access: %3$s\nCapability report received by service (device time zone): %4$s</string>
+  <string name="c3_permission_granted">granted</string>
+  <string name="c3_permission_denied">not granted</string>
+  <string name="c3_permission_not_required">not required</string>
+  <string name="c3_channel_enabled">enabled</string>
+  <string name="c3_channel_disabled">disabled</string>
+  <string name="c3_refresh_storage_unavailable">Local storage is unavailable. Records could not be fully updated; last known records may be out of date. Try refreshing again later.</string>
+  <string name="c3_refresh_invalid_input">The refresh request is invalid. Check the selected Elder and dates before trying again. Last known records may be out of date.</string>
+  <string name="c3_refresh_range_too_large">The requested dates or number of records exceed the download limit. No shortened result is shown. Try a smaller date range; last known records may be out of date.</string>
+  <string name="c3_refresh_service_unavailable">The service is temporarily unavailable. Last known records may be out of date. Try refreshing again later.</string>
+  <string name="c3_refresh_retry_later">The service has asked you to retry later. Last known records may be out of date. Wait before refreshing again.</string>
+</resources>
