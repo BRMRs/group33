@@ -1,0 +1,13 @@
+<resources>
+    <string name="chain_title">Debug — two-installation online flow</string>
+    <string name="chain_boundary">Anonymous test identities. Use fictional information only. Each installation keeps its first role. Phone login and reminder execution are separate work.</string>
+    <string name="chain_server">Test service: %1$s</string>
+    <string name="chain_name">Test display name</string>
+    <string name="chain_demo_elder">Demo Elder</string>
+    <string name="chain_demo_caregiver">Demo Caregiver</string>
+    <string name="chain_login_elder">Sign in as Elder</string>
+    <string name="chain_login_caregiver">Sign in as Caregiver</string>
+    <string name="chain_signed_in">Signed in. Loading authorized relationships.</string>
+    <string name="chain_fixed_role">This installation already has another role. Use a separate installation for the other role.</string>
+    <string name="chain_anonymous_login">Debug anonymous test login</string>
+</resources>
