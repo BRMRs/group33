@@ -1,5 +1,7 @@
 # API contract
 
+> Phone identity design review: [Proposed account/installation/session binding](contracts/PHONE_IDENTITY_BINDING_PROPOSAL.md), [Proposed ADR0010](adr/0010-phone-accounts-and-installation-binding.md), tracked in #96 / #118. Proposed fields are not accepted/deployed P0 wire.
+
 > 2026-10-22负责人补充：首发无旧版用户；整组动作全收或全拒；相反报告的当前跟进结论以照护者有效登记为准，双方原始报告与审计仍保留，不能冒充Elder Taken。产品决定已记录于ADR-0008；组身份、事务/更正版本和具体wire/schema仍待S1/S2联审，现有r1代码/JSON未实现这些新能力。
 
 > Legacy compiled-contract reference (2026-10-17): this file describes r1 code/fixtures, not a frozen V2 API. Current product authority is [accepted V2 / #23](https://github.com/BRMRs/group33/issues/23), with its full document update in separate PR #25 and affected protocol/migration decisions in [#24](https://github.com/BRMRs/group33/issues/24). Use [onboarding](AGENT_START_HERE.md) before choosing work; this notice neither changes wire fields nor implements V2.
@@ -15,8 +17,6 @@ The contract is deliberately small. Any incompatible change requires Android and
 The [technical queue](ELDER_UI_TECHNICAL_REVIEW.md) lists V2-T01–V2-T06. It cannot restore an old response window or make required follow-up/alerts optional. Route/model tables remain review drafts; missing group/help/takeover/Caregiver-entry/contact/notification contracts must be completed under #12 before affected adapters freeze.
 
 ## Review status and companion specifications
-
-**2026-10-31 phone identity proposal:** [exact account/installation/session/P0 actor binding](contracts/PHONE_IDENTITY_BINDING_PROPOSAL.md) and [Proposed ADR0010](adr/0010-phone-accounts-and-installation-binding.md) answer S1's #49 request. These are **DRAFT recommendations**, including incompatible trial fields, not accepted/implemented endpoints, claims or migrations. Existing anonymous examples/compiled Shared fixtures remain unchanged historical evidence; phone binding needs recorded Android/Server decisions and coordinated implementation. Account/userId is neither installation credential nor care permission.
 
 The behavior decisions are confirmed. The HTTP routes, new fields and return shapes below are an implementation-contract **review draft** for [Implement shared HTTP contracts, feature Repository interfaces, and contract tests](https://github.com/BRMRs/group33/issues/12), assigned to `BRMRs`. Existing development endpoints are identified separately. This document does not claim that the proposed endpoints or tests already exist or that the Android/Server review is complete.
 

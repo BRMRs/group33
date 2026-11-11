@@ -1,7 +1,7 @@
 {
   "status": "DRAFT",
   "reviewOnly": true,
-  "baseline": "b2aeb492a97ea1e17ced4da22972f34cae44ea73",
+  "baseline": "25f4482fd1dd27c69121e71f12be697ce1c0972a",
   "proposal": "phone-identity-binding-v1",
   "notImplemented": true,
   "tokensAreFictional": true,
@@ -172,6 +172,44 @@
         "retryable": true,
         "retryAfterSeconds": 1
       }
+    },
+    {
+      "id": "sms-provider-verified-phone-mismatch",
+      "expected": {
+        "http": 401,
+        "code": "PHONE_MISMATCH",
+        "retryable": false,
+        "accountLookup": false,
+        "ticketOrSessionCreated": false
+      }
+    },
+    {
+      "id": "own-known-wrong-role",
+      "expected": {
+        "http": 403,
+        "code": "ROLE_NOT_ALLOWED",
+        "retryable": false,
+        "client": "retain-session-and-original-command"
+      }
+    },
+    {
+      "id": "late-401-for-obsolete-lease",
+      "expected": {
+        "http": 401,
+        "code": "UNAUTHENTICATED",
+        "client": "invalidate-captured-matching-lease-only",
+        "clearNewerSession": false,
+        "retryable": false
+      }
     }
-  ]
+  ],
+  "smsVerifyReviewOnly": {
+    "request": {
+      "installationId": "10000000-0000-4000-8000-000000000001",
+      "authenticationAttemptToken": "RklDVElPTkFMX0FUVEVNUFRfVE9LRU5fRklYVFVSRTE",
+      "verifyToken": "FICTIONAL_SMS_PROVIDER_PROOF",
+      "expectedPhone": "FICTIONAL_PHONE_NOT_A_VALID_NUMBER"
+    },
+    "note": "Structural review only; expectedPhone is match-only after provider PASS, never identity proof or an executable valid-phone fixture"
+  }
 }

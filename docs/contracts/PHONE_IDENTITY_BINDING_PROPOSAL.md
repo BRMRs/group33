@@ -1,10 +1,10 @@
 # Phone account, installation and business actor binding
 
-**DRAFT for #49 / #10 / #12 / #16; not accepted or implemented.** S2 proposal, 2026-10-31. Exact recommendations below require C1/S1 and Server review before production DTO/claim/schema changes. Explicit Elder consent and current care relationships remain mandatory.
+**Proposed design for #118 / #49 / #10 / #12 / #16; ready for joint design review, not accepted or implemented.** S2 proposal, updated 2026-11-11. Exact recommendations below require C1/S1 and Server review before production DTO/claim/schema changes. Explicit Elder consent and current care relationships remain mandatory.
 
 ## 1. Evidence and decisions requested
 
-Main `b2aeb492a97ea1e17ced4da22972f34cae44ea73`; inspected phone #94 `7cc66543407cb11eaa76b394027a43bd43d095b2`, parent #88 `2bfadbbd7d0c8238992cbeee68776db0962ed90a`, session #84 `c401504973287cb3f2f0ba5a01e733d48971da36`, and P0 resolver/persistence in #93 `909e506249dd43f06b0c0070bd9c69ec50eab6c4`. These unmerged branches are evidence references, not combined main acceptance.
+Current review base: main `25f4482fd1dd27c69121e71f12be697ce1c0972a`, including #117 and #91. The lead requested synchronization and design review in [#96](https://github.com/BRMRs/group33/pull/96#issuecomment-6686037146); [#118](https://github.com/BRMRs/group33/issues/118) now assigns S2 accountable ownership. Current #88 `66c67de8b11c57e8c7b759d6065aa1ca5929d210` already uses the common S1 session and keeps phone JWTs out of anonymous P0 business authorization. Its actual handoff, team-build document, provider and controller were inspected at that head. Original #94/#97 current-account protections remain separate dependencies, not implied merged implementation. No required reviewer has accepted D1–D4.
 
 The [lead requests precise fields/errors](https://github.com/BRMRs/group33/issues/49#issuecomment-6526229077). C1 owns SDK/login/role UI; S1 owns the common private session, installation and HTTP lease; S2 owns current account/session reads, business authorization and migrations. No person's approval is recorded here.
 
@@ -20,7 +20,7 @@ The [lead requests precise fields/errors](https://github.com/BRMRs/group33/issue
 - `UserView` already aliases `User`: keep that response shape. Stable userId and first registered role come from the current Server account, never a client role or phone number.
 - #94 checks current phone account after signature/issuer/time and separates invalid401 from temporary503, but adds no installation binding. `/schedules` remains a legacy development result.
 - Existing `VerifiedPairingActorResolver` accepts `type=anonymous`, reads `AnonymousUserStore` and returns `AnonymousUser`. Downstream P0 stores also read anonymous user metadata and retain original installation in receipts. Accepting `type=phone` at only the first resolver is insufficient.
-- S1 already has `RepositoryScope(environmentId, installationId, userId)`, authentication attempt and lease. Its generation/epoch remain private local state, not Server credentials or wire fields. Corrected trial PhoneSessionStore must not coexist with common session as two production truths.
+- S1 already has `RepositoryScope(environmentId, installationId, userId)`, authentication attempt and lease. Its generation/epoch remain private local state, not Server credentials or wire fields. Current #88 has removed the parallel trial PhoneSessionStore and uses the common private session. Do not list that completed client integration as missing or recreate it; Server-bound identity and business authorization remain pending.
 - No anonymous-history/account merge, fixed-role overwrite, new cross-user permission, whole-account logout on relation failure, group/Help protocol change or completed deployment follows from sign-in.
 
 ## 3. Proposed authentication requests and results
@@ -35,7 +35,7 @@ Response200 retains `fusionAuthToken`, `schemeCode`, `expiresInSeconds:900` and 
 
 ### Verify provider proof
 
-Proposed `POST /fusion/verify` body has exactly `installationId`, `authenticationAttemptToken`, `verifyToken`. Installation must match the original Server attempt. Capability is43 base64url characters; provider proof is nonblank, at most8192characters, passed unchanged. Phone number/userId/role fields are forbidden.
+Proposed `POST /fusion/verify` body requires exactly `installationId`, `authenticationAttemptToken`, `verifyToken`, with optional `expectedPhone` for the existing SDK SMS intent. Installation must match the original Server attempt. Capability is43 base64url characters; provider proof is nonblank, at most8192characters, passed unchanged. The SMS adapter carries its original entered number as `expectedPhone`; one-tap omits it. Preserve the existing comparison only after provider PASS, using the reviewed normalization rule: a mismatch returns generic401 `PHONE_MISMATCH` before account lookup or ticket/session creation. `expectedPhone` is never identity proof, the account lookup key, or a substitute for the provider-verified number. No client `userId` or `role` is accepted here. This explicitly preserves current #88 protection; final field and normalization acceptance remains D1/D4 review.
 
 Claim a pending attempt using a short Server verification lease; call provider **outside** DB transaction. Proposed connect/overall/lease bounds are5/20/30seconds. Only a still-current lease may commit PASS. Persist a SHA256 proof fingerprint, unique per provider scheme/profile until the proof validity bound plus clock allowance. This claim prevents the same opaque proof issuing outcomes through multiple attempts; provider PASS remains mandatory. No raw proof/capability/phone/fingerprint diagnostics.
 
@@ -110,6 +110,7 @@ Existing ApiError + `X-Request-ID`; auth responses/errors and current-auth failu
 | Malformed/missing/unknown JSON or enum |400 `MALFORMED_REQUEST` | No provider call |
 | Well-formed invalid UUID/length/displayName |422 `VALIDATION_FAILED`, scoped field code | Retain input, no role mutation |
 | Provider denies; invalid/expired/consumed/foreign attempt |401 `PHONE_VERIFICATION_FAILED`, retryable=false | Fresh auth attempt; cannot clear newer login |
+| Provider PASS but SMS `expectedPhone` does not match |401 `PHONE_MISMATCH`, retryable=false | No account lookup/ticket/session; fresh matching SDK attempt, no unrelated-session invalidation |
 | Invalid/expired/consumed/foreign-install ticket |422 `REGISTRATION_INVALID`, retryable=false | Fresh proof recovers current account, no consumed-ticket retry |
 | Live verification/business worker |409 `OPERATION_IN_PROGRESS`, retryable=true, `Retry-After: 1` | Bounded wait with original identity |
 | Invalid/old-unbound JWT, missing/revoked/mismatched current account/install/session |401 `UNAUTHENTICATED`, retryable=false, `WWW-Authenticate: Bearer` | Invalidate only captured matching lease; retain business evidence |
@@ -124,9 +125,9 @@ Resource404 retains the existing privacy rule; S1's client handling of403 does n
 ## 8. Adoption and rollout gates
 
 1. Record D1–D4 joint decisions, then coordinate compiled Shared/JSON/Jackson/S1/C1 changes in implementation PRs. This proposal's examples are not compiled fixtures or passing acceptance tests.
-2. Add forward migrations after history actually accepted on main (#90/#93 are Draft). Do not edit v1–v9, reserve version numbers or baseline a nonempty trial schema. Explicit backup/conversion preserves current ids/HMAC uniqueness/roles; collisions abort safely. Unbound tickets expire; old JWTs cannot be upgraded from claims. No history deletion.
+2. Add forward migrations after the history actually accepted on main. Main at this review has V1–V9; the lead has separately ordered #116 dose actions as V10, then #102 indexes as V11 after #116 merges. This phone proposal does not reserve any next number or turn those unmerged versions into main history. Do not edit v1–v9, reserve version numbers or baseline a nonempty trial schema. Explicit backup/conversion preserves current ids/HMAC uniqueness/roles; collisions abort safely. Unbound tickets expire; old JWTs cannot be upgraded from claims. No history deletion.
 3. Co-locate auth/business state; implement the current directory/transaction seam and reviewed profile. Runtime has no DDL/admin/memory fallback. Preserve #81 private signing and #61 PNG.
-4. C1 uses S1's one attempt/session/lease, verifies installation echo, and removes trial store from production wiring. Gate real phone P0 on the entire accepted profile; legacy `/schedules` success cannot enable unbound phone business access.
+4. Preserve #88's completed common-session integration. After D1–D4 acceptance, C1 adapts the same S1 attempt/session/lease to the accepted fields and installation echo; do not recreate or remove another already-removed trial store. Gate real phone P0 on the entire accepted profile; legacy `/schedules` success cannot enable unbound phone business access.
 5. Cloud remains Render+Supabase. Fully cloud-independent LAN keeps explicitly selected isolated existing anonymous demonstration auth, local PG/private files, different key/audience/data. No phone outage automatically selects it; it is not verified phone login. Full LAN acceptance remains required.
 6. Review config/backup/conversion; validate actual migrated startup/packaged HTTP/rollback before cloud actions. Rollback cannot restore unbound P0 phone access, public signing or unfenced writes. Draft publication itself authorizes no deployment.
 
@@ -153,3 +154,28 @@ See [review-only examples](proposals/phone-identity-binding-v1.examples.json), [
 - [RFC6750](https://www.rfc-editor.org/rfc/rfc6750): Bearer possession and protected transport/storage; this custom phone flow is not claimed as an OAuth authorization server.
 - [RFC8725 §§3.8–3.12](https://www.rfc-editor.org/rfc/rfc8725): issuer/audience validation, explicit typing and mutually exclusive profiles.
 - [RFC7519 §§4.1.3–4.1.7](https://www.rfc-editor.org/rfc/rfc7519): audience, NumericDate and JWT id. Server session persistence is this application's recommendation, not an RFC-imposed schema.
+
+
+## 10. SDK SMS path and bounded verification handoff
+
+Both one-tap and SMS continue through the existing Alibaba Fusion SDK: token acquisition, SDK result, then Server `/fusion/verify`; a new account continues through `/phone/register`. The SDK owns SMS sending/resend/risk challenges. This proposal does not add manual send-code/verify-code or password/reset endpoints. For SMS, preserve the current `expectedPhone` comparison after supplier PASS as described above. A valid signed trial JWT still cannot itself authorize P0 pairing/photos/plans.
+
+The current #88 `FusionAuthProvider` does not set explicit connect/read/runtime options at its SDK call site. That source finding is **not a measured root cause** for the recorded 20-second client timeout, and increasing Android wait to45seconds is not proof of recovery. The following transport work is S2-owned, separate from accepting every D1 field: record sanitized stage/result category and monotonic elapsed time; bound upstream connect/total work and retries; test nonresponse/late PASS/cancellation and restoration without retaining proof, phone or credentials. The5/20/30-second recommendations in section3 remain proposed budgets until reviewed. No real-provider call or latency result is claimed by this documentation PR.
+
+403/404 examples below are review-only client expectations. An own-account wrong-role403 retains the common session and original journal evidence. An inaccessible/unrelated/revoked target404 clears only that target presentation/access; it retains the common session and original operation evidence. Neither grants target existence information or permits a new write. A401 may invalidate only the exact captured matching lease;503/429 retains recovery state. C1 and S1 must confirm observable presentation against these S2 recommendations before wire/adapter freeze.
+
+## 11. Delivery order and configuration responsibility
+
+All rows are pending implementation/acceptance unless explicitly described as existing code. S2 is the accountable owner of #118; role collaboration here does not appoint a reviewer as already approving.
+
+| Step / owner | Concrete output | Dependency and evidence |
+|---|---|---|
+| Design / S2 with C1 and S1 | Recorded D1–D4 decisions, remaining supplier proof-retention bound, `expectedPhone` compatibility and403/404 handling | This Ready request starts design review; ADR0010 remains Proposed. Accept/reject/modify each item with links; do not infer consent from silence |
+| Existing-provider diagnostics / S2 | Bounded transport and sanitized category/elapsed-time evidence, local delayed-provider failures and independent live verification evidence when available | Do not wait for a new manual SMS design; retain existing SDK flow and #94/#97 safety. A local fixture does not prove supplier recovery |
+| Bound persistence and identity / S2, S1 and non-author Server/security reviewer | Explicit forward-migration implementation task/PR; stable account, independent installation/session, current actor and same-transaction receipt checks | Only after affected D1–D4 decisions. Use then-current main history, no first-use DDL, automatic anonymous merge or guessed migration number |
+| Client adaptation / C1 with S1 | Consume accepted wire using the already-shared attempt/session/lease and original operation identity | Same reviewed Server profile, strict late-response/401 fencing; no anonymous fallback |
+| Deployment/configuration / S2 accountable, lead controls service access | Exact HTTPS URL + Server commit + enabled route list + approved configuration owner/rollback | #115 is an anonymous memory/local-photo test setup; its endpoint/health is not phone deployment or a secret-entry page. Current phone console access and enabled routes are **not verified** |
+| Team package / S1 with C1/S2 | Existing `assemblePhoneTest` checks; same HTTPS service/policy, actual applicationId, registered signing-certificate MD5, APK source commit/SHA-256 | Preserve #88 build entry rather than inventing another; different local Debug certificates do not automatically satisfy supplier registration |
+| Joint acceptance / S2 aggregates, C1 device, S1 session/build | One-tap and SDK SMS, role/account restoration, consent-based pairing/data, retry/reinstall/account-switch evidence | Record supplier, Server, business and device results separately; keep unpassed items open |
+
+Following the official [Render environment-variable procedure](https://render.com/docs/configure-environment-variables), for a future approved Render service, the service owner provides the actual service's Render Dashboard **Environment** settings and grants appropriate team access; secrets are entered there by an authorized owner, never on the public `/health` URL. This is the platform procedure, not a claim that an existing service or teammate permission was verified. Publish only variable names/status and commit/route evidence. Keep `ALIBABA_CLOUD_ACCESS_KEY_ID`, `ALIBABA_CLOUD_ACCESS_KEY_SECRET`, stable `PHONE_AUTH_HASH_KEY`, `JWT_SECRET` and database credentials private. Reuse the current `PHONE_AUTH_*` names from #88's handoff where applicable; the final unified DataSource/profile names follow implementation review. Testers install the checked APK without entering AccessKey. No deployment, configuration write, secret injection, billing or real SMS is authorized/performed by this proposal update.
