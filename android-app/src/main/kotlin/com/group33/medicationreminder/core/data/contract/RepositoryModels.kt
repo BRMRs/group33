@@ -55,6 +55,13 @@ data class LocalActionReceipt(
     val syncState: SyncState,
 )
 
+/** Late-taken evidence already accepted by the service and returned by a read. */
+data class ServerAcceptedLateTakenReport(
+    val actionId: String,
+    val recordedAtEpochMillis: Long,
+    val receivedAtEpochMillis: Long,
+)
+
 data class DoseEventState(
     val occurrence: OccurrenceKey,
     val serverEventId: String?,
@@ -65,6 +72,7 @@ data class DoseEventState(
     val effectiveStatus: DoseStatus,
     val lastAcceptedStatus: DoseStatus?,
     val localReports: List<LocalActionReceipt>,
+    val serverAcceptedLateTakenReports: List<ServerAcceptedLateTakenReport> = emptyList(),
 )
 
 /** A calculated candidate has no canonical event ID, status or action history. */

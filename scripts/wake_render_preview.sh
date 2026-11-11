@@ -35,10 +35,14 @@ while [ "$attempt" -le 18 ]; do
         exit 0
     fi
 
-    echo "Wake attempt $attempt/18 returned HTTP ${status:-000}; retrying in 5 seconds..." >&2
+    if [ "$attempt" -lt 18 ]; then
+        echo "Wake attempt $attempt/18 returned HTTP ${status:-000}; retrying in 5 seconds..." >&2
+        sleep 5
+    else
+        echo "Wake attempt $attempt/18 returned HTTP ${status:-000}." >&2
+    fi
     attempt=$((attempt + 1))
-    sleep 5
 done
 
-echo "Preview did not become healthy within 90 seconds: $health_url" >&2
+echo "Preview did not become healthy after 18 attempts: $health_url" >&2
 exit 1
