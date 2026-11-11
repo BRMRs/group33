@@ -11,25 +11,41 @@ import com.group33.medicationreminder.databinding.ActivityElderHomeBinding
 import kotlinx.coroutines.launch
 
 class ElderHomeActivity : AppCompatActivity() {
+    private var content: com.group33.medicationreminder.integration.OnlineFeatureContent? = null
     private lateinit var binding: ActivityElderHomeBinding
-    private val viewModel: ElderHomeViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityElderHomeBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        androidx.core.view.WindowCompat.getInsetsController(window, binding.root).isAppearanceLightStatusBars = true
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
+            val bars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
+        binding.elderPhotoButton.setOnClickListener {
+            startActivity(android.content.Intent(this, com.group33.medicationreminder.elder.photo.ElderPhotoActivity::class.java))
+        }
+        content = com.group33.medicationreminder.integration.OnlineFeatureContent.install(this,
+            binding.featureContent, com.group33.shared.model.UserRole.ELDER)
+        if (content != null) {
+            binding.todayScheduleCount.visibility = android.view.View.GONE
+            binding.elderHomeHint.visibility = android.view.View.GONE
+            return
+        }
 
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.schedules.collect { schedules ->
-                    binding.todayScheduleCount.text = resources.getQuantityString(
-                        R.plurals.today_schedule_count,
-                        schedules.size,
-                        schedules.size,
-                    )
-                }
-            }
+        // A missing authenticated provider is unavailable, never a fake empty medication list.
+        binding.todayScheduleCount.setText(R.string.chain_signed_out)
+        binding.elderHomeHint.visibility = android.view.View.GONE
+        binding.elderPhotoButton.isEnabled = false
+    }
+    override fun onResume() {
+        super.onResume()
+        com.group33.medicationreminder.integration.featureModel(this)?.let {
+            if (it.state.value.session.readiness == com.group33.medicationreminder.core.data.contract.AuthReadiness.READY) it.refresh(reportStatus = false)
         }
     }
+    override fun onDestroy() { content?.close(); super.onDestroy() }
 }
 
