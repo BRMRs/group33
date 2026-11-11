@@ -234,6 +234,8 @@ internal class DebugChainRepository(
         expected: TrustedSessionContext,
         time: Clock,
         action: Pair<ElderDoseGroup, DoseActionKind>? = null,
+        actionId: String? = null,
+        recordedAtEpochMillis: Long? = null,
     ): Outcome<LocalDoseUpdate> = safely {
         val lease = lease()
         if (lease.scope != expected.scope) throw Failed(local(LocalFailureCode.SESSION_NOT_READY))
@@ -243,13 +245,12 @@ internal class DebugChainRepository(
             val elderId = lease.scope.userId
             cache.withTransaction {
                 val now = time.instant()
-                val frozenClock = Clock.fixed(now, ZoneOffset.UTC)
                 val dao = cache.documents()
                 val planRow = dao.read(rowId(lease.scope, "plans", elderId))
                 val medicationRow = dao.read(rowId(lease.scope, "medications", elderId))
                 val hasPlanSnapshot = planRow?.access == AccessState.AUTHORIZED.name &&
                     medicationRow?.access == AccessState.AUTHORIZED.name
-                if (hasPlanSnapshot && planRow != null && medicationRow != null) {
+                if (hasPlanSnapshot) {
                     val plans = json.decodeFromString(ReminderPlanCollection.serializer(), planRow.body).items
                         .filter { it.elderId == elderId }
                     val medications = json.decodeFromString(ListSerializer(MedicationView.serializer()), medicationRow.body)
@@ -263,27 +264,61 @@ internal class DebugChainRepository(
                     json.decodeFromString(LocalElderOccurrence.serializer(), it.body)
                 }
                 if (action == null) return@withTransaction LocalDoseUpdate(occurrences, hasPlanSnapshot, false)
-                val due = dueElderDose(occurrences, frozenClock)
                 val (requested, kind) = action
+                val timestamp = recordedAtEpochMillis ?: now.toEpochMilli()
+                if (actionId != null) {
+                    val existing = dao.read(rowId(lease.scope, "elder-dose-action", actionId))
+                    if (existing != null) {
+                        val saved = json.decodeFromString(LocalElderAction.serializer(), existing.body)
+                        return@withTransaction LocalDoseUpdate(
+                            occurrences,
+                            hasPlanSnapshot,
+                            saved.occurrences == requested.keys && saved.kind == kind && saved.recordedAt == timestamp,
+                        )
+                    }
+                }
+                val actionClock = Clock.fixed(java.time.Instant.ofEpochMilli(timestamp), ZoneOffset.UTC)
+                val due = dueElderDose(occurrences, actionClock)
                 if (due == null || due.plannedAt != requested.plannedAt || due.keys.toSet() != requested.keys.toSet() ||
                     (kind == DoseActionKind.REMIND_LATER && !due.canSnooze)) {
                     return@withTransaction LocalDoseUpdate(occurrences, hasPlanSnapshot, false)
                 }
-                val timestamp = now.toEpochMilli()
                 val keys = due.keys.toSet()
                 val updated = occurrences.map { occurrence ->
                     if (occurrence.key !in keys) occurrence
                     else when (kind) {
                         DoseActionKind.TAKEN -> occurrence.copy(takenAt = timestamp, snoozedUntil = null)
                         DoseActionKind.REMIND_LATER -> occurrence.copy(
-                            snoozedUntil = now.plus(InitialTiming.snooze).toEpochMilli())
+                            snoozedUntil = timestamp + InitialTiming.snooze.toMillis())
                     }.also { storeElderOccurrence(lease, it) }
                 }
-                val receipt = LocalElderAction(UUID.randomUUID().toString(), due.keys, kind, timestamp)
+                val receipt = LocalElderAction(actionId ?: UUID.randomUUID().toString(), due.keys, kind, timestamp)
                 put(lease, "elder-dose-action", receipt.id, json.encodeToString(LocalElderAction.serializer(), receipt))
                 LocalDoseUpdate(updated, hasPlanSnapshot, true)
             }
         }
+    }
+
+    internal fun executionScopeId(expected: TrustedSessionContext): String? =
+        expected.takeIf { it == mutableTrusted.value }?.let { scopeId(it.scope) }
+
+    internal fun generationEvidence(
+        expected: TrustedSessionContext,
+        occurrence: LocalElderOccurrence,
+    ): OccurrenceGenerationEvidence? {
+        val scope = expected.takeIf { it == mutableTrusted.value }?.scope ?: return null
+        return OccurrenceGenerationEvidence(
+            stableDoseId(scopeId(scope) + "/generation/" + doseTarget(occurrence.key)),
+            occurrence.key,
+            occurrence.planRevision,
+            occurrence.generatedAt,
+            occurrence.executionZone,
+            occurrence.plannedAt,
+            occurrence.offsetSeconds,
+            TimeResolutionPolicy.P0_TIME_V1,
+            "${occurrence.key.planId}:${occurrence.planRevision}",
+            occurrence.planSnapshotAt,
+        )
     }
 
     internal suspend fun syncLocalElderActions(expected: TrustedSessionContext): Outcome<Unit> = safely {
