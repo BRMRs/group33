@@ -29,12 +29,15 @@ class SharedLoginActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         binding = ActivitySharedLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
         WindowCompat.getInsetsController(window, binding.root).isAppearanceLightStatusBars = true
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            view.updatePadding(top = bars.top, bottom = bars.bottom)
+            val occupied = insets.getInsets(WindowInsetsCompat.Type.systemBars() or
+                WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.ime())
+            view.updatePadding(left = occupied.left, top = occupied.top,
+                right = occupied.right, bottom = occupied.bottom)
             insets
         }
         mode = savedInstanceState?.getString(MODE_KEY)?.let {
