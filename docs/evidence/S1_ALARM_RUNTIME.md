@@ -4,6 +4,7 @@ Date: 2026-11-11
 Owner: BRMRs (S1)  
 Branch: `feature/24-s1-alarm-runtime`  
 Issues: [#18](https://github.com/BRMRs/group33/issues/18), [#24](https://github.com/BRMRs/group33/issues/24)
+Draft implementation: [PR #119](https://github.com/BRMRs/group33/pull/119), stacked on [PR #116](https://github.com/BRMRs/group33/pull/116)
 
 ## Delivered S1 boundary
 
