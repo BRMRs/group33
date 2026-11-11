@@ -109,3 +109,21 @@ tasks.register<Test>("postgresIntegrationTest") {
         systemProperty("s2.postgres.test.classpath", sourceSets.test.get().runtimeClasspath.asPath)
     }
 }
+
+tasks.register<Test>("phonePostgresIntegrationTest") {
+    description = "Run phone account checks against the explicitly configured dedicated local PostgreSQL database"
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform { includeTags("postgres") }
+    include("**/Postgres*Phone*Test.class")
+    maxParallelForks = 1
+    outputs.upToDateWhen { false }
+    outputs.cacheIf { false }
+    doFirst {
+        require(System.getenv("S2_PHONE_PG_URL") == "jdbc:postgresql://127.0.0.1:55432/group33_s2_local") {
+            "Explicit dedicated loopback phone PostgreSQL settings are required"
+        }
+        systemProperty("s2.phone.test.classpath", sourceSets.test.get().runtimeClasspath.asPath)
+    }
+}
