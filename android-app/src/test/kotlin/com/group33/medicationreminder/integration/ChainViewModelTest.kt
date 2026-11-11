@@ -298,15 +298,30 @@ class ChainViewModelTest {
         assertEquals(elderA.id, f.model.state.value.browser.items.single().elderId)
     }
 
-    @Test fun `revoked feature stays latched while a new accepted relationship gets a new instance`() = runTest(dispatcher) {
+    @Test fun `new relationship recovers from old revoked cache while original stays latched`() = runTest(dispatcher) {
         val f = Fixture(); runCurrent(); f.model.select("rel-a"); runCurrent()
         f.photos.getValue(elderA.id).value = cached(listOf(photo(elderA))).copy(access = AccessState.REVOKED)
+        f.plans.getValue(elderA.id).value = f.plans.getValue(elderA.id).value.copy(access = AccessState.REVOKED)
+        f.medications.getValue(elderA.id).value = f.medications.getValue(elderA.id).value.copy(access = AccessState.REVOKED)
         runCurrent()
-        f.photos.getValue(elderA.id).value = cached(listOf(photo(elderA))); runCurrent()
         assertTrue(f.model.state.value.photo.photos.isEmpty())
         f.relationships.value = cached(listOf(relation("new-relationship", elderA)))
         f.model.select("new-relationship"); runCurrent()
+        assertEquals(AccessState.REVOKED, f.model.state.value.photo.access)
+        assertEquals(com.group33.medicationreminder.caregiver.plan.PlanBrowserMessage.REVOKED,
+            f.model.state.value.browser.message)
+        f.photos.getValue(elderA.id).value = cached(listOf(photo(elderA)))
+        f.plans.getValue(elderA.id).value = cached(listOf(f.plans.getValue(elderA.id).value.value.single()))
+        f.medications.getValue(elderA.id).value = cached(listOf(f.medications.getValue(elderA.id).value.value.single()))
+        runCurrent()
         assertEquals(listOf(photo(elderA)), f.model.state.value.photo.photos)
+        assertEquals(com.group33.medicationreminder.caregiver.plan.PlanBrowserMessage.RESULTS,
+            f.model.state.value.browser.message)
+        f.relationships.value = cached(listOf(relation("rel-a", elderA)))
+        f.model.select("rel-a"); runCurrent()
+        assertEquals(AccessState.REVOKED, f.model.state.value.photo.access)
+        assertEquals(com.group33.medicationreminder.caregiver.plan.PlanBrowserMessage.REVOKED,
+            f.model.state.value.browser.message)
     }
 
     @Test fun `decode failure retries selected private bytes without bypassing withdrawal`() = runTest(dispatcher) {

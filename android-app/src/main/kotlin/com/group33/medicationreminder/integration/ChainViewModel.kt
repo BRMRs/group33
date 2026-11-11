@@ -48,6 +48,7 @@ internal class ChainViewModel(private val services: ChainServices,
     private val featureStore = ViewModelStore()
     private val featureProvider = ViewModelProvider(featureStore, ViewModelProvider.NewInstanceFactory())
     private var target: Target? = null
+    private var lastCaregiverTarget: Target? = null
     private var features: Features? = null
     private var collection: Job? = null
     private var refreshJob: Job? = null
@@ -68,6 +69,7 @@ internal class ChainViewModel(private val services: ChainServices,
                 if (nextAccount != account) {
                     account = nextAccount; selected.value = null; collection?.cancel(); photoJob?.cancel()
                     actionJob?.cancel()
+                    lastCaregiverTarget = null
                     bindFeatures(null)
                     mutable.update {
                         ChainUi(session = session, signOut = if (trusted == null) it.signOut else SignOutStatus.IDLE)
@@ -258,9 +260,11 @@ internal class ChainViewModel(private val services: ChainServices,
     }
     private fun bindFeatures(next: Target?) {
         if (target == next) return
+        val previous = target ?: lastCaregiverTarget
         collection?.cancel(); refreshJob?.cancel(); photoJob?.cancel()
         features?.photos?.clearContext(); features?.browser?.clearContext()
         target = next; features = null; decodedContent = null
+        if (next?.caregiver != null) lastCaregiverTarget = next
         mutable.update { it.copy(photo = CaregiverPhotoState(), browser = PlanBrowserState(),
             viewed = null, photoDecodeFailed = false, editorPhotoId = null) }
         if (next == null) return
@@ -272,8 +276,14 @@ internal class ChainViewModel(private val services: ChainServices,
         val bound = Features(featureProvider["photos:$key", CaregiverPhotoViewModel::class.java],
             featureProvider["browser:$key", PlanBrowserViewModel::class.java])
         features = bound
-        bound.photos.selectContext(services.photos, next.trusted.scope, next.elderId)
-        bound.browser.bind(services.plans, next.trusted.scope, next.elderId, LocalDate.now(clock))
+        val replacementRelationship = previous?.caregiver?.let { old ->
+            next.caregiver?.let { current -> old.elderId == current.elderId &&
+                old.relationshipId != current.relationshipId && old.scope == current.scope &&
+                old.sessionGeneration == current.sessionGeneration
+            } == true
+        } == true
+        bound.photos.selectContext(services.photos, next.trusted.scope, next.elderId, replacementRelationship)
+        bound.browser.bind(services.plans, next.trusted.scope, next.elderId, LocalDate.now(clock), replacementRelationship)
         collection = viewModelScope.launch {
             combine(bound.photos.state, bound.browser.state) { photo, browser -> photo to browser }
                 .collect { (photo, browser) ->

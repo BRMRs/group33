@@ -79,6 +79,7 @@ class PlanBrowserViewModel : ViewModel() {
     private var generation = Any()
     private var observation: Job? = null
     private val revoked = mutableSetOf<Pair<RepositoryScope, String>>()
+    private var mayRecoverInitialRevocation = false
     private val mutableState = MutableStateFlow(PlanBrowserState())
     val state = mutableState.asStateFlow()
 
@@ -87,12 +88,14 @@ class PlanBrowserViewModel : ViewModel() {
     }
 
     @MainThread
-    fun bind(repository: ReminderPlanRepository, scope: RepositoryScope, elderId: String, today: LocalDate) {
+    fun bind(repository: ReminderPlanRepository, scope: RepositoryScope, elderId: String, today: LocalDate,
+             recoverInitialRevocation: Boolean = false) {
         require(elderId.isNotBlank())
         val next = Context(repository, scope, elderId, sevenDayRange(today))
         clearContext()
         context = next
         val denied = (scope to elderId) in revoked
+        mayRecoverInitialRevocation = recoverInitialRevocation && !denied
         mutableState.value = PlanBrowserState(scope, elderId, next.range,
             access = if (denied) AccessState.REVOKED else AccessState.UNKNOWN)
         if (!denied) retryObservation()
@@ -103,6 +106,7 @@ class PlanBrowserViewModel : ViewModel() {
         generation = Any()
         observation?.cancel()
         context = null
+        mayRecoverInitialRevocation = false
         mutableState.value = PlanBrowserState()
     }
 
@@ -124,7 +128,7 @@ class PlanBrowserViewModel : ViewModel() {
         fun <T> Flow<Cached<T>>.guardAccess() = onEach { cached ->
             if (token === generation && cached.access != AccessState.AUTHORIZED) {
                 mutableState.value = PlanBrowserState(current.scope, current.elderId, current.range, access = cached.access)
-                if (cached.access == AccessState.REVOKED) {
+                if (cached.access == AccessState.REVOKED && !mayRecoverInitialRevocation) {
                     revoked += current.scope to current.elderId
                     generation = Any()
                     observation?.cancel()
@@ -145,12 +149,13 @@ class PlanBrowserViewModel : ViewModel() {
                     if (accesses.any { it != AccessState.AUTHORIZED }) {
                         val access = if (AccessState.REVOKED in accesses) AccessState.REVOKED else AccessState.UNKNOWN
                         mutableState.value = PlanBrowserState(current.scope, current.elderId, current.range, access = access)
-                        if (access == AccessState.REVOKED) {
+                        if (access == AccessState.REVOKED && !mayRecoverInitialRevocation) {
                             revoked += current.scope to current.elderId
                             generation = Any()
                             observation?.cancel()
                         }
                     } else {
+                        mayRecoverInitialRevocation = false
                         require(!plans.hasLocalData || plans.value.all { it.elderId == current.elderId })
                         require(!medications.hasLocalData || medications.value.all { it.elderId == current.elderId })
                         require(!preview.hasLocalData || preview.value.all {
