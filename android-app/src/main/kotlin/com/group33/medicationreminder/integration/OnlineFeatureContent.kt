@@ -8,6 +8,8 @@ import com.google.android.material.button.MaterialButton
 import com.group33.medicationreminder.Group33Application
 import com.group33.medicationreminder.R
 import com.group33.medicationreminder.caregiver.CaregiverDestination
+import com.group33.medicationreminder.caregiver.PairingRequestScreen
+import com.group33.medicationreminder.caregiver.PairingWorkflowViewModel
 import com.group33.medicationreminder.caregiver.plan.*
 import com.group33.medicationreminder.core.data.contract.*
 import com.group33.shared.contract.*
@@ -67,11 +69,12 @@ internal class OnlineFeatureContent private constructor(
         if (role == UserRole.ELDER) button(pairing, R.string.chain_issue) { model.issue() }
         code = text(pairing)
         if (role == UserRole.CAREGIVER) {
-            val input = EditText(activity).apply {
-                setHint(R.string.chain_enter_code); inputType = android.text.InputType.TYPE_CLASS_NUMBER
-                filters = arrayOf(android.text.InputFilter.LengthFilter(8)); minHeight = dp(56); pairing.addView(this)
-            }
-            button(pairing, R.string.chain_pair) { model.request(input.text.toString()) }
+            val form = ViewModelProvider(activity, object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                    PairingWorkflowViewModel(services.pairing, services.commands, services.auth, services.trusted) as T
+            })[PairingWorkflowViewModel::class.java]
+            pairing.addView(PairingRequestScreen(activity, form).view)
         }
         activity.lifecycleScope.launch {
             activity.repeatOnLifecycle(Lifecycle.State.STARTED) { model.state.collect(::render) }

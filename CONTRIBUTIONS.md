@@ -1,5 +1,7 @@
 # Contribution log
 
+2026-11-07 — tianiridescent (C1), Refs #10 / PR #112: main-based caregiver pairing form integration using the existing authenticated repositories, journal recovery, session fencing and bilingual request history. Original #112 form work retained; older preview/login/navigation dependencies excluded. [Local scope and verification](docs/evidence/C1_PAIRING_MAIN_INTEGRATION.md). Unpublished candidate; CI, member device confirmation and non-author review pending.
+
 2026-10-27 publication update: the earlier local-candidate entries below describe their preparation time. Those prepared slices are now visible as Draft PRs [#60–#73](https://github.com/BRMRs/group33/pull/60); required scope/reviewer/dependency confirmation and formal acceptance remain open.
 
 Update this file weekly. Use links to GitHub issues and pull requests after the repository has its first commit.
