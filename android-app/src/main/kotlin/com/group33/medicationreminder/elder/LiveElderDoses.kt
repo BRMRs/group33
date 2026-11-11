@@ -1,6 +1,7 @@
 package com.group33.medicationreminder.elder
 
 import com.group33.medicationreminder.core.data.contract.TrustedSessionContext
+import com.group33.medicationreminder.core.reminder.InitialTiming
 import com.group33.medicationreminder.core.reminder.ReminderTimingPolicy
 import com.group33.medicationreminder.core.reminder.ReminderWindow
 import com.group33.shared.contract.DoseActionKind
@@ -83,7 +84,7 @@ internal fun nextElderOccurrences(
                     // java.time shifts gaps forward by the gap and selects the earlier offset in a fold.
                     val resolved = day.atTime(LocalTime.parse(nominal)).atZone(zone)
                     val planned = resolved.toInstant()
-                    if (planned < now || planned >= horizon ||
+                    if (planned >= horizon || !now.isBefore(planned.plus(InitialTiming.responseWindow)) ||
                         planned.toEpochMilli() < maxOf(plan.effectiveFromEpochMillis, plan.confirmedAtEpochMillis)) {
                         return@mapNotNull null
                     }

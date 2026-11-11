@@ -289,12 +289,14 @@ internal class DebugChainRepository(
     internal suspend fun syncLocalElderActions(expected: TrustedSessionContext): Outcome<Unit> = safely {
         doseSyncGate.withLock {
             val lease = lease()
-            val rows = publish(lease) {
-                if (lease.scope != expected.scope || mutableTrusted.value != expected ||
-                    mutableSession.value.user?.role != UserRole.ELDER) throw Failed(local(LocalFailureCode.SESSION_NOT_READY))
-                cache.documents().readKind(scopeId(lease.scope), "elder-dose-action", 25)
-            }
-            for (row in rows) {
+            drainDoseActionBatches(readBatch = {
+                publish(lease) {
+                    if (lease.scope != expected.scope || mutableTrusted.value != expected ||
+                        mutableSession.value.user?.role != UserRole.ELDER)
+                        throw Failed(local(LocalFailureCode.SESSION_NOT_READY))
+                    cache.documents().readKind(scopeId(lease.scope), "elder-dose-action", 25)
+                }
+            }) { row ->
                 val action = json.decodeFromString(LocalElderAction.serializer(), row.body)
                 val occurrences = publish(lease) {
                     action.occurrences.map { key ->
@@ -317,7 +319,7 @@ internal class DebugChainRepository(
                 if (registered.status !in 200..299) {
                     if (registered.status in setOf(400, 422)) {
                         publish(lease) { cache.documents().put(row.copy(kind = "elder-dose-action-needs-attention")) }
-                        continue
+                        return@drainDoseActionBatches
                     }
                     throw Failed(remote(registered))
                 }
@@ -327,7 +329,7 @@ internal class DebugChainRepository(
                 if (receipt.status !in 200..299) {
                     if (receipt.status in setOf(400, 422)) {
                         publish(lease) { cache.documents().put(row.copy(kind = "elder-dose-action-needs-attention")) }
-                        continue
+                        return@drainDoseActionBatches
                     }
                     throw Failed(remote(receipt))
                 }

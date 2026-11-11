@@ -78,9 +78,7 @@ internal class CaregiverDosePanel(
         refresh.isEnabled = !state.isRefreshing
         val cache = state.overview
         val rows = if (showHistory) historical.events else cache?.value?.events.orEmpty()
-        val accepted = rows.filter {
-            it.lastAcceptedStatus == DoseStatus.TAKEN && it.serverAcceptedTakenAtEpochMillis != null
-        }.sortedByDescending { it.serverAcceptedTakenAtEpochMillis }
+        val accepted = confirmedTakenRecords(rows)
         val authorized = state.access == AccessState.AUTHORIZED && cache?.access == AccessState.AUTHORIZED
         result.text = when {
             !authorized || cache?.hasLocalData != true -> activity.getString(
@@ -108,3 +106,7 @@ internal class CaregiverDosePanel(
         result.text = ""
     }
 }
+
+internal fun confirmedTakenRecords(rows: List<DoseEventState>): List<DoseEventState> = rows.filter {
+    it.lastAcceptedStatus == DoseStatus.TAKEN && it.serverAcceptedTakenAtEpochMillis != null
+}.sortedByDescending { it.serverAcceptedTakenAtEpochMillis }

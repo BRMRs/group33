@@ -1,9 +1,9 @@
 <resources>
-    <string name="dose_records_history">用药历史</string>
-    <string name="dose_records_overview">最近一条用药记录</string>
+    <string name="dose_records_history">已确认服药记录</string>
+    <string name="dose_records_overview">最近一条已确认服药记录</string>
     <string name="dose_records_refresh">查看最新用药记录</string>
     <string name="dose_records_loading">正在读取用药记录…</string>
     <string name="dose_records_unavailable">暂时无法查看用药记录。</string>
-    <string name="dose_records_empty">暂无服务端已确认的用药记录。</string>
+    <string name="dose_records_empty">暂无已确认服药记录。</string>
     <string name="dose_records_taken">%1$s · 已服用，时间 %2$s</string>
 </resources>

@@ -1,6 +1,7 @@
 package com.group33.medicationreminder.elder
 
 import com.group33.shared.contract.MedicationView
+import com.group33.shared.contract.OccurrenceKey
 import com.group33.shared.contract.ReminderPlanView
 import java.time.Clock
 import java.time.Instant
@@ -20,8 +21,20 @@ class LiveElderDosesTest {
         assertEquals(Instant.parse("2026-03-08T07:30:00Z").toEpochMilli(), dose.plannedAt)
         assertEquals(-14_400, dose.offsetSeconds)
         assertEquals(45L, dose.planSnapshotAt)
+        assertEquals(dose.key, nextElderOccurrences(listOf(plan), listOf(medicine),
+            Instant.ofEpochMilli(dose.plannedAt + 1), 46).single().key)
         assertTrue(nextElderOccurrences(listOf(plan), listOf(medicine),
-            Instant.ofEpochMilli(dose.plannedAt + 1), 46).isEmpty())
+            Instant.ofEpochMilli(dose.plannedAt + 7_200_000), 47).isEmpty())
+    }
+
+    @Test fun firstSyncWithinResponseWindowCreatesDoseButDeadlineDoesNotReopenIt() {
+        val planned = Instant.parse("2026-03-08T07:30:00Z")
+        val withinWindow = nextElderOccurrences(listOf(plan), listOf(medicine), planned.plusSeconds(600), 45)
+        assertEquals(listOf(OccurrenceKey("plan", "2026-03-08", "02:30")), withinWindow.map { it.key })
+        assertNotNull(dueElderDose(withinWindow, Clock.fixed(planned.plusSeconds(600), ZoneOffset.UTC)))
+
+        val atDeadline = nextElderOccurrences(listOf(plan), listOf(medicine), planned.plusSeconds(7_200), 46)
+        assertTrue(atDeadline.isEmpty())
     }
 
     @Test fun groupedDoseHonorsExclusiveDeadlineAndSnooze() {
