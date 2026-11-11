@@ -21,6 +21,8 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 
 2026-10-22：负责人已确认的产品规则、初版参数及六人分工随文档PR #25统一；独立S1代码在[PR #37](https://github.com/BRMRs/group33/pull/37)，不计入本PR的代码贡献。各人正式review/同版签署仍待完成。
 
+2026-10-22 S1交付：负责人委托的agent辅助代码/测试，关联[#24](https://github.com/BRMRs/group33/issues/24)/[#12](https://github.com/BRMRs/group33/issues/12)，范围与验证见[S1交付](docs/S1_LOCAL_IMPLEMENTATION.md)。负责人已授权通过独立Draft PR提交本次改动；实际提交/PR由GitHub记录。成员正式review仍待完成，不记为已验收个人贡献。
+
 2026-10-25 C2: addressed the [S2 whitespace-instructions finding](https://github.com/BRMRs/group33/pull/43#issuecomment-6382169123). Both new regressions failed before the fix and passed afterward (19 targeted methods). Only empty editor text maps to null; non-empty text is preserved exactly so corrected rejected requests receive a new intent. Full `gate1Check test` passed (19 executed / 73 up-to-date, Shared/Server tests up-to-date); no UI, real-adapter or device acceptance claimed. Local verification precedes commit/remote CI and renewed review.
 
 2026-10-25 C2: addressed S1 review of PR #43 by sorting validated request times under P0_CANONICAL_V1 before intent comparison. Two permutation regressions failed before the fix; unchanged rejected intent stays blocked, unsent intent reuses its ID, and actual time/text corrections remain new intents. User text and form order are preserved. Final validation and CI are recorded on PR #43; renewed S1/S2 review remains required.
