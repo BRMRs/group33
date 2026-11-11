@@ -23,7 +23,7 @@ internal class ReminderCoordinator(private val context: Context) {
     suspend fun register(group: ReminderGroup): ReminderRegistrationResult {
         val capability = ReminderCapability.snapshot(context)
         val row = group.toRow()
-        val occurrences = group.occurrences.map { it.toRow(group.groupId) }
+        val occurrences = group.occurrences.map { it.toRow(group.groupId, group.executionScopeId) }
         val inserted = dao.insertRegistration(row, occurrences)
         val stored = checkNotNull(dao.registration(group.groupId))
         if (!sameIdentity(row, occurrences, stored)) {
@@ -134,6 +134,21 @@ internal class ReminderCoordinator(private val context: Context) {
     suspend fun caregiverTakeover(groupId: String, now: Long = System.currentTimeMillis()): Boolean =
         finish(groupId, ReminderState.CAREGIVER_TAKEN_OVER, now)
 
+    /** One-time bridge for a previously persisted feature snooze; it does not create a new action. */
+    suspend fun restoreSnooze(groupId: String, until: Long, now: Long = System.currentTimeMillis()): Boolean {
+        val original = dao.find(groupId) ?: return false
+        if (original.deadlineAtEpochMillis <= now) return false
+        if (original.state == ReminderState.SNOOZED.name) return original.snoozedUntilEpochMillis == until
+        if (original.state == ReminderState.SCHEDULED.name && original.plannedAtEpochMillis <= now) {
+            dao.claimDue(groupId, now)
+        }
+        val ringing = dao.find(groupId) ?: return false
+        if (ringing.state != ReminderState.RINGING.name || dao.snooze(groupId, until, now) != 1) return false
+        ReminderNotifications.cancel(context, groupId)
+        scheduler.scheduleSnooze(ringing, until)
+        return true
+    }
+
     suspend fun finish(groupId: String, terminal: ReminderState, now: Long = System.currentTimeMillis()): Boolean {
         require(terminal in setOf(ReminderState.TAKEN, ReminderState.HELP, ReminderState.CAREGIVER_TAKEN_OVER))
         if (dao.finish(groupId, terminal.name, now) != 1) return false
@@ -147,6 +162,11 @@ internal class ReminderCoordinator(private val context: Context) {
         scheduler.cancel(groupId)
         ReminderNotifications.cancel(context, groupId)
         return true
+    }
+
+    suspend fun cancelScope(executionScopeId: String) {
+        require(executionScopeId.isNotBlank())
+        dao.activeForScope(executionScopeId).forEach { cancel(it.groupId) }
     }
 
     private suspend fun recordRecoveryEvent(groupId: String, scheduledAt: Long, now: Long) {
@@ -179,15 +199,15 @@ internal class ReminderCoordinator(private val context: Context) {
         expectedOccurrences.sortedBy { it.occurrenceId } == stored.occurrences.sortedBy { it.occurrenceId }
 
     private fun ReminderGroup.toRow() = ReminderGroupRow(
-        groupId, elderId, plannedAtEpochMillis, deadlineAtEpochMillis,
+        groupId, executionScopeId, elderId, plannedAtEpochMillis, deadlineAtEpochMillis,
         occurrences.joinToString(" · ") { it.medicationName },
         occurrences.joinToString(" · ") { it.dosageText },
     )
 
-    private fun ReminderOccurrence.toRow(groupId: String): ReminderOccurrenceRow {
+    private fun ReminderOccurrence.toRow(groupId: String, executionScopeId: String): ReminderOccurrenceRow {
         val evidence = generationEvidence
         return ReminderOccurrenceRow(
-            groupId, occurrenceId, evidence.occurrence.planId, evidence.occurrence.localDate,
+            groupId, executionScopeId, occurrenceId, evidence.occurrence.planId, evidence.occurrence.localDate,
             evidence.occurrence.localTime, evidence.planRevision, evidence.generationId,
             evidence.executionTimeZoneId, medicationName, dosageText,
         )

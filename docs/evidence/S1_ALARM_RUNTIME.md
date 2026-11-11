@@ -17,7 +17,7 @@ This slice turns a frozen, confirmed occurrence group into an Android alarm that
 - BOOT_COMPLETED, first unlock, package replacement, exact-access change, wall-clock and time-zone changes reload Room. Recovery expires old groups first, catches up an open group at most once per boot, and never reopens Taken, Help, caregiver-taken-over or expired groups.
 - The reminder database and pending outbox are excluded from cloud backup/device transfer so installation-scoped actions cannot replay on a restored installation.
 
-The E/C2 integration seam is `ReminderCoordinator.register(ReminderGroup)`. A `ReminderGroup` contains the real confirmed `OccurrenceGenerationEvidence` and Medication snapshot for every same-instant item. The authenticated application host supplies `ReminderActionDispatcher` and `ReminderPhaseDispatcher`; each receives durable rows rather than transient notification extras.
+The E/C2 integration seam is `ReminderCoordinator.register(ReminderGroup)`. A `ReminderGroup` contains the real confirmed `OccurrenceGenerationEvidence` and Medication snapshot for every same-instant item. This branch is stacked on PR #116 and binds its confirmed-plan cache to the S1 runtime; the old debug-only alarm path is removed so only one component can ring. The authenticated application host supplies `ReminderActionDispatcher` and `ReminderPhaseDispatcher`; each receives durable rows rather than transient notification extras.
 
 ## Product rules covered
 
@@ -34,11 +34,12 @@ The project owner chose API 35-only permission/device acceptance for this PR on 
 
 Automated API 35 instrumentation:
 
-- 9/9 Room and alarm device tests passed: atomic two-Medication registration, due/notification claims, fixed deadline, snooze second reminder, action outbox, event deduplication, exact five-second background alarm, alarm-channel sound/usage/importance, action termination and once-per-boot recovery.
+- 10/10 Room and alarm device tests passed: atomic two-Medication registration, execution-scope isolation, due/notification claims, fixed deadline, snooze second reminder, action outbox, event deduplication, exact five-second background alarm, alarm-channel sound/usage/importance, action termination and once-per-boot recovery.
 - Notification permission denied phase passed, followed by a separate granted phase against the same stored occurrence. The denied occurrence remained `RINGING` without a notification; granting permission recovered it.
 - Exact-alarm access denied phase passed after the system restarted the app: capability was `DEGRADED`, registration used the inexact AlarmManager fallback, and the group was not marked Missed.
 - Process-death probe passed with no app/UI launch between kill and due. Before the verifier started, `dumpsys notification` already contained the expected group tag, importance 4, three actions, `mSoundNotificationKey` and `mVibrateNotificationKey`.
 - Real emulator reboot probe passed with no app/UI launch between reboot and due. Before the verifier started, the same system evidence already existed; the later verifier confirmed the persisted group was `RINGING` at/after its original planned instant and could be atomically Taken.
+- The clean two-emulator Android 15 chain passed end to end: caregiver confirmed a real plan, Elder AlarmManager reached the due instant and rang, the Elder page exposed the grouped action, Taken committed locally, survived a process restart, uploaded with the original stable action ID, and appeared as accepted Taken on the caregiver page. Pairing revocation/denial phases also passed.
 
 Deterministic policy tests: `S1PolicyTest` 33/33 and `CommandRecoveryPolicyTest` 5/5 passed. They cover T/T+30/T+2h boundaries, ten-minute snooze, both probe windows and their 60-second response waits, late/duplicate facts, retry identity, recovery and unknown-delivery behavior.
 
@@ -55,7 +56,7 @@ No real person, Medication or health data was used; fixtures are explicitly fict
 
 ## Deliberately not claimed by S1
 
-- E still owns the long-form Elder ringing page, understandable permission explanation, settings-return experience, large-text/320dp UI evidence and binding the confirmed-plan cache to `ReminderGroup` registration.
-- C3/S2 still own caregiver capability/follow-up presentation and the production authenticated endpoints. A locally pending WorkManager item is not claimed as visible to the caregiver.
+- PR #116 supplies the current Elder dose panel and Taken/Snooze controls, and this branch now supplies its real-plan/runtime binding. E still owns the designed full ringing-page treatment, understandable permission explanation, settings-return and degraded/unavailable experience, Help interaction, and large-text/320dp UI evidence.
+- C3/S2 still own caregiver capability/follow-up presentation and the production probe/follow-up/Help endpoints. Taken/Snooze upload is verified in the local real HTTP chain; Help currently ends local prompting but is deliberately marked permanent-failure by the host adapter because no server contract exists yet.
 - Force stop, pre-first-unlock execution, uninstall/clear-data and vendor-specific background restrictions remain the accepted platform limitations in #18.
 - This PR does not close #18 or #24. Production dispatcher wiring, E UI integration, non-author review and merge remain required.

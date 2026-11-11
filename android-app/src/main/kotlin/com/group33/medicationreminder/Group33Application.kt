@@ -19,6 +19,7 @@ open class Group33Application : Application() {
     internal open val elderDoses: com.group33.medicationreminder.elder.LiveElderDoses? get() = null
     internal open val reminderPhaseDispatcher: com.group33.medicationreminder.core.reminder.ReminderPhaseDispatcher? get() = null
     internal open val reminderActionDispatcher: com.group33.medicationreminder.core.reminder.ReminderActionDispatcher? get() = null
+    internal open val reminderStateListener: com.group33.medicationreminder.core.reminder.ReminderStateListener? get() = null
     lateinit var languageSettings: LocalLanguageSettingsRepository
         private set
 

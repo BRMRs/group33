@@ -4,12 +4,5 @@
     <application android:name=".integration.DebugChainApplication" android:usesCleartextTraffic="true" tools:replace="android:name">
         <activity android:name=".caregiver.plan.PlanEditorDebugActivity" android:exported="false" />
         <activity android:name=".caregiver.CaregiverNavigationPreviewActivity" android:exported="true" />
-        <receiver android:name=".integration.DebugDoseAlarmReceiver" android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.TIME_SET" />
-                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
-            </intent-filter>
-        </receiver>
     </application>
 </manifest>

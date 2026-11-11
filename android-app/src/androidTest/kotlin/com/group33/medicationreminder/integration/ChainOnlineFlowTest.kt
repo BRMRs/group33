@@ -508,7 +508,9 @@ class ChainOnlineFlowTest {
                     app.elderDoses.state.first { state -> state.due?.keys?.any { it.planId == planId } == true }
                 }
                 val manager = app.getSystemService(android.app.NotificationManager::class.java)
-                waitUntil { manager.activeNotifications.any { it.id == 14001 } }
+                waitUntil { manager.activeNotifications.any {
+                    it.notification.channelId == com.group33.medicationreminder.core.reminder.ReminderNotifications.CHANNEL_ID
+                } }
 
                 click(activity, R.string.elder_action_taken)
                 waitUntil {
@@ -523,7 +525,9 @@ class ChainOnlineFlowTest {
                 val recorded = taken.occurrences.single { it.key == frozen.key }
                 assertNotNull(recorded.takenAt)
                 assertNull(app.elderDoses.state.value.due)
-                waitUntil { manager.activeNotifications.none { it.id == 14001 } }
+                waitUntil { manager.activeNotifications.none {
+                    it.notification.channelId == com.group33.medicationreminder.core.reminder.ReminderNotifications.CHANNEL_ID
+                } }
 
                 if (b.optBoolean("verifyDoseUpload")) {
                     val scope = trusted.scope

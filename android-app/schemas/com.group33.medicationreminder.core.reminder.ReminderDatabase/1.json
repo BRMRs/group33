@@ -2,15 +2,21 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "91f78ed39c64070db34df9fe53f85a9d",
+    "identityHash": "3b38cc96a9e291c7813b8b8e1a0c98df",
     "entities": [
       {
         "tableName": "reminder_groups",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`groupId` TEXT NOT NULL, `elderId` TEXT NOT NULL, `plannedAtEpochMillis` INTEGER NOT NULL, `deadlineAtEpochMillis` INTEGER NOT NULL, `medicationSummary` TEXT NOT NULL, `dosageSummary` TEXT NOT NULL, `state` TEXT NOT NULL, `snoozedUntilEpochMillis` INTEGER, `lastAlarmAtEpochMillis` INTEGER, `lastNotifiedBootCount` INTEGER, `notificationClaimBootCount` INTEGER, `notificationClaimedAtEpochMillis` INTEGER, `recoveryNotificationCount` INTEGER NOT NULL, PRIMARY KEY(`groupId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`groupId` TEXT NOT NULL, `executionScopeId` TEXT NOT NULL, `elderId` TEXT NOT NULL, `plannedAtEpochMillis` INTEGER NOT NULL, `deadlineAtEpochMillis` INTEGER NOT NULL, `medicationSummary` TEXT NOT NULL, `dosageSummary` TEXT NOT NULL, `state` TEXT NOT NULL, `snoozedUntilEpochMillis` INTEGER, `lastAlarmAtEpochMillis` INTEGER, `lastNotifiedBootCount` INTEGER, `notificationClaimBootCount` INTEGER, `notificationClaimedAtEpochMillis` INTEGER, `recoveryNotificationCount` INTEGER NOT NULL, PRIMARY KEY(`groupId`))",
         "fields": [
           {
             "fieldPath": "groupId",
             "columnName": "groupId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "executionScopeId",
+            "columnName": "executionScopeId",
             "affinity": "TEXT",
             "notNull": true
           },
@@ -100,6 +106,15 @@
             "createSql": "CREATE INDEX IF NOT EXISTS `index_reminder_groups_state_plannedAtEpochMillis` ON `${TABLE_NAME}` (`state`, `plannedAtEpochMillis`)"
           },
           {
+            "name": "index_reminder_groups_executionScopeId",
+            "unique": false,
+            "columnNames": [
+              "executionScopeId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_reminder_groups_executionScopeId` ON `${TABLE_NAME}` (`executionScopeId`)"
+          },
+          {
             "name": "index_reminder_groups_elderId",
             "unique": false,
             "columnNames": [
@@ -112,11 +127,17 @@
       },
       {
         "tableName": "reminder_group_occurrences",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`groupId` TEXT NOT NULL, `occurrenceId` TEXT NOT NULL, `planId` TEXT NOT NULL, `localDate` TEXT NOT NULL, `localTime` TEXT NOT NULL, `planRevision` INTEGER NOT NULL, `generationId` TEXT NOT NULL, `executionTimeZoneId` TEXT NOT NULL, `medicationName` TEXT NOT NULL, `dosageText` TEXT NOT NULL, PRIMARY KEY(`groupId`, `occurrenceId`), FOREIGN KEY(`groupId`) REFERENCES `reminder_groups`(`groupId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`groupId` TEXT NOT NULL, `executionScopeId` TEXT NOT NULL, `occurrenceId` TEXT NOT NULL, `planId` TEXT NOT NULL, `localDate` TEXT NOT NULL, `localTime` TEXT NOT NULL, `planRevision` INTEGER NOT NULL, `generationId` TEXT NOT NULL, `executionTimeZoneId` TEXT NOT NULL, `medicationName` TEXT NOT NULL, `dosageText` TEXT NOT NULL, PRIMARY KEY(`groupId`, `occurrenceId`), FOREIGN KEY(`groupId`) REFERENCES `reminder_groups`(`groupId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "groupId",
             "columnName": "groupId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "executionScopeId",
+            "columnName": "executionScopeId",
             "affinity": "TEXT",
             "notNull": true
           },
@@ -193,13 +214,14 @@
             "createSql": "CREATE INDEX IF NOT EXISTS `index_reminder_group_occurrences_groupId` ON `${TABLE_NAME}` (`groupId`)"
           },
           {
-            "name": "index_reminder_group_occurrences_occurrenceId",
+            "name": "index_reminder_group_occurrences_executionScopeId_occurrenceId",
             "unique": true,
             "columnNames": [
+              "executionScopeId",
               "occurrenceId"
             ],
             "orders": [],
-            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_reminder_group_occurrences_occurrenceId` ON `${TABLE_NAME}` (`occurrenceId`)"
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_reminder_group_occurrences_executionScopeId_occurrenceId` ON `${TABLE_NAME}` (`executionScopeId`, `occurrenceId`)"
           }
         ],
         "foreignKeys": [
@@ -379,7 +401,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '91f78ed39c64070db34df9fe53f85a9d')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '3b38cc96a9e291c7813b8b8e1a0c98df')"
     ]
   }
 }

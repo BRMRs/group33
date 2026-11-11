@@ -24,7 +24,9 @@ internal fun testGroup(
     plannedAt: Long,
     elderId: String = "fictional-elder",
     medicineCount: Int = 1,
+    executionScopeId: String = "test-execution-scope",
 ) = ReminderGroup(
+    executionScopeId,
     elderId,
     (1..medicineCount).map { index ->
         testReminder(
@@ -47,11 +49,12 @@ internal fun testRegistration(
     state: ReminderState = ReminderState.SCHEDULED,
     lastNotifiedBootCount: Int? = null,
     medicineCount: Int = 1,
+    executionScopeId: String = "test-execution-scope",
 ): TestRegistration {
-    val model = testGroup(planId, plannedAt, elderId, medicineCount)
+    val model = testGroup(planId, plannedAt, elderId, medicineCount, executionScopeId)
     return TestRegistration(
         ReminderGroupRow(
-            model.groupId, elderId, plannedAt, deadlineAt,
+            model.groupId, model.executionScopeId, elderId, plannedAt, deadlineAt,
             model.occurrences.joinToString(" · ") { it.medicationName },
             model.occurrences.joinToString(" · ") { it.dosageText },
             state = state.name,
@@ -60,7 +63,7 @@ internal fun testRegistration(
         model.occurrences.map { occurrence ->
             val evidence = occurrence.generationEvidence
             ReminderOccurrenceRow(
-                model.groupId, occurrence.occurrenceId, evidence.occurrence.planId,
+                model.groupId, model.executionScopeId, occurrence.occurrenceId, evidence.occurrence.planId,
                 evidence.occurrence.localDate, evidence.occurrence.localTime,
                 evidence.planRevision, evidence.generationId, evidence.executionTimeZoneId,
                 occurrence.medicationName, occurrence.dosageText,

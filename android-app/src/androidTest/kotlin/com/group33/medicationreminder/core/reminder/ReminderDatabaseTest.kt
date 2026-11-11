@@ -39,6 +39,19 @@ class ReminderDatabaseTest {
         assertEquals(2, stored.occurrences.size)
     }
 
+    @Test fun identicalOccurrenceKeysRemainIsolatedAcrossExecutionScopes() = runBlocking {
+        val other = testRegistration(
+            "dose", planned, deadline, medicineCount = 2, executionScopeId = "other-environment-installation",
+        )
+        assertTrue(dao.insertTestRegistration(registration))
+        assertTrue(dao.insertTestRegistration(other))
+        assertNotEquals(id, other.group.groupId)
+        assertEquals(2, dao.activeForScope("test-execution-scope").single()
+            .let { checkNotNull(dao.registration(it.groupId)).occurrences.size })
+        assertEquals(2, dao.activeForScope("other-environment-installation").single()
+            .let { checkNotNull(dao.registration(it.groupId)).occurrences.size })
+    }
+
     @Test fun dueClaimIsAtomicAndHonorsOriginalDeadline() = runBlocking {
         dao.insertTestRegistration(registration)
         assertEquals(0, dao.claimDue(id, planned - 1))

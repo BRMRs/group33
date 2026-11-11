@@ -23,13 +23,17 @@ internal class ReminderAlarmReceiver : BroadcastReceiver() {
     private suspend fun handle(context: Context, intent: Intent) {
         val groupId = intent.getStringExtra(EXTRA_GROUP_ID) ?: return
         val coordinator = ReminderCoordinator(context)
-        when (intent.action) {
+        val changed = when (intent.action) {
             ACTION_ALARM -> alarm(context, coordinator, groupId, intent)
             else -> {
                 val action = ReminderAction.entries.firstOrNull { it.intentAction == intent.action } ?: return
                 val actionId = intent.getStringExtra(EXTRA_ACTION_ID) ?: return
                 coordinator.recordAction(groupId, actionId, action.kind)
             }
+        }
+        if (changed) {
+            (context as? com.group33.medicationreminder.Group33Application)
+                ?.reminderStateListener?.onChanged(groupId)
         }
     }
 
@@ -38,19 +42,19 @@ internal class ReminderAlarmReceiver : BroadcastReceiver() {
         coordinator: ReminderCoordinator,
         groupId: String,
         intent: Intent,
-    ) {
+    ): Boolean {
         val kind = intent.getStringExtra(EXTRA_KIND)?.let {
             runCatching { ReminderAlarmKind.valueOf(it) }.getOrNull()
-        } ?: return
+        } ?: return false
         val dao = ReminderDatabase.open(context).reminders()
-        val row = dao.find(groupId) ?: return
+        val row = dao.find(groupId) ?: return false
         val scheduledAt = when (kind) {
             ReminderAlarmKind.PRE_PROBE -> row.plannedAtEpochMillis - InitialTiming.probeOffset.toMillis()
             ReminderAlarmKind.DUE -> row.snoozedUntilEpochMillis ?: row.plannedAtEpochMillis
             ReminderAlarmKind.POST_PROBE -> row.plannedAtEpochMillis + InitialTiming.probeOffset.toMillis()
             ReminderAlarmKind.FOLLOW_UP -> row.plannedAtEpochMillis + InitialTiming.nonresponseThreshold.toMillis()
             ReminderAlarmKind.EXPIRE -> row.deadlineAtEpochMillis
-            ReminderAlarmKind.RECOVERY -> return
+            ReminderAlarmKind.RECOVERY -> return false
         }
         val now = System.currentTimeMillis()
         val event = ReminderAlarmEventRow(
@@ -66,10 +70,10 @@ internal class ReminderAlarmReceiver : BroadcastReceiver() {
                 ?.reminderPhaseDispatcher != null) {
             ReminderPhaseWorker.enqueue(context, event.eventId)
         }
-        when (kind) {
+        return when (kind) {
             ReminderAlarmKind.DUE -> coordinator.triggerDue(groupId, now)
             ReminderAlarmKind.EXPIRE -> coordinator.cancel(groupId)
-            else -> Unit // Durable phase fact; the joint S1/S2 adapter consumes it for probes/follow-up.
+            else -> false // Durable phase fact; the joint S1/S2 adapter consumes it for probes/follow-up.
         }
     }
 
@@ -84,5 +88,9 @@ internal class ReminderAlarmReceiver : BroadcastReceiver() {
             ReminderAlarmKind.FOLLOW_UP,
         )
     }
+}
+
+internal fun interface ReminderStateListener {
+    suspend fun onChanged(groupId: String)
 }
 

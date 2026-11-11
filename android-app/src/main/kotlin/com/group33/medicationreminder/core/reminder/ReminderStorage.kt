@@ -32,23 +32,34 @@ internal data class ReminderOccurrence(
     val plannedAtEpochMillis: Long get() = generationEvidence.plannedAtEpochMillis
 }
 
-internal data class ReminderGroup(val elderId: String, val occurrences: List<ReminderOccurrence>) {
+internal data class ReminderGroup(
+    val executionScopeId: String,
+    val elderId: String,
+    val occurrences: List<ReminderOccurrence>,
+) {
     init {
-        require(elderId.isNotBlank() && occurrences.isNotEmpty())
+        require(executionScopeId.isNotBlank() && elderId.isNotBlank() && occurrences.isNotEmpty())
         require(occurrences.all { it.elderId == elderId })
         require(occurrences.map { it.occurrenceId }.distinct().size == occurrences.size)
         require(occurrences.map { it.plannedAtEpochMillis }.distinct().size == 1)
     }
     val plannedAtEpochMillis = occurrences.first().plannedAtEpochMillis
     val deadlineAtEpochMillis = plannedAtEpochMillis + InitialTiming.responseWindow.toMillis()
-    val groupId: String = stableGroupId(elderId, plannedAtEpochMillis, occurrences.map { it.occurrenceId })
+    val groupId: String = stableGroupId(
+        executionScopeId, elderId, plannedAtEpochMillis, occurrences.map { it.occurrenceId },
+    )
 }
 
 internal fun OccurrenceKey.stableReminderId(): String = "$planId\u001f$localDate\u001f$localTime"
 
-private fun stableGroupId(elderId: String, plannedAt: Long, occurrenceIds: List<String>): String {
+private fun stableGroupId(
+    executionScopeId: String,
+    elderId: String,
+    plannedAt: Long,
+    occurrenceIds: List<String>,
+): String {
     val canonical = buildString {
-        append(elderId).append('\n').append(plannedAt)
+        append(executionScopeId).append('\n').append(elderId).append('\n').append(plannedAt)
         occurrenceIds.sorted().forEach { append('\n').append(it) }
     }
     return MessageDigest.getInstance("SHA-256").digest(canonical.toByteArray(StandardCharsets.UTF_8))
@@ -57,10 +68,15 @@ private fun stableGroupId(elderId: String, plannedAt: Long, occurrenceIds: List<
 
 @Entity(
     tableName = "reminder_groups",
-    indices = [Index(value = ["state", "plannedAtEpochMillis"]), Index(value = ["elderId"])]
+    indices = [
+        Index(value = ["state", "plannedAtEpochMillis"]),
+        Index(value = ["executionScopeId"]),
+        Index(value = ["elderId"]),
+    ]
 )
 internal data class ReminderGroupRow(
     @PrimaryKey val groupId: String,
+    val executionScopeId: String,
     val elderId: String,
     val plannedAtEpochMillis: Long,
     val deadlineAtEpochMillis: Long,
@@ -83,10 +99,14 @@ internal data class ReminderGroupRow(
         parentColumns = ["groupId"], childColumns = ["groupId"],
         onDelete = ForeignKey.CASCADE,
     )],
-    indices = [Index(value = ["groupId"]), Index(value = ["occurrenceId"], unique = true)],
+    indices = [
+        Index(value = ["groupId"]),
+        Index(value = ["executionScopeId", "occurrenceId"], unique = true),
+    ],
 )
 internal data class ReminderOccurrenceRow(
     val groupId: String,
+    val executionScopeId: String,
     val occurrenceId: String,
     val planId: String,
     val localDate: String,
@@ -181,6 +201,9 @@ internal interface ReminderDao {
 
     @Query("SELECT * FROM reminder_groups WHERE state IN ('SCHEDULED','RINGING','SNOOZED') ORDER BY plannedAtEpochMillis")
     suspend fun active(): List<ReminderGroupRow>
+
+    @Query("SELECT * FROM reminder_groups WHERE executionScopeId = :scopeId AND state IN ('SCHEDULED','RINGING','SNOOZED') ORDER BY plannedAtEpochMillis")
+    suspend fun activeForScope(scopeId: String): List<ReminderGroupRow>
 
     @Query("SELECT * FROM reminder_groups WHERE state IN ('SCHEDULED','RINGING','SNOOZED') ORDER BY plannedAtEpochMillis")
     fun observeActive(): Flow<List<ReminderGroupRow>>
