@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="photo_title">拍摄药盒</string>
+    <string name="photo_instruction">请拍清楚原装药盒，药品信息由照护者核对。您不需要填写药名或剂量。</string>
+    <string name="photo_boundary">此版本支持拍照和预览，尚未接通上传服务，不会发送照片。</string>
+    <string name="photo_camera">拍一张照片</string>
+    <string name="photo_choose">选择照片</string>
+    <string name="photo_use">使用这张照片并提交</string>
+    <string name="photo_replace">重新拍摄</string>
+    <string name="photo_back">返回</string>
+    <string name="photo_preview">药盒照片预览</string>
+    <string name="photo_empty">请拍照或选择一张照片。</string>
+    <string name="photo_loading">正在打开照片…</string>
+    <string name="photo_ready">请检查药盒是否清楚，然后使用这张照片。</string>
+    <string name="photo_submitting">正在提交照片…</string>
+    <string name="photo_confirmed">照片已提交，不代表照护者已经查看。</string>
+    <string name="photo_confirmed_refresh">照片已提交，相关信息仍在更新，请勿重复提交。</string>
+    <string name="photo_not_submitted">照片尚未提交，已保留在本机，可以重试。</string>
+    <string name="photo_rejected">这张照片未被接受，已保留。请重拍或选择其他照片。</string>
+    <string name="photo_awaiting">暂时无法确定提交结果，照片已保留，请勿重复提交。</string>
+    <string name="photo_unavailable">暂时无法上传，照片已保留在本机，尚未发送。</string>
+    <string name="photo_invalid">无法打开这张照片。请选择可读取的 JPEG 或 PNG，文件不超过 5 MiB，像素不超过 2000 万。</string>
+    <string name="photo_restored">上次提交需要先核对结果，暂不能再次发送这张照片。照片已保留在本机。</string>
+    <string name="photo_camera_unavailable">无法打开相机，可以改为选择照片。</string>
+</resources>
