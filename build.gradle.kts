@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.kotlin.android) apply false
+    alias(libs.plugins.kotlin.kapt) apply false
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.kotlin.spring) apply false
@@ -15,6 +16,7 @@ tasks.register("gate1Check") {
         ":shared:test",
         ":server:test",
         ":server:bootJar",
+        ":server:schemaMigrationDist",
         ":android-app:testDebugUnitTest",
         ":android-app:lintDebug",
         ":android-app:assembleDebug",

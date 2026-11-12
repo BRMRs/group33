@@ -1,8 +1,26 @@
 package com.group33.server.pairing
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.group33.server.plan.*
+import com.group33.server.occurrence.*
+import com.group33.shared.contract.*
+import com.group33.shared.contract.ConfirmReminderPlanResponse
+import com.group33.shared.contract.MedicationView
+import com.group33.shared.contract.MedicationText
+import com.group33.shared.contract.ReminderPlanDraft
+import com.group33.shared.contract.ReminderPlanView
+import com.group33.shared.contract.PlanRevisionView
+import com.group33.server.photo.PhotoInputRejection
+import com.group33.server.photo.PhotoMetadataStore
+import com.group33.server.photo.PhotoMetadataTransaction
+import com.group33.server.photo.PhotoUploadKey
+import com.group33.server.photo.PhotoUploadOperation
+import com.group33.server.photo.PhotoUploadState
+import com.group33.server.photo.ReadyMedicationPhoto
+import com.group33.server.photo.storage.PhotoObjectKey
 import com.group33.shared.contract.CareRelationshipStatus
 import com.group33.shared.contract.CareRelationshipView
+import com.group33.shared.contract.MedicationPhotoView
 import com.group33.shared.contract.PairingClosedReason
 import com.group33.shared.contract.PairingRequestStatus
 import com.group33.shared.contract.PairingRequestView
@@ -12,6 +30,7 @@ import java.sql.Connection
 import java.sql.PreparedStatement
 import java.sql.ResultSet
 import java.sql.SQLException
+import java.util.UUID
 import javax.sql.DataSource
 
 /** Explicitly constructed adapter; no HTTP/security/Boot configuration is registered here. */
@@ -19,7 +38,7 @@ internal class PostgresPairingCodeStore(
     private val dataSource: DataSource,
     private val receiptCipher: PairingReceiptCipher,
     private val lockWaitMillis: Long = 1_000,
-) : PairingDirectoryStore {
+) : OccurrenceRegistrationStore {
     init { require(lockWaitMillis in 0..30_000) }
 
     override fun <T> transaction(work: (PairingCodeTransaction) -> T): T = requestTransaction { work(it) }
@@ -28,11 +47,40 @@ internal class PostgresPairingCodeStore(
 
     override fun <T> decisionTransaction(work: (PairingDecisionTransaction) -> T): T = directoryTransaction { work(it) }
 
-    override fun <T> directoryTransaction(work: (PairingDirectoryTransaction) -> T): T = dataSource.connection.use { connection ->
+    override fun <T> directoryTransaction(work: (PairingDirectoryTransaction) -> T): T = photoTransaction { work(it) }
+
+    override fun <T> photoTransaction(work: (PhotoMetadataTransaction) -> T): T = confirmationTransaction { work(it) }
+
+    override fun <T> confirmationTransaction(work: (PlanConfirmationTransaction) -> T): T = mutationTransaction { work(it) }
+
+    /** Current relation, plan rows and retained revisions share one primary MVCC snapshot. */
+    override fun <T> planReadTransaction(work: (PlanReadTransaction) -> T): T = dataSource.connection.use { connection ->
+        connection.isReadOnly = true
+        connection.transactionIsolation = Connection.TRANSACTION_REPEATABLE_READ
+        connection.autoCommit = false
+        try {
+            connection.prepareStatement("SELECT set_config('lock_timeout', ?, true), set_config('statement_timeout', '5000ms', true)").use {
+                it.setString(1, "${lockWaitMillis}ms")
+                it.execute()
+            }
+            // No FOR UPDATE/issuance guard and no receipt or metadata writes on collection reads.
+            val result = work(Transaction(connection, receiptCipher))
+            connection.rollback()
+            result
+        } catch (failure: Throwable) {
+            try { connection.rollback() } catch (rollback: SQLException) { failure.addSuppressed(rollback) }
+            if (failure is SQLException && failure.sqlState == "55P03") throw CodeStoreBusy()
+            throw failure
+        }
+    }
+
+    override fun <T> mutationTransaction(work: (PlanMutationTransaction) -> T): T = registrationTransaction { work(it) }
+
+    override fun <T> registrationTransaction(work: (OccurrenceRegistrationTransaction) -> T): T = dataSource.connection.use { connection ->
         connection.transactionIsolation = Connection.TRANSACTION_READ_COMMITTED
         connection.autoCommit = false
         try {
-            connection.prepareStatement("SELECT set_config('lock_timeout', ?, true)").use {
+            connection.prepareStatement("SELECT set_config('lock_timeout', ?, true), set_config('statement_timeout', '5000ms', true)").use {
                 it.setString(1, "${lockWaitMillis}ms")
                 it.execute()
             }
@@ -44,6 +92,9 @@ internal class PostgresPairingCodeStore(
                 }
             }
             val result = work(Transaction(connection, receiptCipher))
+            // Run deferred validation under the SQL budget after every business/receipt write.
+            // A lost final COMMIT response still requires original-operation reconciliation.
+            connection.createStatement().use { it.execute("SET CONSTRAINTS ALL IMMEDIATE") }
             connection.commit()
             result
         } catch (failure: Throwable) {
@@ -53,7 +104,63 @@ internal class PostgresPairingCodeStore(
         }
     }
 
-    private class Transaction(private val db: Connection, private val cipher: PairingReceiptCipher) : PairingDirectoryTransaction {
+    private class Transaction(private val db: Connection, private val cipher: PairingReceiptCipher) : OccurrenceRegistrationTransaction {
+        override fun registrationOperation(key: RegistrationKey) = query(
+            "SELECT * FROM occurrence_registration_operation WHERE actor_id = ? AND operation_id = ?", listOf(key.actorId, key.operationId),
+        ) { row -> RegistrationOperation(
+            RegistrationBinding(row.getString("installation_id"), row.getString("elder_id"),
+                mapper.readValue(row.getString("request_payload"), OccurrenceRegistrationRequest::class.java)),
+            row.getString("response_payload")?.let { mapper.readValue(it, OccurrenceRegistrationResponse::class.java) },
+            row.getString("rejection_payload")?.let { mapper.readValue(it, RegistrationResult.Rejected::class.java) },
+        ) }.singleOrNull()?.let(RegistrationCopies::operation)
+
+        override fun putRegistrationOperation(key: RegistrationKey, value: RegistrationOperation) {
+            check(key.actorId == value.binding.elderId)
+            value.response?.let { response ->
+                check(response.items.map { it.event.generationEvidence } == value.binding.request.items)
+                response.items.forEach { receipt ->
+                    val stored = checkNotNull(occurrence(receipt.event.occurrence))
+                    check(stored.installationId == value.binding.installationId && stored.receipt == receipt && receipt.event.elderId == key.actorId)
+                }
+            }
+            check(update("""
+                INSERT INTO occurrence_registration_operation AS current
+                    (actor_id, operation_id, installation_id, elder_id, canonicalization_version, request_payload, response_payload, rejection_payload)
+                VALUES (?, ?, ?, ?, ?, CAST(? AS jsonb), CAST(? AS jsonb), CAST(? AS jsonb))
+                ON CONFLICT (actor_id, operation_id) DO UPDATE SET response_payload = EXCLUDED.response_payload, rejection_payload = EXCLUDED.rejection_payload
+                WHERE current.installation_id = EXCLUDED.installation_id AND current.elder_id = EXCLUDED.elder_id
+                  AND current.canonicalization_version = EXCLUDED.canonicalization_version AND current.request_payload = EXCLUDED.request_payload
+                  AND (current.response_payload IS NULL OR current.response_payload = EXCLUDED.response_payload)
+            """.trimIndent(), listOf(key.actorId, key.operationId, value.binding.installationId, value.binding.elderId,
+                ContractProtocol.CANONICALIZATION_VERSION, mapper.writeValueAsString(value.binding.request),
+                value.response?.let(mapper::writeValueAsString), value.rejection?.let(mapper::writeValueAsString))) == 1) {
+                "Registration binding or accepted receipt cannot be replaced"
+            }
+        }
+
+        override fun occurrence(key: OccurrenceKey) = query(
+            "SELECT * FROM registered_occurrence WHERE plan_id = ? AND local_date = ? AND local_time = ?",
+            listOf(UUID.fromString(key.planId), key.localDate, key.localTime), ::readOccurrence,
+        ).singleOrNull()
+        override fun generation(actorId: String, generationId: UUID) = query(
+            "SELECT * FROM registered_occurrence WHERE elder_id = ? AND generation_id = ?", listOf(actorId, generationId), ::readOccurrence,
+        ).singleOrNull()
+        override fun insertOccurrence(value: RegisteredOccurrence) {
+            val event = value.receipt.event
+            check(value.origin.actorId == event.elderId)
+            check(update("""
+                INSERT INTO registered_occurrence
+                    (id, plan_id, local_date, local_time, plan_revision, elder_id, medication_id, installation_id,
+                     generation_id, origin_operation_id, receipt_payload)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb))
+            """.trimIndent(), listOf(UUID.fromString(event.id), UUID.fromString(event.occurrence.planId), event.occurrence.localDate,
+                event.occurrence.localTime, event.planRevision, event.elderId, UUID.fromString(event.medicationId), value.installationId,
+                UUID.fromString(value.receipt.generationId), value.origin.operationId, mapper.writeValueAsString(value.receipt))) == 1)
+        }
+        private fun readOccurrence(row: ResultSet) = RegistrationCopies.occurrence(RegisteredOccurrence(row.getString("installation_id"),
+            RegistrationKey(row.getString("elder_id"), row.getObject("origin_operation_id", UUID::class.java)),
+            mapper.readValue(row.getString("receipt_payload"), OccurrenceRegistrationReceipt::class.java)))
+
         override fun operation(key: CodeIssueKey): CodeIssueOperation? = query(
             "SELECT * FROM pairing_issue_operation WHERE actor_id = ? AND operation_id = ?",
             listOf(key.actorId, key.operationId),
@@ -329,6 +436,244 @@ internal class PostgresPairingCodeStore(
                 kind, payload, relation?.id, request?.id, rejected?.reason?.name, rejected?.retryAfterSeconds))
             check(count == 1) { "Decision operation binding or accepted receipt cannot be replaced" }
         }
+
+        override fun mutationOperation(key: PlanMutationKey): PlanMutationOperation? = query(
+            "SELECT * FROM plan_mutation_operation WHERE actor_id = ? AND action = ? AND operation_id = ?",
+            listOf(key.actorId, key.action.name, key.operationId),
+        ) { row ->
+            PlanMutationOperation(row.getString("installation_id"), row.getString("elder_id"), row.getString("plan_id"), row.getString("fingerprint"),
+                row.getString("receipt_payload")?.let { mapper.readValue(it, com.group33.shared.contract.UpdateReminderPlanResponse::class.java) },
+                row.getString("rejection_reason")?.let { PlanMutationResult.Rejected(PlanMutationRejection.valueOf(it),
+                    mapper.readValue(row.getString("violations"), Array<ConfirmationViolation>::class.java).toList()) }).detached()
+        }.singleOrNull()
+
+        override fun putMutationOperation(key: PlanMutationKey, value: PlanMutationOperation) {
+            val receipt = value.receipt
+            receipt?.let {
+                check(it.plan.id == value.planId && it.plan.elderId == value.elderId && it.medication.elderId == value.elderId)
+                check(it.plan.medicationId == it.medication.id && plan(value.planId) == it.plan && medication(it.medication.id) == it.medication)
+                check(revision(value.planId, it.plan.revision) == PlanConfirmationCopies.initialRevision(ConfirmReminderPlanResponse(it.medication, it.plan)))
+            }
+            val count = update("""
+                INSERT INTO plan_mutation_operation AS current
+                    (actor_id, action, operation_id, installation_id, elder_id, plan_id, fingerprint,
+                     receipt_revision, receipt_payload, rejection_reason, violations)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?, CAST(? AS jsonb))
+                ON CONFLICT (actor_id, action, operation_id) DO UPDATE SET
+                    receipt_revision = EXCLUDED.receipt_revision, receipt_payload = EXCLUDED.receipt_payload,
+                    rejection_reason = EXCLUDED.rejection_reason, violations = EXCLUDED.violations
+                WHERE current.installation_id = EXCLUDED.installation_id AND current.elder_id = EXCLUDED.elder_id
+                  AND current.plan_id = EXCLUDED.plan_id AND current.fingerprint = EXCLUDED.fingerprint
+                  AND (current.receipt_payload IS NULL OR (current.receipt_revision = EXCLUDED.receipt_revision
+                       AND current.receipt_payload = EXCLUDED.receipt_payload AND EXCLUDED.rejection_reason IS NULL
+                       AND EXCLUDED.violations = '[]'::jsonb))
+            """.trimIndent(), listOf(key.actorId, key.action.name, key.operationId, value.installationId, value.elderId,
+                UUID.fromString(value.planId), value.fingerprint, receipt?.plan?.revision, receipt?.let(mapper::writeValueAsString),
+                value.rejection?.reason?.name, mapper.writeValueAsString(value.rejection?.violations.orEmpty())))
+            check(count == 1) { "Plan mutation binding or accepted receipt cannot be replaced" }
+        }
+        override fun updateMedication(value: MedicationView) {
+            val old = checkNotNull(medication(value.id))
+            check(old.elderId == value.elderId && old.photoId == value.photoId && old.active == value.active)
+            check(update("UPDATE medication SET display_name = ?, dosage_text = ?, instructions = ? WHERE id = ?",
+                listOf(value.displayName, value.dosageText, value.instructions, UUID.fromString(value.id))) == 1)
+        }
+        override fun updatePlan(value: ReminderPlanView, expectedRevision: Long) {
+            val old = checkNotNull(plan(value.id))
+            check(old.revision == expectedRevision && expectedRevision < Long.MAX_VALUE && value.revision == expectedRevision + 1)
+            check(old.elderId == value.elderId && old.medicationId == value.medicationId && (!value.active || old.active))
+            check(update("""
+                UPDATE reminder_plan SET revision = ?, local_times = CAST(? AS text[]), start_date = ?, end_date = ?,
+                    execution_time_zone_id = ?, active = ?, effective_from = ?, confirmed_at = ? WHERE id = ? AND revision = ?
+            """.trimIndent(), listOf(value.revision, arrayLiteral(value.localTimes), value.startDate, value.endDate,
+                value.executionTimeZoneId, value.active, value.effectiveFromEpochMillis, value.confirmedAtEpochMillis,
+                UUID.fromString(value.id), expectedRevision)) == 1)
+        }
+
+        override fun confirmationOperation(key: PlanConfirmationKey): PlanConfirmationOperation? = query(
+            "SELECT * FROM plan_confirmation_operation WHERE actor_id = ? AND operation_id = ?", listOf(key.actorId, key.operationId),
+        ) { row ->
+            val payload = row.getString("receipt_payload")
+            val receipt = payload?.let { PlanConfirmationCopies.receipt(mapper.readValue(it, ConfirmReminderPlanResponse::class.java)) }
+            val rejection = row.getString("rejection_reason")?.let { reason ->
+                PlanConfirmationResult.Rejected(PlanConfirmationRejection.valueOf(reason),
+                    mapper.readValue(row.getString("violations"), Array<ConfirmationViolation>::class.java).toList())
+            }
+            PlanConfirmationOperation(row.getString("installation_id"), row.getString("elder_id"), row.getString("fingerprint"), receipt, rejection)
+        }.singleOrNull()
+
+        override fun putConfirmationOperation(key: PlanConfirmationKey, value: PlanConfirmationOperation) {
+            val receipt = value.receipt
+            var receiptId: UUID? = null
+            if (receipt != null) {
+                check(receipt.medication.elderId == value.elderId && receipt.plan.elderId == value.elderId)
+                check(receipt.plan.medicationId == receipt.medication.id && receipt.plan.revision == 1L)
+                check(medication(receipt.medication.id) == receipt.medication && plan(receipt.plan.id) == receipt.plan)
+                check(revision(receipt.plan.id, 1) == PlanConfirmationCopies.initialRevision(receipt))
+                receiptId = query("SELECT initial_receipt_id FROM medication WHERE id = ?", listOf(UUID.fromString(receipt.medication.id))) {
+                    it.getObject(1, UUID::class.java)
+                }.single()
+            }
+            val count = update("""
+                INSERT INTO plan_confirmation_operation AS current
+                    (actor_id, operation_id, installation_id, elder_id, fingerprint, receipt_id, medication_id, plan_id,
+                     receipt_revision, receipt_payload, rejection_reason, violations)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?, CAST(? AS jsonb))
+                ON CONFLICT (actor_id, operation_id) DO UPDATE SET
+                    receipt_id = EXCLUDED.receipt_id, medication_id = EXCLUDED.medication_id, plan_id = EXCLUDED.plan_id,
+                    receipt_revision = EXCLUDED.receipt_revision, receipt_payload = EXCLUDED.receipt_payload,
+                    rejection_reason = EXCLUDED.rejection_reason, violations = EXCLUDED.violations
+                WHERE current.installation_id = EXCLUDED.installation_id AND current.elder_id = EXCLUDED.elder_id
+                  AND current.fingerprint = EXCLUDED.fingerprint AND
+                    (current.receipt_id IS NULL OR (current.receipt_id = EXCLUDED.receipt_id
+                     AND current.medication_id = EXCLUDED.medication_id AND current.plan_id = EXCLUDED.plan_id
+                     AND current.receipt_revision = EXCLUDED.receipt_revision AND current.receipt_payload = EXCLUDED.receipt_payload
+                     AND EXCLUDED.rejection_reason IS NULL AND EXCLUDED.violations = '[]'::jsonb))
+            """.trimIndent(), listOf(key.actorId, key.operationId, value.installationId, value.elderId, value.fingerprint,
+                receiptId, receipt?.medication?.id?.let(UUID::fromString), receipt?.plan?.id?.let(UUID::fromString),
+                receipt?.plan?.revision, receipt?.let(mapper::writeValueAsString), value.rejection?.reason?.name,
+                mapper.writeValueAsString(value.rejection?.violations.orEmpty())))
+            check(count == 1) { "Plan confirmation binding or accepted receipt cannot be replaced" }
+        }
+
+        override fun insertMedication(value: MedicationView) {
+            val photoId = checkNotNull(value.photoId)
+            check(value.active && readyPhoto(photoId)?.view?.elderId == value.elderId)
+            update("""
+                INSERT INTO medication (id, elder_id, display_name, dosage_text, instructions, photo_id, active, initial_receipt_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """.trimIndent(), listOf(UUID.fromString(value.id), value.elderId, value.displayName, value.dosageText,
+                value.instructions, UUID.fromString(photoId), value.active, UUID.randomUUID()))
+        }
+
+        override fun insertPlan(value: ReminderPlanView) {
+            check(value.revision == 1L && value.active && medication(value.medicationId)?.elderId == value.elderId)
+            check(ReminderPlanInputValidator.validate(ReminderPlanDraft(value.localTimes, value.startDate, value.executionTimeZoneId, value.endDate)).isEmpty())
+            update("""
+                INSERT INTO reminder_plan (id, elder_id, medication_id, revision, local_times, start_date, end_date,
+                    execution_time_zone_id, active, effective_from, confirmed_at, initial_receipt_id)
+                SELECT ?, ?, ?, ?, CAST(? AS text[]), ?, ?, ?, ?, ?, ?, initial_receipt_id FROM medication WHERE id = ?
+            """.trimIndent(), listOf(UUID.fromString(value.id), value.elderId, UUID.fromString(value.medicationId), value.revision,
+                arrayLiteral(value.localTimes), value.startDate, value.endDate, value.executionTimeZoneId, value.active,
+                value.effectiveFromEpochMillis, value.confirmedAtEpochMillis, UUID.fromString(value.medicationId)))
+        }
+
+        override fun insertRevision(value: PlanRevisionView) {
+            val currentPlan = checkNotNull(plan(value.id)); val currentMedication = checkNotNull(medication(value.medicationId))
+            check(value == PlanConfirmationCopies.initialRevision(ConfirmReminderPlanResponse(currentMedication, currentPlan)))
+            update("""
+                INSERT INTO reminder_plan_revision (plan_id, revision, elder_id, medication_id, local_times, start_date,
+                    end_date, execution_time_zone_id, active, effective_from, confirmed_at, display_name, dosage_text, instructions)
+                VALUES (?, ?, ?, ?, CAST(? AS text[]), ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """.trimIndent(), listOf(UUID.fromString(value.id), value.revision, value.elderId, UUID.fromString(value.medicationId),
+                arrayLiteral(value.localTimes), value.startDate, value.endDate, value.executionTimeZoneId, value.active,
+                value.effectiveFromEpochMillis, value.confirmedAtEpochMillis, value.medicationSnapshot.displayName,
+                value.medicationSnapshot.dosageText, value.medicationSnapshot.instructions))
+        }
+
+        override fun medications(elderId: String): List<MedicationView> = query("SELECT * FROM medication WHERE elder_id = ? ORDER BY id", listOf(elderId), ::readMedication)
+        override fun plans(elderId: String): List<ReminderPlanView> = query("SELECT * FROM reminder_plan WHERE elder_id = ? ORDER BY id", listOf(elderId), ::readPlan)
+        override fun revisions(elderId: String): List<PlanRevisionView> = query("SELECT * FROM reminder_plan_revision WHERE elder_id = ? ORDER BY plan_id, revision", listOf(elderId), ::readRevision)
+        override fun medication(id: String) = query("SELECT * FROM medication WHERE id = ?", listOf(UUID.fromString(id)), ::readMedication).singleOrNull()
+        override fun plan(id: String) = query("SELECT * FROM reminder_plan WHERE id = ?", listOf(UUID.fromString(id)), ::readPlan).singleOrNull()
+        private fun revision(id: String, revision: Long) = query("SELECT * FROM reminder_plan_revision WHERE plan_id = ? AND revision = ?", listOf(UUID.fromString(id), revision), ::readRevision).singleOrNull()
+        private fun arrayLiteral(times: List<String>): String {
+            check(times.isNotEmpty() && times.all { it.matches(Regex("(?:[01][0-9]|2[0-3]):[0-5][0-9]")) })
+            return times.joinToString(",", "{", "}") // bound as one text parameter, never interpolated SQL
+        }
+        private fun readTimes(row: ResultSet): List<String> = row.getArray("local_times").let { values ->
+            try { (values.array as Array<*>).map { it as String } } finally { values.free() }
+        }
+        private fun readMedication(row: ResultSet) = MedicationView(row.getString("id"), row.getString("elder_id"),
+            row.getString("display_name"), row.getString("dosage_text"), row.getBoolean("active"), row.getString("instructions"), row.getString("photo_id"))
+        private fun readPlan(row: ResultSet) = PlanConfirmationCopies.plan(ReminderPlanView(row.getString("id"), row.getString("elder_id"),
+            row.getString("medication_id"), row.getLong("revision"), readTimes(row), row.getString("start_date"), row.getString("execution_time_zone_id"),
+            row.getBoolean("active"), row.getLong("effective_from"), row.getLong("confirmed_at"), row.getString("end_date")))
+        private fun readRevision(row: ResultSet) = PlanConfirmationCopies.revision(PlanRevisionView(row.getString("plan_id"), row.getString("elder_id"),
+            row.getString("medication_id"), row.getLong("revision"), readTimes(row), row.getString("start_date"), row.getString("execution_time_zone_id"),
+            row.getBoolean("active"), row.getLong("effective_from"), row.getLong("confirmed_at"),
+            MedicationText(row.getString("display_name"), row.getString("dosage_text"), row.getString("instructions")), row.getString("end_date")))
+
+        override fun photoOperation(key: PhotoUploadKey): PhotoUploadOperation? = query(
+            "SELECT * FROM photo_upload_operation WHERE actor_id = ? AND operation_id = ?",
+            listOf(key.actorId, key.operationId),
+        ) { row ->
+            // These receipt columns retain the original POST result, independently of resource reads.
+            val receipt = row.getString("receipt_photo_id")?.let { id ->
+                MedicationPhotoView(id, row.getString("receipt_elder_id"), row.getString("receipt_content_type"),
+                    row.getLong("receipt_created_at"))
+            }
+            PhotoUploadOperation(row.getString("installation_id"), row.getString("elder_id"),
+                row.getString("fingerprint"), row.getObject("photo_id", UUID::class.java),
+                PhotoUploadState.valueOf(row.getString("state")), receipt,
+                row.getString("rejection_reason")?.let { PhotoInputRejection.valueOf(it) })
+        }.singleOrNull()
+
+        override fun putPhotoOperation(key: PhotoUploadKey, value: PhotoUploadOperation) {
+            val receipt = value.receipt
+            when (value.state) {
+                PhotoUploadState.STAGING -> check(receipt == null && value.rejection == null)
+                PhotoUploadState.REJECTED -> check(receipt == null && value.rejection != null)
+                PhotoUploadState.READY -> {
+                    check(receipt != null && value.rejection == null)
+                    check(receipt.id == value.photoId.toString() && receipt.elderId == value.elderId)
+                    check(readyPhoto(receipt.id)?.view == receipt)
+                }
+            }
+            val count = update("""
+                INSERT INTO photo_upload_operation AS current
+                    (actor_id, operation_id, installation_id, elder_id, fingerprint, photo_id, state,
+                     receipt_photo_id, receipt_elder_id, receipt_content_type, receipt_created_at, rejection_reason)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (actor_id, operation_id) DO UPDATE SET
+                    state = EXCLUDED.state, receipt_photo_id = EXCLUDED.receipt_photo_id,
+                    receipt_elder_id = EXCLUDED.receipt_elder_id, receipt_content_type = EXCLUDED.receipt_content_type,
+                    receipt_created_at = EXCLUDED.receipt_created_at, rejection_reason = EXCLUDED.rejection_reason
+                WHERE current.installation_id = EXCLUDED.installation_id AND current.elder_id = EXCLUDED.elder_id
+                  AND current.fingerprint = EXCLUDED.fingerprint AND current.photo_id = EXCLUDED.photo_id
+                  AND (current.state <> 'READY' OR
+                    (EXCLUDED.state = 'READY' AND current.receipt_photo_id = EXCLUDED.receipt_photo_id
+                     AND current.receipt_elder_id = EXCLUDED.receipt_elder_id
+                     AND current.receipt_content_type = EXCLUDED.receipt_content_type
+                     AND current.receipt_created_at = EXCLUDED.receipt_created_at
+                     AND EXCLUDED.rejection_reason IS NULL))
+            """.trimIndent(), listOf(key.actorId, key.operationId, value.installationId, value.elderId,
+                value.fingerprint, value.photoId, value.state.name, receipt?.let { value.photoId }, receipt?.elderId,
+                receipt?.contentType, receipt?.createdAtEpochMillis, value.rejection?.name))
+            check(count == 1) { "Photo operation binding or accepted receipt cannot be replaced" }
+        }
+
+        override fun readyPhoto(id: String): ReadyMedicationPhoto? {
+            val photoId = try { UUID.fromString(id) } catch (_: IllegalArgumentException) { return null }
+            return query("SELECT * FROM medication_photo WHERE id = ?", listOf(photoId)) { row ->
+                ReadyMedicationPhoto(readPhoto(row), PhotoObjectKey(row.getObject("object_id", UUID::class.java),
+                    row.getLong("byte_count"), row.getString("sha256")))
+            }.singleOrNull()
+        }
+
+        override fun readyPhotos(elderId: String): List<MedicationPhotoView> = query(
+            "SELECT * FROM medication_photo WHERE elder_id = ? ORDER BY created_at, id", listOf(elderId), ::readPhoto,
+        )
+
+        override fun publishPhoto(value: ReadyMedicationPhoto) {
+            val view = value.view
+            val objectKey = value.objectKey
+            check(view.id == objectKey.objectId.toString())
+            val count = update("""
+                INSERT INTO medication_photo AS current
+                    (id, elder_id, content_type, created_at, object_id, byte_count, sha256)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (id) DO UPDATE SET id = EXCLUDED.id
+                WHERE current.elder_id = EXCLUDED.elder_id AND current.content_type = EXCLUDED.content_type
+                  AND current.created_at = EXCLUDED.created_at AND current.object_id = EXCLUDED.object_id
+                  AND current.byte_count = EXCLUDED.byte_count AND current.sha256 = EXCLUDED.sha256
+            """.trimIndent(), listOf(objectKey.objectId, view.elderId, view.contentType, view.createdAtEpochMillis,
+                objectKey.objectId, objectKey.byteCount, objectKey.sha256))
+            check(count == 1) { "Published photo cannot be replaced" }
+        }
+
+        private fun readPhoto(row: ResultSet) = MedicationPhotoView(row.getString("id"), row.getString("elder_id"),
+            row.getString("content_type"), row.getLong("created_at"))
 
         private companion object { val mapper = jacksonObjectMapper() }
 

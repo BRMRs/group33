@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="c2_plan_editing_title">Reminder plan</string>
+    <string name="c2_plan_editing_description">Review the photo, medication details and reminder times before saving.</string>
+    <string name="c2_plan_save">Save reminder plan</string>
+    <string name="c2_plan_submitting_title">Saving reminder plan</string>
+    <string name="c2_plan_submitting_description">Waiting for the save result. Do not submit the plan again.</string>
+    <string name="c2_plan_unsent_title">Reminder plan not submitted</string>
+    <string name="c2_plan_unsent_description">Your input is kept. When a connection is available, you can retry this submission.</string>
+    <string name="c2_plan_retry_unsent">Retry submission</string>
+    <string name="c2_plan_unknown_title">Save result not yet confirmed</string>
+    <string name="c2_plan_unknown_description">The plan may already be saved. Check the original request result instead of saving it again.</string>
+    <string name="c2_plan_check_result">Check save result</string>
+    <string name="c2_plan_rejected_title">Reminder plan not accepted</string>
+    <string name="c2_plan_rejected_description">Review the reported issue and your input. This request will not be retried automatically.</string>
+    <string name="c2_plan_review_input">Review plan details</string>
+    <string name="c2_plan_saved_title">Reminder plan saved</string>
+    <string name="c2_plan_saved_description">The service confirmed the save and the local copy is updated. Delivery to the Elder device has not been verified here.</string>
+    <string name="c2_plan_cache_pending_description">The service confirmed the save. The local copy still needs updating; do not save again. Delivery to the Elder device has not been verified here.</string>
+    <string name="c2_plan_refresh_cache">Update local plan data</string>
+    <string name="c2_plan_cache_unknown_description">The service confirmed the save, but the local update status is unknown. Do not save again. Delivery to the Elder device has not been verified here.</string>
+    <string name="c2_plan_medication_name">Medication name</string>
+    <string name="c2_plan_dosage">Dosage</string>
+    <string name="c2_plan_instructions">Instructions (optional)</string>
+    <string name="c2_plan_times">Reminder times</string>
+    <string name="c2_plan_times_hint">Use 24-hour times, such as 08:00. Do not repeat a time.</string>
+    <string name="c2_plan_start_date">Start date</string>
+    <string name="c2_plan_end_date">End date (optional)</string>
+    <string name="c2_plan_date_hint">Use YYYY-MM-DD. Both the start and end dates are included.</string>
+    <string name="c2_plan_execution_zone">Reminder time zone</string>
+    <string name="c2_plan_zone_comparison">Caregiver time zone: %1$s. Elder time zone: %2$s. Reminder time zone: %3$s.</string>
+    <string name="c2_plan_zone_unknown">Unknown</string>
+    <string name="c2_plan_zone_acknowledgement">I have checked the time zone comparison and reminder time example.</string>
+    <string name="c2_plan_photo_required">View the actual medication photo before confirming this plan.</string>
+    <string name="c2_plan_required_error">Complete this field.</string>
+    <string name="c2_plan_time_error">Enter a valid time in HH:mm format.</string>
+    <string name="c2_plan_duplicate_time_error">Each reminder time must be different.</string>
+    <string name="c2_plan_date_error">Enter a real date in YYYY-MM-DD format.</string>
+    <string name="c2_plan_date_order_error">The end date must be on or after the start date.</string>
+    <string name="c2_plan_zone_error">Select a valid reminder time zone.</string>
+</resources>

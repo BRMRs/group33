@@ -1,0 +1,36 @@
+# S2 capability PUT and explicit local runtime
+
+2026-10-27. Refs #17 / #16. Draft preparation only; #17 accountable owner remains BRMRs.
+
+## Dependency and scope
+
+Prerequisite assembly `feature/17-capability-runtime-prerequisites` combines unchanged #70 persistent identity/pairing runtime (`c74279e2c45c62e37214021125d1b2e76133d708`) and #56/#76 capability service and PostgreSQL adapter (`cfc531989f379c032fd53def7e09091384df51c9`). It retains #70's existing runtime PostgreSQL driver and test-task configuration, not #76's older test-only driver declaration. No inherited capability service, Store, SQL, test or public Shared contract is modified. The assembly itself adds no new feature contribution. Main at preparation: `64ddd4e26440d60a60f209dd7eb12d102e2a55dd`.
+
+This bounded delta registers only the existing `PUT /api/v1/elders/{elderId}/reminder-capability`. `CAPABILITY_ENABLED=false` by default. Explicit opt-in selects one shared memory adapter or the local PostgreSQL adapter alongside existing persistent identities/pairing. No photo or medication-plan dependency is needed.
+
+Verified JWT subject/type/role must agree with the current stored anonymous identity on every call, including accepted retries. The installation comes from that identity, never request fields. Only the owning Elder can write, including while unpaired or after relationship revocation. Another Elder or unrelated Caregiver receives generic 404; a Caregiver's own known target/current active relationship receives 403 and never grants write access. The relationship check only classifies a denied request: it does not enable capability reads or change the existing deny-all medical-access adapter.
+
+The route-local JSON tree decoder requires exactly the eight existing fields, exact enum names and actual JSON strings, booleans, signed 64-bit integers and string lists. Missing/null fields, null/non-string reasons, numeric/string/float coercions, duplicate fields, unknown identity fields and trailing JSON fail with 400. No global ObjectMapper coercion settings change. Exactly one full UUID operation header and no query parameters are accepted. Well-formed invalid business reports return 422; original accepted/rejected binding and sequence conflicts retain the service's unchanged semantics. An accepted retry returns its complete original historical receipt, even after a newer report exists.
+
+Bounded capability lock contention is retryable 409 OPERATION_IN_PROGRESS with Retry-After: 1. Identity/database/commit failures become safe retryable 503, without SQL, credentials, reasons, installation, token or private causes. Responses are no-store; errors correlate body requestId with X-Request-ID. Existing global framework handling still covers unsupported methods/media. There is no new GET route, snapshot, protocol field or UI string.
+
+## Local verification
+
+- 32 new standard HTTP executions: real anonymous signed login, owner-only and actual pairing/revocation classification, current-identity/claim mismatch and expired token, historical/delayed replay, changed bindings, 20 strict decoding cases, rejected intent, eight parallel HTTP retries, safe busy/database errors and unchanged other decoder behavior. The default-disabled route and absent Bean are also verified.
+- 8 new real PostgreSQL runtime cases: durable identity/pairing/capability selection, each missing capability table, missing guard row, incompatible receipt column, and feature-disabled startup with no capability tables and no implicit DDL.
+- All 139 PostgreSQL executions passed: 93 inherited pairing/runtime + 38 unchanged capability Store + the 8 new runtime cases. The standalone capability SQL and all 21 original service tests remain unchanged.
+- 135 real packaged TCP assertions passed: real persisted anonymous login/pairing/consent/revocation; owner PUT with stable identity; INSERT/actual UPDATE/receipt and deferred COMMIT fault rollback; identical-key repair; eight simultaneous same-key calls and eight same-sequence distinct intents; bounded actual row lock; lower-sequence acknowledgement; actual database stop/start plus separate whole-server JVM restarts; original and delayed receipts with old JWTs; database outage/recovery; missing current identity; each missing capability table/guard fail-start; disabled route; explicit memory mode.
+- Only disposable loopback schemas/processes were used; temporary servers/schema removed, pre-existing schemas preserved and dedicated database stopped. No actual personal or medical data used.
+- Full `gate1Check test` passed with 342 standard report instances: Server244, Shared18, Android Debug40/Release40; zero failures/errors/skips. Server and Android tests executed; Shared was FROM-CACHE. Policy/diff checks and all 194 artifact hashes passed. Lint has 0 errors and 1 existing MissingApplicationIcon warning. bootJar/APK passed; the packaged server contains the Controller/configuration/adapter/runtime PostgreSQL driver and excludes test probes/support. PostgreSQL and real TCP executions are local evidence; ordinary CI does not imply it ran those tests.
+
+## Reproduce
+
+Use JDK17 and SDK35. Run `./gradlew gate1Check test` and the repository policy/hash checks. `:server:postgresIntegrationTest` requires explicit S2_PG_INTEGRATION_URL/USER/PASSWORD, S2_PG_RECEIPT_KEY_FILE, and S2_PG_MANAGER_SCRIPT/S2_PG_PYTHON for inherited process/restart cases. The test guards accept only the dedicated loopback practice database; do not run restarts/fault injection on shared data.
+
+For an isolated runtime, explicitly initialize pairing prototype v1-v4, identity v5 and `capability-store-v1.sql` in one trusted schema transaction; startup never applies DDL. Keep database password, stable >=32-byte JWT signing secret and owner-only 32-binary-byte pairing receipt key outside Git. Set the existing `.env.example` persistence fields and CAPABILITY_ENABLED=true. Start the packaged server bound to loopback, perform real anonymous login and PUT the existing Shared report using its original reportId as Idempotency-Key. Restart database and server with identical private configuration; the old token/operation must replay the same receipt after newer accepted reports. Enablement without capability tables/guard must fail before health becomes available. With the flag false, the capability route stays absent.
+
+## Remaining acceptance
+
+This is last-known reporting, not real-time connectivity or proof of notification delivery. No capability GET/snapshot, Repeatable Read aggregate, atomic cross-Store read, phone-provider identity, migration/reinstall, cloud runtime, production pool/TLS/migrations, Android Room/outbox, device acceptance or #24 probe/group/follow-up proposals are delivered. A denied Caregiver classification can observe a relationship transition between requests, but always denies the write; no medical data is returned and no snapshot consistency is claimed.
+
+Lead confirmation of expanded scope, named non-author Server/runtime backup, S1/C3/E specialist perspectives and dependency/landing order is still required. #47/#45 backup assignments do not automatically extend. After the lead-selected prerequisites land/squash, rebase/retarget and rerun the actual final commit. No Ready, reviewer assignment, formal approval, merge or Issue/Gate closure is implied.
