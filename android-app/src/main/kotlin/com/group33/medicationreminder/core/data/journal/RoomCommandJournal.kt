@@ -18,16 +18,21 @@ import java.io.Closeable
 import java.io.File
 import java.security.MessageDigest
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 
 /** Private local infrastructure. The host supplies the trusted session/environment scope. */
 class RoomCommandJournal private constructor(
     private val db: CommandJournalDatabase,
     val scope: RepositoryScope,
+    private val changes: MutableStateFlow<Long>,
 ) : Closeable {
     private val closed = AtomicBoolean(false)
     private fun ensureOpen() = check(!closed.get()) { "Command journal is closed" }
@@ -35,13 +40,17 @@ class RoomCommandJournal private constructor(
     suspend fun begin(kind: OnlineCommandKind, targetId: String?): CommandContext {
         ensureOpen()
         val command = CommandContext(UUID.randomUUID().toString(), scope, kind, targetId)
-        db.commands().insert(CommandRow(command.operationId, kind.name, targetId))
+        notifyAfterWrite { db.commands().insert(CommandRow(command.operationId, kind.name, targetId)) }
         return command
     }
 
     fun observe(): Flow<List<OnlineCommandRecord>> = flow {
         ensureOpen()
-        emitAll(db.commands().observe().map { rows -> rows.map { it.record() } })
+        // A newly opened writer can commit before Room's asynchronous invalidation service
+        // registers it. Same-process commits also wake readers directly; Room remains truth.
+        emitAll(db.commands().observe().combine(changes) { _, _ ->
+            db.commands().snapshot().map { it.record() }
+        }.distinctUntilChanged())
     }
 
     suspend fun find(operationId: String): OnlineCommandRecord? {
@@ -60,8 +69,8 @@ class RoomCommandJournal private constructor(
     suspend fun bind(command: CommandContext, canonicalPayload: ByteArray): Boolean {
         ensureOpen()
         val payload = canonicalPayload.copyOf()
-        return db.withTransaction {
-            val row = matching(command) ?: return@withTransaction false
+        return transaction {
+            val row = matching(command) ?: return@transaction false
             if (row.payload != null) row.payload.contentEquals(payload)
             else {
                 db.commands().update(row.copy(payload = payload))
@@ -83,17 +92,17 @@ class RoomCommandJournal private constructor(
         ensureOpen()
         require(leaseMillis > 0)
         val until = Math.addExact(now.elapsedMillis, leaseMillis)
-        return db.withTransaction {
-            val row = matching(command) ?: return@withTransaction null
-            val payload = row.payload ?: return@withTransaction null
+        return transaction {
+            val row = matching(command) ?: return@transaction null
+            val payload = row.payload ?: return@transaction null
             if (row.claimToken != null && row.claimBoot == now.bootSession &&
-                checkNotNull(row.claimUntil) > now.elapsedMillis) return@withTransaction null
+                checkNotNull(row.claimUntil) > now.elapsedMillis) return@transaction null
             val allowed = when (OnlineCommandState.valueOf(row.state)) {
                 OnlineCommandState.NOT_SUBMITTED, OnlineCommandState.REJECTED -> mode == ClaimMode.EXPLICIT
                 OnlineCommandState.AWAITING_CONFIRMATION -> mode == ClaimMode.RESUME_UNKNOWN
                 OnlineCommandState.CONFIRMED -> false
             }
-            if (!allowed) return@withTransaction null
+            if (!allowed) return@transaction null
             val token = UUID.randomUUID().toString()
             db.commands().update(row.copy(state = OnlineCommandState.AWAITING_CONFIRMATION.name,
                 claimToken = token, claimBoot = now.bootSession, claimUntil = until, rejectionJson = null))
@@ -107,9 +116,9 @@ class RoomCommandJournal private constructor(
 
     suspend fun markCacheApplied(command: CommandContext): Boolean {
         ensureOpen()
-        return db.withTransaction {
-            val row = matching(command) ?: return@withTransaction false
-            if (row.state != OnlineCommandState.CONFIRMED.name) return@withTransaction false
+        return transaction {
+            val row = matching(command) ?: return@transaction false
+            if (row.state != OnlineCommandState.CONFIRMED.name) return@transaction false
             db.commands().update(row.copy(cacheState = CacheState.APPLIED.name))
             true
         }
@@ -118,9 +127,9 @@ class RoomCommandJournal private constructor(
     /** Only the current token can finish. An expired owner loses authority once replaced. */
     suspend fun finish(claim: CommandClaim, completion: CommandCompletion): Boolean {
         ensureOpen()
-        return db.withTransaction {
-            val row = matching(claim.command) ?: return@withTransaction false
-            if (row.claimToken != claim.token) return@withTransaction false
+        return transaction {
+            val row = matching(claim.command) ?: return@transaction false
+            if (row.claimToken != claim.token) return@transaction false
             val updated = when (completion) {
                 is CommandCompletion.Rejected -> row.copy(state = OnlineCommandState.REJECTED.name,
                     rejectionJson = ContractProtocol.json.encodeToString(ApiError.serializer(), completion.error.error))
@@ -134,17 +143,27 @@ class RoomCommandJournal private constructor(
         }
     }
 
+    private suspend fun <T> transaction(block: suspend () -> T): T =
+        notifyAfterWrite { db.withTransaction { block() } }
+
+    private suspend fun <T> notifyAfterWrite(block: suspend () -> T): T = try { block() }
+    finally {
+        // Also wake after a failed/cancelled transaction: commit may already have happened.
+        changes.update { it + 1 }
+    }
+
     companion object {
+        private val notifications = ConcurrentHashMap<String, MutableStateFlow<Long>>()
         fun open(context: Context, scope: RepositoryScope, namespace: String = "command-journal"): RoomCommandJournal {
             require(namespace.matches(Regex("[A-Za-z0-9_-]+")))
             val identity = listOf(scope.environmentId, scope.installationId, scope.userId)
                 .joinToString("") { "${it.toByteArray(Charsets.UTF_8).size}:$it" }
             val hash = MessageDigest.getInstance("SHA-256").digest(identity.toByteArray(Charsets.UTF_8))
                 .joinToString("") { "%02x".format(it) }
-            val db = Room.databaseBuilder(context.applicationContext, CommandJournalDatabase::class.java,
-                File(context.noBackupFilesDir, "$namespace-$hash.db").absolutePath)
+            val path = File(context.noBackupFilesDir, "$namespace-$hash.db").absolutePath
+            val db = Room.databaseBuilder(context.applicationContext, CommandJournalDatabase::class.java, path)
                 .enableMultiInstanceInvalidation().build()
-            return RoomCommandJournal(db, scope)
+            return RoomCommandJournal(db, scope, notifications.getOrPut(path) { MutableStateFlow(0L) })
         }
     }
 }

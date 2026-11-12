@@ -6,6 +6,7 @@ import com.group33.shared.model.UserRole
 import java.nio.file.Files
 import java.nio.file.Path
 import java.sql.SQLException
+import java.sql.Connection
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
@@ -16,6 +17,8 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
+import javax.sql.DataSource
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -73,6 +76,42 @@ class PostgresPairingCodeStoreTest {
     }
     private fun counts() = listOf("pairing_active_code", "pairing_issue_operation", "pairing_issuance_time")
         .map { scalar("SELECT count(*) FROM $it").toInt() }
+
+    @Test fun `business write statement budget is enabled on the actual PostgreSQL transaction`() {
+        val captured = AtomicReference<Connection>()
+        val real = dataSource(schema)
+        val observed = object : DataSource by real {
+            override fun getConnection(): Connection = real.connection.also(captured::set)
+        }
+        val adapter = PostgresPairingCodeStore(observed, PairingReceiptCipher(cipherKey))
+        adapter.transaction {
+            captured.get().createStatement().use { s ->
+                s.executeQuery("SELECT setting FROM pg_settings WHERE name = 'statement_timeout'").use { rows ->
+                    assertTrue(rows.next()); assertEquals("5000", rows.getString(1))
+                }
+            }
+        }
+        assertTrue(captured.get().isClosed)
+    }
+
+    @Test fun `slow final issuance write is cancelled and rolls back code rotation quota and receipt before original retry`() {
+        val first = issue(); val before = counts(); val operation = UUID.randomUUID()
+        source.connection.use { c -> c.createStatement().use { s ->
+            s.execute("CREATE FUNCTION slow_issue() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(30); RETURN NEW; END $$")
+            s.execute("CREATE TRIGGER slow_issue AFTER INSERT ON pairing_issue_operation FOR EACH ROW EXECUTE FUNCTION slow_issue()")
+        } }
+        val started = System.nanoTime()
+        val failure = assertThrows(SQLException::class.java) { service().issue(actor, operation) }
+        assertEquals("57014", failure.sqlState)
+        assertTrue(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started) in 3_500..8_000)
+        assertEquals(before, counts())
+        assertEquals(first.id, store().transaction { it.activeCode(actor.id)!!.id })
+        assertNull(store().transaction { it.operation(CodeIssueKey(actor.id, operation)) })
+        source.connection.use { c -> c.createStatement().use { it.execute("DROP TRIGGER slow_issue ON pairing_issue_operation") } }
+        val accepted = issue(key = operation)
+        same(accepted, issue(key = operation))
+        assertEquals(listOf(1, 2, 2), counts())
+    }
 
     @Test fun `leading zero receipt replays after new service construction and expiry without extending deadline`() {
         val operation = UUID.randomUUID()

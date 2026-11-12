@@ -1,4 +1,5 @@
 [versions]
+flyway = "11.7.2"
 postgresql = "42.7.14"
 agp = "8.7.3"
 kotlin = "2.1.21"
@@ -18,6 +19,8 @@ desugar = "2.1.5"
 room = "2.7.2"
 
 [libraries]
+flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
+flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 desugar-jdk-libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugar" }
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
