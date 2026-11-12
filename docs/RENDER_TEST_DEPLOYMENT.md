@@ -48,3 +48,8 @@ Official references: [Docker runtime/build context/secrets](https://render.com/d
 The integrated runtime can opt in to the [read-only version gate](SCHEMA_STARTUP_GATE.md) using the optional canonical property `app.persistence.require-versioned-schema=true` in the existing private encoded settings. Use it only with the matching reviewed application/tool/managed-schema release. Omitted stays false for the existing manual test schema; this change does not modify any deployed configuration.
 
 Keep the original identity/receipt/Storage keys. The export helper preserves the property and refuses malformed/duplicate values or changed existing output. The bootstrap writes the selected property into its protected application file; adding an ambient `PERSISTENCE_REQUIRE_VERSIONED_SCHEMA` variable to Render is not the opt-in mechanism. No migration password or SQL executor is added to the container. Local conversion tests are fictional, not a completed cloud backup, schema switch, or deployment.
+
+
+## Existing managed-cloud branch review scope
+
+PR #104 adds opt-in read-only schema-history validation for postgres-supabase and passes the private switch through the isolated Render launcher. It does not migrate or take over a deployed schema. The inherited #102 index V10 remains a branch prerequisite, pending the recorded #116 dose V10 then #102 index V11 integration order; do not deploy this candidate or rewrite applied history. The current main serverOnly build path and independent memory-preview deployment are retained.
