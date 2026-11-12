@@ -110,7 +110,11 @@ internal class ReminderCoordinator(private val context: Context) {
         if (row.deadlineAtEpochMillis <= now || row.state != ReminderState.RINGING.name) return false
         val action = ReminderActionRow(actionId, groupId, kind.name, now)
         val snoozedUntil = if (kind == ReminderActionKind.SNOOZE) {
-            minOf(now + InitialTiming.snooze.toMillis(), row.deadlineAtEpochMillis)
+            // The existing client/Server contract requires a full ten minutes before deadline.
+            // Keep an old notification actionable for Taken/Help without queuing invalid Snooze.
+            val target = now + InitialTiming.snooze.toMillis()
+            if (target >= row.deadlineAtEpochMillis) return false
+            target
         } else null
         return when (dao.recordLocalAction(action, snoozedUntil)) {
             LocalActionInsertResult.CONFLICT -> false
