@@ -33,6 +33,11 @@ internal fun Context.serverAcceptedLateReportText(report: CaregiverServerAccepte
     caregiverInstant(report.receivedAtEpochMillis),
 )
 
+internal fun Context.serverAcceptedTakenReportText(recordedAtEpochMillis: Long): String = getString(
+    R.string.c3_server_accepted_taken_report,
+    caregiverInstant(recordedAtEpochMillis),
+)
+
 /** Last-known permission facts, not proof of notification delivery or a live connection. */
 internal fun Context.capabilityDetails(capability: ReminderCapabilityView): String = getString(
     R.string.c3_capability_details,
