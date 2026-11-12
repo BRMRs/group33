@@ -18,3 +18,8 @@ The manifest is release metadata, **not a new migration algorithm**. Its checksu
 The flag defaults to false to preserve existing manually initialized development/test schemas. This PR does not enable it on Render, connect to Supabase, automatically adopt an unmanaged schema, or add phone/V2/group/action/follow-up tables. It adds startup validation, not a migration executor, a continuous drift detector, complete cloud acceptance or device/fallback acceptance. The application uses no migration secret even when the guard is enabled.
 
 Tests: `RuntimeSchemaHistoryTest` (manifest/pinned-tool provenance and malformed inputs) and `PostgresRuntimeSchemaHistoryTest` (actual history, database-enforced read-only validation, manual/partial/corrupt/future histories, schema isolation, existing business checks and Spring bean startup). The separately configured tagged suite does not silently skip a missing local database. Packaged application behavior is recorded in the linked evidence after execution.
+
+
+## Existing managed-cloud branch review scope
+
+PR #104 adds opt-in read-only schema-history validation for postgres-supabase and passes the private switch through the isolated Render launcher. It does not migrate or take over a deployed schema. The inherited #102 index V10 remains a branch prerequisite, pending the recorded #116 dose V10 then #102 index V11 integration order; do not deploy this candidate or rewrite applied history. The current main serverOnly build path and independent memory-preview deployment are retained.

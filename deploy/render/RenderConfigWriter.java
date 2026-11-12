@@ -9,6 +9,7 @@ import java.util.*;
 
 /** Runtime only. No provider connection, fallback, DDL or credential-bearing diagnostics. */
 public final class RenderConfigWriter {
+    private static final String SCHEMA_GATE = "app.persistence.require-versioned-schema";
     private static final Set<String> KEYS = Set.of("app.persistence.jdbc-url", "app.persistence.schema",
         "app.persistence.username", "app.persistence.password", "app.jwt.secret", "app.supabase.project-ref",
         "app.photo.supabase.origin", "app.photo.supabase.bucket");
@@ -36,10 +37,17 @@ public final class RenderConfigWriter {
             String text = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
                 .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(settings)).toString();
             Properties props = new Properties(); props.load(new StringReader(text));
-            if (!props.stringPropertyNames().equals(KEYS) || text.lines().count() != KEYS.size()
+            Set<String> allowed = new HashSet<>(KEYS); allowed.add(SCHEMA_GATE);
+            if (!props.stringPropertyNames().containsAll(KEYS) || !allowed.containsAll(props.stringPropertyNames())
+                || text.lines().count() != props.size()
                 || props.values().stream().anyMatch(v -> v.toString().isBlank())
                 || props.getProperty("app.jwt.secret").getBytes(StandardCharsets.UTF_8).length < 32)
                 throw new IllegalArgumentException();
+            if (props.containsKey(SCHEMA_GATE) && text.lines().filter(line ->
+                line.equals(SCHEMA_GATE + "=true") || line.equals(SCHEMA_GATE + "=false")).count() != 1)
+                throw new IllegalArgumentException();
+            // Existing manual test schemas remain opt-out until explicit reviewed conversion.
+            props.setProperty(SCHEMA_GATE, props.getProperty(SCHEMA_GATE, "false"));
             stage = "receipt-key";
             byte[] receipt = decode("GROUP33_RENDER_RECEIPT_KEY_B64", 32);
             if (receipt.length != 32) throw new IllegalArgumentException();

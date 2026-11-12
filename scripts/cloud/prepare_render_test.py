@@ -4,14 +4,20 @@ import argparse,base64,os,stat,sys
 PROJECT=Path(__file__).resolve().parents[2]
 KEYS={'app.persistence.jdbc-url','app.persistence.schema','app.persistence.username','app.persistence.password',
       'app.jwt.secret','app.supabase.project-ref','app.photo.supabase.origin','app.photo.supabase.bucket'}
+SCHEMA_GATE='app.persistence.require-versioned-schema'
 def prepare(directory):
     directory=Path(directory).expanduser().absolute()
     if directory.is_symlink() or directory.resolve().is_relative_to(PROJECT):raise ValueError()
     for path in [directory,*[directory/n for n in ('application.properties','receipt.key','database-ca.crt','storage-secret.key')]]:
         info=path.lstat()
         if path.is_symlink() or info.st_uid!=os.getuid() or info.st_mode&0o077:raise ValueError()
-    lines=[line for line in (directory/'application.properties').read_text().splitlines() if line.split('=',1)[0] in KEYS]
+    raw=(directory/'application.properties').read_text().splitlines()
+    lines=[line for line in raw if line.split('=',1)[0] in KEYS]
     if len(lines)!=len(KEYS) or {line.split('=',1)[0] for line in lines}!=KEYS:raise ValueError()
+    gate=[line for line in raw if line.split('=',1)[0].strip()==SCHEMA_GATE]
+    if gate:
+        if len(gate)!=1 or gate[0] not in (SCHEMA_GATE+'=true',SCHEMA_GATE+'=false'):raise ValueError()
+        lines+=gate
     receipt=(directory/'receipt.key').read_bytes()
     if len(receipt)!=32:raise ValueError()
     encode=lambda data:base64.b64encode(data).decode('ascii')
