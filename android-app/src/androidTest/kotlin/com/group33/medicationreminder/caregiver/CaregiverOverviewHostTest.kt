@@ -132,6 +132,145 @@ class CaregiverOverviewHostTest {
     }
 
     @Test
+    fun detachedHostRebindsCurrentContextAndRestoresObservationAndActions() {
+        val repository = FakeRepository("test-elder", "Private elder A")
+        val trustedContext = context(1, "relationship-a")
+        var historyRequest: Pair<String, LocalDateRange>? = null
+        ActivityScenario.launch<CaregiverHistoryTestActivity>(
+            Intent(instrumentation.targetContext, CaregiverHistoryTestActivity::class.java),
+        ).use { scenario ->
+            lateinit var host: CaregiverOverviewHost
+            scenario.onActivity { activity ->
+                host = CaregiverOverviewHost(activity)
+                activity.container.addView(host)
+                assertTrue(host.isAttachedToWindow)
+                host.bind(activity, repository, trustedContext, range) { _, _ -> }
+            }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                assertAuthorizedContent(host, activity, "Private elder A")
+                activity.container.removeView(host)
+                assertFalse(host.isAttachedToWindow)
+                assertEmptyContent(host)
+                repository.updates.value = repository.cached("Current authorized cache")
+            }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                assertEmptyContent(host)
+                activity.container.addView(host)
+                assertTrue(host.isAttachedToWindow)
+                // Attaching alone must not restore the previous private content or listeners.
+                assertEmptyContent(host)
+                host.bind(activity, repository, trustedContext, range) { elder, dates ->
+                    historyRequest = elder to dates
+                }
+            }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                assertAuthorizedContent(host, activity, "Current authorized cache")
+                repository.updates.value = repository.cached("Fresh observation after rebind")
+            }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                assertAuthorizedContent(host, activity, "Fresh observation after rebind")
+                host.findViewById<View>(R.id.history_button).performClick()
+                host.findViewById<View>(R.id.refresh_button).performClick()
+            }
+            assertEquals("test-elder" to range, historyRequest)
+            assertEquals("test-elder" to range, runBlocking {
+                withTimeout(TimeUnit.SECONDS.toMillis(5)) { repository.refreshRequest.await() }
+            })
+        }
+    }
+
+    @Test
+    fun detachedHostReboundWithoutCurrentContextCannotRedisplayOldAuthorizedValues() {
+        val repository = FakeRepository("test-elder", "Private elder A")
+        ActivityScenario.launch<CaregiverHistoryTestActivity>(
+            Intent(instrumentation.targetContext, CaregiverHistoryTestActivity::class.java),
+        ).use { scenario ->
+            lateinit var host: CaregiverOverviewHost
+            scenario.onActivity { activity ->
+                host = CaregiverOverviewHost(activity)
+                activity.container.addView(host)
+                host.bind(activity, repository, context(1, "relationship-a"), range) { _, _ -> }
+            }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                assertAuthorizedContent(host, activity, "Private elder A")
+                repository.updates.value = repository.updates.value.copy(access = AccessState.REVOKED)
+            }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                assertRevokedContent(host, activity)
+                activity.container.removeView(host)
+                assertFalse(host.isAttachedToWindow)
+                assertEmptyContent(host)
+                activity.container.addView(host)
+                assertTrue(host.isAttachedToWindow)
+                // The caller no longer has an Active trusted context after revocation.
+                host.bind(activity, repository, null, range) { _, _ -> error("No history without context") }
+                repository.updates.value = repository.cached("Late stale authorized value")
+            }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity {
+                assertEmptyContent(host)
+                assertFalse(host.findViewById<View>(R.id.refresh_button).performClick())
+                assertFalse(host.findViewById<View>(R.id.history_button).performClick())
+                assertFalse(repository.refreshRequest.isCompleted)
+            }
+        }
+    }
+
+    @Test
+    fun detachedHostRebindsNewIdentityWithoutOldRepositoryRepopulation() {
+        val oldRepository = FakeRepository("test-elder", "Private elder A")
+        val currentRepository = FakeRepository("test-elder", "Private elder B")
+        ActivityScenario.launch<CaregiverHistoryTestActivity>(
+            Intent(instrumentation.targetContext, CaregiverHistoryTestActivity::class.java),
+        ).use { scenario ->
+            lateinit var host: CaregiverOverviewHost
+            scenario.onActivity { activity ->
+                host = CaregiverOverviewHost(activity)
+                activity.container.addView(host)
+                host.bind(activity, oldRepository, context(1, "relationship-a"), range) { _, _ -> }
+            }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                assertAuthorizedContent(host, activity, "Private elder A")
+                activity.container.removeView(host)
+                assertFalse(host.isAttachedToWindow)
+                assertEmptyContent(host)
+                activity.container.addView(host)
+                assertTrue(host.isAttachedToWindow)
+                host.bind(activity, currentRepository, context(2, "relationship-b"), range) { _, _ -> }
+            }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                assertAuthorizedContent(host, activity, "Private elder B")
+                oldRepository.updates.value = oldRepository.cached("Late old identity")
+            }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                assertAuthorizedContent(host, activity, "Private elder B")
+                assertFalse(elderName(host).contains("Late old identity"))
+                host.findViewById<View>(R.id.refresh_button).performClick()
+            }
+            assertEquals("test-elder" to range, runBlocking {
+                withTimeout(TimeUnit.SECONDS.toMillis(5)) { currentRepository.refreshRequest.await() }
+            })
+            assertFalse(oldRepository.refreshRequest.isCompleted)
+        }
+    }
+
+    private fun assertEmptyContent(host: CaregiverOverviewHost) {
+        assertEquals("", elderName(host))
+        assertEquals(0, host.findViewById<ViewGroup>(R.id.event_rows).childCount)
+        assertFalse(host.findViewById<View>(R.id.refresh_button).isEnabled)
+        assertFalse(host.findViewById<View>(R.id.history_button).isEnabled)
+    }
+
+    @Test
     fun revokedAccessRecoversForNewSessionGenerationWithSameRelationshipAndElder() {
         assertRevokedAccessRecoversForTrustedContext(
             nextContext = context(generation = 2, relationshipId = "relationship-a"),
