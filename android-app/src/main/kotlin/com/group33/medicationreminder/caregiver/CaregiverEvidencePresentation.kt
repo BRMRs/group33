@@ -17,6 +17,7 @@ data class OverviewEventRow(
     val syncedReports: List<CaregiverSyncedReport> = emptyList(),
     val serverAcceptedLateReports: List<CaregiverServerAcceptedLateReport> = emptyList(),
     val hasUnlinkedReports: Boolean = false,
+    val serverAcceptedTakenRecordedAtEpochMillis: Long? = null,
 )
 
 /** C3-only display data. No receipt timestamp is inferred from sync state or last-successful-sync. */
@@ -43,6 +44,8 @@ internal fun DoseEventState.toCaregiverEventRow(): OverviewEventRow {
         },
         serverAcceptedLateReports = serverAcceptedLateTakenReports.map { it.toCaregiverLateReport() },
         hasUnlinkedReports = matching.size != localReports.size,
+        serverAcceptedTakenRecordedAtEpochMillis = serverAcceptedTakenAtEpochMillis
+            .takeIf { lastAcceptedStatus == DoseStatus.TAKEN },
     )
 }
 

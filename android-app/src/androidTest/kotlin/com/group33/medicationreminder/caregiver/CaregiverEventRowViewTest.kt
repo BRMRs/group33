@@ -106,6 +106,33 @@ class CaregiverEventRowViewTest {
         }
     }
 
+    @Test fun serverAcceptedTakenTimeIsBilingualAndClearsWhenEvidenceIsUnavailable() {
+        for (language in listOf("en", "zh")) withRow(language) { row ->
+            val acceptedTakenAt = planned + 3_600_000L // 01:00 UTC, distinct from local/late report times.
+            row.bindEvent(event.copy(lastAcceptedStatus = DoseStatus.TAKEN,
+                serverAcceptedTakenAtEpochMillis = acceptedTakenAt,
+                localReports = listOf(report),
+                serverAcceptedLateTakenReports = listOf(
+                    ServerAcceptedLateTakenReport("server-action", planned + 7_201_000, planned + 7_209_000),
+                )).toCaregiverEventRow())
+
+            val text = row.serverAcceptedTakenReport.text.toString()
+            assertEquals(View.VISIBLE, row.serverAcceptedTakenReport.visibility)
+            assertTrue(text, text.contains(if (language == "en") "Elder reported taking medication" else "长者报告已服药"))
+            assertTrue(text, text.contains(if (language == "en") "not independently verified" else "未经独立验证"))
+            assertTrue(text, text.contains(if (language == "en") "Recorded (device time zone)" else "记录时间（本机时区）"))
+            assertTrue(text, Regex("0?1:00:00").containsMatchIn(text))
+            assertFalse(text, Regex("0?2:00:01").containsMatchIn(text))
+            assertFalse(text, Regex("0?2:00:09").containsMatchIn(text))
+
+            row.bindEvent(event.copy(lastAcceptedStatus = DoseStatus.TAKEN).toCaregiverEventRow())
+            assertCleared(row.serverAcceptedTakenReport)
+            row.bindEvent(event.copy(lastAcceptedStatus = DoseStatus.MISSED,
+                serverAcceptedTakenAtEpochMillis = acceptedTakenAt).toCaregiverEventRow())
+            assertCleared(row.serverAcceptedTakenReport)
+        }
+    }
+
     @Test fun serverAcceptedLateEvidenceRemainsDistinctBesideALocalPendingReport() = withRow { row ->
         val remote = ServerAcceptedLateTakenReport("server-action", planned + 7_201_000, planned + 7_209_000)
         val local = report.copy(actionId = "local-action", syncState = SyncState.PENDING_SYNC)
@@ -134,7 +161,8 @@ class CaregiverEventRowViewTest {
         )).toCaregiverEventRow())
         assertEquals(View.VISIBLE, row.serverAcceptedLateReports.visibility)
         row.bindEvent(event.toCaregiverEventRow())
-        listOf(row.syncedReports, row.serverAcceptedLateReports, row.reportLinkError, row.localSync).forEach(::assertCleared)
+        listOf(row.syncedReports, row.serverAcceptedLateReports, row.serverAcceptedTakenReport,
+            row.reportLinkError, row.localSync).forEach(::assertCleared)
     }
 
     @Test fun everyAcceptedOutcomeHasTextIncludingUnknown() = withRow { row ->
@@ -223,6 +251,37 @@ class CaregiverEventRowViewTest {
         }
     }
 
+    @Test fun serverAcceptedTakenEvidenceWrapsAt320DpAnd200PercentInBothLanguages() {
+        val acceptedTakenAt = planned + 3_600_000L // 01:00 UTC, independently recognizable in the row.
+        for (language in listOf("en", "zh")) withRow(language, scale = 2f, widthDp = 320,
+            afterLayout = { _, row ->
+                val evidence = row.serverAcceptedTakenReport
+                assertEquals(View.VISIBLE, evidence.visibility)
+                val layout = checkNotNull(evidence.layout)
+                assertTrue("$language report must wrap at 320dp", layout.lineCount > 2)
+                for (line in 0 until layout.lineCount) assertEquals("$language line $line", 0, layout.getEllipsisCount(line))
+                assertTrue(evidence.height >= layout.height + evidence.totalPaddingTop + evidence.totalPaddingBottom)
+                val text = evidence.text.toString()
+                assertTrue(text, text.contains(if (language == "en") "Server-accepted medication report" else "服务器已接受的服药报告"))
+                assertTrue(text, text.contains(if (language == "en") "1:00:00" else "1:00:00"))
+                val node = evidence.createAccessibilityNodeInfo()
+                try {
+                    val accessibleText = node.text.toString()
+                    assertTrue(accessibleText, accessibleText.contains(
+                        if (language == "en") "Recorded (device time zone)" else "记录时间（本机时区）"))
+                    assertTrue(accessibleText, accessibleText.contains("1:00:00"))
+                } finally {
+                    @Suppress("DEPRECATION")
+                    node.recycle()
+                }
+            }) { row ->
+            row.bindEvent(event.copy(lastAcceptedStatus = DoseStatus.TAKEN,
+                medicationSnapshot = MedicationText("Fictional medication / 虚构药品 ".repeat(8),
+                    "Fictional dosage / 虚构剂量 ".repeat(6)),
+                serverAcceptedTakenAtEpochMillis = acceptedTakenAt).toCaregiverEventRow())
+        }
+    }
+
     @Test fun debugHostKeepsScrolledReportAboveSystemBars() = withRow(scale = 2f, widthDp = 320,
         afterLayout = { host, row ->
             val scroll = host.container
@@ -247,7 +306,8 @@ class CaregiverEventRowViewTest {
     }
 
     private fun texts(row: ItemCaregiverOverviewEventBinding) = listOf(row.medication, row.dosage,
-        row.plannedTime, row.outcome, row.localSync, row.syncedReports, row.serverAcceptedLateReports, row.reportLinkError)
+        row.plannedTime, row.outcome, row.localSync, row.syncedReports, row.serverAcceptedLateReports,
+        row.serverAcceptedTakenReport, row.reportLinkError)
 
     private fun assertCleared(view: TextView) {
         assertEquals(View.GONE, view.visibility)
