@@ -1,4 +1,4 @@
-# Phone login and registration database availability
+# Phone authentication dependency availability
 
 2026-10-31. S2 / XinyanXue. Refs #49 / #10 / #16. Child of #94 at `7cc66543407cb11eaa76b394027a43bd43d095b2`; this branch does not claim that its C1/S1 or persistence prerequisites have merged.
 
@@ -23,7 +23,7 @@ Commands: `./gradlew :server:test --offline`; explicitly configured dedicated-lo
 
 ## Preserved scope and remaining work
 
-No request/response success fields, JWT claims, stable identity/role, ticket lifetime, Shared/Android/provider code, cloud configuration or migration is changed. C1/tianiridescent retains the original phone feature; BRMRs retains logout fencing and private-signing attribution. Current-account reads remain read-only and never initialize tables.
+No request/response success fields, JWT claims, stable identity/role, ticket lifetime, Shared/Android code, cloud configuration or migration is changed. The original database slice left provider code unchanged; the separately recorded 2026-11-11 extension below now bounds that dependency. C1/tianiridescent retains the original phone feature; BRMRs retains logout fencing and private-signing attribution. Current-account reads remain read-only and never initialize tables.
 
 This keeps the original **trial-only first-use DDL**, not a production migration strategy. Explicit forward migrations and removal of runtime DDL remain required before production adoption. #96 D1–D4 account/installation/session/P0 binding is still a separate pending proposal; no installation-bound phone-to-pairing/photo/plan access or complete phone sign-in is claimed. No provider/SMS, device, cloud, anonymous-history conversion, Ready transition, formal approval or merge. C1/S1 and Server/security review the final availability behavior and existing dependency order.
 
@@ -32,3 +32,22 @@ Rollback reverts the code/advice only; it deletes no account, ticket or business
 ## Completed local verification — 2026-10-31
 
 The unchanged-parent control had4 new ordinary cases,3 failures (two expected503/observed500 HTTP cases and one unsanitized configuration exception); all4 pass after the fix without changing assertions. Original full gate/test passed with208 report instances: Server68,Shared18,Android Debug61/Release61,zero failures/errors/skips. Server and both Android variants executed; Shared restored from cache.104 tasks:45 executed,52 cache,7 up-to-date. Real dedicated PostgreSQL task passed10 cases (3 new availability/rollback cases plus7 inherited current-account cases), with zero failures/errors/skips; randomized schemas cleaned and the local instance stopped. No supplier, cloud or device was used. Repository policy and184 artifact hashes verified; precise final-head CI is checked separately after Draft publication.
+
+
+## Provider transport extension — 2026-11-11
+
+The synchronized #94 parent preserves C1 #88 `66c67de` common-session/logout fencing and `expectedPhone` matching after verified supplier PASS. #97 keeps its original database fix and attribution. The supplier call site previously had no explicit runtime options or total caller-wait boundary. The pinned SDK already defaults to connect5s/read10s and disabled automatic retry: this change makes those choices explicit and adds the missing application wait/capacity controls. It does not establish the cause of the historical live verification delay.
+
+Both existing SDK operations now use the existing `dypnsapi20170525:2.0.0` WithOptions methods with connect5000ms/read10000ms, autoretry=false and maxAttempts1; TLS verification and fixed provider endpoint are retained. Every operation uses an internal15000ms monotonic caller budget, four shared daemon workers and a zero-length work queue. Saturation fails immediately. An upstream operation ignoring interruption can retain at most four workers; cancellation is best effort, not a promise to stop a remote operation. Future completion after the caller budget is rejected, and a late supplier PASS cannot proceed to account/ticket/session writes.
+
+Timeout, saturation, interruption and supplier failure map through phone-controller-only advice to existing `PHONE_AUTH_UNAVAILABLE`/503 with retryable=true, no-store and the request-id, without a Bearer challenge or private diagnostics. Invalid proof/PASS decisions and existing expected-phone checks remain authentication denials. No automatic token/verification/registration replay is added. Retryability describes availability, not a guarantee that reusing a one-use proof succeeds; obtain a fresh SDK proof where needed. The safe error object keeps its existing fields. Review C1/S1 error presentation before integration.
+
+Diagnostics contain only fixed operation/result enums and monotonic elapsed milliseconds. They omit proof, token, phone, access keys, request/response bodies and upstream exception messages/causes. The limits are internal trial operational choices; they do not implement or accept #96's pending Server attempt/lease protocol and do not bound all database/HTTP work end-to-end.
+
+Fourteen added cases: six executor tests (late uninterruptible result, zero-queue saturation, interruption, private exception suppression, already-completed future beyond deadline, diagnostic failure), six provider/transport tests (both runtime option paths, proof prevalidation, non-PASS denial, late PASS without account/JWT work, actual pinned-SDK loopback socket timeout with one attempt, continuously readable response bounded by caller deadline), and two actual Spring MVC error-envelope cases (deadline and saturation). The slow-stream test first warms SDK/HTTP classes against a completed fictional local response, then faults the next request; class loading is not mistaken for a supplier stream. Tests use shortened internal policies and fictional NANP555-01xx input, never real provider or SMS traffic.
+
+Final reproduction: JDK17/SDK35 `./gradlew gate1Check test :android-app:assembleRelease :server:schemaMigrationDist --offline --console=plain --max-workers=1 --no-parallel --no-daemon`; separately configure the guarded dedicated-loopback environment for `:server:phonePostgresIntegrationTest`. The task contains ten actual database cases (seven inherited current-account and three account-availability/rollback); its restart tests must restore the original local server state. Exact final-tree pass/cache counts, policy/hash checks and CI are published in the PR/external packet; historical runs above are not added to current counts.
+
+Primary SDK references: [timeout configuration](https://help.aliyun.com/en/sdk/developer-reference/timeout-configuration) and [retry configuration](https://www.alibabacloud.com/help/en/sdk/developer-reference/configuration-for-retries). Runtime options override configuration/defaults; retries are disabled by default. No SDK upgrade or inferred real-provider outage diagnosis is included.
+
+Remaining boundaries: existing trial first-use DDL still needs reviewed forward migrations; #96 D1–D4 remains Proposed/PENDING, #118 phone-enabled HTTPS service/configuration and real SDK/SMS acceptance are incomplete. Preserve #88 → #94 → #97 review order. This branch's passing tests do not prove main integration, deployment or installation-bound P0 business authorization. Rollback reverts transport/advice code without data deletion, restores the old availability defects, and must preserve parent current-account/private signing/session protections. Formal review/signatures remain with people.

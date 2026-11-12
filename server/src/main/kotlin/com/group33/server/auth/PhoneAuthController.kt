@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController
 import java.util.concurrent.ConcurrentHashMap
 
 data class FusionSdkTokenResponse(val fusionAuthToken: String, val schemeCode: String, val expiresInSeconds: Long)
-data class FusionVerifyRequest(val verifyToken: String)
+data class FusionVerifyRequest(val verifyToken: String, val expectedPhone: String? = null)
 data class PhoneRegistrationRequest(val registrationTicket: String, val role: UserRole, val displayName: String? = null)
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -50,6 +50,9 @@ class PhoneAuthController(
         guard(request)
         val phone = providerCall { provider.verify(body.verifyToken) }
             ?: throw ApiException(HttpStatus.UNAUTHORIZED, "PHONE_VERIFICATION_FAILED", "Phone verification failed")
+        if (body.expectedPhone != null && canonicalPhone(body.expectedPhone) != canonicalPhone(phone)) {
+            throw ApiException(HttpStatus.UNAUTHORIZED, "PHONE_MISMATCH", "Verified phone differs from the requested phone")
+        }
         val account = accounts.findByPhone(phone)
         return if (account == null) {
             PhoneAuthResponse("REGISTRATION_REQUIRED", registrationTicket = accounts.newRegistrationTicket(phone))
@@ -71,6 +74,9 @@ class PhoneAuthController(
         return PhoneAuthResponse("SIGNED_IN", accessToken = token.value, expiresInSeconds = token.expiresInSeconds, user = user)
     }
 
+    private fun canonicalPhone(value: String): String =
+        value.removePrefix("+86").takeIf { value.startsWith("+86") && it.length == 11 } ?: value
+
     private fun guard(request: HttpServletRequest) {
         if (!enabled || jwtSecret == "GROUP33_LOCAL_DEVELOPMENT_SECRET_CHANGE_BEFORE_DEPLOYMENT_2026") {
             throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "PHONE_AUTH_UNAVAILABLE", "Phone authentication is not configured")
@@ -89,6 +95,6 @@ class PhoneAuthController(
     private inline fun <T> providerCall(block: () -> T): T = try {
         block()
     } catch (_: FusionProviderException) {
-        throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "PHONE_AUTH_UNAVAILABLE", "Phone authentication is unavailable")
+        throw PhoneAuthProviderUnavailable()
     }
 }
