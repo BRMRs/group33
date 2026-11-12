@@ -95,6 +95,6 @@ class PhoneAuthController(
     private inline fun <T> providerCall(block: () -> T): T = try {
         block()
     } catch (_: FusionProviderException) {
-        throw ApiException(HttpStatus.SERVICE_UNAVAILABLE, "PHONE_AUTH_UNAVAILABLE", "Phone authentication is unavailable")
+        throw PhoneAuthProviderUnavailable()
     }
 }

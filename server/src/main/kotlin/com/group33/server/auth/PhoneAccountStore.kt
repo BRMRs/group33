@@ -9,8 +9,12 @@ import java.security.MessageDigest
 import java.security.SecureRandom
 import java.sql.Connection
 import java.sql.DriverManager
+import java.sql.PreparedStatement
+import java.sql.SQLException
 import java.util.Base64
 import java.util.UUID
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.locks.ReentrantLock
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import org.postgresql.ds.PGSimpleDataSource
@@ -24,30 +28,22 @@ class PhoneAccountStore(
     @Value("\${app.fusion.phone-hash-key:}") private val hashKey: String,
 ) {
     private val random = SecureRandom()
+    private val initializationLock = ReentrantLock()
     @Volatile private var initialized = false
 
-    fun findByPhone(phone: String): User? = connect().use { connection ->
+    fun findByPhone(phone: String): User? = storageOperation { connect().use { connection ->
         lookup(connection, hashPhone(phone))
-    }
+    } }
 
     /** Current-account reads never initialize tables or consume registration tickets. */
     fun findByUserId(userId: String): User? {
         if (runCatching { UUID.fromString(userId).toString() }.getOrNull() != userId) return null
-        if (url.isBlank() || hashKey.toByteArray(StandardCharsets.UTF_8).size < 32) throw FusionProviderException()
-        val connection = when {
-            url.startsWith("jdbc:postgresql:") -> PGSimpleDataSource().apply {
-                setURL(this@PhoneAccountStore.url); user = username; this.password = this@PhoneAccountStore.password
-                connectTimeout = 5; socketTimeout = 10; applicationName = "group33-phone-account-read"
-            }.connection
-            url.startsWith("jdbc:h2:") -> DriverManager.getConnection(url, username, password)
-            else -> throw FusionProviderException()
-        }
+        val connection = openConnection("group33-phone-account-read")
         return connection.use { c ->
             c.isReadOnly = true
             c.autoCommit = false
             try {
-                c.prepareStatement("SELECT user_id, display_name, role FROM phone_accounts WHERE user_id = ?").use { statement ->
-                    statement.queryTimeout = 5
+                c.accountStatement("SELECT user_id, display_name, role FROM phone_accounts WHERE user_id = ?").use { statement ->
                     statement.setString(1, userId)
                     statement.executeQuery().use { rows ->
                         if (rows.next()) User(rows.getString(1), rows.getString(2), UserRole.valueOf(rows.getString(3))) else null
@@ -57,15 +53,15 @@ class PhoneAccountStore(
         }
     }
 
-    fun newRegistrationTicket(phone: String): String {
+    fun newRegistrationTicket(phone: String): String = storageOperation {
         val bytes = ByteArray(32).also(random::nextBytes)
         val ticket = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
         connect().use { connection ->
-            connection.prepareStatement("DELETE FROM phone_registration_tickets WHERE expires_at_ms < ?").use {
+            connection.accountStatement("DELETE FROM phone_registration_tickets WHERE expires_at_ms < ?").use {
                 it.setLong(1, System.currentTimeMillis())
                 it.executeUpdate()
             }
-            connection.prepareStatement(
+            connection.accountStatement(
                 "INSERT INTO phone_registration_tickets(ticket_hash, phone_hash, expires_at_ms) VALUES (?, ?, ?)",
             ).use {
                 it.setString(1, digest(ticket))
@@ -74,7 +70,7 @@ class PhoneAccountStore(
                 it.executeUpdate()
             }
         }
-        return ticket
+        ticket
     }
 
     /** Ticket consumption and first-role creation are atomic across server instances. */
@@ -82,10 +78,10 @@ class PhoneAccountStore(
         if (ticket.length !in 32..128) return null
         val name = if (role == UserRole.ELDER) "Elder" else displayName?.trim().orEmpty()
         if (name.length !in 1..40) return null
-        return connect().use { connection ->
+        return storageOperation { connect().use { connection ->
             connection.autoCommit = false
             try {
-                val phoneHash = connection.prepareStatement(
+                val phoneHash = connection.accountStatement(
                     "SELECT phone_hash, expires_at_ms FROM phone_registration_tickets WHERE ticket_hash = ? FOR UPDATE",
                 ).use { statement ->
                     statement.setString(1, digest(ticket))
@@ -97,11 +93,11 @@ class PhoneAccountStore(
                     connection.rollback()
                     return@use null
                 }
-                connection.prepareStatement("DELETE FROM phone_registration_tickets WHERE ticket_hash = ?").use {
+                connection.accountStatement("DELETE FROM phone_registration_tickets WHERE ticket_hash = ?").use {
                     it.setString(1, digest(ticket))
                     it.executeUpdate()
                 }
-                connection.prepareStatement(
+                connection.accountStatement(
                     "INSERT INTO phone_accounts(phone_hash, user_id, role, display_name) VALUES (?, ?, ?, ?) " +
                         "ON CONFLICT DO NOTHING",
                 ).use {
@@ -118,10 +114,10 @@ class PhoneAccountStore(
                 connection.rollback()
                 throw error
             }
-        }
+        } }
     }
 
-    private fun lookup(connection: Connection, phoneHash: String): User? = connection.prepareStatement(
+    private fun lookup(connection: Connection, phoneHash: String): User? = connection.accountStatement(
         "SELECT user_id, display_name, role FROM phone_accounts WHERE phone_hash = ?",
     ).use { statement ->
         statement.setString(1, phoneHash)
@@ -131,25 +127,32 @@ class PhoneAccountStore(
     }
 
     private fun connect(): Connection {
-        if (url.isBlank() || hashKey.toByteArray(StandardCharsets.UTF_8).size < 32) {
-            throw FusionProviderException()
-        }
-        val connection = DriverManager.getConnection(url, username, password)
+        val connection = openConnection("group33-phone-account-operation")
         try {
-            if (!initialized) synchronized(this) {
-                if (!initialized) {
-                    connection.createStatement().use { statement ->
-                        statement.executeUpdate(
-                            "CREATE TABLE IF NOT EXISTS phone_accounts (phone_hash VARCHAR(64) PRIMARY KEY, " +
-                                "user_id VARCHAR(36) NOT NULL UNIQUE, role VARCHAR(16) NOT NULL, display_name VARCHAR(40) NOT NULL)",
-                        )
-                        statement.executeUpdate(
-                            "CREATE TABLE IF NOT EXISTS phone_registration_tickets (ticket_hash VARCHAR(64) PRIMARY KEY, " +
-                                "phone_hash VARCHAR(64) NOT NULL, expires_at_ms BIGINT NOT NULL)",
-                        )
-                    }
-                    initialized = true
+            if (!initialized) {
+                val locked = try { initializationLock.tryLock(5, TimeUnit.SECONDS) }
+                catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    throw PhoneAccountStorageUnavailable()
                 }
+                if (!locked) throw PhoneAccountStorageUnavailable()
+                try {
+                    if (!initialized) {
+                        // Retained trial-only initialization; formal migration adoption remains separate.
+                        connection.createStatement().use { statement ->
+                            statement.queryTimeout = 5
+                            statement.executeUpdate(
+                                "CREATE TABLE IF NOT EXISTS phone_accounts (phone_hash VARCHAR(64) PRIMARY KEY, " +
+                                    "user_id VARCHAR(36) NOT NULL UNIQUE, role VARCHAR(16) NOT NULL, display_name VARCHAR(40) NOT NULL)",
+                            )
+                            statement.executeUpdate(
+                                "CREATE TABLE IF NOT EXISTS phone_registration_tickets (ticket_hash VARCHAR(64) PRIMARY KEY, " +
+                                    "phone_hash VARCHAR(64) NOT NULL, expires_at_ms BIGINT NOT NULL)",
+                            )
+                        }
+                        initialized = true
+                    }
+                } finally { initializationLock.unlock() }
             }
             return connection
         } catch (error: Exception) {
@@ -157,6 +160,26 @@ class PhoneAccountStore(
             throw error
         }
     }
+
+    private fun openConnection(application: String): Connection {
+        if (url.isBlank() || hashKey.toByteArray(StandardCharsets.UTF_8).size < 32) {
+            throw FusionProviderException()
+        }
+        return when {
+            url.startsWith("jdbc:postgresql:") -> PGSimpleDataSource().apply {
+                setURL(this@PhoneAccountStore.url); user = username; this.password = this@PhoneAccountStore.password
+                connectTimeout = 5; socketTimeout = 10; applicationName = application
+            }.connection
+            url.startsWith("jdbc:h2:") -> DriverManager.getConnection(url, username, password)
+            else -> throw FusionProviderException()
+        }
+    }
+
+    private fun Connection.accountStatement(sql: String): PreparedStatement = prepareStatement(sql).apply { queryTimeout = 5 }
+
+    private inline fun <T> storageOperation(block: () -> T): T = try { block() }
+    catch (_: SQLException) { throw PhoneAccountStorageUnavailable() }
+    catch (_: FusionProviderException) { throw PhoneAccountStorageUnavailable() }
 
     private fun hashPhone(phone: String): String = Mac.getInstance("HmacSHA256").run {
         init(SecretKeySpec(hashKey.toByteArray(StandardCharsets.UTF_8), "HmacSHA256"))
