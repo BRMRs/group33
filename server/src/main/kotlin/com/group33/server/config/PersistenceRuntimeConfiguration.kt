@@ -2,6 +2,7 @@ package com.group33.server.config
 
 import com.group33.server.auth.*
 import com.group33.server.pairing.*
+import com.group33.server.plan.PlanMutationStore
 import com.group33.server.capability.*
 import org.postgresql.ds.PGSimpleDataSource
 import org.springframework.context.annotation.Bean
@@ -14,7 +15,7 @@ import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermission
 
-internal class PersistenceRuntime(val identities: AnonymousIdentityStore, val pairing: PairingDirectoryStore,
+internal class PersistenceRuntime(val identities: AnonymousIdentityStore, val pairing: PlanMutationStore,
     val capability: CapabilityStore? = null) {
     override fun toString() = "PersistenceRuntime(REDACTED)"
 }
@@ -26,7 +27,15 @@ internal class PersistenceRuntimeConfiguration {
     @Bean fun anonymousIdentityStore(runtime: PersistenceRuntime): AnonymousIdentityStore = runtime.identities
 
     internal fun create(env: Environment): PersistenceRuntime {
+        val plansEnabled = env.getProperty("app.plan.enabled", Boolean::class.java, false)
+        val occurrencesEnabled = env.getProperty("app.occurrence.enabled", Boolean::class.java, false)
+        require(!occurrencesEnabled || plansEnabled) { "Occurrence registration requires the plan runtime" }
+        require(!plansEnabled || env.getProperty("app.photo.enabled", Boolean::class.java, false)) {
+            "Plan confirmation requires the private photo runtime"
+        }
         val mode = env.getProperty("app.persistence.mode", "memory")
+        val requireVersioned = env.getProperty("app.persistence.require-versioned-schema", Boolean::class.java, false)
+        require(!requireVersioned || mode == "postgres-local") { "Versioned schema startup validation requires postgres-local persistence" }
         val capabilityEnabled = env.getProperty("app.capability.enabled", Boolean::class.java, false)
         if (mode == "memory") return PersistenceRuntime(InMemoryAnonymousIdentityStore(), InMemoryPairingCodeStore(),
             if (capabilityEnabled) InMemoryCapabilityStore() else null)
@@ -54,6 +63,7 @@ internal class PersistenceRuntimeConfiguration {
                 setURL(url); user = setting("app.persistence.username"); password = setting("app.persistence.password")
                 currentSchema = schema; connectTimeout = 5; socketTimeout = 15
             }
+            if (requireVersioned) RuntimeSchemaHistory.validate(source, schema)
             source.connection.use { c ->
                 // No DDL at startup. All expected prototype tables/columns must already be initialized.
                 c.createStatement().use { s ->
@@ -65,6 +75,23 @@ internal class PersistenceRuntimeConfiguration {
                         "SELECT scope FROM pairing_request_attempt LIMIT 0", "SELECT revoked_at FROM pairing_relationship LIMIT 0",
                         "SELECT result_payload FROM pairing_decision_operation LIMIT 0", "SELECT code_id FROM pairing_code_deletion LIMIT 0")
                         .forEach { sql -> s.executeQuery(sql).use { rows -> if (sql.contains("WHERE id = 1")) check(rows.next()) } }
+                    if (env.getProperty("app.photo.enabled", Boolean::class.java, false)) {
+                        s.executeQuery("SELECT photo_id, state, receipt_photo_id FROM photo_upload_operation LIMIT 0").close()
+                        s.executeQuery("SELECT object_id, sha256 FROM medication_photo LIMIT 0").close()
+                    }
+                    if (plansEnabled) {
+                        listOf("SELECT id, elder_id, initial_receipt_id, photo_id FROM medication LIMIT 0",
+                            "SELECT id, medication_id, revision, initial_receipt_id FROM reminder_plan LIMIT 0",
+                            "SELECT plan_id, revision, display_name, instructions FROM reminder_plan_revision LIMIT 0",
+                            "SELECT actor_id, operation_id, receipt_payload, rejection_reason, violations FROM plan_confirmation_operation LIMIT 0",
+                            "SELECT actor_id, action, operation_id, receipt_revision, receipt_payload, violations FROM plan_mutation_operation LIMIT 0")
+                            .forEach { sql -> s.executeQuery(sql).close() }
+                    }
+                    if (occurrencesEnabled) {
+                        listOf("SELECT actor_id, operation_id, installation_id, elder_id, canonicalization_version, request_payload, response_payload, rejection_payload FROM occurrence_registration_operation LIMIT 0",
+                            "SELECT id, plan_id, local_date, local_time, plan_revision, elder_id, medication_id, installation_id, generation_id, origin_operation_id, receipt_payload FROM registered_occurrence LIMIT 0")
+                            .forEach { sql -> s.executeQuery(sql).close() }
+                    }
                 }
             }
             source.connection.use { c -> c.createStatement().use { statement ->
