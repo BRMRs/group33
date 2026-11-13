@@ -1,3 +1,9 @@
+# Current interaction (supersedes candidate-selection UI below)
+
+User correction: checking “I have inspected the displayed medication photo” starts local OCR automatically. A recognized name fills only an empty name field; no extra OCR/candidate/copy buttons. One short loading/result message remains. Manual text, dose, dates and schedule are never replaced. Unchecking invalidates the running result. Recognition uses explicit name labels or one unambiguous dosage-form name; unknown/ambiguous text asks for manual input. This is a heuristic, not a medicine database or a guarantee of drug identity.
+
+Earlier candidate-list implementation and test history follows for provenance; it is no longer the current UI.
+
 # C2 OCR local implementation — 2026-11-13
 
 Branch: feature/125-c2-ocr. Base: main 6114071. Refs #125.

@@ -1,9 +1,6 @@
 <resources>
-    <string name="ocr_scan">识别药盒文字</string>
-    <string name="ocr_loading">正在识别…</string>
-    <string name="ocr_empty">未识别到文字，请手动填写。</string>
-    <string name="ocr_review">请对照照片核对文字，点击药品名称填入空白名称栏。不会覆盖已有输入；包装规格不是每次用量。</string>
-    <string name="ocr_failed">识别失败，可重试或手动填写。</string>
-    <string name="ocr_use_name">填入名称：%1$s</string>
-    <string name="ocr_use_notes">将识别文字填入空白说明栏（请先核对）</string>
+    <string name="ocr_loading">正在识别药品名…</string>
+    <string name="ocr_empty">未识别出明确药品名，请手动填写。</string>
+    <string name="ocr_filled">已填入药品名，请核对后保存。</string>
+    <string name="ocr_failed">识别失败，可手动填写，或取消勾选后重新确认照片。</string>
 </resources>

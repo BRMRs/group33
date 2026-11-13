@@ -48,11 +48,12 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
     private val name = field(PlanFormField.NAME, R.string.c2_plan_medication_name)
     private val dosage = field(PlanFormField.DOSAGE, R.string.c2_plan_dosage)
     private val instructions = field(null, R.string.c2_plan_instructions)
-    private val ocr = PhotoTextSuggestions(context, applyName = { candidate ->
-        if (name.isEnabled && name.text.isBlank()) name.setText(candidate)
-    }, applyNotes = { candidate ->
-        if (instructions.isEnabled && instructions.text.isBlank()) instructions.setText(candidate)
-    }).also { column.addView(it) }
+    private val ocr = PhotoTextSuggestions(context) { candidate ->
+        if (viewed.isChecked && name.isEnabled && name.text.isBlank()) {
+            name.setText(candidate)
+            true
+        } else false
+    }.also { column.addView(it) }
     private val times = field(PlanFormField.TIMES, R.string.c2_plan_times, R.string.c2_editor_times_hint)
     private val start = field(PlanFormField.START_DATE, R.string.c2_plan_start_date, R.string.c2_plan_date_hint)
     private val end = field(PlanFormField.END_DATE, R.string.c2_plan_end_date, R.string.c2_plan_date_hint)
@@ -85,6 +86,9 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
                 renderZones()
             }
         } }
+        viewed.setOnCheckedChangeListener { _, checked ->
+            if (checked && name.text.isBlank()) ocr.recognize() else if (!checked) ocr.cancel()
+        }
         clear()
     }
 

@@ -25,13 +25,13 @@ class PlanEditorViewTest {
                     assertEquals(7, controls.filterIsInstance<EditText>().size)
                     assertTrue(controls.filterIsInstance<EditText>().all { it.isEnabled })
                     controls.filterIsInstance<CheckBox>().single { it.visibility == View.VISIBLE }.isChecked = true
-                    controls.filterIsInstance<Button>().filterNot { it is CheckBox || it.parent is PhotoTextSuggestions }.single().performClick()
+                    controls.filterIsInstance<Button>().filterNot { it is CheckBox }.single().performClick()
                 }
                 instrumentation.waitForIdleSync()
                 instrumentation.runOnMainSync {
                     val editor = descendants(host.window.decorView).filterIsInstance<PlanEditorView>().single()
                     assertTrue(descendants(editor).filterIsInstance<EditText>().none { it.isEnabled })
-                    assertFalse(descendants(editor).filterIsInstance<Button>().filterNot { it is CheckBox || it.parent is PhotoTextSuggestions }.single().isEnabled)
+                    assertFalse(descendants(editor).filterIsInstance<Button>().filterNot { it is CheckBox }.single().isEnabled)
                 }
         } finally { host.finish() }
     }
@@ -42,7 +42,7 @@ class PlanEditorViewTest {
             val view = PlanEditorView(ContextThemeWrapper(instrumentation.targetContext, R.style.Theme_Group33))
             val controls = descendants(view)
             assertEquals(7, controls.filterIsInstance<EditText>().size)
-            assertFalse(controls.filterIsInstance<Button>().filterNot { it is CheckBox || it.parent is PhotoTextSuggestions }.single().isEnabled)
+            assertFalse(controls.filterIsInstance<Button>().filterNot { it is CheckBox }.single().isEnabled)
             controls.filterIsInstance<EditText>().forEach { it.setText("private draft"); it.error = "error" }
             controls.filterIsInstance<ImageView>().single().setImageResource(android.R.drawable.ic_menu_camera)
             view.clear()
@@ -187,7 +187,7 @@ class PlanEditorViewTest {
     }
     private fun edits(editor: PlanEditorView) = descendants(editor).filterIsInstance<EditText>()
     private fun checks(editor: PlanEditorView) = descendants(editor).filterIsInstance<CheckBox>()
-    private fun action(editor: PlanEditorView) = descendants(editor).filterIsInstance<Button>().filterNot { it is CheckBox || it.parent is PhotoTextSuggestions }.single()
+    private fun action(editor: PlanEditorView) = descendants(editor).filterIsInstance<Button>().filterNot { it is CheckBox }.single()
 
     private fun withBoundEditor(test: (PlanEditorDebugActivity, PlanEditorView, PlanEditorFixture) -> Unit) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
