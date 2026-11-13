@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: group33-pr110-preview
+    runtime: docker
+    plan: free
+    region: singapore
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: off
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: PERSISTENCE_MODE
+        value: memory
+      - key: PERSISTENCE_REQUIRE_VERSIONED_SCHEMA
+        value: "false"
+      - key: PHOTO_ENABLED
+        value: "true"
+      - key: PHOTO_OBJECT_ROOT
+        value: /tmp/group33-preview-photos
+      - key: PLAN_ENABLED
+        value: "true"
+      - key: OCCURRENCE_ENABLED
+        value: "true"
+      - key: KEEP_ALIVE_ENABLED
+        value: "true"
+      - key: KEEP_ALIVE_INTERVAL_SECONDS
+        value: "600"
