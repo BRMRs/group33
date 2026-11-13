@@ -1,6 +1,7 @@
 package com.group33.medicationreminder.integration
 
 import android.view.View
+import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.*
@@ -8,21 +9,26 @@ import com.google.android.material.button.MaterialButton
 import com.group33.medicationreminder.Group33Application
 import com.group33.medicationreminder.R
 import com.group33.medicationreminder.caregiver.CaregiverDestination
+import com.group33.medicationreminder.caregiver.CaregiverFeedbackContent
+import com.group33.medicationreminder.caregiver.CaregiverFeedbackPage
 import com.group33.medicationreminder.caregiver.plan.*
 import com.group33.medicationreminder.core.data.contract.*
 import com.group33.shared.contract.*
 import com.group33.shared.model.UserRole
 import java.time.LocalDate
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 
 /** Reusable business content in the real role Activities, independent of the login implementation. */
-internal class OnlineFeatureContent private constructor(
+internal class OnlineFeatureContent internal constructor(
     private val activity: AppCompatActivity,
     host: FrameLayout,
     private val role: UserRole,
     private val model: ChainViewModel,
     private val services: ChainServices,
     private val navigate: (CaregiverDestination) -> Unit,
+    // Explicit caller-supplied dates only. No default time-zone policy is selected here.
+    private val feedbackRange: ((CaregiverElderContext) -> LocalDateRange)? = null,
 ) {
     private val column = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; host.addView(this) }
     private fun dp(n: Int) = (n * activity.resources.displayMetrics.density).toInt()
@@ -44,6 +50,28 @@ internal class OnlineFeatureContent private constructor(
     private val dosePanel = if (role == UserRole.CAREGIVER && services.caregiverDashboard != null && services.doseEvents != null)
         com.group33.medicationreminder.caregiver.CaregiverDosePanel(activity, section(), services.caregiverDashboard, services.doseEvents)
         else null
+    private val feedbackSlot = if (role == UserRole.CAREGIVER && feedbackRange != null &&
+        services.caregiverDashboard != null && services.doseEvents != null
+    ) FrameLayout(activity).apply {
+        visibility = View.GONE
+        column.addView(this, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0))
+    } else null
+    private var feedbackContext: CaregiverElderContext? = null
+    private var feedbackDates: LocalDateRange? = null
+    private val feedback = feedbackSlot?.let { slot ->
+        CaregiverFeedbackContent(activity, slot, checkNotNull(services.caregiverDashboard), checkNotNull(services.doseEvents)) { elder, dates ->
+            val active = (model.state.value.context as? CaregiverContextState.Active)?.context
+            if (active != null && feedbackContext?.isCurrentFor(active) == true && active.elderId == elder) {
+                feedbackDates = dates
+                navigate(CaregiverDestination.RECORDS)
+            }
+        }
+    }
+    // Use the actual parent's available height, not a phone model, screen width, or fixed dp size.
+    private val feedbackViewport = feedbackSlot?.let {
+        activity.findViewById<View>(R.id.caregiver_scroll) ?: host
+    }
+    private val viewportListener = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> resizeFeedback() }
     private val data = section()
     private val editor = PlanEditorView(activity).apply { visibility = View.GONE; column.addView(this) }
     private val code: TextView
@@ -61,8 +89,11 @@ internal class OnlineFeatureContent private constructor(
     private var editorKey: String? = null
     private var destination = CaregiverDestination.PLANS
     private var signedIn = false
+    private var closed = false
+    private var stateCollection: Job? = null
 
     init {
+        feedbackViewport?.addOnLayoutChangeListener(viewportListener)
         if (role == UserRole.CAREGIVER) {
             button(controls, R.string.chain_refresh) { model.refresh() }
             button(controls, R.string.chain_recover) { model.recover() }
@@ -76,12 +107,13 @@ internal class OnlineFeatureContent private constructor(
             }
             button(pairing, R.string.chain_pair) { model.request(input.text.toString()) }
         }
-        activity.lifecycleScope.launch {
+        stateCollection = activity.lifecycleScope.launch {
             activity.repeatOnLifecycle(Lifecycle.State.STARTED) { model.state.collect(::render) }
         }
     }
 
     fun show(destination: CaregiverDestination) {
+        if (closed) return
         this.destination = destination
         render(model.state.value)
     }
@@ -90,6 +122,7 @@ internal class OnlineFeatureContent private constructor(
         val user = state.session.user
         if (state.signOut != SignOutStatus.IDLE || user == null || user.role != role) {
             dosePanel?.clear()
+            clearFeedback()
             editor.clear(); editorKey = null; column.visibility = View.GONE
             val clearing = state.signOut == SignOutStatus.CLEARING
             val failed = state.signOut == SignOutStatus.FAILED
@@ -110,7 +143,19 @@ internal class OnlineFeatureContent private constructor(
         controls.visibility = if (records) View.GONE else View.VISIBLE
         val active = (state.context as? CaregiverContextState.Active)?.context
         val elder = state.relationships.firstOrNull { it.id == active?.relationshipId }?.elder
-        dosePanel?.show(active.takeIf { !settings }, elder, records)
+        // Existing callers without a date provider retain the existing path until the shared
+        // default-date source is agreed. Do not silently give the new history a UTC/device default.
+        dosePanel?.show(active.takeIf { !settings && feedback == null }, elder, records)
+        if (feedback != null && active != null && !settings) {
+            if (feedbackContext?.isCurrentFor(active) != true) {
+                feedbackContext = active
+                feedbackDates = checkNotNull(feedbackRange)(active)
+            }
+            feedback.show(if (records) CaregiverFeedbackPage.HISTORY else CaregiverFeedbackPage.OVERVIEW,
+                active, checkNotNull(feedbackDates))
+            resizeFeedback()
+            feedbackSlot?.post { resizeFeedback() }
+        } else clearFeedback()
         identity.text = activity.getString(if (role == UserRole.ELDER) R.string.chain_elder_identity else R.string.chain_caregiver_identity, user.displayName)
         status.setText(if (state.busy) R.string.chain_working else state.message)
         // Session/cache refresh is automatic; Elders do not manage synchronization.
@@ -201,12 +246,37 @@ internal class OnlineFeatureContent private constructor(
         }
     }
 
-    fun close() { dosePanel?.clear(); editor.clear() }
+    private fun resizeFeedback() {
+        if (closed) return
+        val slot = feedbackSlot ?: return
+        val viewport = feedbackViewport ?: return
+        val available = viewport.height - viewport.paddingTop - viewport.paddingBottom
+        if (available > 0 && slot.layoutParams.height != available) {
+            slot.layoutParams = slot.layoutParams.apply { height = available }
+        }
+    }
+
+    private fun clearFeedback() {
+        feedbackContext = null
+        feedbackDates = null
+        feedback?.clear()
+    }
+
+    fun close() {
+        closed = true
+        stateCollection?.cancel()
+        stateCollection = null
+        feedbackViewport?.removeOnLayoutChangeListener(viewportListener)
+        clearFeedback()
+        dosePanel?.clear()
+        editor.clear()
+    }
     companion object {
         fun install(activity: AppCompatActivity, host: FrameLayout, role: UserRole,
+                    feedbackRange: ((CaregiverElderContext) -> LocalDateRange)? = null,
                     navigate: (CaregiverDestination) -> Unit = {}): OnlineFeatureContent? {
             val services = (activity.application as Group33Application).featureServices ?: return null
-            return OnlineFeatureContent(activity, host, role, checkNotNull(featureModel(activity)), services, navigate)
+            return OnlineFeatureContent(activity, host, role, checkNotNull(featureModel(activity)), services, navigate, feedbackRange)
         }
     }
 }
