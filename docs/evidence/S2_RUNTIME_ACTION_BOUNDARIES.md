@@ -35,11 +35,20 @@ same ten tests first ran against the unchanged #119 implementation: six failed
 account discard, and the last-ten-minute Snooze). Successful original-action
 replay, 503 recovery, unsupported Help and valid Snooze were controls.
 
-The local supplemental device is a fresh read-only emulator on API 37. This is
-not API 35 acceptance, a physical-device test, an actual cloud HTTP service, a
-two-device end-to-end result, or formal human approval. The owner's existing API
-35 evidence remains attributable to its original #119 revision; the corrected
-revision needs S1's applicable API 35 check before final integration acceptance.
+The original local supplemental run used a fresh read-only emulator on API37.
+Its results remain attributable to that exact input. The follow-up workflow
+`runtime-action-api35.yml` checks out the exact reviewed head, builds the same ten
+unchanged tests, and runs them on a disposable API35 google_apis x86_64 emulator.
+`scripts/run_runtime_action_api35.py` verifies API/ABI/head, requires all ten
+individual successes and the complete runner result, retains APK/source hashes
+and raw output, and stops only its own emulator. Missing, skipped or partial
+runs cannot count as success. The workflow uploads its report even after failure.
+
+Read the API35 workflow result and retained artifact for the current head before
+claiming API35 validation. This is not a physical-device test, live cloud HTTP,
+full two-device path, vendor background behavior or formal human approval. S1
+infrastructure and the requested C1/E reviews remain required. The existing #119
+API35 evidence is not reassigned to this correction.
 
 ## 中文交接
 

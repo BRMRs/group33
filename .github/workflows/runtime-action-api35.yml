@@ -1,0 +1,66 @@
+name: Runtime action API35
+
+on:
+  pull_request:
+    paths:
+      - 'android-app/**'
+      - 'shared/**'
+      - 'gradle/**'
+      - '.github/workflows/runtime-action-api35.yml'
+      - 'scripts/run_runtime_action_api35.py'
+      - 'docs/contracts/GATE1_ARTIFACTS.sha256'
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-action-api35:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out the exact reviewed head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Verify review artifact checksums
+        run: shasum -a 256 -c docs/contracts/GATE1_ARTIFACTS.sha256
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android 15 emulator image
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "emulator" "system-images;android-35;google_apis;x86_64"
+
+      - name: Enable runner-local emulator acceleration
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build the unchanged boundary tests
+        run: ./gradlew :android-app:assembleDebug :android-app:assembleDebugAndroidTest --console=plain --max-workers=2 --no-parallel
+
+      - name: Run ten API35 runtime action regressions
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: python3 scripts/run_runtime_action_api35.py --output "$RUNNER_TEMP/runtime-action-api35"
+
+      - name: Retain exact-head device evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-action-api35-${{ github.event.pull_request.head.sha }}
+          path: ${{ runner.temp }}/runtime-action-api35
+          if-no-files-found: warn
+          retention-days: 14
