@@ -6,6 +6,7 @@ import com.group33.medicationreminder.core.data.contract.*
 import com.group33.medicationreminder.core.data.journal.*
 import com.group33.medicationreminder.core.session.*
 import com.group33.medicationreminder.core.reminder.InitialTiming
+import com.group33.medicationreminder.core.reminder.ReminderDispatchResult
 import com.group33.medicationreminder.caregiver.data.toDoseEventState
 import com.group33.medicationreminder.elder.*
 import com.group33.shared.contract.*
@@ -319,6 +320,25 @@ internal class DebugChainRepository(
             "${occurrence.key.planId}:${occurrence.planRevision}",
             occurrence.planSnapshotAt,
         )
+    }
+
+    /** Inspect the original action after synchronization, under the current credential fence. */
+    internal suspend fun localElderActionDispatchResult(
+        expected: TrustedSessionContext,
+        actionId: String,
+    ): Outcome<ReminderDispatchResult> = safely {
+        val lease = lease()
+        publish(lease) {
+            if (lease.scope != expected.scope || mutableTrusted.value != expected ||
+                mutableSession.value.user?.role != UserRole.ELDER)
+                throw Failed(local(LocalFailureCode.SESSION_NOT_READY))
+            val row = cache.documents().read(rowId(lease.scope, "elder-dose-action", actionId))
+            when (row?.kind) {
+                "elder-dose-action-synced" -> ReminderDispatchResult.ACKNOWLEDGED
+                "elder-dose-action-needs-attention" -> ReminderDispatchResult.PERMANENT_FAILURE
+                else -> ReminderDispatchResult.RETRY
+            }
+        }
     }
 
     internal suspend fun syncLocalElderActions(expected: TrustedSessionContext): Outcome<Unit> = safely {

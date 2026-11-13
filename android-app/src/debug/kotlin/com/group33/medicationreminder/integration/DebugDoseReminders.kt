@@ -84,7 +84,11 @@ internal class DebugDoseReminders(
             ReminderActionKind.HELP -> return@withLock ReminderDispatchResult.PERMANENT_FAILURE
         }
         val trusted = repo.services.trusted.value ?: return@withLock ReminderDispatchResult.RETRY
-        if (trusted.scope.userId != registration.group.elderId) return@withLock ReminderDispatchResult.PERMANENT_FAILURE
+        // A different active account/environment must wait, never discard or rebind old work.
+        if (trusted.scope.userId != registration.group.elderId ||
+            repo.executionScopeId(trusted) != registration.group.executionScopeId) {
+            return@withLock ReminderDispatchResult.RETRY
+        }
         val atAction = Clock.fixed(Instant.ofEpochMilli(action.recordedAtEpochMillis), ZoneOffset.UTC)
         val snapshot = (repo.localElderDoses(trusted, atAction) as? Outcome.Success)?.value
             ?: return@withLock ReminderDispatchResult.RETRY
@@ -100,8 +104,12 @@ internal class DebugDoseReminders(
         )
         if (!persisted) return@withLock ReminderDispatchResult.RETRY
         if (repo.syncLocalElderActions(trusted) !is Outcome.Success) return@withLock ReminderDispatchResult.RETRY
+        // Draining a batch can succeed after moving rejected rows to needs-attention.
+        // Only this original action's accepted receipt permits its runtime ACK.
+        val result = (repo.localElderActionDispatchResult(trusted, action.actionId) as? Outcome.Success)?.value
+            ?: return@withLock ReminderDispatchResult.RETRY
         update()
-        ReminderDispatchResult.ACKNOWLEDGED
+        result
     }
 
     private suspend fun update() {
