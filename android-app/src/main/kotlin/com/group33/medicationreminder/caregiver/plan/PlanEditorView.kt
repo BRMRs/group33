@@ -48,6 +48,11 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
     private val name = field(PlanFormField.NAME, R.string.c2_plan_medication_name)
     private val dosage = field(PlanFormField.DOSAGE, R.string.c2_plan_dosage)
     private val instructions = field(null, R.string.c2_plan_instructions)
+    private val ocr = PhotoTextSuggestions(context, applyName = { candidate ->
+        if (name.isEnabled && name.text.isBlank()) name.setText(candidate)
+    }, applyNotes = { candidate ->
+        if (instructions.isEnabled && instructions.text.isBlank()) instructions.setText(candidate)
+    }).also { column.addView(it) }
     private val times = field(PlanFormField.TIMES, R.string.c2_plan_times, R.string.c2_editor_times_hint)
     private val start = field(PlanFormField.START_DATE, R.string.c2_plan_start_date, R.string.c2_plan_date_hint)
     private val end = field(PlanFormField.END_DATE, R.string.c2_plan_end_date, R.string.c2_plan_date_hint)
@@ -96,6 +101,7 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
         val usablePhoto = metadata != null && decodedPhoto != null && !decodedPhoto.isRecycled
         photoMetadata = metadata.takeIf { usablePhoto }
         if (usablePhoto) photo.setImageBitmap(decodedPhoto) else photo.setImageDrawable(null)
+        ocr.bind(decodedPhoto.takeIf { usablePhoto })
         viewed.isEnabled = usablePhoto
         val initial = formModel.state.value.input
         updating = true
@@ -146,6 +152,7 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
 
     fun clear() {
         generation++
+        ocr.clear()
         rejectionReviewed = false
         form = null; save = null
         binding?.cancel(); binding = null
@@ -196,6 +203,7 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
         action.isEnabled = p.action != PlanDisplayAction.NONE
         val editable = state.status in setOf(PlanSaveStatus.IDLE, PlanSaveStatus.NOT_SUBMITTED, PlanSaveStatus.REJECTED)
         (fields.values + instructions).forEach { it.isEnabled = editable }
+        ocr.setEditable(editable)
         acknowledgement.isEnabled = editable
         viewed.isEnabled = editable && photoMetadata != null
     }
