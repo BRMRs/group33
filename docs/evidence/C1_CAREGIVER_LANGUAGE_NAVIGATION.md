@@ -113,7 +113,8 @@ as comma-separated classes for the 7-case related-language run.
 ## Repository checks and limits
 
 Both Debug APKs build successfully. Repository policy and `git diff --check`
-pass; all 364 review manifest entries match. The changed test's digest is updated.
+pass; all 365 review manifest entries match, including this evidence document.
+The changed test and contribution-record digests are updated.
 
 The required combined command was actually attempted:
 
@@ -129,9 +130,11 @@ and dependent Spring-context failures. Server and Shared sources are byte-for-by
 unchanged from main. These failures are retained and not skipped or changed by
 this test-only correction; Linux CI must supply the full repository check.
 
-Release Android and Shared unit tests are run separately because the Server
-failure stopped the combined task graph. Their outcome and the Linux CI status
-are recorded with the PR.
+Release Android and Shared unit tests were run separately because the Server
+failure stopped the combined task graph: the command exited 0. All 124 Release
+Android tests actually executed and passed (zero failures/errors/skips). Shared's
+18 passing tests came from the Gradle cache, not a new execution. Linux CI status
+is recorded with the PR.
 
 No C3 full-feature device suite, physical/API 23 device, server, PostgreSQL,
 phone-authentication or complete bilingual end-to-end acceptance is claimed by
