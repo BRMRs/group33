@@ -1,0 +1,6 @@
+<resources>
+    <string name="ocr_loading">Reading medicine name…</string>
+    <string name="ocr_empty">Could not identify a medicine name. Please enter it manually.</string>
+    <string name="ocr_filled">Name filled from photo. Please check it before saving.</string>
+    <string name="ocr_failed">Recognition failed. Enter the name manually or uncheck and confirm the photo again.</string>
+</resources>
