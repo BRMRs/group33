@@ -39,6 +39,12 @@ class CaregiverOverviewHost @JvmOverloads constructor(
         addView(overview, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
     }
 
+    internal fun useParentScrolling() {
+        check(viewModel == null)
+        overview.useParentScrolling()
+        overview.layoutParams = overview.layoutParams.apply { height = ViewGroup.LayoutParams.WRAP_CONTENT }
+    }
+
     /**
      * Bind to the current trusted context. Pass null while signed out, restoring a session, or
      * without an authorized current Elder; this synchronously clears the screen's private state.
