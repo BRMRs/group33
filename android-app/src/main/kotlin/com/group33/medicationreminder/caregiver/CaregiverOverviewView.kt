@@ -3,6 +3,7 @@ package com.group33.medicationreminder.caregiver
 import android.content.Context
 import android.util.AttributeSet
 import android.view.LayoutInflater
+import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.annotation.MainThread
@@ -49,6 +50,16 @@ class CaregiverOverviewView @JvmOverloads constructor(
     init {
         ViewCompat.setAccessibilityHeading(binding.overviewTitle, true)
         render(CaregiverFeedbackState(null, null, null, isLoading = false))
+    }
+
+    /** Shared pages already own scrolling; reuse this content without another scroll viewport. */
+    internal fun useParentScrolling() {
+        check(!isAttachedToWindow)
+        if (binding.root.parent !== this) return
+        val content = binding.root.getChildAt(0)
+        binding.root.removeView(content)
+        removeView(binding.root)
+        addView(content, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
     }
 
     @MainThread

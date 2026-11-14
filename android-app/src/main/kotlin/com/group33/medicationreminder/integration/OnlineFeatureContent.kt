@@ -50,16 +50,21 @@ internal class OnlineFeatureContent internal constructor(
     private val dosePanel = if (role == UserRole.CAREGIVER && services.caregiverDashboard != null && services.doseEvents != null)
         com.group33.medicationreminder.caregiver.CaregiverDosePanel(activity, section(), services.caregiverDashboard, services.doseEvents)
         else null
-    private val feedbackSlot = if (role == UserRole.CAREGIVER && feedbackRange != null &&
+    private val recordsContainer = if (role == UserRole.CAREGIVER && feedbackRange != null &&
         services.caregiverDashboard != null && services.doseEvents != null
-    ) FrameLayout(activity).apply {
-        visibility = View.GONE
-        column.addView(this, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0))
+    ) requireNotNull(activity.findViewById<FrameLayout>(R.id.caregiver_records_content)) {
+        "Full caregiver feedback requires the shared records content container"
     } else null
+    private val sharedScroll = activity.findViewById<View>(R.id.caregiver_scroll)
+    private val feedbackSlot = recordsContainer?.let { FrameLayout(activity).apply {
+        visibility = View.GONE
+        column.addView(this, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+    } }
     private var feedbackContext: CaregiverElderContext? = null
     private var feedbackDates: LocalDateRange? = null
     private val feedback = feedbackSlot?.let { slot ->
-        CaregiverFeedbackContent(activity, slot, checkNotNull(services.caregiverDashboard), checkNotNull(services.doseEvents)) { elder, dates ->
+        CaregiverFeedbackContent(activity, slot, checkNotNull(services.caregiverDashboard), checkNotNull(services.doseEvents),
+            recordsSlot = recordsContainer, parentScrollsOverview = true) { elder, dates ->
             val active = (model.state.value.context as? CaregiverContextState.Active)?.context
             if (active != null && feedbackContext?.isCurrentFor(active) == true && active.elderId == elder) {
                 feedbackDates = dates
@@ -67,11 +72,6 @@ internal class OnlineFeatureContent internal constructor(
             }
         }
     }
-    // Use the actual parent's available height, not a phone model, screen width, or fixed dp size.
-    private val feedbackViewport = feedbackSlot?.let {
-        activity.findViewById<View>(R.id.caregiver_scroll) ?: host
-    }
-    private val viewportListener = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> resizeFeedback() }
     private val data = section()
     private val editor = PlanEditorView(activity).apply { visibility = View.GONE; column.addView(this) }
     private val code: TextView
@@ -93,7 +93,6 @@ internal class OnlineFeatureContent internal constructor(
     private var stateCollection: Job? = null
 
     init {
-        feedbackViewport?.addOnLayoutChangeListener(viewportListener)
         if (role == UserRole.CAREGIVER) {
             button(controls, R.string.chain_refresh) { model.refresh() }
             button(controls, R.string.chain_recover) { model.recover() }
@@ -151,10 +150,9 @@ internal class OnlineFeatureContent internal constructor(
                 feedbackContext = active
                 feedbackDates = checkNotNull(feedbackRange)(active)
             }
+            showRecordsContainer(records)
             feedback.show(if (records) CaregiverFeedbackPage.HISTORY else CaregiverFeedbackPage.OVERVIEW,
                 active, checkNotNull(feedbackDates))
-            resizeFeedback()
-            feedbackSlot?.post { resizeFeedback() }
         } else clearFeedback()
         identity.text = activity.getString(if (role == UserRole.ELDER) R.string.chain_elder_identity else R.string.chain_caregiver_identity, user.displayName)
         status.setText(if (state.busy) R.string.chain_working else state.message)
@@ -246,17 +244,14 @@ internal class OnlineFeatureContent internal constructor(
         }
     }
 
-    private fun resizeFeedback() {
-        if (closed) return
-        val slot = feedbackSlot ?: return
-        val viewport = feedbackViewport ?: return
-        val available = viewport.height - viewport.paddingTop - viewport.paddingBottom
-        if (available > 0 && slot.layoutParams.height != available) {
-            slot.layoutParams = slot.layoutParams.apply { height = available }
-        }
+    private fun showRecordsContainer(show: Boolean) {
+        val records = recordsContainer ?: return
+        records.visibility = if (show) View.VISIBLE else View.GONE
+        sharedScroll?.visibility = if (show) View.GONE else View.VISIBLE
     }
 
     private fun clearFeedback() {
+        showRecordsContainer(false)
         feedbackContext = null
         feedbackDates = null
         feedback?.clear()
@@ -266,7 +261,6 @@ internal class OnlineFeatureContent internal constructor(
         closed = true
         stateCollection?.cancel()
         stateCollection = null
-        feedbackViewport?.removeOnLayoutChangeListener(viewportListener)
         clearFeedback()
         dosePanel?.clear()
         editor.clear()

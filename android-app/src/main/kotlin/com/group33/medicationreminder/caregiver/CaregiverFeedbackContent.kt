@@ -22,6 +22,8 @@ internal class CaregiverFeedbackContent(
     private val slot: FrameLayout,
     private val dashboard: CaregiverDashboardRepository,
     private val events: DoseEventRepository,
+    private val recordsSlot: FrameLayout? = null,
+    private val parentScrollsOverview: Boolean = false,
     private val onHistory: (String, LocalDateRange) -> Unit,
 ) {
     private val overview = CaregiverOverviewHost(activity)
@@ -32,7 +34,10 @@ internal class CaregiverFeedbackContent(
 
     init {
         require(slot.childCount == 0) { "C3 requires a dedicated empty viewport" }
+        require(recordsSlot == null || recordsSlot !== slot && recordsSlot.childCount == 0)
         slot.visibility = View.GONE
+        recordsSlot?.visibility = View.GONE
+        if (parentScrollsOverview) overview.useParentScrolling()
     }
 
     @MainThread
@@ -40,14 +45,18 @@ internal class CaregiverFeedbackContent(
         if (this.page != page) {
             clear()
             val child = if (page == CaregiverFeedbackPage.OVERVIEW) overview else history
-            slot.addView(child, FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT,
+            val destination = if (page == CaregiverFeedbackPage.HISTORY) recordsSlot ?: slot else slot
+            destination.addView(child, FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                if (page == CaregiverFeedbackPage.OVERVIEW && parentScrollsOverview)
+                    ViewGroup.LayoutParams.WRAP_CONTENT else ViewGroup.LayoutParams.MATCH_PARENT,
             ))
         }
         this.page = page
         current = context
         this.range = range
-        slot.visibility = View.VISIBLE
+        slot.visibility = if (page == CaregiverFeedbackPage.OVERVIEW || recordsSlot == null) View.VISIBLE else View.GONE
+        recordsSlot?.visibility = if (page == CaregiverFeedbackPage.HISTORY) View.VISIBLE else View.GONE
         when (page) {
             CaregiverFeedbackPage.OVERVIEW -> overview.bind(activity, dashboard, context, range) { elder, dates ->
                 // A retained callback from a replaced page/context cannot navigate for old data.
@@ -74,5 +83,7 @@ internal class CaregiverFeedbackContent(
         }
         slot.removeAllViews()
         slot.visibility = View.GONE
+        recordsSlot?.removeAllViews()
+        recordsSlot?.visibility = View.GONE
     }
 }
