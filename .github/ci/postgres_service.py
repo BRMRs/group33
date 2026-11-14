@@ -13,7 +13,7 @@ def main():
     identity = os.environ.get('CI_POSTGRES_CONTAINER', '')
     if not re.fullmatch('[0-9a-f]{64}', identity):
         raise RuntimeError('Missing exact job-owned PostgreSQL container')
-    if os.environ.get('S2_PG_INTEGRATION_URL') != 'jdbc:postgresql://127.0.0.1:5432/group33_copy_ci':
+    if os.environ.get('S2_PG_INTEGRATION_URL') != 'jdbc:postgresql://127.0.0.1:55432/group33_s2_local':
         raise RuntimeError('Refusing another database fixture')
 
     def docker(*args, timeout=15):
@@ -31,7 +31,7 @@ def main():
     docker('start', identity).check_returncode()
     deadline = time.monotonic() + 25
     while time.monotonic() < deadline:
-        if docker('exec', identity, 'pg_isready', '-U', 'postgres', '-d', 'group33_copy_ci', timeout=5).returncode == 0:
+        if docker('exec', identity, 'pg_isready', '-U', 'postgres', '-d', 'group33_s2_local', timeout=5).returncode == 0:
             print('Disposable PostgreSQL fixture running')
             return
         time.sleep(1)

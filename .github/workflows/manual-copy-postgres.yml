@@ -22,12 +22,12 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_DB: group33_copy_ci
+          POSTGRES_DB: group33_s2_local
           POSTGRES_PASSWORD: fictional-local-recovery-only
         ports:
-          - 5432:5432
+          - 55432:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d group33_copy_ci"
+          --health-cmd "pg_isready -U postgres -d group33_s2_local"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -61,7 +61,7 @@ jobs:
 
       - name: Test real PostgreSQL and packaged administration launcher
         env:
-          S2_PG_INTEGRATION_URL: jdbc:postgresql://127.0.0.1:5432/group33_copy_ci
+          S2_PG_INTEGRATION_URL: jdbc:postgresql://127.0.0.1:55432/group33_s2_local
           S2_PG_INTEGRATION_USER: postgres
           S2_PG_INTEGRATION_PASSWORD: fictional-local-recovery-only
           S2_PG_RECEIPT_KEY_FILE: ${{ runner.temp }}/copy-fixture.key
