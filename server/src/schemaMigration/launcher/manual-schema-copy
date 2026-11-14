@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec "${JAVA_HOME:+$JAVA_HOME/bin/}java" -cp "$SCRIPT_DIR/../lib/*" com.group33.server.migration.ManualSchemaCopy "$@"

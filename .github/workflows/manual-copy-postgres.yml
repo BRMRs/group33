@@ -1,0 +1,82 @@
+name: Local recovery copy PostgreSQL
+
+on:
+  pull_request:
+    paths:
+      - 'server/**'
+      - 'shared/**'
+      - 'gradle/**'
+      - 'settings.gradle.kts'
+      - '.github/workflows/manual-copy-postgres.yml'
+      - '.github/ci/postgres_service.py'
+      - 'docs/contracts/GATE1_ARTIFACTS.sha256'
+
+permissions:
+  contents: read
+
+jobs:
+  local-recovery-postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: group33_copy_ci
+          POSTGRES_PASSWORD: fictional-local-recovery-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d group33_copy_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out the exact reviewed head
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Verify review artifact checksums
+        run: shasum -a 256 -c docs/contracts/GATE1_ARTIFACTS.sha256
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Create a private fictional receipt key
+        run: |
+          python3 - <<'PY'
+          import os, secrets
+          from pathlib import Path
+          p = Path(os.environ['RUNNER_TEMP']) / 'copy-fixture.key'
+          with os.fdopen(os.open(p, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as f:
+              f.write(secrets.token_bytes(32))
+          PY
+
+      - name: Test real PostgreSQL and packaged administration launcher
+        env:
+          S2_PG_INTEGRATION_URL: jdbc:postgresql://127.0.0.1:5432/group33_copy_ci
+          S2_PG_INTEGRATION_USER: postgres
+          S2_PG_INTEGRATION_PASSWORD: fictional-local-recovery-only
+          S2_PG_RECEIPT_KEY_FILE: ${{ runner.temp }}/copy-fixture.key
+          S2_PG_PYTHON: python3
+          S2_PG_MANAGER_SCRIPT: ${{ github.workspace }}/.github/ci/postgres_service.py
+          CI_POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        run: >-
+          ./gradlew -PserverOnly=true :server:postgresIntegrationTest
+          --tests '*PostgresManualCopyToolTest' --tests '*PostgresSchemaMigrationTest'
+          --console=plain --max-workers=1 --no-parallel
+
+      - name: Retain test outcomes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-recovery-postgres-${{ github.event.pull_request.head.sha }}
+          path: server/build/test-results/postgresIntegrationTest
+          retention-days: 14
