@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="c2_daily_frequency">每天提醒次数</string>
+    <string name="c2_daily_count">每天 %1$d 次</string>
+    <string name="c2_zone_follows_elder">跟随长者时区：%1$s</string>
+    <string name="c2_per_dose">每次剂量（例如：1 片）</string>
+</resources>

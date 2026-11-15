@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="c2_daily_frequency">Reminders per day</string>
+    <string name="c2_daily_count">Every day · %1$d reminders</string>
+    <string name="c2_zone_follows_elder">Uses the Elder’s time zone: %1$s</string>
+    <string name="c2_per_dose">Amount per dose (for example, 1 tablet)</string>
+</resources>

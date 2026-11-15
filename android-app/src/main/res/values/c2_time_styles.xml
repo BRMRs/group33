@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="C2TimeDialog" parent="android:style/Theme.Material.Light.Dialog.Alert">
+        <item name="android:timePickerStyle">@style/C2TimeSpinner</item>
+        <item name="android:colorAccent">@color/group33_action</item>
+    </style>
+    <style name="C2TimeSpinner" parent="android:style/Widget.Material.Light.TimePicker">
+        <item name="android:timePickerMode">spinner</item>
+    </style>
+</resources>

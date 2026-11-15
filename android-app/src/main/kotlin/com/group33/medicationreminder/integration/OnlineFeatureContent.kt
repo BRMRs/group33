@@ -174,7 +174,7 @@ internal class OnlineFeatureContent private constructor(
                     })[name, type]
                 val form = retained(PlanFormViewModel::class.java, "form:$key") {
                     PlanFormViewModel().apply { updateInput(PlanFormInput(localTimes = listOf("08:00"),
-                        startDate = LocalDate.now().toString(), executionTimeZoneId = "Asia/Shanghai")) }
+                        startDate = LocalDate.now().toString(), executionTimeZoneId = "")) }
                 }
                 val save = retained(PlanSaveViewModel::class.java, "save:$key") {
                     PlanSaveViewModel(viewed.elderId, viewed.scope, services.plans, services.commands)
