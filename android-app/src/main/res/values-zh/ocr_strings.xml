@@ -1,0 +1,6 @@
+<resources>
+    <string name="ocr_loading">正在识别药品名…</string>
+    <string name="ocr_empty">未识别出明确药品名，请手动填写。</string>
+    <string name="ocr_filled">已填入药品名，请核对后保存。</string>
+    <string name="ocr_failed">识别失败，可手动填写，或取消勾选后重新确认照片。</string>
+</resources>
