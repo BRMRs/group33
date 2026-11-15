@@ -18,4 +18,9 @@ class OcrCandidatesTest {
         assertNull(OcrCandidates.name("500mg\nTEST IMAGE - NOT MEDICATION"))
         assertEquals("示例胶囊", OcrCandidates.name("示例胶囊\n500mg"))
     }
+    @Test fun imperfectSecondNamePreventsAutofillOfOnlyCleanName() {
+        assertNull(OcrCandidates.name("示例缓释胶囊(e\nExample Sustained-release Capsules\n另一示例颗粒"))
+        assertNull(OcrCandidates.name("示例缓释胶囊(e\n另一示例颗粒"))
+        assertEquals("单一示例颗粒", OcrCandidates.name("单一示例颗粒\nOTC"))
+    }
 }

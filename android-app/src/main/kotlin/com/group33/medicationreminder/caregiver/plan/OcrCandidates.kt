@@ -10,6 +10,11 @@ internal object OcrCandidates {
     fun name(text: String): String? {
         val lines = lines(text)
         val label = Regex("^(?:通用名称|药品名称|商品名称|Medicine name|Drug name)\\s*[:：]\\s*(.+)$", RegexOption.IGNORE_CASE)
+        // Partial OCR/punctuation must still count as competing names. Do not silently
+        // select the only perfectly recognized box from a multi-box photograph.
+        val possibleName = Regex("[\\p{L} ·-]{2,60}(?:片|胶囊|颗粒|口服液|滴眼液|软膏| tablets| capsules)", RegexOption.IGNORE_CASE)
+        val possibleLines = lines.filter { possibleName.containsMatchIn(it) }
+        if (possibleLines.size > 1) return null
         val labelled = lines.mapNotNull { label.matchEntire(it)?.groupValues?.get(1)?.trim() }.distinct()
         if (labelled.size == 1) return labelled.single()
         if (labelled.isNotEmpty()) return null
