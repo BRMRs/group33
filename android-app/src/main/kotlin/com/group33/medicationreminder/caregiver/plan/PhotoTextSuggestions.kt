@@ -2,14 +2,14 @@ package com.group33.medicationreminder.caregiver.plan
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.widget.TextView
+import androidx.appcompat.widget.AppCompatTextView
 import com.group33.medicationreminder.R
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
 
 /** A status line only. Recognition begins with explicit photo confirmation in the host. */
-internal class PhotoTextSuggestions(context: Context, private val applyName: (String) -> Boolean) : TextView(context) {
+internal class PhotoTextSuggestions(context: Context, private val applyName: (String) -> Boolean) : AppCompatTextView(context) {
     private var photo: Bitmap? = null
     private var epoch = 0
     private var editable = false
