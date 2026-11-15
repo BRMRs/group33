@@ -4,4 +4,7 @@
     <string name="c2_daily_count">Every day · %1$d reminders</string>
     <string name="c2_zone_follows_elder">Uses the Elder’s time zone: %1$s</string>
     <string name="c2_per_dose">Amount per dose (for example, 1 tablet)</string>
+    <string name="c2_choose_zone">Choose the Elder’s reminder time zone</string>
+    <string name="c2_search_zone">Search Chinese / English zone name or ID</string>
+    <string name="c2_no_zone_results">No matching time zones</string>
 </resources>

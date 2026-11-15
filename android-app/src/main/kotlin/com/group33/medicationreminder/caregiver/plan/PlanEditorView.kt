@@ -130,7 +130,9 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
     }
     private val zoneSection = section(R.string.c2_editor_section_zone)
     private val zone = field(zoneSection, PlanFormField.TIME_ZONE, R.string.c2_plan_execution_zone).apply {
-        inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        keyListener = null; showSoftInputOnFocus = false; isCursorVisible = false
+        setHint(R.string.c2_choose_zone)
+        setOnClickListener { openZonePicker() }
     }
     private val comparison = label(zoneSection, 14f).apply {
         setTextColor(color(R.color.group33_text_secondary))
@@ -169,6 +171,7 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
     private var rejectionReviewed = false
     private var updating = false
     private var generation = 0
+    private var zoneDialog: AlertDialog? = null
     private var frequencyDialog: AlertDialog? = null
     private var dateDialog: DatePickerDialog? = null
     private var timeDialog: TimePickerDialog? = null
@@ -197,6 +200,52 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
                 isAllCaps = false
             }
         }
+    }
+
+    private fun openZonePicker() {
+        if (!zone.isEnabled || form == null) return
+        zoneDialog?.dismiss()
+        val token = generation
+        val known = ZoneId.getAvailableZoneIds()
+        val ids = (listOfNotNull(elderZone, "Asia/Shanghai", caregiverZone) + known.sorted()).filter { it in known }.distinct()
+        val labels = ids.map { id ->
+            val title = java.util.TimeZone.getTimeZone(id).getDisplayName(false, java.util.TimeZone.LONG, androidx.core.os.ConfigurationCompat.getLocales(resources.configuration)[0] ?: java.util.Locale.getDefault())
+            "$title ($id)"
+        }.toTypedArray()
+        val search = EditText(context).apply {
+            setHint(R.string.c2_search_zone); contentDescription = context.getString(R.string.c2_search_zone)
+            setSingleLine(true); minHeight = dp(48)
+            inputType = InputType.TYPE_CLASS_TEXT
+        }
+        val list = ListView(context).apply { choiceMode = ListView.CHOICE_MODE_SINGLE }
+        val empty = TextView(context).apply { setText(R.string.c2_no_zone_results); setPadding(dp(16),dp(12),dp(16),dp(12)) }
+        val content = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL; setPadding(dp(16),0,dp(16),0)
+            isFocusableInTouchMode = true
+            addView(search); addView(empty); addView(list, LinearLayout.LayoutParams(-1,dp(300)))
+        }
+        var filtered = ids.indices.toList()
+        val searchable = ids.mapIndexed { index, id ->
+            val tz = java.util.TimeZone.getTimeZone(id)
+            labels[index] + " " + tz.getDisplayName(false, java.util.TimeZone.LONG, java.util.Locale.SIMPLIFIED_CHINESE) +
+                " " + tz.getDisplayName(false, java.util.TimeZone.LONG, java.util.Locale.ENGLISH)
+        }
+        fun filter(query: String) {
+            filtered = ids.indices.filter { searchable[it].contains(query.trim(), ignoreCase = true) }
+            list.adapter = ArrayAdapter(context, android.R.layout.simple_list_item_single_choice, filtered.map { labels[it] })
+            empty.visibility = if (filtered.isEmpty()) View.VISIBLE else View.GONE
+            val selected = filtered.indexOfFirst { ids[it] == zone.text.toString() }
+            if (selected >= 0) list.setItemChecked(selected, true)
+        }
+        filter("")
+        search.doAfterTextChanged { filter(it.toString()) }
+        list.setOnItemClickListener { _, _, position, _ ->
+            if (generation == token && zone.isEnabled && form != null) zone.setText(ids[filtered[position]])
+            zoneDialog?.dismiss()
+        }
+        zoneDialog = AlertDialog.Builder(context).setTitle(R.string.c2_choose_zone)
+            .setView(content).setNegativeButton(android.R.string.cancel, null).create()
+        zoneDialog?.show()
     }
 
     private fun openFrequencyPicker() {
@@ -381,6 +430,7 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
     fun clear() {
         generation++
         ocr.clear()
+        zoneDialog?.dismiss(); zoneDialog = null
         frequencyDialog?.dismiss(); frequencyDialog = null
         dateDialog?.dismiss(); dateDialog = null
         timeDialog?.dismiss(); timeDialog = null
@@ -410,6 +460,11 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
         val unknown = context.getString(R.string.c2_plan_zone_unknown)
         val matched = execution in known && caregiverZone == execution && elderZone == execution
         acknowledgement.visibility = if (matched) View.GONE else View.VISIBLE
+        val canConfirm = execution in known && runCatching {
+            LocalDate.parse(start.text); LocalTime.parse(input().localTimes.first())
+        }.isSuccess
+        acknowledgement.isEnabled = zone.isEnabled && canConfirm
+        if (!canConfirm) acknowledgement.isChecked = false
         val summary = context.getString(R.string.c2_plan_zone_comparison,
             caregiverZone?.takeIf { it in known } ?: unknown, elderZone?.takeIf { it in known } ?: unknown,
             execution.takeIf { it in known } ?: unknown)
@@ -445,7 +500,8 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
         renderTimes()
         if (!editable) { frequencyDialog?.dismiss(); frequencyDialog = null }
         if (!editable) { timeDialog?.dismiss(); timeDialog = null }
-        acknowledgement.isEnabled = editable
+        if (!editable) { zoneDialog?.dismiss(); zoneDialog = null }
+        renderZones()
         viewed.isEnabled = editable && photoMetadata != null
     }
 

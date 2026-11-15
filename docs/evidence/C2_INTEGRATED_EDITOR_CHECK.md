@@ -23,3 +23,11 @@ Default to known Elder zone when the draft has no zone; require explicit confirm
 ## Manual next check
 
 On the caregiver emulator reopen the uploaded photo/editor. Check photo confirmation, daily count and each time; choose dates and confirm. When Elder zone is unknown, explicitly enter/confirm the intended IANA zone before saving. Verify the submitted plan from the paired Elder. Do not count this automated local verification as cloud end-to-end acceptance.
+
+## Time-zone input follow-up
+
+The execution zone is now a read-only selector with localized zone names and IANA IDs. Unknown zones and unavailable date/time examples disable and clear acknowledgement. Dialog selection is scope-gated and dismissed on access/context loss. Twelve PlanEditorViewTest emulator tests passed, including rejecting an injected `8:00` zone and selecting Asia/Shanghai. Locale lookup uses ConfigurationCompat for API 23 compatibility.
+
+## Search and emulator input follow-up
+
+Zone picker now filters localized display labels, Chinese/English time-zone names and IANA IDs, case-insensitively, with an empty-result message. Twelve PlanEditorViewTest emulator tests and Debug lint/build passed after this change; coverage includes Chinese query, lowercase ID query, empty result and correct selection after filtering. Both emulator Gboard configurations now list English QWERTY and Simplified Chinese Pinyin; show_ime_with_hard_keyboard is enabled. No app text or cloud plan was submitted to verify keyboard configuration.

@@ -4,4 +4,7 @@
     <string name="c2_daily_count">每天 %1$d 次</string>
     <string name="c2_zone_follows_elder">跟随长者时区：%1$s</string>
     <string name="c2_per_dose">每次剂量（例如：1 片）</string>
+    <string name="c2_choose_zone">请选择长者所在地的时区</string>
+    <string name="c2_search_zone">搜索中文、英文时区名或标识</string>
+    <string name="c2_no_zone_results">没有匹配的时区</string>
 </resources>

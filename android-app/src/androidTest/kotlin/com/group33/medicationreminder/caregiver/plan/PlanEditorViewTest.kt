@@ -50,6 +50,32 @@ class PlanEditorViewTest {
         onUi { assertTrue(controls().filterIsInstance<android.widget.NumberPicker>().isEmpty()) }
     }
 
+    @androidx.test.filters.SdkSuppress(minSdkVersion = 29)
+    @Test fun zoneUsesPickerAndInvalidZoneCannotBeAcknowledged() = withBoundEditor { host, editor, _ ->
+        fun windows() = android.view.inspector.WindowInspector.getGlobalWindowViews().flatMap { descendants(it) }
+        onUi {
+            val zone = edits(editor).last()
+            assertNull(zone.keyListener); assertFalse(zone.showSoftInputOnFocus)
+            zone.setText("8:00")
+            assertFalse(checks(editor).last().isEnabled)
+            assertFalse(checks(editor).last().isChecked)
+            zone.performClick()
+        }
+        onUi {
+            val search = windows().filterIsInstance<EditText>().single { it.hint == host.getString(R.string.c2_search_zone) }
+            search.setText("no-such-zone")
+            assertEquals(0, windows().filterIsInstance<android.widget.ListView>().single().adapter.count)
+            search.setText("中国")
+            assertTrue(windows().filterIsInstance<android.widget.ListView>().single().adapter.count > 0)
+            search.setText("shanghai")
+            val list = windows().filterIsInstance<android.widget.ListView>().single()
+            assertEquals(1, list.adapter.count)
+            val index = (0 until list.adapter.count).first { list.adapter.getItem(it).toString().contains("Asia/Shanghai") }
+            list.performItemClick(list.getChildAt(0), index, list.adapter.getItemId(index))
+        }
+        onUi { assertEquals("Asia/Shanghai", edits(editor).last().text.toString()) }
+    }
+
     @Test fun elderZoneDefaultsOnlyWhenKnownAndUnknownStillNeedsConfirmation() = withBoundEditor { host, editor, fixture ->
         val bitmap = android.graphics.Bitmap.createBitmap(20,20,android.graphics.Bitmap.Config.ARGB_8888)
         try {
