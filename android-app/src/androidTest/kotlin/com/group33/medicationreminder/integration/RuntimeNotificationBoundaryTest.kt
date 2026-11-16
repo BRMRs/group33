@@ -8,6 +8,10 @@ import android.app.PendingIntent
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
+import android.graphics.Rect
+import android.view.InputDevice
+import android.view.MotionEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.test.platform.app.InstrumentationRegistry
 import com.group33.medicationreminder.R
@@ -62,6 +66,13 @@ class RuntimeNotificationBoundaryTest {
         }
     }
 
+    private fun findNode(node: AccessibilityNodeInfo?, predicate: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo? {
+        if (node == null) return null
+        if (predicate(node)) return node
+        for (index in 0 until node.childCount) findNode(node.getChild(index), predicate)?.let { return it }
+        return null
+    }
+
     private suspend fun clickInNotificationShade(label: Int) {
         shell("input keyevent KEYCODE_WAKEUP")
         shell("wm dismiss-keyguard")
@@ -70,23 +81,41 @@ class RuntimeNotificationBoundaryTest {
         val info = automation.serviceInfo
         info.flags = info.flags or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
         automation.serviceInfo = info
+        fun tap(node: AccessibilityNodeInfo): Boolean {
+            val bounds = Rect().also(node::getBoundsInScreen)
+            if (bounds.isEmpty || !node.isVisibleToUser) return false
+            val now = SystemClock.uptimeMillis()
+            fun event(action: Int, time: Long) = MotionEvent.obtain(now, time, action,
+                bounds.exactCenterX(), bounds.exactCenterY(), 0).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
+            val down = event(MotionEvent.ACTION_DOWN, now)
+            val up = event(MotionEvent.ACTION_UP, now + 50)
+            return try { automation.injectInputEvent(down, true) && automation.injectInputEvent(up, true) }
+            finally { down.recycle(); up.recycle() }
+        }
         var expanded = false
-        await {
+        try { await {
             val root = automation.rootInActiveWindow
             if (root?.packageName?.toString() != "com.android.systemui") return@await false
-            val button = root.findAccessibilityNodeInfosByText(context.getString(label))
-                .firstOrNull { it.text?.toString() == context.getString(label) }
+            // RemoteViews action labels are exposed in the tree even when text search misses them.
+            val button = findNode(root) { it.isVisibleToUser && it.text?.toString()?.equals(context.getString(label), ignoreCase = true) == true }
             if (button != null) {
-                var clickable: AccessibilityNodeInfo? = button
-                while (clickable != null && !clickable.isClickable) clickable = clickable.parent
-                clickable?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true
+                tap(button)
             } else {
                 if (!expanded) {
-                    root.findAccessibilityNodeInfosByViewId("com.android.systemui:id/expand_button")
-                        .firstOrNull()?.let { expanded = it.performAction(AccessibilityNodeInfo.ACTION_CLICK) }
+                    findNode(root) { it.viewIdResourceName == "android:id/expand_button" }
+                        ?.let { expanded = tap(it) }
                 }
                 false
             }
+        } } catch (error: kotlinx.coroutines.TimeoutCancellationException) {
+            val nodes = mutableListOf<String>()
+            fun describe(node: AccessibilityNodeInfo?, depth: Int = 0) {
+                if (node == null || nodes.size >= 100 || depth > 15) return
+                nodes += "${node.packageName} ${node.viewIdResourceName} text=${node.text} description=${node.contentDescription} clickable=${node.isClickable}"
+                for (index in 0 until node.childCount) describe(node.getChild(index), depth + 1)
+            }
+            describe(automation.rootInActiveWindow)
+            throw AssertionError("Notification shade action ${context.getString(label)} was not clicked:\n${nodes.joinToString("\n")}", error)
         }
     }
 
@@ -123,6 +152,11 @@ class RuntimeNotificationBoundaryTest {
             assertFalse(posted(row.groupId).hasAction(R.string.reminder_action_snooze))
             assertTrue(posted(row.groupId).hasAction(R.string.reminder_action_taken))
             assertEquals(row.deadlineAtEpochMillis, dao.find(row.groupId)?.deadlineAtEpochMillis)
+            await {
+                findNode(instrumentation.uiAutomation.rootInActiveWindow) {
+                    it.isVisibleToUser && it.text?.toString()?.contains(context.getString(R.string.reminder_snooze_unavailable)) == true
+                } != null
+            }
             val screenshot = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
             java.io.File(context.filesDir, "runtime-notification-feedback.png").outputStream().use {
                 assertTrue(screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it))

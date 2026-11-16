@@ -65,7 +65,7 @@ regressions exercise real SystemUI notification-shade clicks plus saved action P
 and Room, without calling recordAction directly: a newly posted last-window prompt
 shows bilingual feedback and omits Snooze; an earlier notification crosses the
 ten-minute boundary (about2s), rejects old Snooze without an outbox write, refreshes
-feedback and retains both the updated and original Taken action; the test opens the real SystemUI shade, clicks the old Snooze and updated Taken buttons through UiAutomation accessibility, and retains a feedback screenshot; valid Snooze and
+feedback and retains both the updated and original Taken action; the test opens the real SystemUI shade, clicks the old Snooze and updated Taken buttons using observed accessibility-node bounds and injected touch events, and retains a feedback screenshot; valid Snooze and
 duplicate delivery preserve the original deadline and do not repost. A late old
 Snooze after Taken cannot resurrect the terminal prompt. This exercises the actual emulator notification UI and receiver; it is not physical-device or manufacturer-background acceptance.
 
@@ -81,3 +81,5 @@ Actual main6114071 was integrated with original #121 as first parent; the sole
 merge conflict was the review hash manifest, regenerated from both target lists.
 No original contribution was dropped and no reviewed migration was rewritten.
 Read the final revised-head CI/artifact before claiming the new API35 cases passed.
+
+The first API35 shade helper timed out while12/13 cases passed; raw failure is retained. A separate fresh local API37 emulator reproduced the failure with visible action nodes. Walking those actual RemoteViews nodes and injecting touch at their bounds fixed the same case without changing product code or weakening its assertions; that API37 result is supplemental, not API35 acceptance. The final head must pass all13 again and supply its real feedback screenshot.
