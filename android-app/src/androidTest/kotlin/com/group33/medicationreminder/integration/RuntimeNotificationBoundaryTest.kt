@@ -1,0 +1,116 @@
+package com.group33.medicationreminder.integration
+
+import android.Manifest
+import android.app.Notification
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import androidx.test.platform.app.InstrumentationRegistry
+import com.group33.medicationreminder.R
+import com.group33.medicationreminder.core.reminder.*
+import java.util.UUID
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import org.junit.Assert.*
+import org.junit.Before
+import org.junit.Test
+
+/** Real posted notification action PendingIntent -> receiver -> Room; no direct recordAction call. */
+class RuntimeNotificationBoundaryTest {
+    private val instrumentation = InstrumentationRegistry.getInstrumentation()
+    private val context get() = instrumentation.targetContext
+    private val manager get() = context.getSystemService(NotificationManager::class.java)
+    private val dao get() = ReminderDatabase.open(context).reminders()
+
+    @Before fun permission() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            instrumentation.uiAutomation.executeShellCommand(
+                "pm grant ${context.packageName} ${Manifest.permission.POST_NOTIFICATIONS}",
+            ).use { descriptor -> java.io.FileInputStream(descriptor.fileDescriptor).use { it.readBytes() } }
+        }
+    }
+
+    private suspend fun ringing(remaining: Long): ReminderGroupRow {
+        val now = System.currentTimeMillis()
+        val registration = testRegistration("notification-${UUID.randomUUID()}", now + remaining - 7_200_000,
+            state = ReminderState.RINGING)
+        dao.insertTestRegistration(registration)
+        assertTrue(ReminderNotifications.show(context, registration.group))
+        await { manager.activeNotifications.any { it.tag == registration.group.groupId } }
+        return registration.group
+    }
+
+    private fun posted(id: String) = manager.activeNotifications.single { it.tag == id }.notification
+    private fun Notification.action(label: Int) = actions.single { it.title.toString() == context.getString(label) }.actionIntent
+    private fun Notification.hasAction(label: Int) = actions.any { it.title.toString() == context.getString(label) }
+
+    private suspend fun click(action: PendingIntent) {
+        val finished = CompletableDeferred<Unit>()
+        action.send(context, 0, null, { _, _, _, _, _ -> finished.complete(Unit) }, Handler(Looper.getMainLooper()))
+        withTimeout(10_000) { finished.await() }
+    }
+
+    private suspend fun await(condition: suspend () -> Boolean) = withTimeout(7_000) {
+        while (!condition()) delay(50)
+    }
+
+    @Test fun newlyPostedLastWindowNotificationExplainsUnavailableSnoozeAndKeepsTaken() = runBlocking {
+        val row = ringing(599_000)
+        try {
+            val notification = posted(row.groupId)
+            assertEquals(context.getString(R.string.reminder_snooze_unavailable),
+                notification.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
+            assertFalse(notification.hasAction(R.string.reminder_action_snooze))
+            assertTrue(notification.hasAction(R.string.reminder_action_taken))
+            assertEquals(row.deadlineAtEpochMillis, dao.find(row.groupId)?.deadlineAtEpochMillis)
+        } finally { ReminderCoordinator(context).cancel(row.groupId) }
+    }
+
+    @Test fun clickingOldSnoozeAcrossBoundaryShowsFeedbackAndOldTakenStillCommitsOnce() = runBlocking {
+        val row = ringing(602_000)
+        try {
+            val original = posted(row.groupId)
+            val snooze = original.action(R.string.reminder_action_snooze)
+            val taken = original.action(R.string.reminder_action_taken)
+            // Cross only the final ten-minute boundary (about2s), keeping the original deadline unchanged.
+            await { System.currentTimeMillis() >= row.deadlineAtEpochMillis - 600_000 }
+            click(snooze)
+            await { posted(row.groupId).extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ==
+                context.getString(R.string.reminder_snooze_unavailable) }
+            assertEquals(ReminderState.RINGING.name, dao.find(row.groupId)?.state)
+            assertNull(dao.find(row.groupId)?.snoozedUntilEpochMillis)
+            assertTrue(dao.pendingActions().none { it.groupId == row.groupId })
+            assertFalse(posted(row.groupId).hasAction(R.string.reminder_action_snooze))
+            assertTrue(posted(row.groupId).hasAction(R.string.reminder_action_taken))
+            assertEquals(row.deadlineAtEpochMillis, dao.find(row.groupId)?.deadlineAtEpochMillis)
+            click(taken)
+            await { dao.find(row.groupId)?.state == ReminderState.TAKEN.name &&
+                manager.activeNotifications.none { it.tag == row.groupId } }
+            click(snooze) // Late delivery must not resurrect a terminal prompt or action.
+            assertEquals(ReminderState.TAKEN.name, dao.find(row.groupId)?.state)
+            assertTrue(manager.activeNotifications.none { it.tag == row.groupId })
+            assertTrue(dao.pendingActions().none { it.groupId == row.groupId && it.kind == ReminderActionKind.SNOOZE.name })
+        } finally { ReminderCoordinator(context).cancel(row.groupId) }
+    }
+
+    @Test fun clickingValidNotificationSnoozeKeepsOriginalDeadlineAndDuplicateDoesNotRepost() = runBlocking {
+        val row = ringing(1_200_000)
+        try {
+            val snooze = posted(row.groupId).action(R.string.reminder_action_snooze)
+            click(snooze)
+            await { dao.find(row.groupId)?.state == ReminderState.SNOOZED.name &&
+                manager.activeNotifications.none { it.tag == row.groupId } }
+            val until = dao.find(row.groupId)?.snoozedUntilEpochMillis
+            assertNotNull(until)
+            assertEquals(row.deadlineAtEpochMillis, dao.find(row.groupId)?.deadlineAtEpochMillis)
+            click(snooze)
+            assertEquals(until, dao.find(row.groupId)?.snoozedUntilEpochMillis)
+            assertEquals(ReminderState.SNOOZED.name, dao.find(row.groupId)?.state)
+            assertTrue(manager.activeNotifications.none { it.tag == row.groupId })
+        } finally { ReminderCoordinator(context).cancel(row.groupId) }
+    }
+}

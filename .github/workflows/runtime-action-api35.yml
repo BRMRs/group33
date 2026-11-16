@@ -48,10 +48,10 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build the unchanged boundary tests
+      - name: Build runtime and notification boundary tests
         run: ./gradlew :android-app:assembleDebug :android-app:assembleDebugAndroidTest --console=plain --max-workers=2 --no-parallel
 
-      - name: Run ten API35 runtime action regressions
+      - name: Run thirteen API35 runtime and notification regressions
         env:
           EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
         run: python3 scripts/run_runtime_action_api35.py --output "$RUNNER_TEMP/runtime-action-api35"

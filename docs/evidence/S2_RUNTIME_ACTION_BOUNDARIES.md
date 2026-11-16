@@ -56,3 +56,29 @@ API35 evidence is not reassigned to this correction.
 切换环境、安装或账号时，旧动作等待原身份恢复，不串写到新身份，也不提前丢弃。
 距离原两小时截止不足完整十分钟时，不提交无法被现有服务端接受的延后动作；
 已服用和求助仍按原窗口处理。本地补充反例验证不代替 API 35、实机、双端或线上验收。
+
+
+## E notification review follow-up — 2026-11-16
+
+The same original ten regressions remain. Three additional real posted-notification
+regressions exercise its actual action PendingIntent through the BroadcastReceiver
+and Room, without calling recordAction directly: a newly posted last-window prompt
+shows bilingual feedback and omits Snooze; an earlier notification crosses the
+ten-minute boundary (about2s), rejects old Snooze without an outbox write, refreshes
+feedback and retains both the updated and original Taken action; valid Snooze and
+duplicate delivery preserve the original deadline and do not repost. A late old
+Snooze after Taken cannot resurrect the terminal prompt. This dispatches the real
+notification action, not a physical UI tap or manufacturer-background acceptance.
+
+The receiver refreshes a refused Snooze from current durable state. Notification
+rendering removes Snooze when a full10minutes no longer fits, preserves Taken/Help
+until the original deadline, and cancels stale terminal/expired rows. Feedback is
+English/Simplified Chinese. Neither coordinator timing nor SQL/DTOs are changed.
+The API35 runner now requires13 individual successes (original10 + notification3),
+exact head/API/ABI, complete runner summary and source/APK hashes; historical10/10
+evidence remains historical and does not prove these new notification cases.
+
+Actual main6114071 was integrated with original #121 as first parent; the sole
+merge conflict was the review hash manifest, regenerated from both target lists.
+No original contribution was dropped and no reviewed migration was rewritten.
+Read the final revised-head CI/artifact before claiming the new API35 cases passed.

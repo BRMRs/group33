@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the existing ten boundary regressions on one disposable API35 x86_64 AVD.
+"""Run thirteen runtime/notification boundary regressions on one disposable API35 x86_64 AVD.
 
 The real Android app/session/Room code receives fictional injected HTTP replies.
 No real cloud, phone/SMS, physical-device or full two-device acceptance is claimed.
@@ -17,7 +17,9 @@ import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
-TEST_CLASS = 'com.group33.medicationreminder.integration.RuntimeActionBoundaryTest'
+TEST_CLASSES = ('com.group33.medicationreminder.integration.RuntimeActionBoundaryTest',
+                'com.group33.medicationreminder.integration.RuntimeNotificationBoundaryTest')
+TEST_CLASS = ','.join(TEST_CLASSES)
 RUNNER = 'com.group33.medicationreminder.test/androidx.test.runner.AndroidJUnitRunner'
 
 
@@ -31,12 +33,13 @@ def inspect_instrumentation(log):
                 pending[key] = value
         elif line.startswith('INSTRUMENTATION_STATUS_CODE: '):
             code = int(line.rsplit(': ', 1)[1])
-            if code != 1 and pending.get('class') == TEST_CLASS and 'test' in pending:
-                completed.append(dict(test=pending['test'], code=code))
+            if code != 1 and pending.get('class') in TEST_CLASSES and 'test' in pending:
+                completed.append(dict(test=pending['test'], suite=pending['class'], code=code))
             pending = {}
-    passed = (len(completed) == 10 and len({x['test'] for x in completed}) == 10
+    passed = (len(completed) == 13 and len({(x['suite'], x['test']) for x in completed}) == 13
+              and [sum(x['suite'] == suite for x in completed) for suite in TEST_CLASSES] == [10, 3]
               and all(x['code'] == 0 for x in completed)
-              and re.search(r'^OK \(10 tests\)$', log, re.M) is not None
+              and re.search(r'^OK \(13 tests\)$', log, re.M) is not None
               and 'FAILURES!!!' not in log)
     return dict(passed=passed, completed=completed)
 
@@ -65,7 +68,10 @@ def main():
         'android-app/src/androidTest/kotlin/com/group33/medicationreminder/integration/RuntimeActionBoundaryTest.kt',
         'android-app/src/debug/kotlin/com/group33/medicationreminder/integration/DebugDoseReminders.kt',
         'android-app/src/debug/kotlin/com/group33/medicationreminder/integration/DebugChainRepository.kt',
-        'android-app/src/main/kotlin/com/group33/medicationreminder/core/reminder/ReminderCoordinator.kt']
+        'android-app/src/main/kotlin/com/group33/medicationreminder/core/reminder/ReminderCoordinator.kt',
+        'android-app/src/main/kotlin/com/group33/medicationreminder/core/reminder/ReminderNotifications.kt',
+        'android-app/src/main/kotlin/com/group33/medicationreminder/core/reminder/ReminderAlarmReceiver.kt',
+        'android-app/src/androidTest/kotlin/com/group33/medicationreminder/integration/RuntimeNotificationBoundaryTest.kt']
     result['sha256'] = {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in proof_paths}
     avd_root = Path(tempfile.mkdtemp(prefix='group33-api35-', dir=out.parent))
     env = dict(os.environ, ANDROID_AVD_HOME=str(avd_root))
@@ -111,7 +117,7 @@ def main():
             result['adb_exit'] = run.returncode
             result['passed'] = result['passed'] and run.returncode == 0
             if not result['passed']:
-                raise RuntimeError('All ten exact-head API35 regressions must pass')
+                raise RuntimeError('All thirteen exact-head API35 regressions must pass')
     finally:
         if process is not None and process.poll() is None:
             try:

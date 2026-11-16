@@ -28,7 +28,14 @@ internal class ReminderAlarmReceiver : BroadcastReceiver() {
             else -> {
                 val action = ReminderAction.entries.firstOrNull { it.intentAction == intent.action } ?: return
                 val actionId = intent.getStringExtra(EXTRA_ACTION_ID) ?: return
-                coordinator.recordAction(groupId, actionId, action.kind)
+                val recorded = coordinator.recordAction(groupId, actionId, action.kind)
+                if (!recorded && action == ReminderAction.SNOOZE) {
+                    // Refresh an old notification from current durable state, never its captured row.
+                    val current = ReminderDatabase.open(context).reminders().find(groupId)
+                    if (current != null) ReminderNotifications.show(context, current)
+                    else ReminderNotifications.cancel(context, groupId)
+                }
+                recorded
             }
         }
         if (changed) {

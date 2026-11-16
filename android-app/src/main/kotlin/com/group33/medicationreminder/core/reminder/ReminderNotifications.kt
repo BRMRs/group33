@@ -45,6 +45,12 @@ internal object ReminderNotifications {
     }
 
     fun show(context: Context, row: ReminderGroupRow): Boolean {
+        val now = System.currentTimeMillis()
+        if (row.state != ReminderState.RINGING.name || row.deadlineAtEpochMillis <= now) {
+            cancel(context, row.groupId)
+            return false
+        }
+        val canSnooze = row.deadlineAtEpochMillis - now > InitialTiming.snooze.toMillis()
         ensureChannel(context)
         if (!ReminderCapability.snapshot(context).notificationsUsable) return false
         val open = PendingIntent.getActivity(
@@ -56,10 +62,10 @@ internal object ReminderNotifications {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(context.getString(R.string.reminder_notification_title))
-            .setContentText(context.getString(
+            .setContentText(if (!canSnooze) context.getString(R.string.reminder_snooze_unavailable) else context.getString(
                 R.string.reminder_notification_text,
                 row.medicationSummary,
                 row.dosageSummary,
@@ -69,13 +75,20 @@ internal object ReminderNotifications {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setAutoCancel(false)
             .setOngoing(true)
-            .setOnlyAlertOnce(false)
+            .setOnlyAlertOnce(!canSnooze)
             .setSound(defaultSound())
             .setDefaults(NotificationCompat.DEFAULT_VIBRATE)
             .setContentIntent(open)
             .setFullScreenIntent(open, true)
             .addAction(0, context.getString(R.string.reminder_action_taken), action(context, row, ReminderAction.TAKEN))
-            .addAction(0, context.getString(R.string.reminder_action_snooze), action(context, row, ReminderAction.SNOOZE))
+        if (canSnooze) {
+            builder.addAction(0, context.getString(R.string.reminder_action_snooze), action(context, row, ReminderAction.SNOOZE))
+        } else {
+            builder.setStyle(NotificationCompat.BigTextStyle().bigText(
+                context.getString(R.string.reminder_snooze_unavailable_details, row.medicationSummary, row.dosageSummary),
+            ))
+        }
+        val notification = builder
             .addAction(0, context.getString(R.string.reminder_action_help), action(context, row, ReminderAction.HELP))
             .build()
         return try {
