@@ -134,21 +134,31 @@ internal class PostgresManualCopyToolTest {
     private fun invoke(target: Any, method: java.lang.reflect.Method, args: Array<out Any?>?): Any? = try {
         method.invoke(target, *(args ?: emptyArray()))
     } catch (wrapped: java.lang.reflect.InvocationTargetException) { throw wrapped.targetException }
-    private fun copyFixture(failAfter: String? = null) {
+    private var commitBoundaryFaults = 0
+    private fun copyFixture(failAfter: String? = null, disconnectOnCommit: Boolean? = null) {
         val real = target
-        val input = if (failAfter == null) real else object : org.postgresql.ds.PGSimpleDataSource() {
+        val input = if (failAfter == null && disconnectOnCommit == null) real else object : org.postgresql.ds.PGSimpleDataSource() {
             init {
                 setURL(required("S2_PG_INTEGRATION_URL")); user = required("S2_PG_INTEGRATION_USER")
                 password = required("S2_PG_INTEGRATION_PASSWORD"); currentSchema = targetSchema
             }
             override fun getConnection(): java.sql.Connection {
                 val connection = real.connection
+                var copiedRows = false
                 return java.lang.reflect.Proxy.newProxyInstance(javaClass.classLoader,
                     arrayOf(java.sql.Connection::class.java)) { _, method, args ->
+                    if (method.name == "commit" && copiedRows && disconnectOnCommit != null) {
+                        if (disconnectOnCommit) invoke(connection, method, args) // PostgreSQL really commits first.
+                        commitBoundaryFaults++
+                        connection.close() // Before COMMIT this rolls back; after COMMIT it cannot undo rows.
+                        throw SQLException("Fictional lost commit acknowledgement", "08006")
+                    }
                     val value = invoke(connection, method, args)
                     if (method.name != "createStatement") value else java.lang.reflect.Proxy.newProxyInstance(
                         javaClass.classLoader, arrayOf(java.sql.Statement::class.java)) { _, call, values ->
                         val result = invoke(value!!, call, values)
+                        if (call.name == "executeUpdate" && values?.firstOrNull().toString()
+                                .startsWith("INSERT INTO \"$targetSchema\".")) copiedRows = true
                         if (call.name == "executeUpdate" && values?.firstOrNull().toString()
                                 .contains("\"$targetSchema\".\"$failAfter\"")) {
                             throw SQLException("Fictional injected statement failure", "40001")
@@ -198,6 +208,35 @@ internal class PostgresManualCopyToolTest {
         assertEquals("40001", assertThrows(SQLException::class.java) { copyFixture("medication") }.sqlState)
         assertEquals(before, digest(originalSchema)); assertEquals(empty, digest(targetSchema)); assertEquals(applied, history())
         copyFixture(); assertEquals(before, digest(targetSchema))
+    }
+    @ParameterizedTest @ValueSource(booleans = [false, true])
+    fun `same lost commit response can mean rollback or persisted copy and never causes automatic resubmission`(committed: Boolean) {
+        val before = digest(originalSchema); val empty = digest(targetSchema); val applied = history()
+        assertEquals("08006", assertThrows(SQLException::class.java) {
+            copyFixture(disconnectOnCommit = committed)
+        }.sqlState)
+        assertEquals(1, commitBoundaryFaults) // One attempt only, even though its response is unknown.
+        // Each digest opens an independent real connection after the failed connection was closed.
+        assertEquals(before, digest(originalSchema)); assertEquals(applied, history())
+        if (committed) {
+            assertEquals(before, digest(targetSchema))
+            assertThrows(IllegalStateException::class.java) { copyFixture() } // Never overwrite a committed copy.
+        } else {
+            assertEquals(empty, digest(targetSchema))
+            copyFixture() // Explicit recovery only after independently proving the target stayed empty.
+        }
+        restoreObject()
+        val current = runtime()
+        assertEquals(code, assertInstanceOf(CodeIssuanceResult.Issued::class.java,
+            PairingCodeIssuanceService(current.pairing, clock, PairingCodeGenerator { error("Must replay original code") })
+                .issue(elder, codeId)).view)
+        assertEquals(original, assertInstanceOf(PlanConfirmationResult.Confirmed::class.java,
+            ReminderPlanConfirmationService(current.pairing, managedObjects, clock)
+                .confirm(caregiver, elder.id, confirmId, input)).view)
+        assertEquals(edited, assertInstanceOf(PlanMutationResult.Accepted::class.java,
+            ReminderPlanMutationService(current.pairing, clock).update(caregiver, original.plan.id, editId, edit)).view)
+        assertEquals(before, digest(targetSchema)); assertEquals(before, digest(originalSchema))
+        assertEquals(applied, history()); assertEquals(1, commitBoundaryFaults)
     }
     @ParameterizedTest @ValueSource(strings = ["source-table", "source-column", "target-data", "new-target-data"])
     fun `unexpected shape or nonempty target refuses without any overwrite`(kind: String) {

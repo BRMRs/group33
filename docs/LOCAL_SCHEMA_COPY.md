@@ -91,7 +91,16 @@ and the actual packaged launcher: data/receipt replay, rollback after a statemen
 failure, schema/index/trigger/CHECK/history drift, source/target lock conflicts,
 row budget, overwrite refusal, receipt-key failure and separate object recovery.
 The dedicated CI job runs these and the existing schema-migration regressions.
-Test counts/results belong to the exact published head, not to real cloud data.
+Two additional real-PostgreSQL cases inject the **same JDBC08006** at the commit
+boundary: close the transaction before COMMIT, or actually commit in PostgreSQL
+then close the connection before returning to the caller. Independent connections
+prove an empty rolled-back target in the first case and fully persisted original
+rows in the second. The tool does not automatically resubmit either; a committed
+target rejects another copy, and code/plan original receipts replay unchanged.
+This is explicit JDBC-boundary fault injection around real PG work, not a claim
+of cutting real packets or testing a live cloud network. The original mid-copy
+statement-failure case remains separate. A connection error alone never proves
+rollback. Test counts/results belong to the exact published head, not to real cloud data.
 
 S2 owns this administration slice. Non-author persistence/security and lead
 integration review remain required. This does not close #16 or accept phone/V2
