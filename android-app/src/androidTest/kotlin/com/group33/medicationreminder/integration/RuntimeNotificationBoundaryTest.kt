@@ -1,12 +1,14 @@
 package com.group33.medicationreminder.integration
 
 import android.Manifest
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.view.accessibility.AccessibilityNodeInfo
 import androidx.test.platform.app.InstrumentationRegistry
 import com.group33.medicationreminder.R
 import com.group33.medicationreminder.core.reminder.*
@@ -19,7 +21,7 @@ import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 
-/** Real posted notification action PendingIntent -> receiver -> Room; no direct recordAction call. */
+/** Real SystemUI notification clicks and saved PendingIntent replays -> receiver -> Room. */
 class RuntimeNotificationBoundaryTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context get() = instrumentation.targetContext
@@ -54,6 +56,40 @@ class RuntimeNotificationBoundaryTest {
         withTimeout(10_000) { finished.await() }
     }
 
+    private fun shell(command: String) {
+        instrumentation.uiAutomation.executeShellCommand(command).use { descriptor ->
+            java.io.FileInputStream(descriptor.fileDescriptor).use { it.readBytes() }
+        }
+    }
+
+    private suspend fun clickInNotificationShade(label: Int) {
+        shell("input keyevent KEYCODE_WAKEUP")
+        shell("wm dismiss-keyguard")
+        shell("cmd statusbar expand-notifications")
+        val automation = instrumentation.uiAutomation
+        val info = automation.serviceInfo
+        info.flags = info.flags or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
+        automation.serviceInfo = info
+        var expanded = false
+        await {
+            val root = automation.rootInActiveWindow
+            if (root?.packageName?.toString() != "com.android.systemui") return@await false
+            val button = root.findAccessibilityNodeInfosByText(context.getString(label))
+                .firstOrNull { it.text?.toString() == context.getString(label) }
+            if (button != null) {
+                var clickable: AccessibilityNodeInfo? = button
+                while (clickable != null && !clickable.isClickable) clickable = clickable.parent
+                clickable?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true
+            } else {
+                if (!expanded) {
+                    root.findAccessibilityNodeInfosByViewId("com.android.systemui:id/expand_button")
+                        .firstOrNull()?.let { expanded = it.performAction(AccessibilityNodeInfo.ACTION_CLICK) }
+                }
+                false
+            }
+        }
+    }
+
     private suspend fun await(condition: suspend () -> Boolean) = withTimeout(7_000) {
         while (!condition()) delay(50)
     }
@@ -78,7 +114,7 @@ class RuntimeNotificationBoundaryTest {
             val taken = original.action(R.string.reminder_action_taken)
             // Cross only the final ten-minute boundary (about2s), keeping the original deadline unchanged.
             await { System.currentTimeMillis() >= row.deadlineAtEpochMillis - 600_000 }
-            click(snooze)
+            clickInNotificationShade(R.string.reminder_action_snooze)
             await { posted(row.groupId).extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ==
                 context.getString(R.string.reminder_snooze_unavailable) }
             assertEquals(ReminderState.RINGING.name, dao.find(row.groupId)?.state)
@@ -87,14 +123,23 @@ class RuntimeNotificationBoundaryTest {
             assertFalse(posted(row.groupId).hasAction(R.string.reminder_action_snooze))
             assertTrue(posted(row.groupId).hasAction(R.string.reminder_action_taken))
             assertEquals(row.deadlineAtEpochMillis, dao.find(row.groupId)?.deadlineAtEpochMillis)
-            click(taken)
+            val screenshot = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+            java.io.File(context.filesDir, "runtime-notification-feedback.png").outputStream().use {
+                assertTrue(screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it))
+            }
+            screenshot.recycle()
+            clickInNotificationShade(R.string.reminder_action_taken)
             await { dao.find(row.groupId)?.state == ReminderState.TAKEN.name &&
                 manager.activeNotifications.none { it.tag == row.groupId } }
+            click(taken) // The original captured Taken retains the same idempotent identity.
             click(snooze) // Late delivery must not resurrect a terminal prompt or action.
             assertEquals(ReminderState.TAKEN.name, dao.find(row.groupId)?.state)
             assertTrue(manager.activeNotifications.none { it.tag == row.groupId })
             assertTrue(dao.pendingActions().none { it.groupId == row.groupId && it.kind == ReminderActionKind.SNOOZE.name })
-        } finally { ReminderCoordinator(context).cancel(row.groupId) }
+        } finally {
+            ReminderCoordinator(context).cancel(row.groupId)
+            shell("cmd statusbar collapse")
+        }
     }
 
     @Test fun clickingValidNotificationSnoozeKeepsOriginalDeadlineAndDuplicateDoesNotRepost() = runBlocking {

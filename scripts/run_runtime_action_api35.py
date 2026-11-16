@@ -116,6 +116,13 @@ def main():
             result.update(inspect_instrumentation(output))
             result['adb_exit'] = run.returncode
             result['passed'] = result['passed'] and run.returncode == 0
+            screenshot = subprocess.run([str(adb), '-s', serial, 'exec-out', 'run-as',
+                'com.group33.medicationreminder', 'cat', 'files/runtime-notification-feedback.png'],
+                capture_output=True, timeout=20, env=env)
+            if screenshot.returncode != 0 or not screenshot.stdout.startswith(b'\x89PNG\r\n\x1a\n'):
+                raise RuntimeError('Real notification-shade feedback screenshot is missing')
+            (out / 'notification-feedback.png').write_bytes(screenshot.stdout)
+            result['notification_screenshot_sha256'] = hashlib.sha256(screenshot.stdout).hexdigest()
             if not result['passed']:
                 raise RuntimeError('All thirteen exact-head API35 regressions must pass')
     finally:

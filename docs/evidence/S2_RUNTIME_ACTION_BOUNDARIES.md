@@ -61,14 +61,13 @@ API35 evidence is not reassigned to this correction.
 ## E notification review follow-up — 2026-11-16
 
 The same original ten regressions remain. Three additional real posted-notification
-regressions exercise its actual action PendingIntent through the BroadcastReceiver
+regressions exercise real SystemUI notification-shade clicks plus saved action PendingIntent replays through the BroadcastReceiver
 and Room, without calling recordAction directly: a newly posted last-window prompt
 shows bilingual feedback and omits Snooze; an earlier notification crosses the
 ten-minute boundary (about2s), rejects old Snooze without an outbox write, refreshes
-feedback and retains both the updated and original Taken action; valid Snooze and
+feedback and retains both the updated and original Taken action; the test opens the real SystemUI shade, clicks the old Snooze and updated Taken buttons through UiAutomation accessibility, and retains a feedback screenshot; valid Snooze and
 duplicate delivery preserve the original deadline and do not repost. A late old
-Snooze after Taken cannot resurrect the terminal prompt. This dispatches the real
-notification action, not a physical UI tap or manufacturer-background acceptance.
+Snooze after Taken cannot resurrect the terminal prompt. This exercises the actual emulator notification UI and receiver; it is not physical-device or manufacturer-background acceptance.
 
 The receiver refreshes a refused Snooze from current durable state. Notification
 rendering removes Snooze when a full10minutes no longer fits, preserves Taken/Help
