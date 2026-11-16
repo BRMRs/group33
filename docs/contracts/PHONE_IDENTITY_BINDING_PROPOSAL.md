@@ -1,10 +1,10 @@
 # Phone account, installation and business actor binding
 
-**Proposed design for #118 / #49 / #10 / #12 / #16; ready for joint design review, not accepted or implemented.** S2 proposal, updated 2026-11-13. Exact recommendations below require C1/S1 and Server review before production DTO/claim/schema changes. Explicit Elder consent and current care relationships remain mandatory.
+**Proposed design for #118 / #49 / #10 / #12 / #16; ready for joint design review, not accepted or implemented.** S2 proposal, updated 2026-11-16. Exact recommendations below require C1/S1 and Server review before production DTO/claim/schema changes. Explicit Elder consent and current care relationships remain mandatory.
 
 ## 1. Evidence and decisions requested
 
-Current review base: main `61140712193b816980045c52cc7276223731c268`, preserving the existing #117/#91 behavior and current Server-only build/deployment layout. The lead requested synchronization and design review in [#96](https://github.com/BRMRs/group33/pull/96#issuecomment-6686037146); [#118](https://github.com/BRMRs/group33/issues/118) now assigns S2 accountable ownership. Current #88 `66c67de8b11c57e8c7b759d6065aa1ca5929d210` already uses the common S1 session and keeps phone JWTs out of anonymous P0 business authorization. Its actual handoff, team-build document, provider and controller were inspected at that head. Original #94/#97 current-account protections remain separate dependencies, not implied merged implementation. No required reviewer has accepted D1–D4.
+Current review base: main `61140712193b816980045c52cc7276223731c268`, preserving the existing #117/#91 behavior and current Server-only build/deployment layout. The lead requested synchronization and design review in [#96](https://github.com/BRMRs/group33/pull/96#issuecomment-6686037146); [#118](https://github.com/BRMRs/group33/issues/118) now assigns S2 accountable ownership. Current #88 `66c67de8b11c57e8c7b759d6065aa1ca5929d210` already uses the common S1 session and keeps phone JWTs out of anonymous P0 business authorization. Its actual handoff, team-build document, provider and controller were inspected at that head. Original #94/#97 current-account protections remain separate dependencies, not implied merged implementation. C1 reviewed the prior head on2026-11-14 and requested D1 SDK-refresh clarification; D2–D4 comments support the consumer direction without accepting the full proposal. D1–D4 remain PENDING for the required joint decisions.
 
 The [lead requests precise fields/errors](https://github.com/BRMRs/group33/issues/49#issuecomment-6526229077). C1 owns SDK/login/role UI; S1 owns the common private session, installation and HTTP lease; S2 owns current account/session reads, business authorization and migrations. No person's approval is recorded here.
 
@@ -31,7 +31,11 @@ Paths remain under `/api/v1/auth`: `/fusion/token`, `/fusion/verify`, `/phone/re
 
 C1 calls S1 `beginAuthentication()` before asynchronous SDK work and retains that same local attempt through registration. Proposed `POST /fusion/token` body is exactly `{installationId}`. The id is the original S1 per-environment canonical lowercase UUID; the trial currently has no body.
 
-Response200 retains `fusionAuthToken`, `schemeCode`, `expiresInSeconds:900` and adds `authenticationAttemptToken`: Server CSPRNG32-byte base64url capability,43characters without padding. Persist only SHA256, installationId, Server profile, creation/deadline and state. Deadline is900seconds, bounded by provider token validity. A public UUID alone cannot resume/authenticate the attempt. The network adapter retains the capability privately; do not give it to Alibaba or UI/logs.
+Response200 retains `fusionAuthToken`, `schemeCode`, `expiresInSeconds` (at most900, bounded by the verified supplier grant and original remaining attempt lifetime) and adds `authenticationAttemptToken`: Server CSPRNG32-byte base64url capability,43characters without padding. Persist only SHA256, installationId, Server profile, creation/deadline and state. The original deadline is900seconds, bounded by provider token validity and never extended by SDK refresh. A public UUID alone cannot resume/authenticate the attempt. The network adapter retains the capability privately; do not give it to Alibaba or UI/logs.
+
+### Refresh inside that original attempt
+
+See [PHONE_SDK_REFRESH_PROPOSAL.md](PHONE_SDK_REFRESH_PROPOSAL.md) for the exact Start/Refresh forms, original capability/profile/deadline, serialized GRANT/VERIFY work, cancel/switch/late-response fencing, initial→refresh→proof→verify→optional register sequence and RF01–RF09 future acceptance cases. Refresh uses `{installationId, authenticationAttemptToken}` on the same `/fusion/token` path; it reuses the original attempt and never extends900seconds. Bodyless `client.grant()` cannot be retained as the future refresh adapter. These are recommendations awaiting D1 review, not implemented fields.
 
 ### Verify provider proof
 
@@ -80,7 +84,7 @@ Logical columns/constraints only: **no executable SQL or reserved migration numb
 | Record | Required fields/constraints |
 |---|---|
 | `phone_accounts` | Preserve unique phone_hash/user_id, fixed role/display_name, account ids and HMAC key |
-| `phone_auth_attempts` | Random id PK; unique attempt_token_hash; profile, installation_id, creation/expiry, state, lease id/deadline, nullable unique proof fingerprint per provider/profile; consumed outcomes cannot reopen |
+| `phone_auth_attempts` | Random id PK; unique attempt_token_hash; profile, installation_id, creation/expiry, state, work kind/generation and lease id/deadline (including GRANT/VERIFY serialization), nullable unique proof fingerprint per provider/profile; consumed outcomes cannot reopen |
 | `phone_registration_tickets` | Existing hash/phone-HMAC/expiry plus original attempt FK, profile, installation_id; atomic single consumption; no plaintext ticket/phone |
 | `phone_account_installations` | Composite PK(user_id,installation_id), account FK, created/revoked millis; **no global unique owner on installation_id** |
 | `phone_auth_sessions` | Random session_id PK=jti, composite FK to account/installation, issued/expires/revoked millis, fixed auth version/profile; no raw JWT |

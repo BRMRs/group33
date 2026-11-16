@@ -26,7 +26,7 @@ Server/security perspective must actually review their affected boundaries.
 
 | Decision | Existing proposal to accept or modify | Required implementation evidence | Status |
 |---|---|---|---|
-| D1 — original attempt/proof/ticket | Section3: SDK token -> verify -> optional register; original installation and private attempt capability; preserve post-PASS expectedPhone; provider call outside DB transaction, current verification lease/fingerprint, single-use bound ticket. Proposed5/20/30 budgets are not the delivered internal15-second bound. | PB01/PB02: wrong/expired/consumed/foreign attempt and echo, proof replay, late PASS/lease loss/crash, no supplier call under DB lock; real supplier proof-validity bound must be sourced. | PENDING |
+| D1 — original attempt/proof/ticket | Section3 + [SDK refresh clarification](PHONE_SDK_REFRESH_PROPOSAL.md): original token -> same-attempt refresh -> proof -> verify -> optional register; original installation and private attempt capability; preserve post-PASS expectedPhone; provider call outside DB transaction, current verification lease/fingerprint, single-use bound ticket. Proposed5/20/30 budgets are not the delivered internal15-second bound. | PB01/PB02: wrong/expired/consumed/foreign attempt and echo, proof replay, late PASS/lease loss/crash, no supplier call under DB lock; RF01–RF09 add refresh/deadline/cancel/switch/stale-result/lease races; these are future tests, not implemented here. Real supplier proof-validity/association bounds must be sourced. | PENDING |
 | D2 — account/installation/session | Sections4–5: stable account and fixed role; independent installation/current persisted session; typed issuer/audience/profile/version JWT; UUID is a scope label, not device attestation. | PB03–PB05: concurrent tickets converge to one account; signing/commit/current-account failure; invalid crypto/time/profile rejected before DB, current revocation and outage behavior. | PENDING |
 | D3 — current business actor/recovery | Section6: common current principal directory and same-primary-transaction authorization/effect/original receipt; consent/current relationship checks; same-install re-login recovers the original command, another install gets409; receipt is not current state. | PB06–PB08: actual phone through consent/photo/plan, original key after restart/re-login, other install denied, account/relation/session revoke versus write/receipt races. | PENDING |
 | D4 — errors/adoption/LAN | Sections7–8: lease-scoped401, own-role403, private-target404, existing409/503/429 recovery; forward migrations and explicit namespaces; cloud-independent LAN authentication reviewed separately. | PB09–PB11: Keystore/Room/logout/process loss and account/environment changes; real upgrade/collision/partial-schema safety; actual cloud and separate two-device LAN path. | PENDING |
@@ -47,7 +47,7 @@ JWT/signing/hash keys, service-role token or database password into GitHub.
 | Authorized configuration owner and dashboard/team access, variable names/configured status, health/rollback procedure | Not verified; owner grants suitable access and enters secrets only through the controlled service configuration |
 | Provider scheme/profile and proof-validity/replay-retention bound, with supplier documentation or attributable confirmation | Not supplied; SDK token900seconds alone is not proof lifetime |
 | S1 team APK source/hash, same service/policy URL, applicationId and supplier-registered signing-certificate MD5 | Follow existing assemblePhoneTest; actual checked package still required |
-| Supabase project vckbuhcsheghuggssaxi restored/current status and private database/Storage access | Dashboard not readable from this task; pause email/local PG are not restore evidence |
+| Supabase project vckbuhcsheghuggssaxi restored/current status and private database/Storage access | User Resume and subsequent read-only recovery verification were recorded in the [approved #16 summary](https://github.com/BRMRs/group33/issues/16#issuecomment-6850967623); phone-enabled deployment, exact Server revision/routes and final managed adoption remain separate unverified gates |
 
 After affected decisions and service access exist, S2 can implement explicit
 forward migrations/current-identity/actor transaction slices; C1 adapts the
@@ -59,3 +59,7 @@ real supplier/SMS/one-tap and consent-based business/device results separately.
 请分别回复：`D编号；受审head；接受/修改/暂缓；角色/评审人；理由/具体改动；剩余依赖`。
 服务接线另给实际HTTPS服务、版本/路由、配置owner及安全入口、供应商proof有效期来源、
 团队APK版本/摘要。不要在评论中提交密钥或真实个人数据。本表没有替任何人作决定或签署。
+
+## C1 follow-up — 2026-11-16
+
+The2026-11-14 C1 review requested D1 refresh/attempt mapping and supplied D2–D4 consumer recommendations without full approval. [PHONE_SDK_REFRESH_PROPOSAL.md](PHONE_SDK_REFRESH_PROPOSAL.md) now specifies the proposed sequence and future RF01–RF09 cases. All decision rows remain PENDING; S1 and independent Server/security acceptance are still needed.
