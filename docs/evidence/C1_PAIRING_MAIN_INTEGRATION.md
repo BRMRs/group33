@@ -164,3 +164,73 @@ draft history without a force-push. CI must run on the uploaded head. Keep PR #1
 Draft until the recorded Ready criteria are met.
 Required non-author Android review and applicable C1/S2 authorization and E
 accessibility perspectives follow the team roster.
+
+## 2026-11-18 device rerun on integrated head
+
+Tested source: `a1bf4ab2d5ea05e2ed82f266b5a21a4caa14af5a`, incorporating
+main `bbe4997034ecb837d2093f4e73267cc530976f29`. This supersedes the earlier
+statement that the main integration had no device rerun; historical evidence
+above remains historical. No product source changes were needed for this rerun.
+
+The isolated local-only package was `com.group33.medicationreminder.c1dev112`.
+Existing application data and device display/font settings were preserved.
+The local Server used in-memory fictional accounts, not production phone identity
+or PostgreSQL. Its 150 checked tracked build inputs matched the tested head.
+A loopback-only TCP relay and ADB reverse carried unchanged HTTP to WSL.
+
+Build from the existing PR worktree, with JDK17 and Android SDK:
+
+```text
+gradlew.bat -I <local-evidence>/device.init.gradle :android-app:assembleDebug :android-app:assembleDebugAndroidTest -PdebugServerUrl=http://127.0.0.1:18082 --offline --no-daemon --max-workers=1 --no-parallel --console=plain
+```
+
+The local init script sets only the application ID via
+`androidComponents.finalizeDsl`; it is not a product configuration change.
+Both APK builds passed (75 tasks, 26 executed). APK SHA-256:
+`09e6d59ba1964be9a2331a0027e94a4d2f3d8cb70f637bc2687476cf0db53d82`.
+Test APK SHA-256:
+`d654281ab7959181b5bc90a2175985e58b81897d376151bb28dea2442b47e863`.
+Server JAR SHA-256:
+`860d7cd78e349a51d683b2f3a75d34166cb4217706265eef7977ebdfb68e6773`.
+
+| Device | English | Simplified Chinese |
+|---|---|---|
+| API35 emulator | PASS | PASS |
+| Xiaomi Mi Pad 4 Plus, API27 | PASS | PASS |
+
+Each run executes `PairingFormOnlineTest` with `pairing112=true`: submit through
+Settings, observe PENDING with no active relationship for the target Elder,
+cancel, issue a new code, resubmit, accept via the fictional Elder HTTP actor,
+and refresh until the active relationship reaches the repository cache.
+Language is configured with `ChainOnlineFlowTest#configureLanguage`, using
+`chainLanguage=en` or `zh-CN`; actual preferences/app locale and visible language
+were checked. Four feature flows passed; language setup is not counted as extra
+feature coverage. Inputs/clicks in these runs are instrumentation operations.
+
+The first external harness used incorrect language arguments, so its purported
+Chinese result remained English and is excluded from bilingual evidence.
+Subsequent harness checks also initially assumed the runner left Settings open
+and required an offscreen label. The harness was corrected to reopen Settings
+and verify the visible language control. Final flows were rerun successfully;
+product source and product test assertions were unchanged. Raw attempts remain
+in local evidence; they are not represented as clean first-attempt success.
+
+![English device flow](c1-pairing-main/en-rerun-api27-20261118.png)
+![Chinese device flow](c1-pairing-main/zh-rerun-api27-20261118.png)
+
+The member confirmed focused-input keyboard visibility, short-code validation,
+scrolling to submit and English/Chinese display. The member then manually entered
+and sent a fresh eight-digit code. The page showed Request sent; the local Server
+confirmed PENDING and an empty relationship list for that Elder. After explicit
+HTTP acceptance by the fictional Elder, the member refreshed. Device inspection
+showed Request 7: Approved by Elder and Choose Manual Pairing Elder; the Server
+acceptance receipt was ACTIVE.
+
+![Manual request after refresh](c1-pairing-main/manual-approved-api27-20261118.png)
+![Manual target relationship](c1-pairing-main/manual-relationship-api27-20261118.png)
+
+These checks do not complete both actors' normal UI flow, all keyboard/Back
+cases, 200% font/TalkBack, device fault injection, phone login, cloud/PostgreSQL,
+or the joint photo/plan flow. Existing same-head Linux CI and previous unit/lint
+results are referenced, not claimed as rerun here. Overall #10 remains open;
+mandatory non-author and specialized reviews remain required.
