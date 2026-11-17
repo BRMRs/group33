@@ -44,7 +44,7 @@ Windows/JDK 17. Commands used `--offline --max-workers=1 --no-parallel --no-daem
 
 Targeted tests passed 11/11. Android Debug and Release each passed 135 tests; lint reported 0 errors/28 warnings and Debug APK assembly passed. Shared's 18-test result was FROM-CACHE. The full-repository command exited 1: unchanged Server tests reported 310 failures out of 627, including unsupported Windows `posix:permissions` and dependent Spring initialization errors. A pristine-main targeted persistence test reproduced the POSIX limitation; this does not establish the cause of every Server failure. Whole-repository checks are not green.
 
-The separate #124 combination passed 191 Debug JVM tests and assembled app/test APKs using isolated applicationId `com.group33.medicationreminder.c1review124`. Combined device results:
+The separate #124 combination passed 191 Debug JVM tests and assembled app/test APKs using isolated applicationId `com.group33.medicationreminder.c1review124`. Earlier combined device results (before the paired original comparison):
 
 | Environment | Result | Unresolved observations |
 |---|---|---|
@@ -55,6 +55,6 @@ The separate #124 combination passed 191 Debug JVM tests and assembled app/test 
 
 All three new date integration checks and four C1 navigation checks passed in each full combined run. No assertion was weakened. The [manual trial record](../evidence/c1-feedback-date/LOCAL_ACCEPTANCE.md) records the user's provisional feedback with its limits.
 
-[C3 requested exact combination inputs and pristine comparison](https://github.com/BRMRs/group33/issues/15#issuecomment-6922291973). The patch identifies the source delta; device APK hashes, settings and raw logs must accompany any later failure handoff. **Pristine #124 on the same devices/settings has not yet been run for this comparison.** Failures cannot currently be attributed to original #124, the adapter or test construction. Historical CI or another device is not a substitute. This comparison can proceed independently of the date-source decision.
+[C3 requested exact combination inputs and pristine comparison](https://github.com/BRMRs/group33/issues/15#issuecomment-6922291973). The [2026-11-17 paired comparison](../evidence/c1-feedback-date/124_BASELINE_COMPARISON.md) now records exact source/APK hashes, matching device conditions, singles and related groups for pristine #124 and the candidate. Both target failures reproduce on the original. The new combined API35 group additionally timed out on date-side dragging; two isolated reruns per variant passed, leaving that group difference unresolved. No original-code defect cause, green full regression or human approval is inferred. Raw APKs/logs remain local for a separately authorized handoff.
 
 [C3's separate proposed denied-event-read tests](https://github.com/BRMRs/group33/issues/15#issuecomment-6923493529) request C1 context/authorization-recovery review and S1 Repository/Room review. They do not authorize a new date or identity protocol. Their implementation and human review are outside this partial delivery.
