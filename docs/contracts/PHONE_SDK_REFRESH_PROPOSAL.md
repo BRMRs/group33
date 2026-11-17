@@ -14,7 +14,7 @@ ApplicationId is confirmed as com.group33.medicationreminder; reuse assemblePhon
 
 **S1/lead D1 accepted with modifications; independent Server/security approval and implementation pending.** Refs #96 / #118, C1 review of
 `9aac7ecbd884f765da748327c4dbe4dd7943b603` on2026-11-14. This answers the refresh
-question; it does not record C1/S1/Server acceptance. Existing #88 currently calls
+question; the attributable S1/lead decision above now records its role acceptance; C1 final and independent Server/security approval remain pending. Existing #88 currently calls
 `client.grant()` initially and every four minutes, keeping only its token for the
 SDK refresh callback. That unchanged trial adapter cannot consume the proposed
 attempt binding merely by replacing a token string.
@@ -134,7 +134,7 @@ implementation settings, not accepted refresh/deadline or supplier guarantees.
 | Original attempt900s | Fixed original Server deadline, never renewed by SDK refresh; still proposed |
 | SDK grant TTL | Supplier/configuration fact, capped by original remaining attempt time; not proof lifetime |
 | Supplier proof validity/replay retention | Requires supplier evidence; do not derive from900s or a token refresh |
-| Work lease and upstream bounds | Server concurrency/fencing only; proposed5/20/30 verification values are separate from #97's delivered internal15s bound |
+| Work lease and upstream bounds | Server concurrency/fencing only; use #97's delivered internal15s total call bound; lease must be shorter than original attempt remaining time |
 | Registration ticket300s | Starts when that single-use bound ticket is committed, separate from SDK token and consumed attempt |
 | Signed phone-session lifetime | Existing configured auth lifetime after completion; SDK grant refresh never refreshes this JWT |
 
@@ -155,7 +155,7 @@ implementation settings, not accepted refresh/deadline or supplier guarantees.
 RF01–RF09 refine PB01/PB02/PB09; they are not passing runtime tests in this
 proposal-only PR. Preserve #88 shared-session/expectedPhone and #94/#97 guards.
 No production endpoint, DTO, SQL, SDK adapter, provider call, SMS or deployment is
-changed here. D1 remains PENDING until C1/S1 and independent Server/security review
+changed here. D1 now has recorded S1/lead acceptance with modifications; C1 final and independent Server/security review
 record accept/modify/defer on the revised head.
 
 中文：SDK刷新复用原认证请求及其私有凭证、安装和固定截止，不另开登录、不续期；
