@@ -21,7 +21,7 @@ public final class ManualSchemaCopy {
     private static final Set<String> TARGET;
     static {
         var names = new TreeSet<>(LEGACY);
-        names.addAll(List.of("occurrence_registration_operation", "registered_occurrence", "group33_schema_history"));
+        names.addAll(List.of("occurrence_registration_operation", "registered_occurrence", "dose_group_operation", "recorded_dose_event", "group33_schema_history"));
         TARGET = Collections.unmodifiableSet(names);
     }
     private static final String HISTORY = "group33_schema_history";

@@ -121,7 +121,7 @@ internal class PostgresManualCopyToolTest {
             MedicationText("虚构编辑药品", "虚构新用量", null))
         edited = assertInstanceOf(PlanMutationResult.Accepted::class.java,
             ReminderPlanMutationService(old, clock).update(caregiver, original.plan.id, editId, edit)).view
-        assertEquals(9, SchemaMigrations(target, targetSchema).migrate())
+        assertEquals(SchemaMigrations.VERSION.toInt(), SchemaMigrations(target, targetSchema).migrate())
         sourceReference = ManualSchemaCopy.inspect(target, originalSchema, false)
         targetReference = ManualSchemaCopy.inspect(target, targetSchema, true)
     }

@@ -9,9 +9,9 @@ the operator class, launcher and catalog queries stay outside the application JA
 
 Copy the 18 legacy V1–V8 prototype tables from one **already restored loopback**
 schema to a different, freshly migrated, empty schema in the same local database.
-This delivery is based on main `6114071` and its actual V1–V9 migration sequence.
+Updated on main `bbe4997` and its actual V1–V10 migration sequence. Dose V10 target tables are explicitly part of the reviewed target set and must remain empty; this tool copies only the original18 legacy tables.
 Existing migrations are immutable. The supported target relation set must be
-reviewed with any later schema change; this tool does not reserve V10/V11 or
+reviewed with any later schema change; this tool does not reserve V11 or
 silently accept a future release. The separate #116 then #102 order is unchanged.
 
 This is a **local recovery rehearsal operator**, not a remote/cloud adoption or
@@ -109,3 +109,7 @@ contracts, an actual cloud migration, production cleanup, or two-device/LAN work
 中文：本命令只用于已有备份在本机恢复后的受控复制，先独立审查目录参考、停止写入及
 特权DDL，再复制到匹配版本的空目标。失败保留两侧并检查最终状态；不会连接或修改云库，
 不会迁移、清理照片或自动切换服务。真实云升级与完整双端验收仍按原流程另审。
+
+## 2026-11-17 main integration
+
+Merged main without rewriting branch history. The first32-case run found20 setup failures because the fixture expected9 migrations; updated that release expectation and explicitly reviewed the two empty dose V10 target tables in the allowlist. V1–V10 SQL and application code stay unchanged. Source scope, loopback-only connection, catalog/history pinning, all-target-empty check, locks, transaction rollback and unknown-commit single-attempt boundaries are preserved. Original failure logs retained; final results are reported on the PR.

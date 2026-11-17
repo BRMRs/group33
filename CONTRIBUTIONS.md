@@ -75,3 +75,7 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 2026-11-07 - tianiridescent / C1, Refs #19: shared-login keyboard viewport correction from current main, preserving existing authentication boundaries. Real API35 320/360dp 200% English/Chinese keyboard tests cover SMS/password/reset submission and return; the baseline password counterexamples fail before the correction. [Scope and evidence](docs/evidence/C1_LOGIN_KEYBOARD_INSETS.md). API27 physical-tablet bilingual compatibility also passed (24 total device cases). Local candidate; publication and non-author review remain separate.
 
 | 2026-11-17 | XinyanXue — S2 (agent-assisted) | #16 independent recovery fault coverage | [PR #128](https://github.com/BRMRs/group33/pull/128) | Add two real-PG commit-boundary connection-loss cases: same client SQL08006, either rollback or persisted target, independent readback, no automatic copy retry/overwrite and original receipt replay. JDBC fault injection, no real-network/cloud claim. | Production/admin command, SQL, dependencies and wire unchanged; qualified non-author review remains required. |
+
+### 2026-11-17 — XinyanXue / S2 — #128 current-main integration
+
+Resolve checksum conflict; preserve main dose V10, explicitly require both new target tables empty, and update migration-count fixture. Original source/loopback/rollback/unknown-COMMIT boundaries retained; full and realPG checks rerun.
