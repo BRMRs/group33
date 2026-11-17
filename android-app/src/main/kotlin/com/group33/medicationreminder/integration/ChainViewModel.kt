@@ -48,7 +48,7 @@ internal class ChainViewModel(private val services: ChainServices,
     private val featureStore = ViewModelStore()
     private val featureProvider = ViewModelProvider(featureStore, ViewModelProvider.NewInstanceFactory())
     private var target: Target? = null
-    private var lastCaregiverTarget: Target? = null
+    private val caregiverTargets = mutableMapOf<String, Target>()
     private var features: Features? = null
     private var collection: Job? = null
     private var refreshJob: Job? = null
@@ -69,7 +69,7 @@ internal class ChainViewModel(private val services: ChainServices,
                 if (nextAccount != account) {
                     account = nextAccount; selected.value = null; collection?.cancel(); photoJob?.cancel()
                     actionJob?.cancel()
-                    lastCaregiverTarget = null
+                    caregiverTargets.clear()
                     bindFeatures(null)
                     mutable.update {
                         ChainUi(session = session, signOut = if (trusted == null) it.signOut else SignOutStatus.IDLE)
@@ -260,11 +260,11 @@ internal class ChainViewModel(private val services: ChainServices,
     }
     private fun bindFeatures(next: Target?) {
         if (target == next) return
-        val previous = target ?: lastCaregiverTarget
+        val previous = next?.elderId?.let(caregiverTargets::get)
         collection?.cancel(); refreshJob?.cancel(); photoJob?.cancel()
         features?.photos?.clearContext(); features?.browser?.clearContext()
         target = next; features = null; decodedContent = null
-        if (next?.caregiver != null) lastCaregiverTarget = next
+        if (next?.caregiver != null) caregiverTargets[next.elderId] = next
         mutable.update { it.copy(photo = CaregiverPhotoState(), browser = PlanBrowserState(),
             viewed = null, photoDecodeFailed = false, editorPhotoId = null) }
         if (next == null) return
