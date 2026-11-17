@@ -2,6 +2,10 @@
 
 Date: 2026-11-13 (Asia/Shanghai). Refs #19; C3 report on #124.
 
+The original reproduction and results below are historical. The 2026-11-17
+current-main verification is recorded separately at the end of this document;
+older APK hashes and CI results do not describe the updated branch.
+
 ## Affected sources and cause
 
 The reported test and locale code are already in `main` through PR #110
@@ -141,3 +145,63 @@ phone-authentication or complete bilingual end-to-end acceptance is claimed by
 these device runs. C3 can apply this focused test correction without changing the
 feature implementation or relaxing the failed assertion. Formal review remains
 with the assigned people.
+
+## 2026-11-17 current-main verification
+
+Following the [maintainer's requested update](https://github.com/BRMRs/group33/pull/127),
+the existing branch was merged locally with main
+`bbe4997034ecb837d2093f4e73267cc530976f29`. The old PR head `fc18993` remains
+in ancestry; no reviewed history was rewritten. The merge had no source conflict.
+`CaregiverNavigationUiTest.kt` is byte-identical to that reviewed correction.
+Relative to the new main, the PR still changes only the navigation test,
+contribution record, this evidence and their artifact hashes. Production locale,
+UI, identity, Shared and Server code have no additional PR changes.
+
+Actual commands on Windows/JDK 17, with `--offline --max-workers=1 --no-parallel --no-daemon`:
+
+```powershell
+.\gradlew.bat gate1Check test :android-app:lintDebug :android-app:assembleDebug :android-app:assembleDebugAndroidTest --continue
+```
+
+Android Debug 130/130, Android Release 129/129 and Shared 18/18 tests passed with
+zero failures/errors/skips. These task executions were not marked FROM-CACHE.
+Lint reported 0 errors/41 warnings; app/test APKs, Server bootJar and schemaMigrationDist
+built. The combined command exited 1 because Server reported 311 failures out of
+628 tests, including Windows POSIX-permission failures and dependent initialization
+errors. No Server test or assertion was modified, skipped or counted as green.
+The updated head's Linux CI remains pending publication; the historical `fc18993`
+CI result above does not satisfy final-head validation.
+
+API35 device validation used the existing AVD in a disposable
+`-read-only -no-snapshot -no-window` runtime on port 5560, after the build finished.
+The app used its standard applicationId `com.group33.medicationreminder` only in
+that disposable emulator. Before each invocation, fictional preferences were set
+to the named starting choice and the API35 framework locale was explicitly set
+and read back (`zh-CN` / `en`) with `cmd locale`. The test then had to reset its
+own initial locale through the unchanged production helper. Window focus was
+sampled during each invocation.
+
+| Starting condition | Actual result |
+|---|---|
+| Saved Chinese preference and framework locale | Navigation 4/4 passed |
+| Saved English preference and framework locale | Navigation 4 + shared login 2 + language persistence 1 = 7/7 passed |
+
+These are seven distinct methods and eleven successful API35 executions, with
+zero failures/skips. The emulator was closed without saving its disposable state.
+An earlier cold boot showed an unrelated system-app ANR before testing; it was
+stopped and was not recorded as a test result.
+
+API35 APK SHA-256:
+
+- app: `993989fcc5b087990cd788c44cecfe0f8998ee60b3f2cb6f5bb237f2fe6e7b46`
+- test: `313e25b75935296e9d504c18ceb0dfacb688c1a3810db1b36b861224263e452e`
+
+API27 tablet compatibility is pending restoration of the USB debugging channel.
+The isolated applicationId `com.group33.medicationreminder.c1review127` was built
+successfully for that check; no physical-device pass is inferred from emulator
+results or from APK assembly.
+
+Exact commands, source inventory, APKs, window samples and raw local reports are
+retained under `.git/c1-local-recovery-20261117/pr127-sync/`; they are not committed.
+This check does not approve C3 #124, complete #15, validate a phone service or
+replace final-head CI and the maintainer's renewed review.
