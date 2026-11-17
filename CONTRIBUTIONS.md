@@ -20,6 +20,7 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 
 
 2026-10-22：负责人已确认的产品规则、初版参数及六人分工随文档PR #25统一；独立S1代码在[PR #37](https://github.com/BRMRs/group33/pull/37)，不计入本PR的代码贡献。各人正式review/同版签署仍待完成。
+| 2 | Iris-wly (C2), agent-assisted | [#53](https://github.com/BRMRs/group33/issues/53), edit conflict and command consumer | feature/53-c2-edit-conflict | [Evidence](docs/evidence/C2_EDIT_CONFLICT.md), 17 JVM cases, lint/build | Partial; production integration and device acceptance pending |
 
 2026-10-25 C2: addressed the [S2 whitespace-instructions finding](https://github.com/BRMRs/group33/pull/43#issuecomment-6382169123). Both new regressions failed before the fix and passed afterward (19 targeted methods). Only empty editor text maps to null; non-empty text is preserved exactly so corrected rejected requests receive a new intent. Full `gate1Check test` passed (19 executed / 73 up-to-date, Shared/Server tests up-to-date); no UI, real-adapter or device acceptance claimed. Local verification precedes commit/remote CI and renewed review.
 
