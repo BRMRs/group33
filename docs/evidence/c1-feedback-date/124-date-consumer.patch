@@ -1,0 +1,333 @@
+diff --git a/android-app/src/main/kotlin/com/group33/medicationreminder/integration/CaregiverFeedbackRangeInput.kt b/android-app/src/main/kotlin/com/group33/medicationreminder/integration/CaregiverFeedbackRangeInput.kt
+new file mode 100644
+--- /dev/null
++++ b/android-app/src/main/kotlin/com/group33/medicationreminder/integration/CaregiverFeedbackRangeInput.kt
+@@ -0,0 +1,37 @@
++package com.group33.medicationreminder.integration
++
++import com.group33.medicationreminder.caregiver.CaregiverHistoryViewModel
++import com.group33.medicationreminder.core.data.contract.CaregiverElderContext
++import com.group33.medicationreminder.core.data.contract.LocalDateRange
++import java.time.LocalDate
++
++/** Local input captured by the future agreed date owner, not a wire DTO or an identity claim. */
++internal class CaregiverFeedbackDate(
++    val context: CaregiverElderContext,
++    val today: LocalDate,
++) {
++    override fun toString(): String = "CaregiverFeedbackDate(redacted)"
++}
++
++/**
++ * C1 consumption adapter for an explicitly supplied date. It does not select a time zone,
++ * consult the device clock, infer a date from plans, or cache a previous Elder's range.
++ * Production wiring awaits the date-source decision in #15; null means unavailable.
++ * Call on the host's serialized context thread, as with the existing renderer.
++ */
++internal class CaregiverFeedbackRangeInput(
++    private val currentContext: () -> CaregiverElderContext?,
++    private val readDate: () -> CaregiverFeedbackDate?,
++) {
++    fun resolve(requestedContext: CaregiverElderContext): LocalDateRange? {
++        if (!isCurrent(requestedContext)) return null
++        val date = readDate() ?: return null
++        if (!date.context.isCurrentFor(requestedContext)) return null
++        val range = CaregiverHistoryViewModel.defaultRange(date.today)
++        // A callback may synchronously invalidate/switch context while supplying the date.
++        return range.takeIf { isCurrent(requestedContext) }
++    }
++
++    private fun isCurrent(expected: CaregiverElderContext): Boolean =
++        currentContext()?.let(expected::isCurrentFor) == true
++}
+diff --git a/android-app/src/test/kotlin/com/group33/medicationreminder/integration/CaregiverFeedbackRangeInputTest.kt b/android-app/src/test/kotlin/com/group33/medicationreminder/integration/CaregiverFeedbackRangeInputTest.kt
+new file mode 100644
+--- /dev/null
++++ b/android-app/src/test/kotlin/com/group33/medicationreminder/integration/CaregiverFeedbackRangeInputTest.kt
+@@ -0,0 +1,112 @@
++package com.group33.medicationreminder.integration
++
++import com.group33.medicationreminder.core.data.contract.CaregiverElderContext
++import com.group33.medicationreminder.core.data.contract.LocalDateRange
++import com.group33.medicationreminder.core.data.contract.RepositoryScope
++import java.time.LocalDate
++import java.time.temporal.ChronoUnit
++import org.junit.Assert.*
++import org.junit.Test
++
++class CaregiverFeedbackRangeInputTest {
++    private val scope = RepositoryScope("fixture", "installation-a", "caregiver-a")
++    private val context = CaregiverElderContext(scope, 1, "relationship-a", "elder-a", "Fixture Elder")
++    private val today = LocalDate.parse("2026-11-16")
++
++    @Test fun `uses the supplied today and existing inclusive thirty date rule`() {
++        val input = CaregiverFeedbackRangeInput({ context }) { CaregiverFeedbackDate(context, today) }
++        assertEquals(LocalDateRange("2026-10-18", "2026-11-16"), input.resolve(context))
++    }
++
++    @Test fun `month year and leap day boundaries retain exactly thirty dates`() {
++        for (date in listOf("2026-01-01", "2024-03-01", "2026-03-01")) {
++            val supplied = LocalDate.parse(date)
++            val input = CaregiverFeedbackRangeInput({ context }) { CaregiverFeedbackDate(context, supplied) }
++            val range = requireNotNull(input.resolve(context))
++            assertEquals(date, range.throughDate)
++            assertEquals(30L, ChronoUnit.DAYS.between(LocalDate.parse(range.fromDate), supplied) + 1)
++        }
++    }
++
++    @Test fun `missing date never falls back to device or previous date`() {
++        var date: CaregiverFeedbackDate? = CaregiverFeedbackDate(context, today)
++        val input = CaregiverFeedbackRangeInput({ context }) { date }
++        assertNotNull(input.resolve(context))
++        date = null
++        assertNull(input.resolve(context))
++    }
++
++    @Test fun `signed out context does not read a private date`() {
++        var calls = 0
++        val input = CaregiverFeedbackRangeInput({ null }) { calls++; CaregiverFeedbackDate(context, today) }
++        assertNull(input.resolve(context))
++        assertEquals(0, calls)
++    }
++
++    @Test fun `stale caller is rejected before consulting the date owner`() {
++        var calls = 0
++        val input = CaregiverFeedbackRangeInput({ context.copy(sessionGeneration = 2) }) {
++            calls++; CaregiverFeedbackDate(context, today)
++        }
++        assertNull(input.resolve(context))
++        assertEquals(0, calls)
++    }
++
++    @Test fun `date from another environment installation user session relationship or elder is rejected`() {
++        val otherContexts = listOf(
++            context.copy(scope = scope.copy(environmentId = "other")),
++            context.copy(scope = scope.copy(installationId = "installation-b")),
++            context.copy(scope = scope.copy(userId = "caregiver-b")),
++            context.copy(sessionGeneration = 2),
++            context.copy(relationshipId = "relationship-b"),
++            context.copy(elderId = "elder-b"),
++        )
++        for (other in otherContexts) {
++            val input = CaregiverFeedbackRangeInput({ context }) { CaregiverFeedbackDate(other, today) }
++            assertNull(input.resolve(context))
++        }
++    }
++
++    @Test fun `context loss while resolving discards the captured date`() {
++        var active: CaregiverElderContext? = context
++        val input = CaregiverFeedbackRangeInput({ active }) {
++            active = null
++            CaregiverFeedbackDate(context, today)
++        }
++        assertNull(input.resolve(context))
++    }
++
++    @Test fun `switch while resolving cannot expose the previous elders range`() {
++        var active = context
++        val input = CaregiverFeedbackRangeInput({ active }) {
++            active = context.copy(elderId = "elder-b", relationshipId = "relationship-b")
++            CaregiverFeedbackDate(context, today)
++        }
++        assertNull(input.resolve(context))
++    }
++
++    @Test fun `same account restored session requires a newly scoped date`() {
++        var active = context
++        var date = CaregiverFeedbackDate(context, today)
++        val input = CaregiverFeedbackRangeInput({ active }) { date }
++        assertNotNull(input.resolve(context))
++        active = context.copy(sessionGeneration = 2)
++        assertNull(input.resolve(active))
++        date = CaregiverFeedbackDate(active, today.plusDays(1))
++        assertEquals("2026-11-17", input.resolve(active)?.throughDate)
++    }
++
++    @Test fun `new input date is read without retaining the previous range`() {
++        var date = CaregiverFeedbackDate(context, today)
++        val input = CaregiverFeedbackRangeInput({ context }) { date }
++        assertEquals("2026-11-16", input.resolve(context)?.throughDate)
++        date = CaregiverFeedbackDate(context, today.plusDays(1))
++        assertEquals("2026-11-17", input.resolve(context)?.throughDate)
++    }
++
++    @Test fun `display name update does not change the authorization context`() {
++        val renamed = context.copy(elderDisplayName = "Updated fixture name")
++        val input = CaregiverFeedbackRangeInput({ renamed }) { CaregiverFeedbackDate(context, today) }
++        assertNotNull(input.resolve(renamed))
++    }
++}
+diff --git a/android-app/src/androidTest/kotlin/com/group33/medicationreminder/integration/CaregiverFeedbackEntryTest.kt b/android-app/src/androidTest/kotlin/com/group33/medicationreminder/integration/CaregiverFeedbackEntryTest.kt
+index 2c5ef10..139b6b9 100644
+--- a/android-app/src/androidTest/kotlin/com/group33/medicationreminder/integration/CaregiverFeedbackEntryTest.kt
++++ b/android-app/src/androidTest/kotlin/com/group33/medicationreminder/integration/CaregiverFeedbackEntryTest.kt
+@@ -419,12 +419,86 @@ class CaregiverFeedbackEntryTest {
+         assertTrue("Touch scrolling must reach the last history record through the shared parent", reached)
+     }
+
++
++    @Test fun dateUnavailableKeepsFallbackUntilExplicitHostRebind() = withEntry(initialDateAvailable = false) { h ->
++        var fallbackQueries = emptyList<Pair<String, LocalDateRange>>()
++        h.await { findText(h.root, instrumentation.targetContext.getString(R.string.dose_records_overview)) != null }
++        h.act {
++            assertNull(find(h.root, CaregiverOverviewHost::class.java))
++            h.content.show(CaregiverDestination.RECORDS)
++        }
++        h.act {
++            assertNull(find(h.root, CaregiverHistoryHost::class.java))
++            assertEquals(View.VISIBLE, h.root.findViewById<View>(R.id.caregiver_scroll).visibility)
++            assertEquals(View.GONE, h.root.findViewById<View>(R.id.caregiver_records_content).visibility)
++            fallbackQueries = h.fixture.historyQueries.toList()
++            assertLegacyFallbackQueries(fallbackQueries)
++            h.suppliedToday = java.time.LocalDate.parse("2026-10-30")
++            h.content.show(CaregiverDestination.RECORDS)
++        }
++        h.await { find(h.root, CaregiverHistoryHost::class.java) != null }
++        h.await { h.fixture.historyQueries.size == fallbackQueries.size + 1 }
++        h.act { assertEquals(fallbackQueries + ("elder" to dates), h.fixture.historyQueries) }
++    }
++
++    @Test fun restoredSessionRejectsOldDateBeforeMountingHistory() = withEntry { h ->
++        var fallbackQueries = emptyList<Pair<String, LocalDateRange>>()
++        h.await { find(h.root, CaregiverOverviewHost::class.java) != null }
++        h.act {
++            h.content.show(CaregiverDestination.SETTINGS)
++            h.dateContextOverride = CaregiverElderContext(h.fixture.scope, 1, "relationship", "elder", "Fixture elder")
++            h.fixture.trusted.value = TrustedSessionContext(h.fixture.scope, 2)
++        }
++        h.await { (h.model.state.value.context as? CaregiverContextState.Active)?.context?.sessionGeneration == 2L }
++        h.act { h.content.show(CaregiverDestination.RECORDS) }
++        h.act {
++            assertNull(find(h.root, CaregiverHistoryHost::class.java))
++            assertEquals(View.VISIBLE, h.root.findViewById<View>(R.id.caregiver_scroll).visibility)
++            fallbackQueries = h.fixture.historyQueries.toList()
++            assertLegacyFallbackQueries(fallbackQueries)
++            h.dateContextOverride = null
++            h.content.show(CaregiverDestination.RECORDS)
++        }
++        h.await { find(h.root, CaregiverHistoryHost::class.java) != null }
++        h.await { h.fixture.historyQueries.size == fallbackQueries.size + 1 }
++        h.act { assertEquals(fallbackQueries + ("elder" to dates), h.fixture.historyQueries) }
++    }
++
++    @Test fun reentryWithoutDateDoesNotReuseThePreviousRange() = withEntry { h ->
++        h.await { find(h.root, CaregiverOverviewHost::class.java) != null }
++        h.act {
++            h.content.show(CaregiverDestination.SETTINGS)
++            h.suppliedToday = null
++            h.content.show(CaregiverDestination.RECORDS)
++        }
++        h.act {
++            assertNull(find(h.root, CaregiverOverviewHost::class.java))
++            assertNull(find(h.root, CaregiverHistoryHost::class.java))
++            assertLegacyFallbackQueries(h.fixture.historyQueries)
++            assertEquals(View.GONE, h.root.findViewById<View>(R.id.caregiver_records_content).visibility)
++        }
++    }
++
++    private fun assertLegacyFallbackQueries(queries: List<Pair<String, LocalDateRange>>) {
++        // Compatibility fallback still uses its existing 31-date query. It must not be mistaken
++        // for the newly supplied, authoritative 30-date range or silently removed by this patch.
++        assertTrue(queries.isNotEmpty())
++        for ((elder, range) in queries) {
++            assertEquals("elder", elder)
++            assertNotEquals(dates, range)
++            assertEquals(31L, java.time.temporal.ChronoUnit.DAYS.between(
++                java.time.LocalDate.parse(range.fromDate), java.time.LocalDate.parse(range.throughDate)) + 1)
++        }
++    }
++
+     private fun withEntry(explicitDates: Boolean = true, eventRows: List<DoseEventState> = emptyList(),
+-        language: String? = null, fontScale: Float? = null, widthDp: Int? = null, block: (Harness) -> Unit) {
++        language: String? = null, fontScale: Float? = null, widthDp: Int? = null,
++        initialDateAvailable: Boolean = true, block: (Harness) -> Unit) {
+         ActivityScenario.launch<CaregiverHistoryTestActivity>(
+             Intent(instrumentation.targetContext, CaregiverHistoryTestActivity::class.java),
+         ).use { scenario ->
+             val h = Harness(scenario, eventRows)
++            if (!initialDateAvailable) h.suppliedToday = null
+             var original: android.content.res.Configuration? = null
+             h.act { activity ->
+                 if (language != null || fontScale != null) {
+@@ -448,11 +522,18 @@ class CaregiverFeedbackEntryTest {
+                     widthDp?.let { (it * density).toInt() } ?: -1, if (widthDp == null) -1 else (480 * density).toInt()))
+                 androidx.core.view.ViewCompat.requestApplyInsets(activity.container)
+                 val model = ChainViewModel(h.fixture.services)
++                h.model = model
+                 h.store.put("entry", model)
+                 h.content = OnlineFeatureContent(activity, h.root.findViewById(R.id.feature_content),
+                     UserRole.CAREGIVER, model, h.fixture.services,
+                     navigate = { destination -> h.lastDestination = destination; h.content.show(destination) },
+-                    feedbackRange = if (explicitDates) ({ _ -> h.providerCalls++; dates }) else null)
++                    feedbackRange = if (explicitDates) ({ requested ->
++                        h.providerCalls++
++                        CaregiverFeedbackRangeInput(
++                            { (model.state.value.context as? CaregiverContextState.Active)?.context },
++                            { h.suppliedToday?.let { CaregiverFeedbackDate(h.dateContextOverride ?: requested, it) } },
++                        ).resolve(requested)
++                    }) else null)
+             }
+             try { block(h) } finally { h.act { activity ->
+                 h.content.close(); h.store.clear()
+@@ -467,9 +548,12 @@ class CaregiverFeedbackEntryTest {
+     private class Harness(val scenario: ActivityScenario<CaregiverHistoryTestActivity>, eventRows: List<DoseEventState>) {
+         val fixture = Services(eventRows)
+         val store = ViewModelStore()
++        lateinit var model: ChainViewModel
+         lateinit var root: ViewGroup
+         lateinit var content: OnlineFeatureContent
+         var providerCalls = 0
++        var suppliedToday: java.time.LocalDate? = java.time.LocalDate.parse("2026-10-30")
++        var dateContextOverride: CaregiverElderContext? = null
+         var lastDestination: CaregiverDestination? = null
+         fun act(action: (CaregiverHistoryTestActivity) -> Unit) = scenario.onActivity { action(it) }
+         fun await(condition: () -> Boolean) = runBlocking {
+diff --git a/android-app/src/main/kotlin/com/group33/medicationreminder/integration/OnlineFeatureContent.kt b/android-app/src/main/kotlin/com/group33/medicationreminder/integration/OnlineFeatureContent.kt
+index 8be3019..51efbc1 100644
+--- a/android-app/src/main/kotlin/com/group33/medicationreminder/integration/OnlineFeatureContent.kt
++++ b/android-app/src/main/kotlin/com/group33/medicationreminder/integration/OnlineFeatureContent.kt
+@@ -28,7 +28,7 @@ internal class OnlineFeatureContent internal constructor(
+     private val services: ChainServices,
+     private val navigate: (CaregiverDestination) -> Unit,
+     // Explicit caller-supplied dates only. No default time-zone policy is selected here.
+-    private val feedbackRange: ((CaregiverElderContext) -> LocalDateRange)? = null,
++    private val feedbackRange: ((CaregiverElderContext) -> LocalDateRange?)? = null,
+ ) {
+     private val column = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; host.addView(this) }
+     private fun dp(n: Int) = (n * activity.resources.displayMetrics.density).toInt()
+@@ -144,16 +144,21 @@ internal class OnlineFeatureContent internal constructor(
+         val elder = state.relationships.firstOrNull { it.id == active?.relationshipId }?.elder
+         // Existing callers without a date provider retain the existing path until the shared
+         // default-date source is agreed. Do not silently give the new history a UTC/device default.
+-        dosePanel?.show(active.takeIf { !settings && feedback == null }, elder, records)
++        var showingFeedback = false
+         if (feedback != null && active != null && !settings) {
+             if (feedbackContext?.isCurrentFor(active) != true) {
+-                feedbackContext = active
+                 feedbackDates = checkNotNull(feedbackRange)(active)
++                feedbackContext = active.takeIf { feedbackDates != null }
+             }
+-            showRecordsContainer(records)
+-            feedback.show(if (records) CaregiverFeedbackPage.HISTORY else CaregiverFeedbackPage.OVERVIEW,
+-                active, checkNotNull(feedbackDates))
++            val dates = feedbackDates
++            if (dates != null && feedbackContext?.isCurrentFor(active) == true) {
++                showRecordsContainer(records)
++                feedback.show(if (records) CaregiverFeedbackPage.HISTORY else CaregiverFeedbackPage.OVERVIEW,
++                    active, dates)
++                showingFeedback = true
++            } else clearFeedback()
+         } else clearFeedback()
++        dosePanel?.show(active.takeIf { !settings && !showingFeedback }, elder, records)
+         identity.text = activity.getString(if (role == UserRole.ELDER) R.string.chain_elder_identity else R.string.chain_caregiver_identity, user.displayName)
+         status.setText(if (state.busy) R.string.chain_working else state.message)
+         // Session/cache refresh is automatic; Elders do not manage synchronization.
+@@ -267,7 +272,7 @@ internal class OnlineFeatureContent internal constructor(
+     }
+     companion object {
+         fun install(activity: AppCompatActivity, host: FrameLayout, role: UserRole,
+-                    feedbackRange: ((CaregiverElderContext) -> LocalDateRange)? = null,
++                    feedbackRange: ((CaregiverElderContext) -> LocalDateRange?)? = null,
+                     navigate: (CaregiverDestination) -> Unit = {}): OnlineFeatureContent? {
+             val services = (activity.application as Group33Application).featureServices ?: return null
+             return OnlineFeatureContent(activity, host, role, checkNotNull(featureModel(activity)), services, navigate, feedbackRange)
