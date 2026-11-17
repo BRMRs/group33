@@ -37,7 +37,7 @@ import java.util.UUID
 import javax.imageio.ImageIO
 
 /** One genuinely confirmed/edited plan plus SQL-only planner fillers, all constraints enabled. */
-internal class PlanIndexFixture(private val directory: Path) : AutoCloseable {
+internal class PlanIndexFixture(private val directory: Path, private val initialVersion: Int = 10) : AutoCloseable {
     val schema = "s2_plan_index_it_" + UUID.randomUUID().toString().replace("-", "")
     val source get() = dataSource(schema)
     val clock: Clock = Clock.fixed(Instant.parse("2026-10-31T00:00:00Z"), ZoneOffset.UTC)
@@ -65,7 +65,7 @@ internal class PlanIndexFixture(private val directory: Path) : AutoCloseable {
     fun prepare() {
         dataSource().connection.use { it.createStatement().use { s -> s.execute("CREATE SCHEMA $schema") } }
         Flyway.configure().dataSource(source).defaultSchema(schema).schemas(schema).createSchemas(false)
-            .table("group33_schema_history").locations("classpath:db/migration").target("9")
+            .table("group33_schema_history").locations("classpath:db/migration").target(initialVersion.toString())
             .baselineOnMigrate(false).cleanDisabled(true).group(true).loggers(*emptyArray<String>()).load().migrate()
         val code = assertInstanceOf(CodeIssuanceResult.Issued::class.java,
             PairingCodeIssuanceService(store, clock) { "12345678" }.issue(elder, UUID.randomUUID())).view.code
@@ -153,12 +153,16 @@ internal class PostgresPlanIndexMigrationTest {
     @BeforeEach fun prepare() { fixture = PlanIndexFixture(directory); fixture.prepare() }
     @AfterEach fun cleanup() { if (::fixture.isInitialized) fixture.close() }
 
-    @Test fun `version nine upgrades without rewriting medical history or receipts and current revocation remains authoritative`() {
+    @ParameterizedTest @ValueSource(ints = [9, 10])
+    fun `prior release upgrades without rewriting medical history or receipts and current revocation remains authoritative`(initialVersion: Int) {
+        fixture.close()
+        fixture = PlanIndexFixture(directory, initialVersion)
+        fixture.prepare()
         val saved = fixture.contents()
         val history = fixture.history()
         assertThrows(IllegalStateException::class.java) { RuntimeSchemaHistory.validate(fixture.source, fixture.schema) }
         assertEquals(history, fixture.history())
-        assertEquals(1, fixture.migrate())
+        assertEquals(11 - initialVersion, fixture.migrate())
         assertEquals(3, fixture.indexes())
         assertEquals(saved, fixture.contents())
         RuntimeSchemaHistory.validate(fixture.source.apply { options = "-c default_transaction_read_only=on" }, fixture.schema)

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="photo_title">Photograph a medicine box</string>
+    <string name="photo_instruction">Take a clear photo of the original box. Your caregiver will check the medicine details. You do not need to enter a name or dose.</string>
+    <string name="photo_boundary">Photo capture and preview are available. Upload is not connected in this build; no photo will be sent.</string>
+    <string name="photo_camera">Take a photo</string>
+    <string name="photo_choose">Choose a photo</string>
+    <string name="photo_use">Use this photo and submit</string>
+    <string name="photo_replace">Retake photo</string>
+    <string name="photo_back">Back</string>
+    <string name="photo_preview">Medicine box photo preview</string>
+    <string name="photo_empty">Take or choose a photo to begin.</string>
+    <string name="photo_loading">Opening photo…</string>
+    <string name="photo_ready">Check that the box is clear, then use this photo.</string>
+    <string name="photo_submitting">Submitting photo…</string>
+    <string name="photo_confirmed">Photo submitted. This does not mean your caregiver has viewed it yet.</string>
+    <string name="photo_confirmed_refresh">Photo submitted. Its details are still being updated. Do not submit it again.</string>
+    <string name="photo_not_submitted">Photo was not submitted. Your photo is kept on this device. You can try again.</string>
+    <string name="photo_rejected">This photo was not accepted. Your photo is kept. Retake it or choose another.</string>
+    <string name="photo_awaiting">The submission result is not yet known. Your photo is kept. Please do not submit it again.</string>
+    <string name="photo_unavailable">Upload is not available. Your photo is kept on this device and has not been sent.</string>
+    <string name="photo_invalid">Cannot open this photo. Choose a readable JPEG or PNG, up to 5 MiB and 20 megapixels.</string>
+    <string name="photo_restored">A previous submission needs to be checked before this photo can be sent again. Your photo is kept on this device.</string>
+    <string name="photo_camera_unavailable">Camera could not open. You can choose a photo instead.</string>
+</resources>

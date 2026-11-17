@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="c2_editor_photo_viewed">我已查看当前显示的药品照片</string>
+    <string name="c2_editor_photo_description">%1$s的药品照片</string>
+    <string name="c2_editor_times_hint">每行填写一个HH:mm时间，例如08:00</string>
+    <string name="c2_editor_zone_required">请核对时区对照并确认后再保存。</string>
+    <string name="c2_editor_no_context">请选择已授权的长者以编辑计划。</string>
+    <string name="c2_editor_zone_example">首次提醒示例：%1$s。照护者：%2$s。长者：%3$s。</string>
+    <string name="c2_editor_example_pending">请填写有效的开始日期、提醒时间和时区以查看示例。</string>
+</resources>

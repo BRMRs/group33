@@ -1,0 +1,13 @@
+<resources>
+    <string name="chain_title">Debug — 双端在线流程</string>
+    <string name="chain_boundary">使用匿名测试身份和虚构资料。每个安装保留首次角色。手机号登录和提醒执行另行接入。</string>
+    <string name="chain_server">测试服务：%1$s</string>
+    <string name="chain_name">测试显示名称</string>
+    <string name="chain_demo_elder">测试长辈</string>
+    <string name="chain_demo_caregiver">测试照护者</string>
+    <string name="chain_login_elder">以长辈身份登录</string>
+    <string name="chain_login_caregiver">以照护者身份登录</string>
+    <string name="chain_signed_in">已登录，正在加载有权查看的照护关系。</string>
+    <string name="chain_fixed_role">此安装已有另一角色。请在另一个安装上使用另一角色。</string>
+    <string name="chain_anonymous_login">Debug 匿名测试登录</string>
+</resources>

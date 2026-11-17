@@ -182,7 +182,7 @@
 - [android-app/proguard-rules.pro](../android-app/proguard-rules.pro)
 - [android-app/src/debug/AndroidManifest.xml](../android-app/src/debug/AndroidManifest.xml)
 - [android-app/src/main/AndroidManifest.xml](../android-app/src/main/AndroidManifest.xml)
-- [android-app/src/main/kotlin/com/group33/medicationreminder/MainActivity.kt](../android-app/src/main/kotlin/com/group33/medicationreminder/MainActivity.kt)
+- `android-app/src/main/kotlin/com/group33/medicationreminder/MainActivity.kt` — initial entry retired; current replacement: [SharedLoginActivity.kt](../android-app/src/main/kotlin/com/group33/medicationreminder/SharedLoginActivity.kt).
 - [android-app/src/main/kotlin/com/group33/medicationreminder/caregiver/CaregiverHomeActivity.kt](../android-app/src/main/kotlin/com/group33/medicationreminder/caregiver/CaregiverHomeActivity.kt)
 - [android-app/src/main/kotlin/com/group33/medicationreminder/caregiver/CaregiverHomeViewModel.kt](../android-app/src/main/kotlin/com/group33/medicationreminder/caregiver/CaregiverHomeViewModel.kt)
 - [android-app/src/main/kotlin/com/group33/medicationreminder/core/data/DemoPreview.kt](../android-app/src/main/kotlin/com/group33/medicationreminder/core/data/DemoPreview.kt)
@@ -193,7 +193,7 @@
 - [android-app/src/main/kotlin/com/group33/medicationreminder/elder/ElderHomeViewModel.kt](../android-app/src/main/kotlin/com/group33/medicationreminder/elder/ElderHomeViewModel.kt)
 - [android-app/src/main/res/layout/activity_caregiver_home.xml](../android-app/src/main/res/layout/activity_caregiver_home.xml)
 - [android-app/src/main/res/layout/activity_elder_home.xml](../android-app/src/main/res/layout/activity_elder_home.xml)
-- [android-app/src/main/res/layout/activity_main.xml](../android-app/src/main/res/layout/activity_main.xml)
+- `android-app/src/main/res/layout/activity_main.xml` — initial entry retired; current replacement: [activity_shared_login.xml](../android-app/src/main/res/layout/activity_shared_login.xml).
 - [android-app/src/main/res/values-v29/themes.xml](../android-app/src/main/res/values-v29/themes.xml)
 - [android-app/src/main/res/values/themes.xml](../android-app/src/main/res/values/themes.xml)
 - [android-app/src/test/kotlin/com/group33/medicationreminder/PreviewViewModelTest.kt](../android-app/src/test/kotlin/com/group33/medicationreminder/PreviewViewModelTest.kt)
