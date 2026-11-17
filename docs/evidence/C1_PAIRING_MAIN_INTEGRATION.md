@@ -1,4 +1,47 @@
-# C1 pairing form integration — local candidate
+# C1 pairing form integration
+
+## Current main synchronization — 2026-11-17
+
+This integration merges previous PR #112 head
+`c6cc08e023532858da49320ee912c057c7bb1e49` with main
+`bbe4997034ecb837d2093f4e73267cc530976f29`. Results below are local validation;
+current-head CI and non-author review are recorded separately on PR #112.
+
+- The sole textual conflict was the review checksum manifest, regenerated from
+  the merged tracked files. The Settings pairing form, current-main caregiver
+  dose panel, sign-out cleanup and online-chain test phases are all retained.
+- Server and Shared have no changes relative to that main. No new wire contract,
+  migration, permission or authentication provider is introduced by this merge.
+- Windows/JDK 17: Debug JVM 145/145 and Release JVM 144/144, with zero
+  failures/errors/skips. `:android-app:lintDebug`, `:android-app:assembleDebug`,
+  `:android-app:assembleRelease` and `:android-app:assembleDebugAndroidTest`
+  passed. Lint reports zero errors and 60 warnings. The combined Android command
+  completed successfully: 150 tasks, 110 executed and 40 from cache.
+- Linux/JDK 17: Server 628/628 and Shared 18/18, with zero failures/errors/skips;
+  `:server:bootJar` and `:server:schemaMigrationDist` also passed. The command
+  was `./gradlew -PserverOnly test :server:bootJar :server:schemaMigrationDist
+  --init-script .gradle/offline-repository.init.gradle --offline --no-daemon
+  --max-workers=2 --console=plain` (17 tasks: 16 executed, one up-to-date).
+  Online dependency resolution stalled and was stopped; the first offline
+  attempts failed before testing because dependency metadata was missing.
+  The successful run used already-downloaded artifacts in a temporary local
+  Maven repository, added by an external init script. No dependency version,
+  tracked repository configuration or test selection was changed. Linux
+  Server/Shared/build inputs were hash-compared with the merged source snapshot.
+  All three modules' JVM suites passed across these Windows and Linux runs;
+  this is not a claim that the unsplit Windows `./gradlew test` succeeded.
+- Repository policy (actual PR branch/title), all 446 artifact checksums and
+  `git diff --cached --check` passed. No unmerged paths remain. Linux XML reports
+  are retained under `/root/.cache/group33-pr112-local-build/`; Android reports
+  remain under this worktree's ignored `android-app/build/` directory.
+- The API27 screenshots and HTTP/Room flows below are historical evidence.
+  No device flow, TalkBack check or manual usability acceptance was rerun for
+  this merge. Complete #10/phone authentication acceptance remains outside scope.
+
+The following sections retain the original candidate's history and evidence;
+their old branches, baselines and test totals do not identify this merged tree.
+
+## Historical candidate
 
 Refs #10 / PR #112. Owner: `tianiridescent` (C1). Branch:
 `feature/10-c1-pairing-main-integration`, based on main `dc1e2fb`.
