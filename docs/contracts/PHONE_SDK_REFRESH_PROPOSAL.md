@@ -1,6 +1,18 @@
 # D1 clarification: SDK grant refresh within the original authentication attempt
 
-**Proposed / not accepted or implemented.** Refs #96 / #118, C1 review of
+## Recorded S1/lead decision — 2026-11-17
+
+Authority: [BRMRs on #118](https://github.com/BRMRs/group33/issues/118#issuecomment-6940293073), reviewing #96 `d4afbdb62cd707d8063bf3336cfc03575c785b81`. D1 and D4 are **accepted with modifications by S1/lead**; D2 and D3 are **accepted by S1/lead**. C1's prior consumer recommendations are retained, not upgraded to full approval. Independent non-author Server/security approval is still pending; BRMRs contributed integration commits and cannot provide that independent approval. No agent signs for a reviewer. These recorded decisions remove the former wait for S1/lead selection, not the implementation/configuration gates.
+
+- D1: Start→same-attempt Refresh→proof→verify→optional register retains installation/profile/private capability and fixed900-second deadline. Strict Start/Refresh forms; unknown/empty capability never falls back to Start. expectedPhone is checked only after PASS. Use #97's delivered **15-second internal total call budget**, not the former proposed5/20/30-second values. Work lease is shorter than remaining attempt time; an unknown supplier result closes the attempt and requires an explicit new scene, with no automatic resend. No consumed fingerprint deletion until supplier proof validity/association evidence supports a reviewed retention bound.
+- D2: Stable Server account/fixed role, installation and persisted session/jti are separate. Validate alg/typ/iss/aud/authVersion/installationId/jti/time/role before current account/install/session reads. UUID is scope, not device proof; no automatic other-install logout.
+- D3: Current actor/relationship, effects and original receipt are checked in one primary transaction. Same-install re-login can recover original command identity; another installation may read authorized current data but cannot take over the original journal/outbox and replay returns409. No anonymous-history merge or authority merely from login.
+- D4: Matching-current-generation401 clears current authentication only, preserving command evidence.403 ROLE_NOT_ALLOWED preserves common session/account home, terminates only that restricted operation and never changes role.404 RESOURCE_NOT_ACCESSIBLE clears/locks that target's photo/plan/event presentation and returns to Elder selection while preserving session and operation evidence, without resource-existence disclosure or new keys.503/429 preserve recovery. Forward migration only; LAN has separate audience/key/database/environment and never imports cloud pending/account/proof.
+
+ApplicationId is confirmed as com.group33.medicationreminder; reuse assemblePhoneTest and require same phone/business HTTPS origin, actual HTTPS policy URL and registered signing MD5. The anonymous Render preview is not a phone-enabled service. No verified phone-enabled HTTPS service/policy/registered MD5 currently exists in the recorded evidence. S2/XinyanXue is configuration accountable owner; lead controls access; secrets enter controlled Environment only. S1 builds the controlled package after configuration, C1 performs real one-tap/SMS/pairing/business acceptance. Provider proof evidence, actual configuration and independent security approval remain rollout gates.
+
+
+**S1/lead D1 accepted with modifications; independent Server/security approval and implementation pending.** Refs #96 / #118, C1 review of
 `9aac7ecbd884f765da748327c4dbe4dd7943b603` on2026-11-14. This answers the refresh
 question; it does not record C1/S1/Server acceptance. Existing #88 currently calls
 `client.grant()` initially and every four minutes, keeping only its token for the
