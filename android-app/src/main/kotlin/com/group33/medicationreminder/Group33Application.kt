@@ -28,7 +28,10 @@ open class Group33Application : Application() {
         languageSettings = LocalLanguageSettingsRepository(this)
         ReminderNotifications.ensureChannel(this)
         infrastructureScope.launch {
-            com.group33.medicationreminder.core.reminder.ReminderCoordinator(this@Group33Application).recover()
+            // A cold process must not turn stale scheduled rows into audible reminders. Only durable
+            // RINGING rows get an exact-alarm recovery hop that is allowed to start playback on API 35.
+            com.group33.medicationreminder.core.reminder.ReminderCoordinator(this@Group33Application)
+                .scheduleRingingRecovery()
             if (reminderPhaseDispatcher != null) {
                 com.group33.medicationreminder.core.reminder.ReminderPhaseWorker.enqueuePending(this@Group33Application)
             }

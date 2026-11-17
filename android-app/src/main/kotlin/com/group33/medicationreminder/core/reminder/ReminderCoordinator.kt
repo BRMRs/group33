@@ -50,28 +50,28 @@ internal class ReminderCoordinator(private val context: Context) {
 
     suspend fun recover() {
         val now = System.currentTimeMillis()
-        val boot = bootCount()
         dao.expire(now)
+        ReminderRingingService.reconcile()
         dao.active().forEach { row ->
             when (ReminderState.valueOf(row.state)) {
                 ReminderState.SCHEDULED -> {
                     if (row.plannedAtEpochMillis <= now) {
                         recordRecoveryEvent(row.groupId, row.plannedAtEpochMillis, now)
-                        triggerDue(row.groupId, now, boot)
+                        scheduler.scheduleRingingRecovery(row.groupId)
                     } else scheduler.scheduleInitial(row)
                 }
                 ReminderState.SNOOZED -> {
                     val snoozeAt = row.snoozedUntilEpochMillis
                     if (snoozeAt != null && snoozeAt <= now) {
                         recordRecoveryEvent(row.groupId, snoozeAt, now)
-                        triggerDue(row.groupId, now, boot)
+                        scheduler.scheduleRingingRecovery(row.groupId)
                     } else if (snoozeAt != null) {
                         scheduler.scheduleInitial(row)
                         scheduler.scheduleSnooze(row, snoozeAt)
                     }
                 }
                 ReminderState.RINGING -> {
-                    deliverNotification(row.groupId, now, boot)
+                    scheduler.scheduleRingingRecovery(row.groupId)
                     scheduler.scheduleInitial(row)
                 }
                 else -> Unit
@@ -85,11 +85,37 @@ internal class ReminderCoordinator(private val context: Context) {
         }
     }
 
+    /**
+     * Cold-process recovery deliberately considers only durable RINGING rows. It never promotes a
+     * merely scheduled row. The exact-alarm hop is required because Android 15 forbids a
+     * BOOT_COMPLETED receiver from directly starting a media-playback foreground service.
+     */
+    suspend fun scheduleRingingRecovery(now: Long = System.currentTimeMillis()) {
+        dao.ringing(now).forEach { scheduler.scheduleRingingRecovery(it.groupId) }
+    }
+
+    suspend fun resumeRinging(
+        groupId: String,
+        now: Long = System.currentTimeMillis(),
+        boot: Int = bootCount(),
+    ): Boolean {
+        val row = dao.find(groupId) ?: return false
+        return when {
+            row.deadlineAtEpochMillis <= now -> cancel(groupId)
+            row.state == ReminderState.RINGING.name -> deliverNotification(groupId, now, boot)
+            row.state == ReminderState.SCHEDULED.name && row.plannedAtEpochMillis <= now ->
+                triggerDue(groupId, now, boot)
+            row.state == ReminderState.SNOOZED.name &&
+                row.snoozedUntilEpochMillis?.let { it <= now } == true -> triggerDue(groupId, now, boot)
+            else -> false
+        }
+    }
+
     suspend fun triggerDue(groupId: String, now: Long = System.currentTimeMillis(), boot: Int = bootCount()): Boolean {
         val row = dao.find(groupId) ?: return false
         if (row.deadlineAtEpochMillis <= now) {
             dao.expire(now)
-            ReminderNotifications.cancel(context, groupId)
+            ReminderRingingService.stop(context, groupId)
             return false
         }
         if (dao.claimDue(groupId, now) != 1) return false
@@ -120,7 +146,7 @@ internal class ReminderCoordinator(private val context: Context) {
             LocalActionInsertResult.CONFLICT -> false
             LocalActionInsertResult.DUPLICATE -> true
             LocalActionInsertResult.INSERTED -> {
-                ReminderNotifications.cancel(context, groupId)
+                ReminderRingingService.stop(context, groupId)
                 if (kind == ReminderActionKind.SNOOZE) {
                     scheduler.scheduleSnooze(row, checkNotNull(snoozedUntil))
                 } else {
@@ -148,7 +174,7 @@ internal class ReminderCoordinator(private val context: Context) {
         }
         val ringing = dao.find(groupId) ?: return false
         if (ringing.state != ReminderState.RINGING.name || dao.snooze(groupId, until, now) != 1) return false
-        ReminderNotifications.cancel(context, groupId)
+        ReminderRingingService.stop(context, groupId)
         scheduler.scheduleSnooze(ringing, until)
         return true
     }
@@ -157,14 +183,14 @@ internal class ReminderCoordinator(private val context: Context) {
         require(terminal in setOf(ReminderState.TAKEN, ReminderState.HELP, ReminderState.CAREGIVER_TAKEN_OVER))
         if (dao.finish(groupId, terminal.name, now) != 1) return false
         scheduler.cancel(groupId)
-        ReminderNotifications.cancel(context, groupId)
+        ReminderRingingService.stop(context, groupId)
         return true
     }
 
     suspend fun cancel(groupId: String): Boolean {
         if (dao.cancel(groupId) != 1) return false
         scheduler.cancel(groupId)
-        ReminderNotifications.cancel(context, groupId)
+        ReminderRingingService.stop(context, groupId)
         return true
     }
 
@@ -181,10 +207,15 @@ internal class ReminderCoordinator(private val context: Context) {
     }
 
     private suspend fun deliverNotification(groupId: String, now: Long, boot: Int): Boolean {
-        if (dao.claimNotification(groupId, now, boot, now - NOTIFICATION_CLAIM_TIMEOUT_MILLIS) != 1) return false
-        val shown = dao.find(groupId)?.let { ReminderNotifications.show(context, it) } == true
-        if (shown) dao.markNotificationDelivered(groupId, boot) else dao.releaseNotificationClaim(groupId, boot)
-        return shown
+        val claimed = dao.claimNotification(groupId, now, boot, now - NOTIFICATION_CLAIM_TIMEOUT_MILLIS) == 1
+        // Starting the same service/group is idempotent. Do it even after this boot's notification
+        // claim was consumed so a killed process can restore audio without posting a duplicate.
+        val started = ReminderRingingService.start(context, groupId)
+        if (claimed) {
+            if (started) dao.markNotificationDelivered(groupId, boot)
+            else dao.releaseNotificationClaim(groupId, boot)
+        }
+        return started
     }
 
     private fun bootCount(): Int = try {

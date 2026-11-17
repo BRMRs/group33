@@ -36,7 +36,8 @@ class ReminderCapabilityDeviceTest {
         assertEquals(ReminderRegistrationStatus.SCHEDULED, result.status)
         assertEquals(ReminderState.RINGING.name,
             ReminderDatabase.open(context).reminders().find(group.groupId)?.state)
-        assertTrue(notifications.activeNotifications.none { it.tag == group.groupId })
+        assertTrue(notifications.activeNotifications.none { ReminderNotifications.isForGroup(it.notification, group.groupId) })
+        await(5_000L) { ReminderRingingService.isPlayingForTest() }
     }
 
     @Test fun notificationGrantRecoversTheSameOccurrence() = runBlocking {
@@ -44,7 +45,7 @@ class ReminderCapabilityDeviceTest {
         assertTrue(ReminderCapability.snapshot(context).notificationPermissionGranted)
         val row = ReminderDatabase.open(context).reminders().active().single()
         ReminderCoordinator(context).recover()
-        await(5_000L) { notifications.activeNotifications.any { it.tag == row.groupId } }
+        await(10_000L) { notifications.activeNotifications.any { ReminderNotifications.isForGroup(it.notification, row.groupId) } }
         assertTrue(ReminderCoordinator(context).recordAction(
             row.groupId, "permission-taken-${UUID.randomUUID()}", ReminderActionKind.TAKEN,
         ))

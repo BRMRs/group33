@@ -61,7 +61,7 @@ internal class ReminderAlarmReceiver : BroadcastReceiver() {
             ReminderAlarmKind.POST_PROBE -> row.plannedAtEpochMillis + InitialTiming.probeOffset.toMillis()
             ReminderAlarmKind.FOLLOW_UP -> row.plannedAtEpochMillis + InitialTiming.nonresponseThreshold.toMillis()
             ReminderAlarmKind.EXPIRE -> row.deadlineAtEpochMillis
-            ReminderAlarmKind.RECOVERY -> return false
+            ReminderAlarmKind.RECOVERY -> row.lastAlarmAtEpochMillis ?: row.plannedAtEpochMillis
         }
         val now = System.currentTimeMillis()
         val event = ReminderAlarmEventRow(
@@ -80,6 +80,7 @@ internal class ReminderAlarmReceiver : BroadcastReceiver() {
         return when (kind) {
             ReminderAlarmKind.DUE -> coordinator.triggerDue(groupId, now)
             ReminderAlarmKind.EXPIRE -> coordinator.cancel(groupId)
+            ReminderAlarmKind.RECOVERY -> coordinator.resumeRinging(groupId, now)
             else -> false // Durable phase fact; the joint S1/S2 adapter consumes it for probes/follow-up.
         }
     }

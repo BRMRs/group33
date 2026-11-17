@@ -5,6 +5,9 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
         android:allowBackup="true"
@@ -35,6 +38,11 @@
         <activity
             android:name=".elder.ElderHomeActivity"
             android:exported="false" />
+        <service
+            android:name=".core.reminder.ReminderRingingService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback"
+            android:stopWithTask="false" />
         <receiver android:name=".core.reminder.ReminderAlarmReceiver" android:exported="false" />
         <receiver android:name=".core.reminder.ReminderRecoveryReceiver" android:directBootAware="false" android:exported="false">
             <intent-filter>

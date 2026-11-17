@@ -46,11 +46,13 @@ class RuntimeNotificationBoundaryTest {
             state = ReminderState.RINGING)
         dao.insertTestRegistration(registration)
         assertTrue(ReminderNotifications.show(context, registration.group))
-        await { manager.activeNotifications.any { it.tag == registration.group.groupId } }
+        await { manager.activeNotifications.any { ReminderNotifications.isForGroup(it.notification, registration.group.groupId) } }
         return registration.group
     }
 
-    private fun posted(id: String) = manager.activeNotifications.single { it.tag == id }.notification
+    private fun posted(id: String) = manager.activeNotifications.single {
+        ReminderNotifications.isForGroup(it.notification, id)
+    }.notification
     private fun Notification.action(label: Int) = actions.single { it.title.toString() == context.getString(label) }.actionIntent
     private fun Notification.hasAction(label: Int) = actions.any { it.title.toString() == context.getString(label) }
 
@@ -164,11 +166,11 @@ class RuntimeNotificationBoundaryTest {
             screenshot.recycle()
             clickInNotificationShade(R.string.reminder_action_taken)
             await { dao.find(row.groupId)?.state == ReminderState.TAKEN.name &&
-                manager.activeNotifications.none { it.tag == row.groupId } }
+                manager.activeNotifications.none { ReminderNotifications.isForGroup(it.notification, row.groupId) } }
             click(taken) // The original captured Taken retains the same idempotent identity.
             click(snooze) // Late delivery must not resurrect a terminal prompt or action.
             assertEquals(ReminderState.TAKEN.name, dao.find(row.groupId)?.state)
-            assertTrue(manager.activeNotifications.none { it.tag == row.groupId })
+            assertTrue(manager.activeNotifications.none { ReminderNotifications.isForGroup(it.notification, row.groupId) })
             assertTrue(dao.pendingActions().none { it.groupId == row.groupId && it.kind == ReminderActionKind.SNOOZE.name })
         } finally {
             ReminderCoordinator(context).cancel(row.groupId)
@@ -182,14 +184,14 @@ class RuntimeNotificationBoundaryTest {
             val snooze = posted(row.groupId).action(R.string.reminder_action_snooze)
             click(snooze)
             await { dao.find(row.groupId)?.state == ReminderState.SNOOZED.name &&
-                manager.activeNotifications.none { it.tag == row.groupId } }
+                manager.activeNotifications.none { ReminderNotifications.isForGroup(it.notification, row.groupId) } }
             val until = dao.find(row.groupId)?.snoozedUntilEpochMillis
             assertNotNull(until)
             assertEquals(row.deadlineAtEpochMillis, dao.find(row.groupId)?.deadlineAtEpochMillis)
             click(snooze)
             assertEquals(until, dao.find(row.groupId)?.snoozedUntilEpochMillis)
             assertEquals(ReminderState.SNOOZED.name, dao.find(row.groupId)?.state)
-            assertTrue(manager.activeNotifications.none { it.tag == row.groupId })
+            assertTrue(manager.activeNotifications.none { ReminderNotifications.isForGroup(it.notification, row.groupId) })
         } finally { ReminderCoordinator(context).cancel(row.groupId) }
     }
 }

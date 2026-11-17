@@ -202,6 +202,9 @@ internal interface ReminderDao {
     @Query("SELECT * FROM reminder_groups WHERE state IN ('SCHEDULED','RINGING','SNOOZED') ORDER BY plannedAtEpochMillis")
     suspend fun active(): List<ReminderGroupRow>
 
+    @Query("SELECT * FROM reminder_groups WHERE state = 'RINGING' AND deadlineAtEpochMillis > :now ORDER BY lastAlarmAtEpochMillis DESC, plannedAtEpochMillis")
+    suspend fun ringing(now: Long): List<ReminderGroupRow>
+
     @Query("SELECT * FROM reminder_groups WHERE executionScopeId = :scopeId AND state IN ('SCHEDULED','RINGING','SNOOZED') ORDER BY plannedAtEpochMillis")
     suspend fun activeForScope(scopeId: String): List<ReminderGroupRow>
 

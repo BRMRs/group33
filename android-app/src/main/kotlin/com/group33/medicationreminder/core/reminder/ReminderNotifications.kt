@@ -3,13 +3,11 @@ package com.group33.medicationreminder.core.reminder
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.app.Notification
 import android.content.Context
 import android.content.Intent
-import android.media.AudioAttributes
-import android.media.RingtoneManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 import com.group33.medicationreminder.R
 import java.util.UUID
 
@@ -20,25 +18,23 @@ internal enum class ReminderAction(val intentAction: String, val kind: ReminderA
 }
 
 internal object ReminderNotifications {
-    const val CHANNEL_ID = "medication-reminders-v1"
-    private const val NOTIFICATION_ID = 1
+    // v2 is intentionally silent: ReminderRingingService is the sole audible source. A new ID also
+    // avoids inheriting the immutable sound configured on devices that already created v1.
+    const val CHANNEL_ID = "medication-reminders-v2"
+    const val NOTIFICATION_ID = 41_001
 
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT < 26) return
         val manager = context.getSystemService(NotificationManager::class.java)
         if (manager.getNotificationChannel(CHANNEL_ID) != null) return
-        val sound = defaultSound()
         manager.createNotificationChannel(NotificationChannel(
             CHANNEL_ID,
             context.getString(R.string.reminder_channel_name),
             NotificationManager.IMPORTANCE_HIGH,
         ).apply {
             description = context.getString(R.string.reminder_channel_description)
-            setSound(sound, AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ALARM)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build())
-            enableVibration(true)
+            setSound(null, null)
+            enableVibration(false)
             setShowBadge(true)
             lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
         })
@@ -50,9 +46,14 @@ internal object ReminderNotifications {
             cancel(context, row.groupId)
             return false
         }
+        context.getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, build(context, row))
+        return true
+    }
+
+    fun build(context: Context, row: ReminderGroupRow): Notification {
+        val now = System.currentTimeMillis()
         val canSnooze = row.deadlineAtEpochMillis - now > InitialTiming.snooze.toMillis()
         ensureChannel(context)
-        if (!ReminderCapability.snapshot(context).notificationsUsable) return false
         val open = PendingIntent.getActivity(
             context,
             0,
@@ -75,11 +76,11 @@ internal object ReminderNotifications {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setAutoCancel(false)
             .setOngoing(true)
-            .setOnlyAlertOnce(!canSnooze)
-            .setSound(defaultSound())
-            .setDefaults(NotificationCompat.DEFAULT_VIBRATE)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
             .setContentIntent(open)
             .setFullScreenIntent(open, true)
+            .setExtras(android.os.Bundle().apply { putString(EXTRA_GROUP_ID, row.groupId) })
             .addAction(0, context.getString(R.string.reminder_action_taken), action(context, row, ReminderAction.TAKEN))
         if (canSnooze) {
             builder.addAction(0, context.getString(R.string.reminder_action_snooze), action(context, row, ReminderAction.SNOOZE))
@@ -88,15 +89,25 @@ internal object ReminderNotifications {
                 context.getString(R.string.reminder_snooze_unavailable_details, row.medicationSummary, row.dosageSummary),
             ))
         }
-        val notification = builder
+        return builder
             .addAction(0, context.getString(R.string.reminder_action_help), action(context, row, ReminderAction.HELP))
             .build()
-        return try {
-            NotificationManagerCompat.from(context).notify(row.groupId, NOTIFICATION_ID, notification)
-            true
-        } catch (_: SecurityException) {
-            false
-        }
+    }
+
+    fun placeholder(context: Context, groupId: String): Notification {
+        ensureChannel(context)
+        return NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setContentTitle(context.getString(R.string.reminder_notification_title))
+            .setContentText(context.getString(R.string.reminder_ringing_starting))
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setExtras(android.os.Bundle().apply { putString(EXTRA_GROUP_ID, groupId) })
+            .build()
     }
 
     private fun action(context: Context, row: ReminderGroupRow, action: ReminderAction): PendingIntent =
@@ -118,10 +129,17 @@ internal object ReminderNotifications {
             "${row.groupId}:${row.lastAlarmAtEpochMillis}:${action.name}".toByteArray(Charsets.UTF_8),
         ).toString()
 
-    fun cancel(context: Context, groupId: String) =
-        NotificationManagerCompat.from(context).cancel(groupId, NOTIFICATION_ID)
+    fun cancel(context: Context, groupId: String) {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        manager.cancel(groupId, 1) // Remove a notification left by pre-v2 builds.
+        if (manager.activeNotifications.any {
+                it.id == NOTIFICATION_ID && it.notification.extras.getString(EXTRA_GROUP_ID) == groupId
+            }) manager.cancel(NOTIFICATION_ID)
+    }
 
-    private fun defaultSound() = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-        ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+    fun isForGroup(notification: Notification, groupId: String): Boolean =
+        notification.extras.getString(EXTRA_GROUP_ID) == groupId
+
+    const val EXTRA_GROUP_ID = "reminderForegroundGroupId"
 }
 

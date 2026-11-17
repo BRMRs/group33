@@ -39,26 +39,29 @@ class ReminderAlarmDeviceTest {
 
         await(20_000L) {
             ReminderDatabase.open(context).reminders().find(id)?.state == ReminderState.RINGING.name &&
-                notifications.activeNotifications.any { it.tag == id }
+                notifications.activeNotifications.any { ReminderNotifications.isForGroup(it.notification, id) }
         }
-        val active = checkNotNull(notifications.activeNotifications.firstOrNull { it.tag == id })
+        val active = checkNotNull(notifications.activeNotifications.firstOrNull {
+            ReminderNotifications.isForGroup(it.notification, id)
+        })
         val channel = if (Build.VERSION.SDK_INT >= 26) notifications.getNotificationChannel(ReminderNotifications.CHANNEL_ID) else null
         if (channel != null) {
-            assertNotNull(channel.sound)
-            assertEquals(android.media.AudioAttributes.USAGE_ALARM, channel.audioAttributes.usage)
+            assertNull(channel.sound)
             assertTrue(channel.importance >= NotificationManager.IMPORTANCE_HIGH)
-        } else {
-            assertNotNull(active.notification.sound)
         }
+        assertNull(active.notification.sound)
+        await(5_000L) { ReminderRingingService.isPlayingForTest() }
+        assertEquals(id, ReminderRingingService.activeGroupForTest())
 
         assertTrue(ReminderCoordinator(context).recordAction(
             id, "device-taken-${UUID.randomUUID()}", ReminderActionKind.TAKEN,
         ))
-        await(5_000L) { notifications.activeNotifications.none { it.tag == id } }
+        await(5_000L) { notifications.activeNotifications.none { ReminderNotifications.isForGroup(it.notification, id) } }
+        await(5_000L) { !ReminderRingingService.isPlayingForTest() }
         ReminderCoordinator(context).recover()
         delay(1_000L)
         assertEquals(ReminderState.TAKEN.name, ReminderDatabase.open(context).reminders().find(id)?.state)
-        assertTrue(notifications.activeNotifications.none { it.tag == id })
+        assertTrue(notifications.activeNotifications.none { ReminderNotifications.isForGroup(it.notification, id) })
     }
 
     @Test fun recoveryShowsAtMostOncePerBootAndExpiredNeverReturns() = runBlocking {
@@ -71,7 +74,7 @@ class ReminderAlarmDeviceTest {
         dao.insertTestRegistration(registration)
         val coordinator = ReminderCoordinator(context)
         coordinator.recover()
-        await(5_000L) { notifications.activeNotifications.any { it.tag == id } }
+        await(10_000L) { notifications.activeNotifications.any { ReminderNotifications.isForGroup(it.notification, id) } }
         val afterFirst = checkNotNull(dao.find(id))
         coordinator.recover()
         delay(500L)
@@ -80,7 +83,7 @@ class ReminderAlarmDeviceTest {
         coordinator.recover()
         delay(500L)
         assertEquals(ReminderState.EXPIRED.name, dao.find(id)?.state)
-        assertTrue(notifications.activeNotifications.none { it.tag == id })
+        assertTrue(notifications.activeNotifications.none { ReminderNotifications.isForGroup(it.notification, id) })
     }
 
     @Test fun snoozeCreatesASecondAudibleGroupReminderWithoutMovingTheDeadline() = runBlocking {
@@ -88,18 +91,18 @@ class ReminderAlarmDeviceTest {
         val group = testGroup("snooze-${UUID.randomUUID()}", now - 1_000L, medicineCount = 2)
         val coordinator = ReminderCoordinator(context)
         coordinator.register(group)
-        await(5_000L) { notifications.activeNotifications.any { it.tag == group.groupId } }
+        await(5_000L) { notifications.activeNotifications.any { ReminderNotifications.isForGroup(it.notification, group.groupId) } }
         val firstDelivery = checkNotNull(ReminderDatabase.open(context).reminders().find(group.groupId))
         val originalDeadline = firstDelivery.deadlineAtEpochMillis
         val boot = checkNotNull(firstDelivery.lastNotifiedBootCount)
         assertTrue(coordinator.recordAction(
             group.groupId, "snooze-${UUID.randomUUID()}", ReminderActionKind.SNOOZE, now,
         ))
-        await(5_000L) { notifications.activeNotifications.none { it.tag == group.groupId } }
+        await(5_000L) { notifications.activeNotifications.none { ReminderNotifications.isForGroup(it.notification, group.groupId) } }
         assertTrue(coordinator.triggerDue(
             group.groupId, now + InitialTiming.snooze.toMillis(), boot = boot,
         ))
-        await(5_000L) { notifications.activeNotifications.any { it.tag == group.groupId } }
+        await(5_000L) { notifications.activeNotifications.any { ReminderNotifications.isForGroup(it.notification, group.groupId) } }
         assertEquals(originalDeadline,
             ReminderDatabase.open(context).reminders().find(group.groupId)?.deadlineAtEpochMillis)
         assertTrue(coordinator.recordAction(

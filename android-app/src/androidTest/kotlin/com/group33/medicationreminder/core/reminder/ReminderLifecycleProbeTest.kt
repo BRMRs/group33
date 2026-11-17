@@ -25,8 +25,26 @@ class ReminderLifecycleProbeTest {
             "prepare-reboot" -> prepare(90_000L, false)
             "prepare-reboot-snoozed" -> prepare(0L, true)
             "verify" -> verify()
-            else -> fail("Pass phase=prepare-process, prepare-reboot, prepare-reboot-snoozed, or verify")
+            "human-audible" -> humanAudible()
+            else -> fail("Pass phase=prepare-process, prepare-reboot, prepare-reboot-snoozed, verify, or human-audible")
         }
+    }
+
+    /** Manual acceptance gate: a person must hear this ten-second loop; properties alone do not pass. */
+    private suspend fun humanAudible() {
+        if (Build.VERSION.SDK_INT >= 33) shell("pm grant ${context.packageName} ${Manifest.permission.POST_NOTIFICATIONS}")
+        val now = System.currentTimeMillis()
+        val registration = testRegistration(
+            "human-audible-${UUID.randomUUID()}", now - 1_000L, now + 60_000L,
+            state = ReminderState.RINGING,
+        )
+        ReminderDatabase.open(context).reminders().insertTestRegistration(registration)
+        assertTrue(ReminderRingingService.start(context, registration.group.groupId))
+        await(5_000L) { ReminderRingingService.isPlayingForTest() }
+        delay(10_000L)
+        assertTrue(ReminderRingingService.isPlayingForTest())
+        assertTrue(ReminderCoordinator(context).cancel(registration.group.groupId))
+        await(5_000L) { !ReminderRingingService.isPlayingForTest() }
     }
 
     private suspend fun prepare(delayMillis: Long, snoozeBeforeReboot: Boolean) {
@@ -47,7 +65,7 @@ class ReminderLifecycleProbeTest {
             await(10_000L) {
                 ReminderDatabase.open(context).reminders().find(id)?.state == ReminderState.RINGING.name &&
                     context.getSystemService(NotificationManager::class.java)
-                        .activeNotifications.any { it.tag == id }
+                        .activeNotifications.any { ReminderNotifications.isForGroup(it.notification, id) }
             }
             assertTrue(ReminderCoordinator(context).recordAction(
                 id, "lifecycle-snooze-${UUID.randomUUID()}", ReminderActionKind.SNOOZE,
@@ -93,7 +111,7 @@ class ReminderLifecycleProbeTest {
         while (System.currentTimeMillis() < waitUntil) {
             val row = ReminderDatabase.open(context).reminders().find(id)
             val visible = context.getSystemService(NotificationManager::class.java)
-                .activeNotifications.any { it.tag == id }
+                .activeNotifications.any { ReminderNotifications.isForGroup(it.notification, id) }
             if (row?.state == ReminderState.RINGING.name && visible) {
                 assertTrue(row.lastAlarmAtEpochMillis != null && row.lastAlarmAtEpochMillis >= resumeAt)
                 assertEquals(deadline, row.deadlineAtEpochMillis)
@@ -116,7 +134,7 @@ class ReminderLifecycleProbeTest {
         if (id == "-") return
         assertEquals(expected.name, ReminderDatabase.open(context).reminders().find(id)?.state)
         assertTrue(context.getSystemService(NotificationManager::class.java)
-            .activeNotifications.none { it.tag == id })
+            .activeNotifications.none { ReminderNotifications.isForGroup(it.notification, id) })
     }
 
     private suspend fun await(timeoutMillis: Long, condition: suspend () -> Boolean) {

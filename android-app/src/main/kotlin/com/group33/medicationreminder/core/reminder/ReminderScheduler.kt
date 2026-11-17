@@ -76,6 +76,11 @@ internal class ReminderAlarmScheduler(private val context: Context) {
         return accuracy()
     }
 
+    /** Routes recovery through an exact-alarm broadcast, which may start media playback on Android 15. */
+    fun scheduleRingingRecovery(groupId: String) {
+        schedule(groupId, ReminderAlarmKind.RECOVERY, System.currentTimeMillis() + RECOVERY_DELAY_MILLIS)
+    }
+
     fun cancel(groupId: String) = ReminderAlarmKind.entries.forEach { cancel(groupId, it) }
 
     private fun cancel(groupId: String, kind: ReminderAlarmKind) {
@@ -123,5 +128,9 @@ internal class ReminderAlarmScheduler(private val context: Context) {
                 .putExtra(ReminderAlarmReceiver.EXTRA_KIND, kind.name),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+
+    private companion object {
+        const val RECOVERY_DELAY_MILLIS = 250L
+    }
 }
 
