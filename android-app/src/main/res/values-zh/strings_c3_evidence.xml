@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="c3_planned_time">原定时间：%1$s %2$s（%3$s）</string>
+  <string name="c3_outcome_scheduled">最后已接受的结果：尚未到时</string>
+  <string name="c3_outcome_due">最后已接受的结果：等待报告</string>
+  <string name="c3_outcome_snoozed">最后已接受的结果：提醒已延后</string>
+  <string name="c3_outcome_taken">最后已接受的结果：长者报告已服药</string>
+  <string name="c3_outcome_missed">最后已接受的结果：未及时确认；这不能证明未服药。</string>
+  <string name="c3_outcome_unknown">已接受的服药结果：未知</string>
+  <string name="c3_local_sync">本地报告同步状态：%1$s</string>
+  <string name="c3_sync_pending">待同步</string>
+  <string name="c3_sync_synced">已同步</string>
+  <string name="c3_sync_attention">需要处理</string>
+  <string name="c3_synced_report">已同步报告：%1$s\n记录时间（本机时区）：%2$s\n服务接收时间：未知。报告已同步本身不会改变事件已接受的结果。</string>
+  <string name="c3_report_timely_taken">响应期内登记的已服药报告；不代表实际服药已获验证</string>
+  <string name="c3_report_late_taken">响应期结束后登记的已服药报告；不会将未及时确认的事件改为已服药</string>
+  <string name="c3_report_remind_later">曾请求延后提醒；这不保证还会再次提醒</string>
+  <string name="c3_report_unlinked">部分报告无法与本事件关联，其详情暂不可用，未用于更改事件结果。</string>
+</resources>
