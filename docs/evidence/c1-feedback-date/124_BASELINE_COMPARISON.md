@@ -103,4 +103,4 @@ Local raw evidence is retained under `.git/c1-local-recovery-20261117/comparison
 
 ## Remaining boundary
 
-C3 can investigate the reproduced original scrolling/test failures using this exact baseline. C1/C3 still need to investigate the additional combined date-side timeout. This evidence does not approve #124 or establish a green UI regression. S1/C1's authoritative date source, multi-zone/no-plan policy and producer/rebind interface remain separate pending decisions in #15; no production date source is registered by this work.
+C3 can investigate the reproduced original scrolling/test failures using this exact baseline. C1/C3 still need to investigate the additional combined date-side timeout. This evidence does not approve #124 or establish a green UI regression. After these tests, [S1 recorded the date rule and ownership](https://github.com/BRMRs/group33/issues/15#issuecomment-6939380941); the production provider and reviewed concrete interface remain a separate S1/S2 dependency. Main has since advanced to `bbe4997` via #116, which is not part of either tested input above. No production date source is registered by this work.

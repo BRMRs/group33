@@ -31,4 +31,4 @@ adb -s <tablet> shell am instrument -w -r -e c1Manual true -e class com.group33.
 
 ## 剩余验收
 
-日期来源/时区及生命周期决策、C1/C3 宿主接线审查、滚动问题收口、适用人工验收及支持环境中的完整检查仍待完成。同条件原版/组合版对照已补充，详见 [#124 对照记录](124_BASELINE_COMPARISON.md)；它不代替本次人工试用。组合设备失败和 Windows Server 失败详见 [交接说明](../../contracts/C1_FEEDBACK_DATE_INPUT.md)，不得记为通过。本交付仅引用 #15/#19，不关闭整票；人工审批由成员本人完成。
+试用之后，[S1 已记录日期规则和分工](https://github.com/BRMRs/group33/issues/15#issuecomment-6939380941)，但正式来源接口和生产实现尚未交付。C1/C3 宿主接线审查、滚动问题收口、适用人工验收及支持环境中的完整检查仍待完成。同条件原版/组合版对照已补充，详见 [#124 对照记录](124_BASELINE_COMPARISON.md)；它不代替本次人工试用。组合设备失败和 Windows Server 失败详见 [交接说明](../../contracts/C1_FEEDBACK_DATE_INPUT.md)，不得记为通过。本交付仅引用 #15/#19，不关闭整票；人工审批由成员本人完成。

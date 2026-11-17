@@ -6,6 +6,8 @@ Status: **partial implementation candidate; production date source and integrati
 
 The branch `feature/15-c1-feedback-date-input` starts from main `61140712193b816980045c52cc7276223731c268`. Pairing HTTP corrections are a separate delivery and are excluded.
 
+Publication-time check: main has advanced to `bbe4997034ecb837d2093f4e73267cc530976f29` via #116. This branch has not merged or rebased that change. The checks below describe the original branch and exact #124 inputs, not a current-main integration result; current-main compatibility and artifact-manifest reconciliation remain review work.
+
 `CaregiverHistoryViewModel.defaultRange(today)` already returns today minus 29 days through today, inclusively. The existing context and `ChainServices` do not provide an authoritative history date. ADR-0003's per-plan execution zones do not define one history-wide date for multiple plan zones or no plans. Existing query rules and the 90-date cap are unchanged.
 
 - `CaregiverFeedbackRangeInput.kt` consumes an explicitly supplied date captured with its context. It rejects missing inputs and mismatched environment, installation, user, session, relationship or Elder, and rechecks context after the callback. It retains no previous range and must run on the host's serialized context thread.
@@ -21,16 +23,16 @@ The [four-file patch](../evidence/c1-feedback-date/124-date-consumer.patch) appl
 
 The nullable callback is a C1/C3/S1 review candidate, not an accepted shared interface. No date producer, Activity registration, automatic notification or production refresh API is invented. Retaining the legacy panel does not accept its UTC-based range as the complete-history default. On adoption, update the recipient tree's own contribution/artifact records rather than copying main's entire manifest.
 
-## Decisions required for normal entry
+## Recorded direction and remaining production dependency
 
-[C3's updated request](https://github.com/BRMRs/group33/issues/15#issuecomment-6909543539) asks BRMRs/S1 to coordinate with C1 and record:
+[S1's recorded response](https://github.com/BRMRs/group33/issues/15#issuecomment-6939380941), posted after the paired tests, answers [C3's source request](https://github.com/BRMRs/group33/issues/15#issuecomment-6909543539):
 
-- The authoritative component and zone for `today`, including multiple-plan-zone and no-plan cases.
-- The consumable interface, exact implementation commit, producer owner and unavailable-source behavior.
-- The notification/rebind mechanism for Elder, relationship, session or source changes.
-- The division between producer, C1 shared-host wiring and C3 feature integration.
+- Use the currently selected Elder execution device's last trusted reported IANA zone for the initial local date. Multiple plan zones or no plans do not change that anchor. Missing trusted input remains unavailable; do not substitute the caregiver device zone, UTC or an arbitrary plan zone.
+- S2 owns trusted reporting and authorized HTTP contracts. S1 owns persisted scoped observations, date publication, midnight/zone updates and invalidation. C1 consumes matching Active-context input and rebinds the host; C3 consumes the explicit date and maintains page cleanup.
+- Scope the future input by RepositoryScope, session generation, relationship and Elder. Invalidate before switching contexts; discard old-context late results. Zone changes and local midnight require new dates.
+- S1 explicitly confirms that main has no consumable production provider yet. The proposed stream's concrete interface, wire contract and persistence implementation require separate S1/S2 delivery and applicable review.
 
-These decisions remain pending. Any Shared/API/persistence change still requires applicable Android/Server review. This candidate does not close #15/#19 or establish real-server acceptance.
+The date rule and ownership direction are now recorded; a reviewed, implemented producer interface remains absent. This internal holder does not implement the future observation stream or attest trust. The nullable callback and legacy-panel compatibility patch predate S1's response and still need C1/C3/S1 review, including unavailable-state presentation. Any Shared/API/persistence change requires applicable Android/Server review. No production registration, issue closure or real-server acceptance is claimed.
 
 ## Verification and outstanding evidence
 
