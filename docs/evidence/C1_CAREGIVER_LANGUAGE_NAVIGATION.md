@@ -196,10 +196,39 @@ API35 APK SHA-256:
 - app: `993989fcc5b087990cd788c44cecfe0f8998ee60b3f2cb6f5bb237f2fe6e7b46`
 - test: `313e25b75935296e9d504c18ceb0dfacb688c1a3810db1b36b861224263e452e`
 
-API27 tablet compatibility is pending restoration of the USB debugging channel.
-The isolated applicationId `com.group33.medicationreminder.c1review127` was built
-successfully for that check; no physical-device pass is inferred from emulator
-results or from APK assembly.
+API27 physical compatibility was run on the connected Mi Pad 4 Plus using the
+isolated applicationId `com.group33.medicationreminder.c1review127`. Its APKs were
+built with a local Gradle init script changing only the applicationId, not source
+or namespace. The original installed application was not cleared, replaced or
+launched by these commands. Only the isolated test packages and their temporary
+fixture were removed afterwards.
+
+```powershell
+.\gradlew.bat -I .git/c1-local-recovery-20261117/pr127-sync/tablet.init.gradle :android-app:assembleDebug :android-app:assembleDebugAndroidTest --offline --max-workers=1 --no-parallel --no-daemon
+python .git/c1-local-recovery-20261117/pr127-sync/run_language_regression.py 9c69cae2
+```
+
+| API27 starting condition | Actual result |
+|---|---|
+| Saved Chinese preference | Navigation 4/4 passed |
+| Saved English preference | Navigation 4/4 and persistence 1/1 passed; shared login 0/2 passed |
+
+The second invocation therefore failed overall: 5/7 passed, 2 failed. The English
+login case attempted to scroll a phone field whose layout was not ready (0x0);
+the Chinese login case failed with `InjectEventSecurityException` /
+`INJECT_EVENTS`. One separate diagnostic invocation of the unchanged login class
+passed the English case but still failed the Chinese case (1/2). Both original
+failures remain recorded; the diagnostic does not replace the failed group.
+No navigation assertion was relaxed and no login-test or production change was
+added to this PR. The tablet's Chinese-login automation failure remains unresolved;
+API27 related-language coverage is not fully green. API27 has no framework
+per-app locale command, so these physical runs verify saved-preference compatibility,
+not the API33+ restored-locale counterexample validated on API35.
+
+API27 isolated APK SHA-256:
+
+- app: `75f9cda7313248d7000f9e512c471a4b80ca01c9cbf7e9d2a71d7bf3f5971be6`
+- test: `3d2987793cd8ec78ea3b8eca02c83f17f4aedbf2ea3d996b97bfd069d2831ffd`
 
 Exact commands, source inventory, APKs, window samples and raw local reports are
 retained under `.git/c1-local-recovery-20261117/pr127-sync/`; they are not committed.
