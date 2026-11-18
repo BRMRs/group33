@@ -76,3 +76,7 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 ### 2026-11-17 — XinyanXue / S2 — #102 current-main V11 integration
 
 Preserve main dose-action V10; append original index SQL as V11 and match admin/runtime history. Retain original planner/rollback assertions, cover V9/V10 upgrades and reuse five coordination regressions including original dose receipt replay and refusal of incompatible index-V10 history. This is the existing #102 scope, not a new protocol or cloud deployment.
+
+### 2026-11-18 — XinyanXue / S2 — #102 authoritative migration guide
+
+Correct SCHEMA_MIGRATIONS to reflect actual main dose V10 then this-PR index V11, immutable applied history and separate conversion for old index-V10 databases. Documentation/hash only; existing SQL/runtime/tests untouched.
