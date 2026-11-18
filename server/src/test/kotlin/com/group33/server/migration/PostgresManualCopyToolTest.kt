@@ -47,6 +47,9 @@ internal class PostgresManualCopyToolTest {
     private var sourceRetired = false
     private val source get() = dataSource(originalSchema)
     private val target get() = dataSource(targetSchema)
+    // Tool URL policy rejects every query option; scoped application/store fixtures remain separate.
+    private val toolSource get() = ManualSchemaCopy.loopbackSource(
+        required("S2_PG_INTEGRATION_URL"), required("S2_PG_INTEGRATION_USER"), required("S2_PG_INTEGRATION_PASSWORD"))
     private val clock = Clock.fixed(Instant.parse("2026-11-01T00:00:00Z"), ZoneOffset.UTC)
     private val receiptKey get() = Path.of(required("S2_PG_RECEIPT_KEY_FILE"))
     private val originalObjects get() = LocalFilePhotoObjectStore(directory.resolve("source-objects"))
@@ -122,8 +125,8 @@ internal class PostgresManualCopyToolTest {
         edited = assertInstanceOf(PlanMutationResult.Accepted::class.java,
             ReminderPlanMutationService(old, clock).update(caregiver, original.plan.id, editId, edit)).view
         assertEquals(SchemaMigrations.VERSION.toInt(), SchemaMigrations(target, targetSchema).migrate())
-        sourceReference = ManualSchemaCopy.inspect(target, originalSchema, false)
-        targetReference = ManualSchemaCopy.inspect(target, targetSchema, true)
+        sourceReference = ManualSchemaCopy.inspect(toolSource, originalSchema, false)
+        targetReference = ManualSchemaCopy.inspect(toolSource, targetSchema, true)
     }
     @AfterEach fun cleanup() { dataSource().connection.use { it.createStatement().use { s ->
         s.execute("DROP SCHEMA IF EXISTS $originalSchema CASCADE; DROP SCHEMA IF EXISTS ${originalSchema}_old CASCADE; DROP SCHEMA IF EXISTS $targetSchema CASCADE")
@@ -136,12 +139,9 @@ internal class PostgresManualCopyToolTest {
     } catch (wrapped: java.lang.reflect.InvocationTargetException) { throw wrapped.targetException }
     private var commitBoundaryFaults = 0
     private fun copyFixture(failAfter: String? = null, disconnectOnCommit: Boolean? = null) {
-        val real = target
+        val real = toolSource
         val input = if (failAfter == null && disconnectOnCommit == null) real else object : org.postgresql.ds.PGSimpleDataSource() {
-            init {
-                setURL(required("S2_PG_INTEGRATION_URL")); user = required("S2_PG_INTEGRATION_USER")
-                password = required("S2_PG_INTEGRATION_PASSWORD"); currentSchema = targetSchema
-            }
+            override fun getURL() = required("S2_PG_INTEGRATION_URL")
             override fun getConnection(): java.sql.Connection {
                 val connection = real.connection
                 var copiedRows = false

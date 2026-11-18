@@ -79,3 +79,7 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 ### 2026-11-17 — XinyanXue / S2 — #128 current-main integration
 
 Resolve checksum conflict; preserve main dose V10, explicitly require both new target tables empty, and update migration-count fixture. Original source/loopback/rollback/unknown-COMMIT boundaries retained; full and realPG checks rerun.
+
+### 2026-11-18 — XinyanXue / S2 — #128 public-entry and private-reference guards
+
+Unify pre-connect URL-option refusal; keep CLI budgets through fixed internal properties; fix0700/0600 reference operations to a verified canonical parent and identity checks. Add direct no-network entry and moved/symlinked-parent red/green regressions; preserve original realPG/COMMIT assertions.

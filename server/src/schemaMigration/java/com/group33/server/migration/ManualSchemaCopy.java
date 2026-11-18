@@ -2,9 +2,12 @@ package com.group33.server.migration;
 
 import java.io.*;
 import java.net.URI;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.nio.file.attribute.PosixFileAttributes;
 import java.security.MessageDigest;
 import java.sql.*;
 import java.util.*;
@@ -61,7 +64,7 @@ public final class ManualSchemaCopy {
         if (url == null || !url.startsWith("jdbc:postgresql://")) throw new IllegalArgumentException("Loopback URL required");
         URI u = URI.create(url.substring(5));
         if (!Set.of("127.0.0.1", "::1", "[::1]").contains(u.getHost()) || u.getUserInfo() != null ||
-            u.getFragment() != null || (privateInput && u.getRawQuery() != null) ||
+            u.getFragment() != null || u.getRawQuery() != null ||
             u.getPath() == null || !u.getPath().matches("/[a-zA-Z0-9_-]+") ||
             !u.getRawPath().equals(u.getPath()) || !(u.getPort() == -1 || u.getPort() > 0 && u.getPort() < 65536))
             throw new IllegalArgumentException("Only explicit loopback rehearsal connections are allowed");
@@ -211,31 +214,89 @@ public final class ManualSchemaCopy {
             } catch(Exception failure) { try {c.rollback();} catch(SQLException ignored) {} throw failure; }
         }
     }
-    private static Path privateFile(String name) throws IOException {
+    private static Path privateReferencePath(String name) {
         Path path=Path.of(Objects.requireNonNull(name));
-        if(!path.isAbsolute() || !Files.isRegularFile(path,LinkOption.NOFOLLOW_LINKS) || Files.size(path)>4096 ||
-            Files.getPosixFilePermissions(path,LinkOption.NOFOLLOW_LINKS).stream().anyMatch(p->p.name().startsWith("GROUP_")||p.name().startsWith("OTHERS_")))
+        if(!path.isAbsolute() || !path.equals(path.normalize()) || path.getFileName()==null)
             throw new IllegalArgumentException("Invalid private catalog file");
         return path;
     }
+    private static boolean privateDirectoryAttributes(PosixFileAttributes attributes) {
+        return attributes.isDirectory() && attributes.permissions().equals(PosixFilePermissions.fromString("rwx------"));
+    }
+    private record PrivateReferenceDirectory(Path path, Object fileKey) {
+        void check() throws IOException {
+            PosixFileAttributes current=Files.readAttributes(path,PosixFileAttributes.class,LinkOption.NOFOLLOW_LINKS);
+            if(!privateDirectoryAttributes(current) || !fileKey.equals(current.fileKey()))
+                throw new IllegalArgumentException("Private reference directory changed");
+        }
+    }
+    private static PrivateReferenceDirectory privateDirectory(Path file) throws IOException {
+        Path parent=file.getParent();
+        PosixFileAttributes expected=Files.readAttributes(parent,PosixFileAttributes.class,LinkOption.NOFOLLOW_LINKS);
+        if(!privateDirectoryAttributes(expected) || expected.fileKey()==null)
+            throw new IllegalArgumentException("Private reference directory required");
+        // Canonicalize system ancestor aliases (e.g. macOS /var) only after rejecting a linked parent.
+        PrivateReferenceDirectory directory=new PrivateReferenceDirectory(parent.toRealPath(),expected.fileKey());
+        directory.check(); return directory;
+    }
+    private static void privateReferenceAttributes(PosixFileAttributes attributes) {
+        if(!attributes.isRegularFile() || attributes.size()>4096 || attributes.fileKey()==null ||
+            !attributes.permissions().equals(PosixFilePermissions.fromString("rw-------")))
+            throw new IllegalArgumentException("Invalid private catalog file");
+    }
     public static Reference readReference(String path) throws IOException {
-        Path file=privateFile(path);
-        if(Files.readAllLines(file,StandardCharsets.ISO_8859_1).stream().filter(s->!s.isBlank()&&!s.startsWith("#")&&!s.startsWith("!")).count()!=4)
+        Path file=privateReferencePath(path); byte[] bytes;
+        PrivateReferenceDirectory parent=privateDirectory(file);
+        Path pinned=parent.path.resolve(file.getFileName()); parent.check();
+        PosixFileAttributes before=Files.readAttributes(pinned,PosixFileAttributes.class,LinkOption.NOFOLLOW_LINKS);
+        privateReferenceAttributes(before);
+        try(var input=Files.newByteChannel(pinned,Set.of(StandardOpenOption.READ,LinkOption.NOFOLLOW_LINKS))) {
+            ByteBuffer buffer=ByteBuffer.allocate(4097);
+            while(buffer.hasRemaining() && input.read(buffer)!=-1) { }
+            if(buffer.position()>4096)throw new IllegalArgumentException("Private reference budget exceeded");
+            bytes=Arrays.copyOf(buffer.array(),buffer.position());
+        }
+        PosixFileAttributes after=Files.readAttributes(pinned,PosixFileAttributes.class,LinkOption.NOFOLLOW_LINKS);
+        privateReferenceAttributes(after); parent.check();
+        if(!before.fileKey().equals(after.fileKey()))throw new IllegalArgumentException("Private reference path changed");
+        if(new String(bytes,StandardCharsets.ISO_8859_1).lines().filter(s->!s.isBlank()&&!s.startsWith("#")&&!s.startsWith("!")).count()!=4)
             throw new IllegalArgumentException("Duplicate or incomplete private reference fields");
-        Properties p=new Properties();try(InputStream in=Files.newInputStream(file)){p.load(in);}
+        Properties p=new Properties();try(InputStream in=new ByteArrayInputStream(bytes)){p.load(in);}
         if(!p.stringPropertyNames().equals(Set.of("format","schema","catalog","history")) || !"LOCAL_COPY_REFERENCE_V1".equals(p.getProperty("format")))
             throw new IllegalArgumentException("Invalid private catalog reference");
         return new Reference(p.getProperty("schema"),p.getProperty("catalog"),p.getProperty("history"));
     }
     public static void writeReference(String path, Reference reference) throws IOException {
-        Path file=Path.of(path);
-        if(!file.isAbsolute() || !Files.isDirectory(file.getParent(),LinkOption.NOFOLLOW_LINKS) ||
-            Files.getPosixFilePermissions(file.getParent()).stream().anyMatch(p->p.name().startsWith("GROUP_")||p.name().startsWith("OTHERS_")))
-            throw new IllegalArgumentException("Private reference directory required");
+        Path file=privateReferencePath(path);
         Properties p=new Properties();p.setProperty("format","LOCAL_COPY_REFERENCE_V1");p.setProperty("schema",reference.schema);
         p.setProperty("catalog",reference.catalog);p.setProperty("history",reference.history);
-        Files.createFile(file,PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
-        try(OutputStream out=Files.newOutputStream(file,StandardOpenOption.WRITE,LinkOption.NOFOLLOW_LINKS)){p.store(out,"Private local recovery reference; review before copy");}
+        PrivateReferenceDirectory parent=privateDirectory(file); parent.check();
+        Path pinned=parent.path.resolve(file.getFileName());
+        try(var channel=Files.newByteChannel(pinned,Set.of(StandardOpenOption.WRITE,StandardOpenOption.CREATE_NEW,LinkOption.NOFOLLOW_LINKS),
+                PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
+            OutputStream out=Channels.newOutputStream(channel)) {
+            p.store(out,"Private local recovery reference; review before copy");
+        }
+        privateReferenceAttributes(Files.readAttributes(pinned,PosixFileAttributes.class,LinkOption.NOFOLLOW_LINKS)); parent.check();
+    }
+    /** Fixed internal properties retain the CLI budgets without accepting user-controlled URL options. */
+    public static PGSimpleDataSource loopbackSource(String url, String configuredUser, String configuredPassword) {
+        requireLoopback(url,true);
+        if(configuredUser==null || configuredUser.isBlank() || configuredPassword==null || configuredPassword.isBlank())
+            throw new IllegalArgumentException("Private local credentials required");
+        return new PGSimpleDataSource() {
+            @Override public String getURL() { return url; }
+            @Override public Connection getConnection() throws SQLException {
+                return getConnection(configuredUser,configuredPassword);
+            }
+            @Override public Connection getConnection(String user, String password) throws SQLException {
+                requireLoopback(url,true);
+                Properties properties=new Properties(); properties.setProperty("user",user); properties.setProperty("password",password);
+                properties.setProperty("connectTimeout","5"); properties.setProperty("socketTimeout","30");
+                properties.setProperty("ApplicationName","group33-local-recovery-copy");
+                return DriverManager.getConnection(url,properties);
+            }
+        };
     }
     public static int run(String[] args, Map<String,String> env, Consumer<String> out, Consumer<String> error) {
         if(args.length!=1 || !Set.of("inspect-source","inspect-target","copy").contains(args[0])) {
@@ -244,7 +305,8 @@ public final class ManualSchemaCopy {
         try {
             requireLoopback(env.get("GROUP33_MIGRATION_URL"),true);
             MigrationSettings settings=MigrationSettings.Companion.from(env);
-            if(!(settings.getSource() instanceof PGSimpleDataSource local))throw new IllegalArgumentException("Unsupported connection type");
+            if(!(settings.getSource() instanceof PGSimpleDataSource configured))throw new IllegalArgumentException("Unsupported connection type");
+            PGSimpleDataSource local=loopbackSource(env.get("GROUP33_MIGRATION_URL"),configured.getUser(),configured.getPassword());
             String original=env.get("GROUP33_COPY_SOURCE_SCHEMA");identifier(original);identifier(settings.getSchema());
             if(original.equals(settings.getSchema()))throw new IllegalArgumentException("Distinct schemas required");
             String sourceFile=env.get("GROUP33_COPY_SOURCE_CATALOG_FILE"),targetFile=env.get("GROUP33_COPY_TARGET_CATALOG_FILE");
