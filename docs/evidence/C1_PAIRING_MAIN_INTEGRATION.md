@@ -547,3 +547,161 @@ With JDK17, the isolated application-ID init script above, local debugServerUrl,
 Publication scope is three C1 instrumentation classes, two C1 runners, four
 failure-state screenshots, this evidence document and the artifact manifest.
 No production source, credentials, API/DTO, Server behavior or migration changes.
+
+## 2026-11-18 multi-Elder host regression — local, not yet published
+
+Base: `1f3642fdd6c34d7a3009bbdd19185e83435abed7`; remote main remains
+`bbe4997034ecb837d2093f4e73267cc530976f29`. Added three focused tests to
+`ChainViewModelTest` using its existing Repository test doubles:
+
+- Multiple authorized Elders require explicit selection; A → B → A presents
+  only the selected Elder's photos and clears the previous photo retry target.
+  Selection submits no business command.
+- Revoking selected A leaves B available but does not silently select B;
+  a new relationship for A also requires explicit selection, and the revoked ID
+  cannot reactivate A.
+- While relationship access is UNKNOWN, selecting B or emitting its photo cache
+  cannot authorize the host. Data appears only after authorized relationships
+  are observed again.
+
+Executed on Windows/JDK17 from the PR worktree:
+
+```text
+gradlew.bat :android-app:testDebugUnitTest :android-app:testReleaseUnitTest --tests com.group33.medicationreminder.integration.ChainViewModelTest --tests com.group33.medicationreminder.core.data.contract.CaregiverContextResolverTest --offline --no-daemon --max-workers=1 --no-parallel --console=plain
+```
+
+PASS, 1m52s, 63 tasks. Each variant ran 18 host + 3 resolver tests, zero
+failures/errors/skips (42 executions across the two variants, not 42 distinct
+scenarios). Raw local log: `multi-elder-jvm-01.log` in the existing ignored
+evidence directory. This is deterministic JVM host evidence, not real HTTP,
+Room, visible bilingual pages, C2/C3 cleanup or phone identity verification.
+ADB listed no device, so multi-Elder device/manual acceptance is pending.
+No product source or protocol changes; no commit/push/publication for this increment.
+
+## 2026-11-18 multi-Elder real HTTP/Room and Activity regression — API27 PASS
+
+Added opt-in `PairingMultiElderOnlineTest`. English and Simplified Chinese each
+passed its one method on Xiaomi API27. Fresh fictional Elder actors issue codes
+and accept through real HTTP; the installed Caregiver uses its real Repository,
+Room, Activity and localized choice buttons. Each run explicitly chooses A → B → A,
+asserts the header name and unchanged command IDs, revokes A through the real
+Repository, verifies A's choice disappears without automatic B selection, and
+explicitly chooses still-active B. There are no seeded photos, plans or drafts;
+empty photo state is not evidence of populated C2/C3 cache cleanup.
+
+Build with the isolated init script above: `:android-app:assembleDebug
+:android-app:assembleDebugAndroidTest` and the established local-server/offline
+arguments, PASS (48s, 75 tasks). Test source SHA-256:
+`10b415778a48e1343ddff6f3d4f459c975870a0055634ea4fca63966a83c4344`.
+Test APK SHA-256:
+`1bc985c416b1053a04533200d1b1fe5985e821435c94a9cc9456d4851a7188a8`.
+App APK retains `09e6d59ba1964be9a2331a0027e94a4d2f3d8cb70f637bc2687476cf0db53d82`.
+
+Reproduce after installing the isolated APKs, configuring each language using
+`ChainOnlineFlowTest#configureLanguage` with `chainLanguage=en` or `zh-CN`, and
+setting device reverse tcp:18082 to the loopback fictional-data service:
+
+```text
+adb -s <serial> shell am instrument -w -r -e class com.group33.medicationreminder.integration.PairingMultiElderOnlineTest -e pairingMultiElder true com.group33.medicationreminder.c1dev112.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Only the final Chinese run adds `-e keepManualElders true`, creating one fresh
+Elder/relationship for manual selection (not the revoked Elder's re-pairing).
+The two runs total five pairing requests; repeated runs must respect the existing
+Server rate limits. Local result/logs: `multi-api27-01`, produced by the ignored
+runner adapted from the existing session-isolation runner with this class and
+one expected method per language. Both language preferences and APK identities
+were verified. The service had stopped and was restarted with the same cached
+JAR/new memory fixtures; no old in-memory recovery is claimed.
+
+Runner restored its original ADB mapping. For manual acceptance a new loopback
+reverse was then explicitly enabled, the exported SharedLoginActivity opened,
+and Settings scrolled to the choices. Direct shell launch of the private role
+Activity was denied by Android; the normal exported entry routed successfully.
+`multi-elder-ready-zh-api27-20261118.png` records preparation only. Current manual
+targets are `C1 Elder A new 070ad5` and `C1 Elder B 070ad5`; the older English
+fixture `C1 Elder B de4aca` is also legitimate and can be ignored for this check.
+Manual touch/header/navigation/revoke acceptance remains pending member feedback.
+No production changes, commit, push or GitHub publication for this increment.
+
+## 2026-11-18 relationship button feedback — local, device acceptance pending
+
+The member confirmed selection/navigation/revocation worked, but reported no
+noticeable button feedback. Relationship rows previously rebuilt on every state
+render, interrupting pressed/ripple state. `OnlineFeatureContent` now retains
+those rows until the active relationship list changes, labels the current choice
+in English/Chinese, and uses a nearby Snackbar for selection and revoke progress
+and result. This is a C1 interaction fix, not the later overall visual redesign.
+
+Validation from the existing PR worktree, Windows/JDK17, isolated application ID
+and `-PdebugServerUrl=http://127.0.0.1:18082`:
+
+```text
+gradlew.bat -I <existing-device.init.gradle> :android-app:testDebugUnitTest :android-app:testReleaseUnitTest :android-app:assembleDebug :android-app:assembleDebugAndroidTest :android-app:lintDebug --offline --no-daemon --max-workers=1 --no-parallel --console=plain
+```
+
+PASS, 4m16s, 122 tasks: Debug 148 and Release 147 tests, zero failures/errors/skips;
+lint zero errors and 60 warnings. Raw log: `multi-feedback-build-01.log` in the
+existing ignored evidence directory. Instrumentation now checks retained button
+identity, localized selected labels and an actually visible revoke result after
+clicking the revoke UI button. Test-only rebuilds `multi-feedback-build-02.log`
+and `-03.log` passed (38s/52s, 57 tasks each).
+
+Device attempts `multi-feedback-api27-01` / `-02` failed locating a choice;
+`-03` explicitly waited for a rendered choice and timed out. Subsequent device
+inspection found the lock screen foreground and `isStatusBarKeyguard=true`,
+`showing=true`; the Activity cannot provide foreground rendering acceptance in
+that state. These attempts are failures, not feedback acceptance. The test also
+now handles both the selected and unselected localized button text and waits for
+the Snackbar to be visibly rendered. Re-run both languages with the tablet
+unlocked, then obtain member touch-feedback acceptance and bilingual screenshots.
+No new device-pass or manual-feedback-pass claim; no commit/push/publication.
+
+### Unlocked-device rerun — API27 bilingual feedback PASS
+
+After the member unlocked the tablet, `dumpsys window policy` reported
+`isStatusBarKeyguard=false` and `showing=false`. Ran the same opt-in runner:
+
+```text
+python .git/c1-local-recovery-20261117/pr112-device-20261118/run_multi_elders.py --adb D:/program_self/Android/sdk/platform-tools/adb.exe --aapt D:/program_self/Android/sdk/build-tools/36.0.0/aapt.exe --serial 9c69cae2 --output .git/c1-local-recovery-20261117/pr112-device-20261118/multi-feedback-api27-04
+```
+
+English and Simplified Chinese each passed one method. This includes A/B/A
+selection with the same button instances, localized selected text, real UI
+revocation with a visible localized Snackbar result, and no automatic selection
+of B after A is revoked. The preceding three failed attempts remain recorded;
+they are not counted as passes. Member feedback before this fix confirmed the
+functional selection/navigation/revocation flow; the new tactile/visual feedback
+still requires member acceptance.
+
+The base HEAD is `1f3642f`; these are uncommitted working-tree changes, not the
+remote CI-tested version. Exact rerun SHA-256 values:
+
+- Instrumentation source: `fd25fc60732045f841657d64ae194a6d0aaf2e06b79ccf8f5c85c06c269de43b`.
+- App APK: `180a0fde46d9a101b796a856d26567b5ed4e0f939cb959e9a059791f804eb55a`.
+- Test APK: `30c58a5260ddc16254601b76766d25b43a609dbcd95574a9c554c8dba15f88f2`.
+
+Visible screenshots (fictional fixtures, inspected in both languages):
+
+- [English selected button and feedback](c1-pairing-main/multi-elder-feedback-en-api27-20261118.png).
+- [Chinese selected button and feedback](c1-pairing-main/multi-elder-feedback-zh-api27-20261118.png).
+
+The normal exported entry was used after each language setup. Chinese Settings
+is left showing selected `C1 Elder A new 9c5954` and available `C1 Elder B 9c5954`
+for member acceptance; older fictional fixtures remain untouched. The local
+loopback reverse remains enabled for this manual check. Screenshots show the
+selected label and Snackbar, not a recorded finger press or a TalkBack audit.
+
+No API, authorization, identity, Server or persistence behavior was changed.
+These fictional anonymous Debug actors do not prove phone-login integration,
+populated C2/C3 data cleanup or real Elder-side consent UI. No commit, push or
+GitHub publication for this increment.
+
+Member acceptance after the unlocked-device rerun: the member reported normal
+functionality and additionally revoked some other test relationships. The local
+fixture inventory may therefore differ from the preparation screenshots; those
+screenshots remain historical evidence. The reported remaining concern is the
+overall visual design, scheduled for the shared frontend finish after the three
+functional workstreams. This report accepts the requested interaction feedback;
+it is not a complete accessibility or C2/C3 integration sign-off. No publication
+approval has been given for this increment.

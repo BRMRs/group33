@@ -5,6 +5,7 @@ import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.*
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.snackbar.Snackbar
 import com.group33.medicationreminder.Group33Application
 import com.group33.medicationreminder.R
 import com.group33.medicationreminder.caregiver.CaregiverDestination
@@ -43,6 +44,9 @@ internal class OnlineFeatureContent private constructor(
     private val pairing = section()
     private val requests = section()
     private val relationships = section()
+    private var renderedRelationships: List<CareRelationshipView>? = null
+    private val selectionButtons = mutableMapOf<String, MaterialButton>()
+    private var revokeFeedback: Snackbar? = null
     private val dosePanel = if (role == UserRole.CAREGIVER && services.caregiverDashboard != null && services.doseEvents != null)
         com.group33.medicationreminder.caregiver.CaregiverDosePanel(activity, section(), services.caregiverDashboard, services.doseEvents)
         else null
@@ -135,19 +139,47 @@ internal class OnlineFeatureContent private constructor(
         relationships.visibility = if (settings) View.VISIBLE else View.GONE
         data.visibility = if (plans) View.VISIBLE else View.GONE
         code.text = state.code?.let { activity.getString(R.string.chain_code, it.code) }.orEmpty()
-        requests.removeAllViews(); relationships.removeAllViews(); data.removeAllViews()
+        requests.removeAllViews(); data.removeAllViews()
         if (settings && role == UserRole.ELDER) state.requests.filter { it.status == PairingRequestStatus.PENDING }.forEach { request ->
             text(requests).text = activity.getString(R.string.chain_request_from, request.caregiver.displayName)
             button(requests, R.string.chain_accept) { model.respond(request.id, true) }
             button(requests, R.string.chain_reject) { model.respond(request.id, false) }
         }
         if (settings) {
-            state.relationships.filter { it.status == CareRelationshipStatus.ACTIVE }.forEach { relationship ->
-                if (role == UserRole.CAREGIVER) button(relationships, R.string.chain_choose_elder) { model.select(relationship.id) }
-                    .text = activity.getString(R.string.chain_select_name, relationship.elder.displayName)
-                button(relationships, R.string.chain_revoke) { editor.clear(); model.revoke(relationship.id) }
+            val available = state.relationships.filter { it.status == CareRelationshipStatus.ACTIVE }
+            // Keep pressed/ripple state alive across selection and busy-state renders.
+            if (available != renderedRelationships) {
+                renderedRelationships = available
+                relationships.removeAllViews(); selectionButtons.clear()
+                available.forEach { relationship ->
+                    if (role == UserRole.CAREGIVER) {
+                        selectionButtons[relationship.id] = button(relationships, R.string.chain_choose_elder) {
+                            model.select(relationship.id)
+                            Snackbar.make(column, activity.getString(R.string.chain_selected_name,
+                                relationship.elder.displayName), Snackbar.LENGTH_SHORT).show()
+                        }
+                    }
+                    button(relationships, R.string.chain_revoke) {
+                        editor.clear()
+                        revokeFeedback?.dismiss()
+                        revokeFeedback = Snackbar.make(column, R.string.chain_working, Snackbar.LENGTH_INDEFINITE)
+                            .also { it.show() }
+                        model.revoke(relationship.id)
+                    }
+                }
+                button(relationships, R.string.chain_logout) { editor.clear(); model.logout() }
             }
-            button(relationships, R.string.chain_logout) { editor.clear(); model.logout() }
+            available.forEach { relationship ->
+                selectionButtons[relationship.id]?.apply {
+                    isSelected = active?.relationshipId == relationship.id
+                    text = activity.getString(if (isSelected) R.string.chain_selected_name else R.string.chain_select_name,
+                        relationship.elder.displayName)
+                }
+            }
+        }
+        if (!state.busy) revokeFeedback?.let { feedback ->
+            feedback.setText(state.message).setDuration(Snackbar.LENGTH_LONG).show()
+            revokeFeedback = null
         }
         if (plans) {
             if (role == UserRole.CAREGIVER && state.context !is CaregiverContextState.Active) {
@@ -204,7 +236,7 @@ internal class OnlineFeatureContent private constructor(
         }
     }
 
-    fun close() { dosePanel?.clear(); editor.clear() }
+    fun close() { revokeFeedback?.dismiss(); revokeFeedback = null; dosePanel?.clear(); editor.clear() }
     companion object {
         fun install(activity: AppCompatActivity, host: FrameLayout, role: UserRole,
                     navigate: (CaregiverDestination) -> Unit = {}): OnlineFeatureContent? {
