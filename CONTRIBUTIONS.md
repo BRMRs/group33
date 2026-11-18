@@ -76,3 +76,7 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 ### 2026-11-17 — XinyanXue / S2 — V2 group/follow-up/probe/delivery contract
 
 Proposed isolated Shared DTOs, reviewed-design notes and identical Android/Shared/Boot-Jackson vectors. No production endpoint, DB/Room, signature or delivery acceptance claimed; same-head S1 review requested.
+
+### 2026-11-18 — XinyanXue / S2 — #131 frozen member ownership
+
+Address C2 P2 with owned immutable ordered members across construction/copy/kotlinx/Boot Jackson; retain original wire/value semantics and add caller-mutation/view/decode regressions. Four Shared cases first fail unchanged on old head; final verification recorded on PR.

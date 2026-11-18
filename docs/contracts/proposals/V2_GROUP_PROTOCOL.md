@@ -33,3 +33,7 @@ After same-head review: (1) authoritative wire/error/state-transition vectors ac
 ## Decoder counterexample retained
 
 Initial added tests exposed Boot Jackson accepting omitted nullable actualAt while kotlinx rejected it. The proposal now uses a required non-null ActualMedicationTime envelope with explicit KNOWN/UNKNOWN and consistent value constraints. Missing the envelope remains rejected by both; no invalid missing-field assertion was removed. Global Jackson/production DTOs were not changed. Original failure evidence is retained and the complete three-side contract suite rerun.
+
+## 2026-11-18 C2 ownership correction
+
+C2 review5939398335 reproduced caller-owned mutable members changing a validated group without changing doseGroupId. Four new Shared regressions first failed on the original implementation; original failure/XML retained. FrozenDoseGroup now owns a defensive ordered copy behind an unmodifiable view; explicit copy and both kotlinx/actual Boot Jackson decoding use the same validating constructor. Getter, sublist and iterator cannot mutate backing storage. Elements themselves are immutable existing generation-evidence values. Value equality/hash/destructuring/copy and the original five-field wire are preserved; no r1 DTO or production endpoint changed. Three-side tests cover constructor clear, copy reorder/replacement, returned-view mutation and decode. Not evidence of deployed persistence loss or complete V2 acceptance.
