@@ -41,6 +41,8 @@ class PairingWorkflowViewModelTest {
         val resumed = mutableListOf<String>()
         var retries = 0
         var refreshed = 0
+        var refreshResult: Outcome<Unit> = Outcome.Success(Unit)
+        var cancelResult: OnlineCommandResult<Unit> = OnlineCommandResult.Confirmed(operation, Unit, CacheState.APPLIED)
         var gate: CompletableDeferred<Unit>? = null
         var result: OnlineCommandResult<PairingRequestView> = OnlineCommandResult.Confirmed(operation, request(), CacheState.APPLIED)
         var resumeResult: Outcome<OnlineCommandRecord> = Outcome.Success(record(OnlineCommandState.CONFIRMED, CacheState.APPLIED))
@@ -56,7 +58,7 @@ class PairingWorkflowViewModelTest {
             emitAll(requests)
         }
         override fun observeRelationships() = flowOf(Cached(emptyList<CareRelationshipView>(), true, 1L, false, AccessState.AUTHORIZED))
-        override suspend fun refresh(): Outcome<Unit> { refreshed++; return Outcome.Success(Unit) }
+        override suspend fun refresh(): Outcome<Unit> { refreshed++; return refreshResult }
         override fun observeCommands() = journal
         override suspend fun begin(kind: OnlineCommandKind, targetId: String?): Outcome<CommandContext> {
             begins++; return Outcome.Success(CommandContext(operation, commandScope, kind, targetId))
@@ -67,7 +69,7 @@ class PairingWorkflowViewModelTest {
             return result
         }
         override suspend fun cancelRequest(requestId: String, command: CommandContext): OnlineCommandResult<Unit> {
-            cancelled += requestId; return OnlineCommandResult.Confirmed(operation, Unit, CacheState.APPLIED)
+            cancelled += requestId; return cancelResult
         }
         override suspend fun resume(operationId: String): Outcome<OnlineCommandRecord> {
             resumed += operationId
@@ -209,5 +211,66 @@ class PairingWorkflowViewModelTest {
         f.model.setCode("12345678"); f.model.submitCode(); advanceUntilIdle()
         assertTrue(f.submitted.isEmpty())
         assertEquals(PairingNotice.NotSubmitted(LocalFailureCode.SESSION_NOT_READY), f.model.state.value.notice)
+    }
+
+    @Test fun `all observed terminal requests remain terminal and cannot be cancelled or resubmitted by refresh`() = runTest(dispatcher) {
+        val f = Fixture(); runCurrent()
+        for (status in PairingRequestStatus.entries.filter { it != PairingRequestStatus.PENDING }) {
+            f.requests.value = cached(listOf(request(status))); runCurrent()
+            f.model.cancel("request"); f.model.refresh(); advanceUntilIdle()
+            assertEquals(status, f.model.state.value.requests.single().status)
+        }
+        assertEquals(0, f.begins); assertTrue(f.cancelled.isEmpty())
+        assertTrue(f.submitted.isEmpty()); assertTrue(f.resumed.isEmpty()); assertEquals(0, f.retries)
+    }
+
+    @Test fun `offline submission keeps code without inventing a pending request or automatic retry`() = runTest(dispatcher) {
+        val f = Fixture(); runCurrent()
+        f.result = OnlineCommandResult.NotSubmitted(operation, RepositoryError.Local(LocalFailureCode.OFFLINE))
+        f.model.setCode("00123456"); f.model.submitCode(); advanceUntilIdle()
+        assertEquals(PairingNotice.NotSubmitted(LocalFailureCode.OFFLINE), f.model.state.value.notice)
+        assertEquals("00123456", f.model.state.value.code)
+        assertFalse(f.model.state.value.needsRecovery); assertTrue(f.model.state.value.requests.isEmpty())
+        f.refreshResult = Outcome.Failure(RepositoryError.Local(LocalFailureCode.OFFLINE))
+        f.model.refresh(); advanceUntilIdle()
+        assertEquals(PairingNotice.RefreshFailed, f.model.state.value.notice)
+        assertEquals(1, f.begins); assertEquals(1, f.submitted.size)
+        assertTrue(f.resumed.isEmpty()); assertEquals(0, f.retries)
+    }
+
+    @Test fun `retry later recovery retains original operation until confirmation without a fresh submit`() = runTest(dispatcher) {
+        val f = Fixture(); runCurrent()
+        f.result = OnlineCommandResult.AwaitingConfirmation(operation)
+        f.model.setCode("00123456"); f.model.submitCode(); advanceUntilIdle()
+        val retryLater = RepositoryError.Remote(com.group33.shared.model.ApiError("RETRY_LATER", "Retry later", true, "request-id"))
+        f.resumeResult = Outcome.Success(record().copy(error = retryLater))
+        f.model.refresh(); advanceUntilIdle()
+        assertTrue(f.model.state.value.needsRecovery)
+        assertEquals(PairingNotice.ResultUnknown, f.model.state.value.notice)
+        assertEquals("00123456", f.model.state.value.code)
+        f.model.submitCode(); runCurrent()
+        assertEquals(1, f.begins); assertEquals(1, f.submitted.size)
+        f.resumeResult = Outcome.Success(record(OnlineCommandState.CONFIRMED, CacheState.APPLIED))
+        f.model.refresh(); advanceUntilIdle()
+        assertEquals(listOf(operation, operation), f.resumed)
+        assertFalse(f.model.state.value.needsRecovery); assertEquals("", f.model.state.value.code)
+        assertEquals(0, f.retries); assertTrue(f.model.state.value.requests.isEmpty())
+    }
+
+    @Test fun `unknown cancellation blocks duplicate cancel and resumes the same cancellation command`() = runTest(dispatcher) {
+        val f = Fixture(); f.requests.value = cached(listOf(request())); runCurrent()
+        f.cancelResult = OnlineCommandResult.AwaitingConfirmation(operation)
+        f.model.cancel("request"); advanceUntilIdle()
+        f.model.cancel("request"); runCurrent()
+        assertEquals(1, f.begins); assertEquals(listOf("request"), f.cancelled)
+        assertTrue(f.model.state.value.needsRecovery)
+        f.resumeResult = Outcome.Success(record(OnlineCommandState.CONFIRMED, CacheState.APPLIED).copy(
+            commandKind = OnlineCommandKind.CANCEL_PAIRING_REQUEST, targetId = "request"))
+        f.requests.value = cached(listOf(request(PairingRequestStatus.CANCELLED)))
+        f.model.refresh(); advanceUntilIdle()
+        assertEquals(listOf(operation), f.resumed); assertFalse(f.model.state.value.needsRecovery)
+        assertEquals(PairingRequestStatus.CANCELLED, f.model.state.value.requests.single().status)
+        f.model.cancel("request"); runCurrent()
+        assertEquals(1, f.begins); assertTrue(f.submitted.isEmpty()); assertEquals(0, f.retries)
     }
 }

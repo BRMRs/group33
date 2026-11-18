@@ -31,6 +31,7 @@ internal class DebugChainRepository(
     baseUrl: String,
     namespace: String = "debug-online",
     private val http: ChainHttp = ChainHttp(baseUrl),
+    private val waitBeforeRetry: suspend (Long) -> Unit = { delay(it) },
 ) : AuthRepository, PairingRepository, MedicationPhotoRepository, ReminderPlanRepository, OnlineCommandRepository, DoseEventRepository, CaregiverDashboardRepository {
     private val environment = "debug-anonymous:${http.baseUrl}"
     private val sessionStore = PrivateSessionStore(context, environment, namespace)
@@ -570,7 +571,7 @@ internal class DebugChainRepository(
         if (response.status == 409 && runCatching { remote(response).error.code }.getOrNull() == "OPERATION_IN_PROGRESS")
             return RecoveryReply.InProgress to null
         if (response.status == 429 || response.status >= 500) {
-            delay((response.retryAfter?.toLongOrNull()?.coerceIn(1, 120) ?: 1) * 1_000)
+            waitBeforeRetry((response.retryAfter?.toLongOrNull()?.coerceIn(1, 120) ?: 1) * 1_000)
             return RecoveryReply.Unknown to null
         }
         if (response.status !in 200..299) return RecoveryReply.Rejected(remote(response)) to null

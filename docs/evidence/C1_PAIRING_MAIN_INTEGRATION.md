@@ -705,3 +705,177 @@ overall visual design, scheduled for the shared frontend finish after the three
 functional workstreams. This report accepts the requested interaction feedback;
 it is not a complete accessibility or C2/C3 integration sign-off. No publication
 approval has been given for this increment.
+
+## 2026-11-18 pairing state boundaries — local JVM increment
+
+Base `47cc919cdc1d65f4584eaa3b4dc5340f3214f74f`. Added four tests to the existing
+`PairingWorkflowViewModelTest`, using its Repository/command test doubles:
+
+- Every observed terminal status (ACCEPTED, REJECTED, CANCELLED, EXPIRED) survives
+  refresh; cancel and refresh create no replacement request or command.
+- An explicitly NOT_SUBMITTED/OFFLINE result retains the entered code, creates
+  no observed pending row, and a failed offline refresh never resubmits it.
+- An unresolved command carrying RETRY_LATER stays unknown; another submit is
+  blocked, and explicit reconciliation uses the same original operation until
+  confirmation. The test does not simulate HTTP 429 headers or waiting behavior.
+- An unknown cancellation blocks a second cancellation and reconciles the same
+  cancellation operation; observed CANCELLED remains terminal.
+
+Executed from the existing PR worktree on Windows/JDK17:
+
+```text
+gradlew.bat :android-app:testDebugUnitTest :android-app:testReleaseUnitTest --tests com.group33.medicationreminder.caregiver.PairingWorkflowViewModelTest --offline --no-daemon --max-workers=1 --no-parallel --console=plain
+```
+
+PASS, 1m25s, 63 tasks. Each variant ran 19 tests, zero failures/errors/skips
+(38 executions, including the four new cases twice). Raw local command log:
+`pairing-states-jvm-01.log` in the existing ignored evidence directory.
+
+No product, API, Server, identity, UI or timing-rule changes. API_CONTRACT T04
+already specifies server-controlled ten-minute expiry, terminal consumption and
+rate limits. Server tests with injected clocks already exist, but were not run
+in this increment and are not claimed as new evidence. Client fake-state tests
+cannot prove real expiry, real rate limiting, Retry-After enforcement, HTTP/Room
+integration or visible bilingual prompts. ADB currently lists no device; continue
+real-device form/error acceptance when connected. No new manual-acceptance claim,
+commit, push or publication for this increment.
+
+### Connected Xiaomi API27 form regression and deterministic Server rules
+
+The tablet was reconnected/unlocked. Rebuilt isolated Debug and androidTest APKs
+with the existing init script and `-PdebugServerUrl=http://127.0.0.1:18082`:
+`:android-app:assembleDebug :android-app:assembleDebugAndroidTest --offline
+--no-daemon --max-workers=1 --no-parallel --console=plain`, PASS, 54s/75 tasks.
+
+Ran the existing `PairingFormFailureOnlineTest` on API27, English and Simplified
+Chinese, one method each, both PASS. This is real HTTP/Room, command journal,
+Settings Activity, localized rejection notice and request row. It verifies
+invalidated-code rejection, a subsequent fresh-code request, Elder rejection via
+HTTP, no target active relationship, and refresh without resubmission. It does
+not drive the normal Elder consent UI. The local ignored runner is adapted from
+the existing device runner and preserves earlier outputs and ADB mappings:
+
+```text
+python .git/c1-local-recovery-20261117/pr112-device-20261118/run_form_failure.py --adb D:/program_self/Android/sdk/platform-tools/adb.exe --aapt D:/program_self/Android/sdk/build-tools/36.0.0/aapt.exe --serial 9c69cae2 --output .git/c1-local-recovery-20261117/pr112-device-20261118/form-api27-01
+```
+
+Recorded SHA-256:
+
+- Form instrumentation source: `d58d2484e5ad670addee2f9af38fc002bf2f990ac9919627876f18bb18e4da7a`.
+- App APK: `180a0fde46d9a101b796a856d26567b5ed4e0f939cb959e9a059791f804eb55a`.
+- Test APK: `30c58a5260ddc16254601b76766d25b43a609dbcd95574a9c554c8dba15f88f2`.
+
+Inspected screenshots (landscape is the member's current device orientation):
+
+- [English invalidated code](c1-pairing-main/form-invalidated-en-api27-20261118.png).
+- [Chinese invalidated code](c1-pairing-main/form-invalidated-zh-api27-20261118.png).
+- [English declined request](c1-pairing-main/form-rejected-en-api27-20261118.png).
+- [Chinese declined request after refresh](c1-pairing-main/form-rejected-zh-api27-20261118.png).
+
+The English after-refresh screenshot clipped the declined row's status at the
+top despite the test's geometric visibility check. It remains in raw local
+outputs, not used as visible status evidence; the retained English declined
+screenshot does show the status. The explicit row/status and no-resubmission
+assertions passed after refresh in both languages. No product fix or weakened
+assertion was introduced to hide that screenshot limitation.
+
+Also executed existing Server service tests on the same source worktree,
+Windows/JDK17, with injectable clocks/in-memory stores:
+
+```text
+gradlew.bat -PserverOnly :server:test --tests com.group33.server.pairing.PairingCodeIssuanceServiceTest --tests com.group33.server.pairing.PairingRequestServiceTest --tests com.group33.server.pairing.PairingDecisionServiceTest --offline --no-daemon --max-workers=1 --no-parallel --console=plain
+```
+
+PASS: issuance 17, requests 32, decisions 35, total 84 tests, zero
+failures/errors/skips. These include deadline-minus-one/exact/plus-one boundaries,
+expiry without renewal on replay, consumption/renewal, installation/IP limits
+and recovery, and decision/cancellation/revocation ordering. Raw local log:
+`pairing-states-server-01.log`. No Server files were changed. This targeted pass
+does not supersede the previously documented Windows full-suite failures, and
+is not PostgreSQL, production deployment or HTTP Retry-After evidence.
+
+For member acceptance, reopened the normal exported login entry, navigated to
+Chinese Settings and scrolled to `请求 11：长者已拒绝`. Its raw code expiry label
+is historical metadata, not active authorization. Local loopback reverse remains
+enabled for manual refresh. Member checks should confirm readable declined status,
+no cancel action for that terminal request, and refresh does not turn it pending.
+Real HTTP 429/Retry-After client end-to-end acceptance remains outstanding; no
+manual acceptance or publication is claimed for this increment.
+
+Member acceptance follow-up: the member manually verified both requested checks
+on the tablet: the declined request is readable with no cancellation action,
+and an explicit refresh leaves it declined. This accepts those two form checks,
+not the outstanding HTTP429/Retry-After, phone identity or complete accessibility
+scope. No upload approval has been given for this increment.
+
+### Real HTTP429 client test preparation — not yet device-verified
+
+Added `PairingRateLimitOnlineTest`, opt-in `pairingRateLimit=true`. It uses a
+fresh private Debug session namespace and a genuinely issued-then-invalidated
+code. Five rejected requests exhaust that installation's allowance; the next
+request must return real HTTP429/RETRY_LATER with Retry-After. No reply status,
+body or header is fabricated. The test holds the client's requested wait,
+checks duplicate begin is blocked, then releases it and explicitly reconciles
+the same operation. The second response is still genuinely rate-limited; it
+compares operation/body digests, unchanged journal identities, session retention
+and absence of invented requests/relationships.
+
+`DebugChainRepository` adds an optional suspend waiting function, defaulting to
+the existing `delay`, at the existing 429/5xx backoff point. Existing delay
+calculation and default runtime behavior remain unchanged. Only this test
+supplies a controlled wait, so no real minute is spent sleeping. This can verify
+that the actual header drives the requested wait and blocks completion until
+released; it does not prove real elapsed sleeping or successful post-window
+recovery. Server controlled-clock tests separately cover quota-window recovery.
+There is no new UI or production identity/session binding decision.
+
+The tablet disconnected after the member's form acceptance. ADB then listed only
+an unrelated emulator; it was not used. Build/regression results and the real
+device result must be recorded before claiming this new test passed. This
+prepared test is not additional human acceptance or publication approval.
+
+Build/regression completed successfully on Windows/JDK17: the isolated init
+script, `-PdebugServerUrl=http://127.0.0.1:18082`, offline/no-daemon/one-worker
+arguments and tasks `:android-app:assembleDebug :android-app:assembleDebugAndroidTest
+:android-app:testDebugUnitTest :android-app:testReleaseUnitTest :android-app:lintDebug`.
+Result: 8m24s, 122 tasks; Debug 152 and Release 151 tests, zero failures/errors/skips;
+lint zero errors and 60 warnings. Raw log: `pairing-rate-build-01.log` in the
+existing ignored evidence directory. New instrumentation compiles but has not
+run on the tablet; only the unrelated emulator remains visible in ADB.
+
+### Real HTTP429 client/Room regression — Xiaomi API27 PASS
+
+The member reconnected/unlocked the Xiaomi tablet and requested waiting until
+another PR's device test finished. Read-only inspection found its instrumentation
+client still running; after it exited, a further check found no active
+instrumentation/UI-driving process. Only then did this run install the isolated
+c1dev112 packages. The unrelated emulator was not used.
+
+```text
+python .git/c1-local-recovery-20261117/pr112-device-20261118/run_rate_limit.py --adb D:/program_self/Android/sdk/platform-tools/adb.exe --aapt D:/program_self/Android/sdk/build-tools/36.0.0/aapt.exe --serial 9c69cae2 --output .git/c1-local-recovery-20261117/pr112-device-20261118/rate-api27-01
+```
+
+PASS, one opt-in method, Chinese app preference verified; this is a Repository
+and Room assertion test, not evidence of a visible Chinese or English rate-limit
+page. The first five genuine submissions returned 422 for the invalidated code;
+the sixth and explicit reconciliation returned actual HTTP429/RETRY_LATER and
+Retry-After. The wait callback received the actual header in milliseconds,
+held completion while a duplicate begin was rejected, and released explicitly.
+Both rate-limited sends retained the same operation/body digests; six journal
+identities remained unchanged, the session stayed trusted and no request or
+relationship was invented. The injected callback does not prove elapsed wall
+time or success after the quota window expires. Existing controlled-clock
+Server tests prove the separate window-recovery behavior.
+
+Exact SHA-256 values from the runner:
+
+- Instrumentation source: `9c9b5ecd36766db28a815195a6052675faa7b15aabb4def0fd2f64e05e443fde`.
+- App APK: `d2635e39a40bff69c2136c0256ee428aeda03a3931c505228784037b5e8f07bd`.
+- Test APK: `a64761d2359fd4a9330a6aa653161cc5c587421c503356733a81143af29a98d9`.
+
+Runner restored the prior ADB reverse mapping. The base remains `47cc919`; this
+new test and wait seam are uncommitted and not covered by that remote commit's
+CI. There is no new user-facing behavior to accept manually in this rate-limit
+increment; the member's previous form acceptance remains valid. Phone identity,
+normal two-party UI, overall accessibility and populated C2/C3 cleanup are still
+separate acceptance scope. No commit/push/publication for this increment.
