@@ -186,6 +186,19 @@ gradlew.bat -I <local-evidence>/device.init.gradle :android-app:assembleDebug :a
 
 The local init script sets only the application ID via
 `androidComponents.finalizeDsl`; it is not a product configuration change.
+To reproduce without the original local file, create an external Gradle init
+script with this content and substitute its path above:
+
+```groovy
+allprojects {
+    plugins.withId('com.android.application') {
+        androidComponents.finalizeDsl { extension ->
+            extension.defaultConfig.applicationId = 'com.group33.medicationreminder.c1dev112'
+        }
+    }
+}
+```
+
 Both APK builds passed (75 tasks, 26 executed). APK SHA-256:
 `09e6d59ba1964be9a2331a0027e94a4d2f3d8cb70f637bc2687476cf0db53d82`.
 Test APK SHA-256:
@@ -234,3 +247,303 @@ cases, 200% font/TalkBack, device fault injection, phone login, cloud/PostgreSQL
 or the joint photo/plan flow. Existing same-head Linux CI and previous unit/lint
 results are referenced, not claimed as rerun here. Overall #10 remains open;
 mandatory non-author and specialized reviews remain required.
+
+## 2026-11-18 invalid-code and declined-request regression
+
+Local uncommitted test addition on `4d696c3`:
+`PairingFormFailureOnlineTest.invalidatedCodeAndElderRejectionNeverAuthorizeOrAutomaticallyResubmit`.
+No product source, protocol or service behavior changes.
+
+On the same dedicated local memory Server and isolated application described
+above, API35 ran the test once in English and once in Simplified Chinese, both
+PASS. Each execution covers both scenarios:
+
+- Explicitly delete a fictional Elder's code before submitting it via Settings.
+  The real journal records REJECTED / PAIRING_CODE_UNAVAILABLE; the localized
+  Request not sent notice appears, and no request for that Elder is fabricated.
+  Refresh retains the rejected command and allocates no new operation ID.
+- Explicitly submit a fresh code, observe PENDING, then reject via the fictional
+  Elder HTTP actor. Refresh renders Declined by Elder; a second refresh retains
+  the single terminal request and allocates no new operation ID. Authorized
+  relationship cache observations contain no ACTIVE relationship for the target.
+
+The final test APK SHA-256 is
+`fdf29817ade93958adbe4f79a2b052aa381cebd9d5a18292d750ec834d93c49e`;
+the application APK is unchanged from the device rerun above.
+Build: `:android-app:assembleDebug :android-app:assembleDebugAndroidTest` using the
+same local application-ID init script and debugServerUrl; after test-only edits,
+`:android-app:assembleDebugAndroidTest` passed again (57 tasks, 5 executed).
+Device runner: `run_failure_device.py emulator-5562 failure-03`, invoking the
+same AndroidJUnitRunner with `pairing112=true` and the new test class.
+
+![Invalidated code, English](c1-pairing-main/en-invalidated-api35-20261118.png)
+![Declined request, English](c1-pairing-main/en-declined-api35-20261118.png)
+![Invalidated code, Chinese](c1-pairing-main/zh-invalidated-api35-20261118.png)
+![Declined request, Chinese](c1-pairing-main/zh-declined-api35-20261118.png)
+
+Initial state assertions passed but captured an earlier scroll frame. A capture
+helper correction then failed because it cast NestedScrollView to ScrollView;
+the actual host type was restored and final bilingual runs passed. Those raw
+attempts remain under local evidence `emulator-5562/failure-01`, `failure-02` and
+`failure-03`; only failure-03 is final visual evidence. No product assertion was
+removed. Screenshots can also contain earlier fictional terminal requests.
+
+The physical tablet was not listed by ADB during this round and was not rerun.
+This does not prove ten-minute expiry, rate limiting, offline/unknown-result or
+process recovery, real phone identity, or the Elder's normal refusal UI. Earlier
+CI applies to committed `4d696c3`, not this uncommitted test addition. No extra
+human keyboard acceptance is claimed for these scripted operations.
+
+## 2026-11-18 response loss, offline recovery and process restart
+
+Additional local test source on `4d696c3`, without product code changes:
+`PairingResponseLossOnlineTest`, driven by
+`scripts/run_c1_pairing_response_loss.py`. The runner validates the APK package
+IDs before installation and operates only on `com.group33.medicationreminder.c1dev112`.
+It never clears application data. A dedicated fictional-data local Server is
+required; production phone identity and remote services are not used.
+
+The loopback fault proxy forwards the original request to the real Server,
+records the HTTP result, then closes the client connection without returning
+the successful pairing response. It drops every pairing-create response while
+armed, including any transport replay. Other traffic is forwarded unchanged.
+An offline phase closes connections without contacting the Server. The proxy
+audits only SHA-256 hashes of the operation key and body, status and drop flag;
+it does not log credentials, original keys or pairing codes.
+
+| Phase | English/API35 | Chinese/API35 | Observed result |
+|---|---|---|---|
+| `prepareUnknown` | PASS | PASS | Server returned 201 with one PENDING request; client journal AWAITING_CONFIRMATION; duplicate submit disabled |
+| `verifyOfflineAfterRestart` | PASS | PASS | Original record restored in a different process; offline refresh retained unknown state and allocated no new operation |
+| `recoverOriginalAfterReconnect` | PASS | PASS | Original record became CONFIRMED/APPLIED; original PENDING request restored, no relationship granted or second request created |
+
+The orchestrator force-stops the isolated application before every phase and
+checks that its process is gone. Instrumentation also checks that the offline
+phase PID differs from the original. Proxy audit confirms exactly two original
+operation-key hashes (one per language); dropped attempts and online recovery
+share the same key and body hash, and the real Server returns 201 for replay.
+The original ADB reverse mapping is restored in a finally block.
+
+Actual reproducible entry point (substitute SDK paths and a fresh evidence folder):
+
+```text
+python scripts/run_c1_pairing_response_loss.py --adb <adb.exe> --aapt <aapt.exe> --serial emulator-5562 --output <fresh-evidence-folder>
+```
+
+The tested invocation used SDK build-tools 36.0.0, the existing local Server on
+127.0.0.1:18082 and output `loss-02` in the existing local evidence directory.
+It passed all six phase invocations and its final key/payload audit. The earlier
+local prototype `loss-01` also passed all phases but is not counted as additional
+scenario coverage. Setup methods are not feature tests.
+
+Build: `:android-app:assembleDebugAndroidTest` with the previously described
+isolated-ID init script, `-PdebugServerUrl=http://127.0.0.1:18082 --offline
+--no-daemon --max-workers=1 --no-parallel --console=plain`: PASS, 57 tasks,
+6 executed. Test APK SHA-256:
+`07ef042472a30016ef7654cddc3577aa952b87c0e9f11c089209bd814ac7616f`.
+The application APK remains unchanged. Test source SHA-256:
+`7e1a98c1221f2d44334fda4f12782a5400fa387dd6c474713686d343a608da12`.
+
+This verifies application-process restart after the unknown result is recorded,
+not killing an in-flight command or rebooting the device. Physical-device,
+OS-airplane-mode, 401/session-switch races, natural expiry/rate limiting,
+production persistence and phone-authenticated flows remain outside this run.
+The Elder is an HTTP test actor, not a second normal UI. If a phase fails, retain
+its journal and use `--recover-existing` against the same local service to
+reconcile the fixture; do not clear application data to make the test pass.
+
+## 2026-11-18 in-flight process death and actual emulator reboot
+
+The existing C1 test and runner now also support `--inflight-reboot`, restricted
+to the dedicated `emulator-5562` / `Group33_PR110_C1` AVD. No physical tablet is
+rebooted. This extends the previous run's coverage; no product code, shared
+contract, journal lease or server behavior is changed.
+
+The proxy receives a real 201 from the Server and holds the response. The test
+persists its original command/fixture and signals that the form is still busy.
+The runner force-stops the application within eight seconds of the held response,
+before the actual ten-second HTTP read timeout. This is a genuinely interrupted
+command, not killing an application after it already recorded the transport error.
+
+| Final phase (`inflight-04`) | English/API35 | Chinese/API35 |
+|---|---|---|
+| `prepareInFlight` | Expected interruption verified | Expected interruption verified |
+| `verifyLiveClaimAfterKill` | PASS | PASS |
+| Actual emulator boot count | 6 → 7 | 7 → 8 |
+| `recoverOriginalAfterReconnect` | PASS | PASS |
+
+The deliberate kill reports Process crashed in instrumentation output. It is
+recorded as an expected interruption, never as an ordinary passed test method.
+There are four completed assertion methods and two verified interrupted phases.
+The same-boot check observes AWAITING_CONFIRMATION, retains the original command,
+keeps submit disabled, and forwards no additional pairing POST while the original
+claim is live. No real-minute delay or journal/clock mutation bypasses the lease.
+
+After a real reboot, the runner requires sys.boot_completed and an increased
+BOOT_COUNT, restores ADB reverse, and waits for the saved app locale. Recovery
+then confirms the same operation and applies its cache. Server inspection finds
+the original single PENDING request with the same request ID and no relationship.
+Proxy audit verifies identical operation-key/body hashes across the held request
+and successful replay. Final ADB mapping is restored.
+
+Build: `:android-app:assembleDebugAndroidTest` with the same isolated-ID/server
+arguments as above, PASS (57 tasks, 6 executed). Test APK SHA-256:
+`d3b1d1ef316cecce48e805340a8987940b79b38f8acb635e87d52689f7439f24`.
+Test source SHA-256:
+`801e65fdb165d6f9a064fa403a6642883233a997d57b58af2fc9978faa589a07`.
+The application APK remains unchanged.
+
+Reproduce with the preceding runner command plus `--inflight-reboot`. The same
+final source/APK also reran ordinary response-loss/offline/reconnect phases in
+English and Chinese (`loss-03`): all six methods passed, including original
+key/body audit. These are regressions, not six additional independent scenarios.
+
+Earlier attempts are retained locally: inflight-01 incorrectly rejected the
+temporary absence of a startup PID; inflight-02 attempted to parse a marker not
+yet available. The runner now polls both readiness signals. In inflight-03,
+English completed, but Chinese exited at an immediate post-boot locale read;
+subsequent inspection showed the saved zh-CN locale. Its original command was
+reconciled successfully in inflight-03-reconcile without data clearing. The runner
+now waits for that same required locale, and inflight-04 completed both languages.
+No product assertion or accepted failure evidence was removed.
+
+This is local anonymous-identity/HTTP/in-memory-Server evidence. Physical reboot,
+real radio outage, power-loss durability, 401/403/404/session-switch races, natural
+lease expiry in the same boot, phone identity and production database acceptance
+remain unverified. Full S1 infrastructure and #10/#17 acceptance are not claimed.
+
+## 2026-11-18 current/obsolete 401 and obsolete successful read
+
+Added opt-in `PairingSessionIsolationOnlineTest`, reproduced with:
+
+```text
+python scripts/run_c1_pairing_session_isolation.py --adb <adb.exe> --aapt <aapt.exe> --serial emulator-5562 --output <fresh-evidence-folder>
+```
+
+Final local output is `isolation-01` in the existing evidence directory. API35
+executed all three methods once under English and once under Simplified Chinese:
+six method executions, all PASS, representing three scenarios in two language
+configurations. The runner verifies isolated APK IDs and actual app locale, never
+clears data, and restores the previous ADB reverse mapping.
+
+Each fixture uses a fresh test-only private-session namespace, real anonymous
+login, Room command/cache adapters and the existing local HTTP service. It creates
+an actual accepted relationship and observed request before testing invalidation.
+The C1 PairingWorkflowViewModel is bound to that real fixture repository; these
+tests inspect its state, not Activity navigation or translated visible messages.
+
+| Method | Verified behavior |
+|---|---|
+| `current401ClearsSessionDraftRequestsAndRelationships` | A current-lease 401 clears authentication, trusted scope, draft and request display; request/relationship observations become empty UNKNOWN; no new pairing submission is made |
+| `obsolete401CannotSignOutReauthenticatedSession` | A held old 401 arrives after explicit sign-out and reauthentication; replacement generation remains READY, old draft/rows stay cleared, and no extra pairing write occurs |
+| `obsoleteSuccessCannotAuthorizeReauthenticatedCache` | A held real old 200 cannot reauthorize request/relationship cache under a replacement generation; only an explicit fresh refresh authorizes current data |
+
+The test transport delegates every request to the real ChainHttp. For the 401
+scenarios it deliberately substitutes an invalid credential on exactly one local
+pairing-directory read; the real Server returns 401. It does not fabricate an
+HTTP reply, new endpoint or server revocation protocol. For obsolete responses,
+it holds the already received real 401/200 until after the replacement login,
+including through caller cancellation, then returns it to the original caller.
+
+Reauthentication deliberately retains the same anonymous account/scope and
+changes the trusted generation. This is not a cross-phone-account test or a
+claim that anonymous identity is verified phone identity. No production provider,
+PrivateSessionStore, Room schema, Server or product ViewModel changes were needed.
+
+Build: `:android-app:assembleDebugAndroidTest` with the same isolated-ID/local
+Server arguments: PASS. The final build after assertion-message edits ran 57
+tasks, 5 executed. Test APK SHA-256:
+`c3b2e32443ecba080d757c82e59bbd7d39dec28d79913cbee6cbf60142061a12`.
+Test source SHA-256:
+`3c4817326c07d12402b7468932e20d13b102363026fd797f4355ddf3cd9f3936`.
+Application APK SHA-256 remains unchanged from the original isolated build.
+
+Physical-device and login-navigation acceptance, actual JWT expiry/revocation,
+cross-phone-account or cross-installation recovery, C2/C3 page/image cleanup,
+403/404 and temporary-error behavior remain outside this round. Historical CI
+still applies only to committed `4d696c3`; these local additions are uncommitted.
+
+## 2026-11-18 403/404/503 regressions — Xiaomi API27 bilingual PASS
+
+The same isolation class now retains its three prior session cases and adds:
+
+- `forbiddenOperationRetainsSessionAndNeverAutomaticallyReplays`: the Caregiver
+  attempts Elder-only code issuance; require a real 403 / ROLE_NOT_ALLOWED, retain
+  the common session, and verify resume of the rejection makes no new write.
+- `revokedRelationship404ClearsAuthorizationButRetainsSession`: an actual Elder
+  revokes an accepted relationship; require the following target-data read to
+  return real 404 / RESOURCE_NOT_ACCESSIBLE, remove authorized cache presentation
+  and retain the common session.
+- `temporaryReadFailureRetainsStaleCacheWithoutClaimingRefreshSuccess`: inject
+  the existing contract's 503 / SERVICE_UNAVAILABLE fixture on a directory read;
+  require legal authorized cache to remain stale, keep its last-successful time,
+  show RefreshFailed state, then recover via an explicit fresh read.
+- `temporaryWriteResultRetainsOriginalKeyAndPayloadUntilRecovery`: after real
+  Server acceptance, return a synthetic 503 to the client; require unknown journal
+  state, no second operation allocation, original key/body hashes on resume, and
+  a single real PENDING request without a relationship.
+
+The 503 replies are deliberately synthetic client fault fixtures using existing
+ApiError fields/code/status. They are not evidence of a real Server outage. No
+service route, DTO, protocol, production registration or product code is added.
+The runner now expects seven methods per language and supports the existing
+language preference on API23-32, as well as OS per-app locales on API33+.
+
+Device execution completed after the member reconnected/unlocked the Xiaomi
+tablet (API27): ENGLISH seven methods PASS, SIMPLIFIED_CHINESE seven methods
+PASS, fourteen method executions total. The earlier build-only checkpoint had
+no connected device; automatic approval rejected emulator startup with
+`blocked by policy`. No alternate launch path was used; these results are from
+the tablet, not a restarted emulator.
+
+Completed validation: `:android-app:assembleDebugAndroidTest` with the established
+isolated application-ID/local-server arguments, PASS (57 tasks, 6 executed);
+runner AST syntax and repository/diff checks. Test source SHA-256:
+`b1b418631b3bec2fd9fe6367edc1ec62b11ed01d47e739e7e16dc05a91152d9b`.
+Test APK SHA-256:
+`f71dd4b38bf1e1a4fb2e1c78ad479cc71fe439a068cf96000c6b8146dd6badf0`.
+Previous six-method results refer to the prior source/APK, not this extension.
+
+The previous memory service and relay had also stopped. The identical cached
+Server JAR was hash-checked and started as a foreground tracked process with a
+new fictional-data memory store/private photo root, then the loopback relay was
+restored. This does not preserve prior in-memory fixtures or claim service-restart
+recovery; these new tests create their own fresh, private-namespace fixtures.
+Executed from the primary workspace:
+
+```text
+python ../c1-review-pr112/scripts/run_c1_pairing_session_isolation.py --adb D:/program_self/Android/sdk/platform-tools/adb.exe --aapt D:/program_self/Android/sdk/build-tools/36.0.0/aapt.exe --serial 9c69cae2 --output .git/c1-local-recovery-20261117/pr112-device-20261118/errors-api27-01
+```
+
+The retained local result.json matches the source and APK hashes above; both
+language logs report `OK (7 tests)`. The runner verified API27 persisted language
+preferences and restored the original ADB reverse mapping. Tests observe real
+Repository/ViewModel state, not visible navigation or localized error messages.
+This does not cover phone-account switching, real service outages, JWT natural
+expiry or C2/C3 cache cleanup. No product changes, commit or publication occurred.
+
+## 2026-11-18 pre-publication verification of the uncommitted test increment
+
+With JDK17, the isolated application-ID init script above, local debugServerUrl,
+`--offline --no-daemon --max-workers=1 --no-parallel --console=plain`:
+
+- `gradlew.bat test :android-app:lintDebug :android-app:assembleDebug gate1Check`
+  failed at `:server:test`: 628 tests, 311 failures, zero errors/skips. Android
+  Debug 145 and Release 144 tests completed with zero failures/errors/skips.
+  Windows reports include unsupported POSIX attributes and private-photo-store
+  initialization failures, plus dependent Spring context failures. This is not
+  a green local Gate 1 run. Server source has no changes in this increment;
+  the Linux results in the main-synchronization section remain historical.
+- A separate `gradlew.bat :android-app:lintDebug :android-app:assembleDebug
+  :shared:test` succeeded (56 tasks: 9 executed, 2 from cache, 45 up-to-date).
+  Lint: zero errors, 60 warnings. Shared: 18 tests, zero failures/errors/skips,
+  restored from cache rather than newly executed.
+- `python scripts/check_repository_policy.py`, artifact digest verification
+  and `git diff --check` passed. Raw local command logs are retained as
+  `prepublish-check-01.log` and `prepublish-android-01.log` in the existing
+  ignored evidence directory. Current remote CI covers `4d696c3`, not these
+  uncommitted files; the new commit must obtain its own CI result after approval.
+
+Publication scope is three C1 instrumentation classes, two C1 runners, four
+failure-state screenshots, this evidence document and the artifact manifest.
+No production source, credentials, API/DTO, Server behavior or migration changes.
