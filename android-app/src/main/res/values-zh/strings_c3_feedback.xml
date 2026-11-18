@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="c3_elder">长者：%1$s</string>
+  <string name="c3_select_elder">请先登录并选择已配对的长者，再查看记录。</string>
+  <string name="c3_loading">正在加载记录…</string>
+  <string name="c3_access_unknown">尚未确认访问权限，暂不显示记录。请检查登录和所选长者。</string>
+  <string name="c3_revoked">访问权限已撤销。请通过配对选择有权访问的长者。</string>
+  <string name="c3_unavailable">记录不可用或无法确认访问权限。请检查登录和所选长者。</string>
+  <string name="c3_no_local_data">尚未加载本地记录；这不代表没有用药事件。</string>
+  <string name="c3_empty">所选日期内没有用药事件记录；这不能证明是否已服药。</string>
+  <string name="c3_results">最后已知的事件结果</string>
+  <string name="c3_stale">数据已过期，记录可能已有变化。</string>
+  <string name="c3_last_sync">上次成功同步（本机时区）：%1$s</string>
+  <string name="c3_sync_time_unknown">上次成功同步时间：未知</string>
+</resources>
