@@ -76,3 +76,7 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 ### 2026-11-17 — XinyanXue / S2 — trusted execution time-zone contract
 
 Proposed isolated Shared DTOs, reviewed-design notes and identical Android/Shared/Boot-Jackson vectors. No production endpoint, DB/Room, signature or delivery acceptance claimed; same-head S1 review requested.
+
+### 2026-11-18 — XinyanXue / S2 — #130 tzdb and UUID interoperability
+
+Separate stable zone wire syntax from registry-specific acceptance/consumption; add explicit UNAVAILABLE local view preserving raw reports, and document/test canonical lowercase UUIDs. Reproduce old unknown-zone decode failure, then tri-runtime round-trip/registry-skew/failed-lookup/syntax regression. No production adapters or old DTO changes.

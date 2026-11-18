@@ -55,3 +55,15 @@ S1 使用设备时区和注入的当前时钟计算 currentLocalDate，监听 zo
 ## 解码差异反例与修正
 
 初轮补充反例发现Boot Jackson会把缺失的可空current当null，而kotlinx拒绝；因此采用必填availability和一致的current约束。只含elderId的旧反例仍必须被拒绝。未修改全局Jackson配置；旧生产DTO无变化。所有正反向量在三端重跑，原失败证据保留。
+
+## 2026-11-18 S1 compatibility correction
+
+Wire and local consumption are separate. ExecutionZoneReport checks only bounded ASCII region-name representation (1–255 characters, no blank/empty/dot segments or fixed-offset syntax), never the receiving machine's tzdb in its constructor. A Server report handler must still validate against the Server registry plus authenticated current execution binding before accepting a report; wire decoding alone is not trusted acceptance.
+
+A Server-AVAILABLE context remains decodable when the client registry lacks that region. `forLocalRuntime` produces a new explicit UNAVAILABLE/current=null local consumption view if lookup is unknown or fails. It preserves the original raw Server object/report/sequence/observation for synchronized storage and later registry updates. S1 must publish only the consumed AVAILABLE view before computing today, and keep its existing session/relationship/generation fences. No caregiver/UTC/plan/old-cache fallback or guessed query is permitted; explicit Server-UNAVAILABLE never invokes registry lookup. The adapter does not generate a date or enable Room/HTTP.
+
+The old `Not/AZone` negative vector mixed registry membership with wire integrity; per this review it is replaced with malformed `Not//AZone`. Future/unknown but syntactically sound registry entries now have positive-decode plus UNAVAILABLE-consumption assertions in all three runtimes. The registry-skew fixture injects two supported-name sets and an unregistered synthetic name; it does not claim historical Android/JDK tzdb builds were installed.
+
+**Report and receipt reportId are canonical lowercase UUID text, exactly36 characters (8-4-4-4-12).** Uppercase or shortened spellings are malformed, never silently normalized or assigned another operation key. This documents the existing boundary and aligns tri-runtime vectors; use lowercase alphabetic-hex positive and uppercase negative examples. Existing wire fields are unchanged.
+
+Original two-method Shared compatibility test: unknown registry entry failed while canonical UUID checks passed. The same positive decoding case passes after the change; added local-unavailable/raw-retention/lookup-failure and syntax cases verify the required behaviour. Earlier whole-context nullable decoding evidence is separate. Same-head S1 and non-author Server/contract re-review remains required.

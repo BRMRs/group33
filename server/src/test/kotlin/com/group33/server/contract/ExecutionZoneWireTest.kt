@@ -26,7 +26,7 @@ class ExecutionZoneWireTest(@Autowired private val mapper: ObjectMapper) {
         for (payload in listOf(
             """{"reportId":"00000000-0000-4000-8000-000000000015","observationSequence":0,"ianaTimeZoneId":"Asia/Shanghai","observedAtEpochMillis":1794895200000}""",
             """{"reportId":"00000000-0000-4000-8000-000000000015","observationSequence":2,"ianaTimeZoneId":"+08:00","observedAtEpochMillis":1794895200000}""",
-            """{"reportId":"00000000-0000-4000-8000-000000000015","observationSequence":2,"ianaTimeZoneId":"Not/AZone","observedAtEpochMillis":1794895200000}""",
+            """{"reportId":"00000000-0000-4000-8000-000000000015","observationSequence":2,"ianaTimeZoneId":"Not//AZone","observedAtEpochMillis":1794895200000}""",
             """{"reportId":"00000000-0000-4000-8000-000000000015","observationSequence":2,"ianaTimeZoneId":"Asia/Shanghai","observedAtEpochMillis":-1}""",
             """{"reportId":"00000000-0000-4000-8000-000000000015","observationSequence":2,"ianaTimeZoneId":"Asia/Shanghai","observedAtEpochMillis":1794895200000,"actorId":"forged"}""",
             """{"observationSequence":2,"ianaTimeZoneId":"Asia/Shanghai","observedAtEpochMillis":1794895200000}""",

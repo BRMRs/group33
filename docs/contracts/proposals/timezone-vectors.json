@@ -22,7 +22,7 @@
     {
       "reportId": "00000000-0000-4000-8000-000000000015",
       "observationSequence": 2,
-      "ianaTimeZoneId": "Not/AZone",
+      "ianaTimeZoneId": "Not//AZone",
       "observedAtEpochMillis": 1794895200000
     },
     {
