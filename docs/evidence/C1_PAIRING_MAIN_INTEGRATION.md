@@ -879,3 +879,272 @@ CI. There is no new user-facing behavior to accept manually in this rate-limit
 increment; the member's previous form acceptance remains valid. Phone identity,
 normal two-party UI, overall accessibility and populated C2/C3 cleanup are still
 separate acceptance scope. No commit/push/publication for this increment.
+
+## 2026-11-18 populated photo/editor isolation — prepared, device pending
+
+After the preceding nine-file increment was approved and published as `593068f`,
+started the next work-plan item on that base. Remote main is still `bbe4997`;
+C2/C3 candidate PRs #111/#120/#122 remain open. This test targets only the current
+C1 host and the already-present plan editor, not unmerged candidate pages.
+
+Extended the existing `PairingMultiElderOnlineTest` with an independently opt-in
+method `switchingAndRevokingClearPopulatedPhotoAndPlanDraft`, requiring
+`pairingPopulatedIsolation=true`. The original multi-Elder method keeps its
+original opt-in and photo-free fixtures. The new fixture generates solid-color
+32x24 PNGs locally (no real photos), uploads through existing Elder HTTP, and
+creates real consent/relationships through the existing HTTP endpoints. On the
+Caregiver side it will open actual photos/editor, type unsaved fictional drafts,
+switch A→B→A and revoke A through UI. Assertions require hidden/cleared image and
+fields after context changes, blank draft when reopening either Elder, no auto
+B selection after revocation and no newly submitted plan command. Earlier plan
+commands, if any, are compared rather than requiring a clean app database.
+
+Code inspection found that the host clears the visible editor but retains
+per-photo ViewModels in the Activity store; whether an old draft reappears must
+be tested before declaring a defect or changing behavior. No product fix has
+been made in this increment and no C2/C3 contract is being guessed.
+
+The isolated `:android-app:assembleDebugAndroidTest` build passed on Windows/JDK17,
+offline/no-daemon/one-worker, with the existing init script and local URL:
+1m11s, 57 tasks. Raw log: `populated-isolation-build-01.log` in the ignored
+evidence directory. The tablet is listed `offline`; the unrelated emulator and
+another review's device process were not taken over. The new method has not run,
+so neither populated editor cleanup nor draft reappearance is claimed verified.
+No new manual acceptance, commit, push or publication for this increment.
+
+Environment follow-up: host-loopback preflight created an independent fictional
+Elder and uploaded a generated 32x24 blue PNG through the existing photo endpoint,
+receiving 201 for login and upload. The first temporary script attempt sent a raw
+PNG instead of the existing multipart format and failed; after inspecting
+`ChainHttp`/the controller, the script used the same `file` multipart field and
+passed. This was a script correction, not a product/API change. Local metadata:
+`photo-isolation-preflight-01.json` in the existing ignored directory; credentials
+were held only in memory and not written to logs or evidence. This preflight
+does not prove Android decoding, authorization isolation or editor cleanup.
+
+ADB showed the Xiaomi missing/offline. With no active ADB instrumentation,
+installation, reboot or UI-driving client detected, only its transport was
+reconnected; the shared ADB server and other emulator were left running. The
+tablet then appeared `unauthorized`, requiring the member to allow USB debugging.
+The populated-isolation method is still unexecuted pending that authorization.
+
+### USB authorized: reproduced draft retention and local fix
+
+After USB authorization, `populated-api27-01` ran the new opt-in method on the
+Xiaomi API27 against the existing local HTTP service. English failed when
+returning A→B→A: the reopened A editor contained `Draft C1 photo Elder A ...`
+instead of an empty name. Chinese did not run after this failure. The failure
+and APK/source hashes are retained in that ignored directory; this is a real
+product-state failure, not a missing-device result.
+
+The C1 host now retains editor ViewModels in `CaregiverEditorModels`, an
+Activity-retained holder with a separate ViewModelStore. It discards that store
+when account/environment/installation, session generation, relationship or
+Elder changes, or authorized context disappears. A display-name change and
+ordinary navigation within the same authorized context retain the draft.
+Activity destruction clears the nested store through the holder lifecycle;
+configuration changes retain it. This does not change C2's editor implementation,
+wire contracts, repository registration or persisted command/journal records.
+An unknown submitted command is not deleted or assigned a new key by this fix.
+
+Added four JVM regressions for scope identity, switch-back, same-context retention
+and holder lifecycle. The real-device method additionally checks that ordinary
+Records→Plans navigation retains the current draft, while context changes clear
+the photo and editable fields. Generated images and fictional names only.
+The local fix is not uploaded; build/device rerun results follow when complete.
+
+Reproduction commands (JDK17, Android SDK, local service on 18082):
+
+```text
+./gradlew :android-app:testDebugUnitTest :android-app:testReleaseUnitTest :android-app:lintDebug :android-app:assembleDebug :android-app:assembleDebugAndroidTest -I <existing-isolated-package-init.gradle> -PdebugServerUrl=http://127.0.0.1:18082 --offline --no-daemon --max-workers=1 --no-parallel --console=plain
+adb -s 9c69cae2 shell am instrument -w -r -e class com.group33.medicationreminder.integration.PairingMultiElderOnlineTest#switchingAndRevokingClearPopulatedPhotoAndPlanDraft -e pairingPopulatedIsolation true -e keepManualElders true com.group33.medicationreminder.c1dev112.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+The optional `keepManualElders` fixture creates a replacement consenting fictional
+Elder with a generated photo after assertions, leaving two active choices for
+manual acceptance. It does not restore the revoked relationship. The local
+runner sets and verifies each app language, installs only the isolated packages,
+records APK/source hashes and restores the prior ADB reverse mapping.
+
+### 2026-11-19 non-device checks
+
+`populated-isolation-fix-build-01.log`: the combined command above completed
+successfully (122 tasks, 37 executed). Android Debug **156** and Release **155**
+tests each have zero failures/errors/skips; these include all four new holder
+regressions. Lint reports **0 errors / 47 warnings**. Both isolated Debug APKs
+built. The run crossed a long tool/session interruption; Gradle reported 2h2m39s
+elapsed, so this is not a normal build-duration measurement.
+
+`./gradlew test` with the same init/local URL/offline/one-worker arguments was
+also actually rerun: **FAILED**, Server **628 / 311 failed** (1m30s, 71 tasks).
+Reports include unsupported `Files.setPosixFilePermissions` on Windows, private
+photo-store initialization failures and dependent Spring context failures.
+This matches the previously recorded Windows failure category; Server sources
+were not changed. The full command is not recorded as green. Raw log:
+`populated-isolation-full-test-01.log` in the existing ignored directory.
+
+Repository policy passes. The repaired app has **not** run on the tablet: it is
+not available and the member requested postponing device tests. Preserve the
+earlier failing `populated-api27-01` separately; do not describe it as a post-fix
+pass. English/Chinese device regression, screenshots and the member's manual
+acceptance remain outstanding before upload approval. No commit, push or
+GitHub publication for this slice.
+
+A Linux follow-up used the existing WSL build cache, with **153** Server/Shared,
+Gradle and fixture files compared to this worktree (line endings normalized;
+zero mismatches). No new checkout or source tree was created. The initial
+wrapper invocation lacked executable permission (exit 126); invoking it through
+`bash` reached Gradle, but `:server:test :shared:test -PserverOnly --offline
+--rerun-tasks` failed dependency resolution because required artifacts were not
+available to that offline repository context. Neither attempt ran tests or
+counts as a Linux pass. Logs: `populated-linux-server-test-01/02.log`. Linux CI
+must still verify the eventual approved commit; no tests or source protections
+were disabled to hide the Windows failure.
+
+### 2026-11-19 Xiaomi post-fix regression and manual handoff
+
+The Xiaomi returned authorized/unlocked. Before installation, the recorded hashes
+of all changed source files and both APKs matched `populated-local-checks-01.json`.
+PR #112 remote head was still `593068f`; these product changes remain local.
+
+```text
+python .git/c1-local-recovery-20261117/pr112-device-20261118/run_populated_isolation.py --adb D:/program_self/Android/sdk/platform-tools/adb.exe --aapt D:/program_self/Android/sdk/build-tools/36.0.0/aapt.exe --serial 9c69cae2 --output .git/c1-local-recovery-20261117/pr112-device-20261118/populated-api27-02
+python .git/c1-local-recovery-20261117/pr112-device-20261118/run_populated_isolation.py --adb D:/program_self/Android/sdk/platform-tools/adb.exe --aapt D:/program_self/Android/sdk/build-tools/36.0.0/aapt.exe --serial 9c69cae2 --languages SIMPLIFIED_CHINESE --output .git/c1-local-recovery-20261117/pr112-device-20261118/populated-api27-03
+```
+
+- **02 English: PASS**, one opt-in method, 19.654 seconds.
+- **02 Chinese: FAIL** at `pair()`'s confirmation assertion during fixture setup.
+  No detailed HTTP result was recorded, so the precise cause is unconfirmed.
+  The original runner prepared three relationships in each language; six inputs
+  on one installation can exceed the existing five/minute quota. This was a
+  diagnostic hypothesis, not a recorded HTTP429 result. The failure is retained.
+- The runner now prepares the optional manual replacement only for the last
+  selected language (five requests for a complete two-language run), and allows
+  an explicit single-language run. It changes no service quota or device clock.
+- After using the existing UI's explicit pending-submission check,
+  **03 Chinese: PASS**, one opt-in method. Same test source/app APK/test APK as
+  English; no product or instrumentation source changes between these runs.
+
+Both passing methods assert actual decoded fictional photos and editable
+drafts, A→B→A cleanup, ordinary Records→Plans retention within A, revocation
+clearing the image/editor/collections without selecting B automatically, and no
+new CONFIRM_PLAN command. Language preferences were independently verified.
+Provider consent is still HTTP fixture setup, not normal Elder UI acceptance.
+
+Inspected evidence: [English fresh editor](c1-pairing-main/populated-fresh-en-api27.png)
+and [Chinese fresh editor](c1-pairing-main/populated-fresh-zh-api27.png). Both show
+the fictional blue photo, Elder label and empty medication-name field; the
+dosage field is below the screenshot viewport and is covered by assertions.
+The action-status text retains the earlier revoke message in these captures;
+the authoritative active context and subsequent ordinary display were checked
+separately. No overall visual/accessibility acceptance is claimed.
+
+During manual preparation, re-launch showed no selected Elder and misleadingly
+said there were no active relationships. A transparent local diagnostic relay
+observed successful collection reads (200; 29 requests/26 relationships, logging
+only status/counts). Scrolling Settings exposed the existing choices; selecting
+`C1 photo Elder B 0f2ad9` restored its active header and photo entry. This was not
+lost relationship data. The wording defect is recorded as a separate work-plan
+follow-up, not silently treated as fixed by this editor-store change. The
+diagnostic relay was stopped and ADB reverse restored to direct local port18082
+for manual acceptance. Attempts to start the non-exported home directly were
+denied as expected; the normal exported login entry was used instead. No app
+export/permission settings or original app data were changed.
+
+Manual acceptance is pending: B and `C1 photo Elder A new 0f2ad9` have generated
+photos. Enter an unsaved draft, switch away/back and reopen: blank; ordinary
+Records→Plans within the same selection: retained; revoke the selected relation:
+old photo/editor cleared and the other Elder remains explicitly selectable.
+Do not save a plan for these checks. No commit, push or publication yet.
+
+### Dropdown follow-up requested by the member
+
+The member found the stacked selection/actions and the three-step acceptance
+confusing; the preceding manual handoff was not accepted. Updated the work plan
+before changing this scope. C1 now presents one fixed, read-only Material dropdown
+above the scrolling content. Only active relationships from the current trusted
+account are listed, newest first; a captured lease and current membership are
+rechecked when an item is selected. Relationship/session updates dismiss stale
+menus. No keyboard input, implicit first-item selection or new transport fields.
+
+Settings manages only the selected relationship, before the pairing form/history;
+it no longer repeats selection/revoke controls for every Elder. Existing logout,
+pairing and explicit command recovery remain. The host distinguishes an available
+choice from no active relationships, and a new selection clears previous action
+feedback without deleting its command. The editor-scope fix remains in place.
+No C2/C3 editor, accepted identity/API contract or production registration changes.
+
+The existing real-service tests now open the actual popup and click adapter items,
+checking current context, single selected relationship action, removal of revoked
+options, unchanged command identities, draft/image cleanup and same-context
+navigation retention. Added a ViewModel regression for clearing old feedback while
+preserving its original target/command; the unavailable navigation UI checks the
+selector is disabled and non-editable. New build/device results must be recorded
+below: the preceding text-button results do not prove this new dropdown UI.
+
+#### Final dropdown checks
+
+`dropdown-build-02.log`: final product-source build passed (5m30s, 122 tasks),
+Android Debug **157** / Release **156**, zero failures/errors/skips. Lint reports
+**0 errors / 49 warnings**. Both isolated APKs built. The first build was an
+intermediate iteration; the second includes the final caregiver-only ordering,
+newest-first options and API23-compatible padding. No Elder screen is reordered.
+
+`dropdown-navigation-api27-01`: **3/3 PASS**, API27 (5.612s). Command:
+
+```text
+adb -s 9c69cae2 shell am instrument -w -r -e class com.group33.medicationreminder.caregiver.CaregiverNavigationUiTest com.group33.medicationreminder.c1dev112.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+`dropdown-api27-01`: English/Chinese methods passed, but visual inspection found
+the screenshots caught the frame before the menu/editor finished drawing. Those
+captures remain in the ignored run directory and are not published as dropdown
+or visible-editor evidence. Strengthened the instrumentation to assert a visible
+popup item, wait for accessibility idle, and require the complete name field
+inside the scrolling viewport above navigation before capture. Product sources
+did not change. `dropdown-build-03.log` rebuilt AndroidTest and lint successfully
+(2m42s, 66 tasks; product tasks up-to-date).
+
+```text
+./gradlew :android-app:testDebugUnitTest :android-app:testReleaseUnitTest :android-app:lintDebug :android-app:assembleDebug :android-app:assembleDebugAndroidTest -I <existing-isolated-package-init.gradle> -PdebugServerUrl=http://127.0.0.1:18082 --offline --no-daemon --max-workers=1 --no-parallel --console=plain
+./gradlew :android-app:lintDebug :android-app:assembleDebugAndroidTest -I <existing-isolated-package-init.gradle> -PdebugServerUrl=http://127.0.0.1:18082 --offline --no-daemon --max-workers=1 --no-parallel --console=plain
+python .git/c1-local-recovery-20261117/pr112-device-20261118/run_populated_isolation.py --adb D:/program_self/Android/sdk/platform-tools/adb.exe --aapt D:/program_self/Android/sdk/build-tools/36.0.0/aapt.exe --serial 9c69cae2 --output .git/c1-local-recovery-20261117/pr112-device-20261118/dropdown-api27-02
+```
+
+Final **dropdown-api27-02 English/Chinese: PASS**, one actual popup-selection
+method per language, including A→B→A, visible cleared name field/photo ownership,
+same-context Records→Plans retention, revoke cleanup/no implicit selection and
+no new plan command. Five pairing fixtures total; only the last language creates
+the manual replacement. No real-minute wait, quota/clock change or data reset.
+Navigation used the same product APK; only the populated-test class changed for
+the later screenshot checks. Raw result JSON records per-run source/APK hashes:
+
+- Product APK: `cb450c99fb69790d6b1d1a60c12b432b147a39a9859379dfff41eeadcf038adc`.
+- Final test APK: `f207c268ab5c44205f6fb821103f0eead028f52c64f126daa862ec7bd2d4eb0d`.
+- Populated test source: `9936bf650da062dd4ba3ef340eb63f71116c4e6be763d86e2c2ace13430c72a0`.
+
+Inspected [English dropdown](c1-pairing-main/dropdown-en-api27.png),
+[Chinese dropdown](c1-pairing-main/dropdown-zh-api27.png),
+[English cleared editor](c1-pairing-main/dropdown-editor-en-api27.png) and
+[Chinese cleared editor](c1-pairing-main/dropdown-editor-zh-api27.png).
+The fixed selection remains visible while the editor scrolls. The long names
+are accumulated fictional test accounts, not hardcoded production choices;
+account display names are not translated when the app language changes.
+
+Manual acceptance is now a single usability flow: use the top dropdown to choose
+another fictional Elder and confirm the entry/selection feels clear. The prior
+three-step manual request is replaced by the automated coverage above, not marked
+as human-passed. Full C2/C3 composition, small-screen/200%-font/TalkBack acceptance,
+phone identity and normal two-party Elder UI remain separate. Earlier Windows
+Server failures/Linux offline-resolution limits are unchanged; Server tests were
+not rerun for these Android-only UI edits. No commit/push/publication for this
+unaccepted local slice.
+
+### Human usability acceptance — 2026-11-19
+
+The C1 owner confirmed the dropdown selection and current functionality work on
+the Xiaomi tablet. The earlier complex manual flow is superseded by this
+usability acceptance plus the automated isolation/revocation coverage above.
+This is not approval to publish or a teammate PR approval. Remaining visual
+polish is deferred until all three C1 functional tracks are complete; final
+C2/C3 composition and accessibility checks remain outstanding as listed above.

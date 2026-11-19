@@ -285,6 +285,19 @@ class ChainViewModelTest {
         assertNull(f.submitted)
     }
 
+    @Test fun `choosing another Elder clears old action feedback without discarding its command`() = runTest(dispatcher) {
+        val f = Fixture(); runCurrent()
+        f.model.select("rel-a"); runCurrent()
+        f.model.revoke("rel-a"); runCurrent()
+        assertEquals(R.string.chain_not_submitted, f.model.state.value.message)
+        val command = f.submitted
+        f.model.select("rel-b"); runCurrent()
+        assertEquals(R.string.chain_ready, f.model.state.value.message)
+        assertEquals("rel-b", (f.model.state.value.context as CaregiverContextState.Active).context.relationshipId)
+        assertEquals(command, f.submitted)
+        assertEquals("rel-a", f.submitted?.targetId)
+    }
+
     @Test fun `offline recovery never reports successful refresh`() = runTest(dispatcher) {
         val f = Fixture(); runCurrent(); f.pairingResult = failure
         f.model.recover(); runCurrent()

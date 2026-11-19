@@ -45,7 +45,6 @@ internal class OnlineFeatureContent private constructor(
     private val requests = section()
     private val relationships = section()
     private var renderedRelationships: List<CareRelationshipView>? = null
-    private val selectionButtons = mutableMapOf<String, MaterialButton>()
     private var revokeFeedback: Snackbar? = null
     private val dosePanel = if (role == UserRole.CAREGIVER && services.caregiverDashboard != null && services.doseEvents != null)
         com.group33.medicationreminder.caregiver.CaregiverDosePanel(activity, section(), services.caregiverDashboard, services.doseEvents)
@@ -65,11 +64,14 @@ internal class OnlineFeatureContent private constructor(
     private val checkElderSubmission = if (role == UserRole.ELDER)
         button(controls, R.string.chain_recover) { model.recover() } else null
     private var editorKey: String? = null
+    private val editorModels = ViewModelProvider(activity)[CaregiverEditorModels::class.java]
     private var destination = CaregiverDestination.PLANS
     private var signedIn = false
 
     init {
         if (role == UserRole.CAREGIVER) {
+            column.removeView(relationships)
+            column.addView(relationships, column.indexOfChild(controls) + 1)
             button(controls, R.string.chain_refresh) { model.refresh() }
             button(controls, R.string.chain_recover) { model.recover() }
         }
@@ -96,6 +98,7 @@ internal class OnlineFeatureContent private constructor(
     private fun render(state: ChainUi) {
         val user = state.session.user
         if (state.signOut != SignOutStatus.IDLE || user == null || user.role != role) {
+            editorModels.select(null)
             dosePanel?.clear()
             editor.clear(); editorKey = null; column.visibility = View.GONE
             val clearing = state.signOut == SignOutStatus.CLEARING
@@ -116,6 +119,11 @@ internal class OnlineFeatureContent private constructor(
         column.visibility = if (settings || plans || records) View.VISIBLE else View.GONE
         controls.visibility = if (records) View.GONE else View.VISIBLE
         val active = (state.context as? CaregiverContextState.Active)?.context
+        if (editorModels.select(active)) {
+            editor.clear()
+            editorKey = null
+            editor.visibility = View.GONE
+        }
         val elder = state.relationships.firstOrNull { it.id == active?.relationshipId }?.elder
         dosePanel?.show(active.takeIf { !settings }, elder, records)
         identity.text = activity.getString(if (role == UserRole.ELDER) R.string.chain_elder_identity else R.string.chain_caregiver_identity, user.displayName)
@@ -147,18 +155,18 @@ internal class OnlineFeatureContent private constructor(
         }
         if (settings) {
             val available = state.relationships.filter { it.status == CareRelationshipStatus.ACTIVE }
-            // Keep pressed/ripple state alive across selection and busy-state renders.
-            if (available != renderedRelationships) {
-                renderedRelationships = available
-                relationships.removeAllViews(); selectionButtons.clear()
-                available.forEach { relationship ->
-                    if (role == UserRole.CAREGIVER) {
-                        selectionButtons[relationship.id] = button(relationships, R.string.chain_choose_elder) {
-                            model.select(relationship.id)
-                            Snackbar.make(column, activity.getString(R.string.chain_selected_name,
-                                relationship.elder.displayName), Snackbar.LENGTH_SHORT).show()
-                        }
-                    }
+            val managed = if (role == UserRole.CAREGIVER)
+                available.filter { it.id == active?.relationshipId } else available
+            // Settings manages the selected relationship; selection has one fixed dropdown.
+            if (managed != renderedRelationships) {
+                renderedRelationships = managed
+                relationships.removeAllViews()
+                if (role == UserRole.CAREGIVER && managed.isEmpty())
+                    text(relationships, R.string.caregiver_choose_elder_above)
+                managed.forEach { relationship ->
+                    if (role == UserRole.CAREGIVER)
+                        text(relationships).text = activity.getString(R.string.chain_selected_name,
+                            relationship.elder.displayName)
                     button(relationships, R.string.chain_revoke) {
                         editor.clear()
                         revokeFeedback?.dismiss()
@@ -168,13 +176,6 @@ internal class OnlineFeatureContent private constructor(
                     }
                 }
                 button(relationships, R.string.chain_logout) { editor.clear(); model.logout() }
-            }
-            available.forEach { relationship ->
-                selectionButtons[relationship.id]?.apply {
-                    isSelected = active?.relationshipId == relationship.id
-                    text = activity.getString(if (isSelected) R.string.chain_selected_name else R.string.chain_select_name,
-                        relationship.elder.displayName)
-                }
             }
         }
         if (!state.busy) revokeFeedback?.let { feedback ->
@@ -213,7 +214,7 @@ internal class OnlineFeatureContent private constructor(
             editor.visibility = if (viewed == null) View.GONE else View.VISIBLE
             if (viewed != null) {
                 fun <T : ViewModel> retained(type: Class<T>, name: String, create: () -> T): T =
-                    ViewModelProvider(activity, object : ViewModelProvider.Factory {
+                    ViewModelProvider(editorModels, object : ViewModelProvider.Factory {
                         @Suppress("UNCHECKED_CAST") override fun <V : ViewModel> create(modelClass: Class<V>) = create() as V
                     })[name, type]
                 val form = retained(PlanFormViewModel::class.java, "form:$key") {
