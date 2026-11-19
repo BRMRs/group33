@@ -5,6 +5,9 @@ import com.group33.medicationreminder.BuildConfig
 import com.group33.medicationreminder.elder.photo.*
 import com.group33.medicationreminder.auth.*
 import com.group33.medicationreminder.core.session.PrivateSessionStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 
 class DebugChainApplication : Group33Application(), ElderPhotoDependenciesOwner {
     private val phoneConfigured get() = BuildConfig.PHONE_AUTH_BASE_URL.isNotBlank()
@@ -21,6 +24,13 @@ class DebugChainApplication : Group33Application(), ElderPhotoDependenciesOwner 
         if (!phoneConfigured) null
         else createFusionRepository(CommonPhoneSession(commonPhoneStore))
     }
+    internal override val elderDoses by lazy { DebugDoseReminders(this, repository) }
+
+    override fun onCreate() {
+        super.onCreate()
+        elderDoses.start(CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate))
+    }
+
     internal override val featureServices get() = repository.services
     override val elderPhotoDependencies: ElderPhotoDependencies
         get() = repository.services.let { ElderPhotoDependencies(it.photos, it.commands, it.scope) }

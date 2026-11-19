@@ -39,7 +39,8 @@ class PhoneEntryIntegrationTest {
         ActivityScenario.launch<SharedLoginActivity>(Intent(context, SharedLoginActivity::class.java)
             .putExtra("com.group33.medicationreminder.LOCAL_AUTH_DEMO", true)).use {
             awaitLoginLayout(R.id.one_tap_button)
-            onView(withId(R.id.one_tap_button)).perform(scrollTo(), click())
+            onView(withId(R.id.one_tap_button)).perform(scrollTo(), settleLoginScroll, click())
+            awaitLoginLayout(R.id.choice_feedback_card)
             onView(withId(R.id.choice_feedback_card)).check(matches(isDisplayed()))
             assertNull((context.applicationContext as Group33Application).featureServices?.scope?.value)
         }

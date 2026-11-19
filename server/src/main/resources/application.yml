@@ -24,6 +24,8 @@ app:
     database-user: ${PHONE_AUTH_DATABASE_USER:}
     database-password: ${PHONE_AUTH_DATABASE_PASSWORD:}
     phone-hash-key: ${PHONE_AUTH_HASH_KEY:}
+  dose-group:
+    enabled: ${DOSE_GROUP_ENABLED:false}
   occurrence:
     enabled: ${OCCURRENCE_ENABLED:false}
   plan:

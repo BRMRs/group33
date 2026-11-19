@@ -86,6 +86,34 @@ class CommonPhoneSessionIntegrationTest {
             assertEquals("second-account", f.business.services.scope.value?.userId)
         } finally { transport.response?.complete(ChainHttp.Reply(401, byteArrayOf(), null, null, null)); f.phone.clear() }
     }
+    @Test fun merged_dashboard_401_clears_common_phone_session_without_fallback() = runBlocking {
+        val f = Fixture(context)
+        try {
+            f.login()
+            val dashboard = checkNotNull(f.business.services.caregiverDashboard)
+            assertNotNull(f.business.services.doseEvents)
+            assertTrue(dashboard.refresh("fictional-elder", LocalDateRange("2026-11-19", "2026-11-19")) is Outcome.Failure)
+            assertEquals("fictional.phone.token", f.http.token)
+            assertNull(f.phone.restore())
+            assertNull(f.business.services.trusted.value)
+            assertEquals(1, f.http.calls)
+        } finally { f.phone.clear() }
+    }
+    @Test fun late_dashboard_401_does_not_clear_replacement_phone_session() = runBlocking {
+        val transport = Transport().apply { started = CompletableDeferred(); response = CompletableDeferred() }
+        val f = Fixture(context, transport)
+        try {
+            f.login("first-account", "first.token")
+            val oldRead = async { checkNotNull(f.business.services.caregiverDashboard)
+                .refresh("fictional-elder", LocalDateRange("2026-11-19", "2026-11-19")) }
+            withTimeout(5_000) { transport.started!!.await() }
+            f.login("second-account", "second.token")
+            transport.response!!.complete(ChainHttp.Reply(401, byteArrayOf(), null, null, null))
+            assertTrue(oldRead.await() is Outcome.Failure)
+            assertEquals("second-account", f.phone.restore()?.id)
+            assertEquals("second-account", f.business.services.scope.value?.userId)
+        } finally { transport.response?.complete(ChainHttp.Reply(401, byteArrayOf(), null, null, null)); f.phone.clear() }
+    }
     @Test fun reopen_uses_the_common_session_and_logout_preserves_installation() = runBlocking {
         val f = Fixture(context)
         try {

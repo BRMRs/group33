@@ -242,3 +242,125 @@ proof that the corresponding Server implementation, independent security review,
 phone-enabled HTTPS environment, actual policy URL or registered signing profile
 has been delivered. Those gates and final main integration remain separate.
 Rollback is to revert this validation slice; no stored-data migration is needed.
+
+## Main synchronization and integration regression — 2026-11-19
+
+Local candidate: published #88 head `69798f3c4a8510fd6146a2538c9b705026bdcac7`
+plus main `bbe4997034ecb837d2093f4e73267cc530976f29`, resolved locally with
+`git merge --no-commit --no-ff origin/main`. No integration commit or push has
+been made. Inherited main changes retain their original ownership.
+
+Seven conflicts were resolved without discarding either feature: contribution
+history, shared-login keyboard tests, Debug manifest, Debug Application,
+Debug Repository composition, artifact checksums and Server application config.
+The phone profile retains its shared private session and disabled anonymous
+fallback; main's dose-event/dashboard interfaces and Elder reminder startup are
+retained. The Server fusion and dose-group configuration blocks coexist with
+their original disabled defaults; no route, DTO, identity binding or schema is
+invented. The privacy URL validation from `69798f3` remains intact.
+
+Two new real-store/device regressions cover the merged dashboard path: a current
+401 clears the same phone/common session without anonymous fallback; an old
+dashboard 401 cannot clear a replacement phone session. These use fictional
+verified responses and local transport fixtures, not actual phone authentication.
+
+### Windows and Linux verification
+
+Actual Windows command, followed by final lint after the test synchronization fix:
+
+```text
+./gradlew.bat test :android-app:testReleaseUnitTest :android-app:lintDebug :android-app:assembleDebug :android-app:assembleRelease :android-app:assembleDebugAndroidTest --offline --no-daemon --max-workers=1 --no-parallel --continue --console=plain
+./gradlew.bat :android-app:lintDebug --offline --no-daemon --max-workers=1 --no-parallel --console=plain
+```
+
+Android Debug 156 / Release 145 tests pass, with zero failures/errors/skips;
+Shared 18 pass (Gradle cache). Debug, Release and AndroidTest APK tasks succeed.
+Final lint passes with zero errors / 58 warnings. The full Windows command
+**fails**: Server reports 635 tests / 311 failures. Failure samples include
+unsupported POSIX permissions, private-photo-store initialization and dependent
+Spring contexts; the two child-JVM assertions also report photo-store UNAVAILABLE.
+No private-storage security check was weakened to obtain a Windows pass.
+
+The same source checkout was tested directly from WSL Ubuntu/JDK 17, without a
+source copy. Actual Linux Gradle invocation (from that checkout):
+
+```text
+env GRADLE_RO_DEP_CACHE=/root/.cache/group33-pr88-linux/ro-cache java -Xmx64m -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain -PserverOnly :server:test :shared:test :server:bootJar :server:schemaMigrationDist -I /mnt/d/learning/xjtlu/year4/CSI301/CSI301_Group_Project/code/group33/.git/c1-local-recovery-20261117/login-linux.init.gradle --project-cache-dir /root/.cache/group33-pr88-linux/project-cache --offline --no-daemon --max-workers=1 --no-parallel --console=plain
+```
+
+Linux **BUILD SUCCESSFUL in 3m 36s**: Server 635 tests, zero
+failures/errors/skips; Shared 18 pass (Gradle cache); bootJar and
+schemaMigrationDist succeed. The init script only relocates build outputs:
+
+```groovy
+allprojects {
+    layout.buildDirectory.set(new File(System.getProperty('user.home'), '.cache/group33-pr88-linux/' + project.name))
+}
+```
+
+The read-only dependency snapshot was seeded from the successful Windows
+Gradle 8.9 module cache, excluding lock/gc files, following
+[Gradle's cache-sharing guidance](https://docs.gradle.org/current/userguide/dependency_caching.html).
+The final Linux run is offline and uses the original project repositories and
+dependency versions. Earlier Linux attempts are retained: run 01 failed for
+missing offline dependencies; online runs 02/03 were explicitly stopped while
+dependency resolution made no task progress. Run 03 only changed official
+repository query order/timeouts through a temporary init script; it is not
+test-passing evidence. Only run 04 supplies the Linux pass above.
+
+### Xiaomi API 27 regression
+
+Both configurations use the isolated application ID
+`com.group33.medicationreminder.c1dev88`, verified from APK badging before install.
+The original app and pairing-test app/data are preserved; global device settings
+were not changed. The local-trial profile only adds
+`-PphoneAuthBaseUrl=http://127.0.0.1:18084 -PphoneAuthLocalTrial=true`; there is no
+provider acceptance or SMS. App source/package namespace remains unchanged.
+
+Build tasks are `:android-app:assembleDebug :android-app:assembleDebugAndroidTest`
+with the isolated applicationId init and the common offline/single-worker flags.
+Instrumentation uses `adb -s 9c69cae2 shell am instrument -w -r -e class <classes>
+com.group33.medicationreminder.c1dev88.test/androidx.test.runner.AndroidJUnitRunner`.
+The class list is CommonPhoneSessionIntegrationTest, PhoneTransportIntegrationTest,
+PhoneEntryIntegrationTest, PrivateSessionStoreTest, SessionProcessRecoveryTest,
+SharedLoginNavigationTest and SharedLoginKeyboardTest (normal package prefixes).
+
+- Unconfigured: 40 reported, 39 passed / one not-applicable local-trial case.
+- Explicit loopback trial: 40 reported, 39 passed / one not-applicable
+  unconfigured case. Total: 78 pass / two applicability skips / zero failures.
+- The initial unconfigured run had one failure: the forged-extra entry test
+  checked the inline feedback before it was drawn. The test now settles the
+  scroll and waits for the actual feedback layout before the unchanged visible
+  feedback/no-session assertions. Its original failure log is retained; the
+  full two-profile suite was rerun, not just the failed method.
+- Both profiles pass the added dashboard/common-session 401 regressions and
+  all six real-IME bilingual SMS/password/reset submit/back cases.
+
+Inspected evidence: [unconfigured English](phone-main/main-sync-unconfigured-en-api27.png),
+[unconfigured Chinese](phone-main/main-sync-unconfigured-zh-api27.png),
+[trial English](phone-main/main-sync-trial-en-api27.png) and
+[trial Chinese](phone-main/main-sync-trial-zh-api27.png).
+The phone-input/submit controls remain above the real keyboard. Anonymous Debug
+controls exist only in the unconfigured profile; the phone trial omits them.
+
+APK SHA-256 (application / instrumentation):
+
+- Unconfigured: `8bf03e629daa8c997f590e1399de01c8b859b93932a12ad1c637302d650b827d`
+  / `f0291465161fbbac65c6ae8f06f458bd5efe5e8c50859e5ba8c48495a3595e61`.
+- Trial: `ede256a44d5c2941467dc1fece8f02378af95c58c3dfa91903da62c63da2965a`
+  / `498ac3b8183216ad139a6fb03fd9c02f7a3464eaf80bbb55b62e3266109a4d40`.
+
+Raw logs are retained under the primary checkout's ignored
+`.git/c1-local-recovery-20261117/`: `login-main-build-01.log`,
+`login-main-lint-final.log`, `login-linux-build-01` through `04.log`, the initial
+`login-sync-unconfigured-instrumentation.log`, and `login-sync-device-02/`
+(both build commands, APK hashes, final instrumentation and screenshots).
+
+No new UI interaction or layout was introduced by this synchronization; no
+additional manual UI acceptance is requested. API35/200%-font/TalkBack and
+final team screen composition remain outside this tablet-only rerun. Actual
+phone-enabled service, accepted wire implementation, provider proof boundaries,
+team policy/signature config and real one-tap/SMS/business authorization remain
+the #118 gates. This is not full #10/#49 completion, a verified team APK, or
+teammate approval. #88 stays Draft until its implementation/review scope is
+ready; CI for a future integration commit is still pending publication approval.
