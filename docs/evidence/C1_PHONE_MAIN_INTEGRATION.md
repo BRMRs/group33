@@ -364,3 +364,48 @@ team policy/signature config and real one-tap/SMS/business authorization remain
 the #118 gates. This is not full #10/#49 completion, a verified team APK, or
 teammate approval. #88 stays Draft until its implementation/review scope is
 ready; CI for a future integration commit is still pending publication approval.
+
+## Registration response races - 2026-11-19 local follow-up
+
+Base: published #88 `498c21cbedf543f7632348b3736c5f3b25101f28`.
+Only `PhoneRepositoryCommonSessionTest` and this evidence/its checksum entries
+change. No production source, HTTP/DTO, session implementation or UI changes.
+
+Two deterministic tests suspend a registration inside the fake blocking Server
+client, then release its successful response after either sign-out or a new
+authentication attempt has installed a replacement registration ticket:
+
+- Sign-out rejects the old success as CODE_EXPIRED, saves no session, and a
+  further registration cannot call HTTP with the old ticket.
+- A new attempt also rejects the old success without consuming its replacement
+  ticket; explicit registration uses that replacement ticket and saves only the
+  replacement account. This covers the compare-and-set ticket cleanup as well
+  as the session attempt fence.
+
+The latch has a failure-only ten-second bound and is released in `finally`;
+ordering uses an explicit completion signal, not sleeps or public-network timing.
+Fixtures are fictional verified responses, not provider authentication evidence.
+
+Executed with JDK 17, offline, one worker and no parallel projects:
+
+```text
+gradlew.bat :android-app:testDebugUnitTest --tests com.group33.medicationreminder.auth.PhoneRepositoryCommonSessionTest --offline --no-daemon --max-workers=1 --no-parallel --console=plain
+```
+
+Result: BUILD SUCCESSFUL; 12 tests, zero failures/errors/skips, including both
+new cases. Existing production behavior already passes; no logic fix is claimed.
+The complete Debug check command also passed (2m57s):
+
+```text
+gradlew.bat :android-app:testDebugUnitTest :android-app:lintDebug :android-app:assembleDebug --offline --no-daemon --max-workers=1 --no-parallel --console=plain
+python scripts/check_repository_policy.py
+git diff --check
+```
+
+Debug JVM: 158 tests, zero failures/errors/skips. Lint and Debug APK succeeded;
+the APK production sources are unchanged. Server/Shared and Release tests were
+not rerun for this Debug-test-only addition. This follow-up
+has not been committed/pushed and has no CI result. Prior device, Server and
+Release results above belong to the prior integration, not this execution.
+No additional manual/device acceptance is needed for these JVM-test-only changes;
+real service/configuration and formal wire implementation still depend on #118.

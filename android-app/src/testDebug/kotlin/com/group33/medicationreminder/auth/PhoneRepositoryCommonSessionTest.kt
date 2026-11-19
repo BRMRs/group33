@@ -2,7 +2,12 @@ package com.group33.medicationreminder.auth
 
 import com.group33.shared.model.UserRole
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -29,11 +34,17 @@ class PhoneRepositoryCommonSessionTest {
         var calls = 0
         var ticket: String? = null
         var failure: Exception? = null
+        var beforeResponse: (() -> Unit)? = null
         var response: VerifiedPhone = VerifiedPhone.Existing(session())
         override fun grant(): FusionSdkGrant = error("SDK not part of this session-boundary test")
         override fun verify(token: String, expectedPhone: String?): VerifiedPhone = error("No provider proof fixture")
         override fun register(ticket: String, role: UserRole, displayName: String?): VerifiedPhone {
-            calls++; this.ticket = ticket; failure?.let { throw it }; return response
+            calls++; this.ticket = ticket
+            val result = response
+            val error = failure
+            beforeResponse?.invoke()
+            error?.let { throw it }
+            return result
         }
     }
     private class Fixture {
@@ -97,6 +108,53 @@ class PhoneRepositoryCommonSessionTest {
         val f = Fixture(); f.pending()
         assertEquals(PhoneAuthResult.Failed(PhoneAuthError.NOT_CONFIGURED), f.repo.register(UserRole.CAREGIVER, "Example", "password"))
         assertEquals(0, f.server.calls); assertNull(f.repo.restore())
+    }
+
+    @Test fun signout_while_registration_http_is_pending_rejects_late_success() = runBlocking {
+        val f = Fixture(); f.pending()
+        val entered = CompletableDeferred<Unit>()
+        val release = CountDownLatch(1)
+        f.server.beforeResponse = {
+            entered.complete(Unit)
+            check(release.await(10, TimeUnit.SECONDS)) { "Test did not release registration response" }
+        }
+        val registration = async { f.repo.register(UserRole.ELDER, null, null) }
+        try {
+            withTimeout(10_000) { entered.await() }
+            f.repo.signOut()
+        } finally { release.countDown() }
+        assertEquals(PhoneAuthResult.Failed(PhoneAuthError.CODE_EXPIRED), registration.await())
+        assertNull(f.repo.restore()); assertEquals(0, f.sessions.writes)
+        assertEquals(1, f.server.calls)
+        assertEquals(PhoneAuthResult.Failed(PhoneAuthError.CODE_EXPIRED), f.repo.register(UserRole.ELDER, null, null))
+        assertEquals(1, f.server.calls)
+    }
+
+    @Test fun late_registration_success_cannot_consume_replacement_ticket() = runBlocking {
+        val f = Fixture(); f.pending()
+        val entered = CompletableDeferred<Unit>()
+        val release = CountDownLatch(1)
+        f.server.beforeResponse = {
+            entered.complete(Unit)
+            check(release.await(10, TimeUnit.SECONDS)) { "Test did not release registration response" }
+        }
+        val oldRegistration = async { f.repo.register(UserRole.ELDER, null, null) }
+        try {
+            withTimeout(10_000) { entered.await() }
+            val replacement = f.repo.beginAuthentication()
+            assertEquals(PhoneAuthResult.RegistrationRequired,
+                f.repo.completeVerifiedResponse(replacement, VerifiedPhone.New("replacement-ticket")))
+        } finally { release.countDown() }
+        assertEquals(PhoneAuthResult.Failed(PhoneAuthError.CODE_EXPIRED), oldRegistration.await())
+        assertNull(f.repo.restore()); assertEquals(0, f.sessions.writes)
+        f.server.beforeResponse = null
+        f.server.response = VerifiedPhone.Existing(AppSession(
+            PhoneAccount("replacement-user", UserRole.ELDER, "Example elder"), "replacement.bearer", 900))
+        val result = f.repo.register(UserRole.ELDER, null, null) as PhoneAuthResult.SignedIn
+        assertEquals("replacement-user", result.account.id)
+        assertEquals("replacement-ticket", f.server.ticket)
+        assertEquals(result.account, f.repo.restore()); assertEquals(1, f.sessions.writes)
+        assertEquals(2, f.server.calls)
     }
     companion object {
         private fun session() = AppSession(PhoneAccount("fictional-user", UserRole.CAREGIVER, "Example caregiver"), "fictional.bearer", 900)
