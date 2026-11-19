@@ -2,6 +2,9 @@
 <resources>
   <string name="c3_overview_title">用药记录概览</string>
   <string name="c3_range">日期：%1$s 至 %2$s</string>
+  <string name="c3_overview_access_unknown">尚未确认访问权限，暂不显示记录。请刷新或检查所选长者。</string>
+  <string name="c3_overview_unavailable">记录不可用或无法确认访问权限。请检查登录和所选长者后刷新。</string>
+  <string name="c3_overview_no_local_data">尚未加载本地记录，请刷新查询；这不代表没有用药事件。</string>
   <string name="c3_refresh">刷新记录</string>
   <string name="c3_refreshing">正在刷新…</string>
   <string name="c3_refresh_complete">刷新已完成。</string>

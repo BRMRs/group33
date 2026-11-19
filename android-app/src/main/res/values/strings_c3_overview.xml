@@ -2,6 +2,9 @@
 <resources>
   <string name="c3_overview_title">Medication records overview</string>
   <string name="c3_range">Dates: %1$s – %2$s</string>
+  <string name="c3_overview_access_unknown">Access is not yet confirmed. No records are shown. Refresh or check your Elder selection.</string>
+  <string name="c3_overview_unavailable">Records are unavailable or access could not be confirmed. Check your sign-in and Elder selection, then refresh.</string>
+  <string name="c3_overview_no_local_data">No local records have been loaded. Refresh to check; this does not mean there are no medication events.</string>
   <string name="c3_refresh">Refresh records</string>
   <string name="c3_refreshing">Refreshing…</string>
   <string name="c3_refresh_complete">Refresh completed.</string>
