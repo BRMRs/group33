@@ -50,6 +50,10 @@ Until then the affected adapters remain blocked on these decisions. Unrelated wo
 
 ## Later implementation acceptance
 
+The [source map and deterministic verification plan](V2_CONSISTENT_READ_PLAN.md) identifies the
+existing read seams and remaining gaps. Its CR01–CR20 cases are planned implementation checks,
+not additional passing tests or evidence that the read projection is already implemented.
+
 After joint acceptance, run these exact inputs against the real authorized read projection and
 Room/outbox/Server action paths, including reordered delivery, duplicate receipt, concurrent correction,
 response loss and restart. E03/E04 additionally require actual prompt/cancellation recovery and

@@ -84,3 +84,7 @@ Address C2 P2 with owned immutable ordered members across construction/copy/kotl
 ### 2026-11-19 — XinyanXue / S2 — #131 acceptance candidates
 
 Add the [C3/E acceptance packet](docs/contracts/proposals/V2_ACCEPTANCE_CANDIDATES.md), one cross-runtime fixture and existing-DTO round trips plus review-fixture invariants. Retain caregiver source/revision, original receipts, independent delivery evidence and original Snooze cutoff. Rejection recovery is explicitly pending joint decisions; no production reducer, HTTP, Room/SQL or device acceptance claimed. Final commands/results are recorded in the PR and local evidence packet.
+
+### 2026-11-19 — XinyanXue / S2 — consistent-read implementation preparation
+
+Map the current primary plan-read transaction, registration/action-read distinction, retained plan/photo context and capability dependencies in the [implementation plan](docs/contracts/proposals/V2_CONSISTENT_READ_PLAN.md). Specify authorization/snapshot boundaries, accepted 90-date/10,000-entity budgets, 20 deterministic future verification cases and review exits. Documentation only; these planned checks are not newly executed tests or a production snapshot implementation. Final repository checks are recorded on the PR.

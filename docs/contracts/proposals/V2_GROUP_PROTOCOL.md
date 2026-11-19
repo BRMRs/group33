@@ -41,3 +41,5 @@ C2 review5939398335 reproduced caller-owned mutable members changing a validated
 ## 2026-11-19 cross-client acceptance candidates
 
 [C3/E follow-up packet](V2_ACCEPTANCE_CANDIDATES.md) records no-event follow-up, correction versus late facts/replayed receipts, independent local/Server/delivery observations, and offline Snooze boundary/rejection cases using the existing DTOs. Its JSON envelope is test/review data, not a new response wire. New tests validate payload representation and candidate consistency, not a production reducer or transaction. Rejection recovery remains pending E/S1/non-author Server decisions; same-head review is required before the affected implementation freezes. Prior C2/C1 ownership approvals remain attributable to d50877e.
+
+The [consistent-read implementation plan](V2_CONSISTENT_READ_PLAN.md) maps existing source seams, the registration-versus-recorded-event gap, unmerged capability dependencies, one-primary-transaction boundaries, accepted date/entity budgets and CR01–CR20 future verification. It is preparation for the next implementation slice; no speculative wire, read adapter or passed production test is introduced.
