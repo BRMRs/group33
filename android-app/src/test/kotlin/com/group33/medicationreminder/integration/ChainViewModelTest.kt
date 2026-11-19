@@ -225,6 +225,79 @@ class ChainViewModelTest {
         assertEquals(listOf(photo(elderA)), f.model.state.value.photos)
     }
 
+    @Test fun `multiple Elders require explicit selection and A B A clears the previous retry target`() = runTest(dispatcher) {
+        val f = Fixture(); runCurrent()
+        assertEquals(listOf("rel-a", "rel-b"),
+            (f.model.state.value.context as CaregiverContextState.SelectElder).elders.map { it.relationshipId })
+        assertTrue(f.model.state.value.photos.isEmpty())
+        for ((id, elder) in listOf("rel-a" to elderA, "rel-b" to elderB, "rel-a" to elderA)) {
+            f.model.select(id); runCurrent()
+            val state = f.model.state.value
+            assertEquals(id, (state.context as CaregiverContextState.Active).context.relationshipId)
+            assertEquals(elder.id, state.context.context.elderId)
+            assertEquals(listOf(photo(elder)), state.photos)
+            assertNull(state.failedPhotoId)
+            assertNull(state.viewed)
+            f.model.viewPhoto(photo(elder).id); runCurrent()
+            assertEquals(photo(elder).id, f.model.state.value.failedPhotoId)
+        }
+        assertNull("Choosing an Elder must not submit a business command", f.submitted)
+        assertTrue(f.records.value.isEmpty())
+    }
+
+    @Test fun `revoked selection never falls back to another Elder or a replacement relationship`() = runTest(dispatcher) {
+        val f = Fixture(); runCurrent(); f.model.select("rel-a"); runCurrent()
+        f.model.viewPhoto(photo(elderA).id); runCurrent()
+        val revoked = relation("rel-a", elderA).copy(status = CareRelationshipStatus.REVOKED)
+        f.relationships.value = cached(listOf(revoked, relation("rel-b", elderB))); runCurrent()
+        assertEquals(listOf("rel-b"),
+            (f.model.state.value.context as CaregiverContextState.SelectElder).elders.map { it.relationshipId })
+        assertTrue(f.model.state.value.photos.isEmpty())
+        assertNull(f.model.state.value.failedPhotoId)
+        f.model.select("rel-a"); runCurrent()
+        assertFalse(f.model.state.value.context is CaregiverContextState.Active)
+        f.relationships.value = cached(listOf(revoked, relation("rel-b", elderB), relation("new-a", elderA)))
+        runCurrent()
+        assertTrue(f.model.state.value.context is CaregiverContextState.SelectElder)
+        assertTrue(f.model.state.value.photos.isEmpty())
+        f.model.select("new-a"); runCurrent()
+        assertEquals("new-a", (f.model.state.value.context as CaregiverContextState.Active).context.relationshipId)
+        assertEquals(listOf(photo(elderA)), f.model.state.value.photos)
+        assertNull(f.submitted)
+    }
+
+    @Test fun `unverified relationship cache cannot authorize a chosen Elder or retain photo state`() = runTest(dispatcher) {
+        val f = Fixture(); runCurrent(); f.model.select("rel-a"); runCurrent()
+        f.model.viewPhoto(photo(elderA).id); runCurrent()
+        val authorized = f.relationships.value
+        f.relationships.value = authorized.copy(access = AccessState.UNKNOWN, isStale = true); runCurrent()
+        assertEquals(CaregiverContextState.LoadingRelationships, f.model.state.value.context)
+        assertTrue(f.model.state.value.photos.isEmpty())
+        assertNull(f.model.state.value.failedPhotoId)
+        f.model.select("rel-b"); runCurrent()
+        f.photos.getValue(elderB.id).value = cached(listOf(photo(elderB).copy(id = "unverified-b")))
+        runCurrent()
+        assertEquals(CaregiverContextState.LoadingRelationships, f.model.state.value.context)
+        assertTrue(f.model.state.value.photos.isEmpty())
+        f.relationships.value = authorized; runCurrent()
+        assertEquals("rel-b", (f.model.state.value.context as CaregiverContextState.Active).context.relationshipId)
+        assertEquals(listOf("unverified-b"), f.model.state.value.photos.map { it.id })
+        assertNull(f.submitted)
+    }
+
+    @Test fun `choosing another Elder clears old action feedback without discarding its command`() = runTest(dispatcher) {
+        val f = Fixture(); runCurrent()
+        f.model.select("rel-a"); runCurrent()
+        f.model.revoke("rel-a"); runCurrent()
+        assertEquals(R.string.chain_not_submitted, f.model.state.value.message)
+        val command = f.submitted
+        f.model.select("rel-b"); runCurrent()
+        assertEquals(R.string.chain_ready, f.model.state.value.message)
+        assertEquals("rel-b", (f.model.state.value.context as CaregiverContextState.Active).context.relationshipId)
+        assertEquals(command, f.submitted)
+        assertEquals("rel-a", f.submitted?.targetId)
+    }
+
     @Test fun `offline recovery never reports successful refresh`() = runTest(dispatcher) {
         val f = Fixture(); runCurrent(); f.pairingResult = failure
         f.model.recover(); runCurrent()
