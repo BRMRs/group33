@@ -106,3 +106,8 @@ tasks.register<Test>("postgresIntegrationTest") {
         systemProperty("s2.postgres.test.classpath", sourceSets.test.get().runtimeClasspath.asPath)
     }
 }
+
+// One review fixture is consumed unchanged by all three runtime suites.
+tasks.processTestResources {
+    from(rootProject.file("docs/contracts/proposals/v2-acceptance-candidates.json")) { into("contracts/proposals") }
+}

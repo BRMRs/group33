@@ -80,3 +80,7 @@ Proposed isolated Shared DTOs, reviewed-design notes and identical Android/Share
 ### 2026-11-18 — XinyanXue / S2 — #131 frozen member ownership
 
 Address C2 P2 with owned immutable ordered members across construction/copy/kotlinx/Boot Jackson; retain original wire/value semantics and add caller-mutation/view/decode regressions. Four Shared cases first fail unchanged on old head; final verification recorded on PR.
+
+### 2026-11-19 — XinyanXue / S2 — #131 acceptance candidates
+
+Add the [C3/E acceptance packet](docs/contracts/proposals/V2_ACCEPTANCE_CANDIDATES.md), one cross-runtime fixture and existing-DTO round trips plus review-fixture invariants. Retain caregiver source/revision, original receipts, independent delivery evidence and original Snooze cutoff. Rejection recovery is explicitly pending joint decisions; no production reducer, HTTP, Room/SQL or device acceptance claimed. Final commands/results are recorded in the PR and local evidence packet.
