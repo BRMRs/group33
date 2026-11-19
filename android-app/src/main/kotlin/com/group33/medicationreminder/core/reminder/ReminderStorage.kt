@@ -216,10 +216,10 @@ internal interface ReminderDao {
     suspend fun alarmEvents(id: String): List<ReminderAlarmEventRow>
     @Query("SELECT * FROM reminder_alarm_events WHERE eventId = :eventId")
     suspend fun alarmEvent(eventId: String): ReminderAlarmEventRow?
-    @Query("SELECT * FROM reminder_alarm_events WHERE dispatchState = 'PENDING' ORDER BY firedAtEpochMillis")
+    @Query("SELECT * FROM reminder_alarm_events WHERE dispatchState IN ('PENDING','DISPATCHING') ORDER BY firedAtEpochMillis")
     suspend fun pendingAlarmEvents(): List<ReminderAlarmEventRow>
     @Query("SELECT * FROM reminder_actions WHERE actionId = :actionId") suspend fun action(actionId: String): ReminderActionRow?
-    @Query("SELECT * FROM reminder_actions WHERE dispatchState = 'PENDING' ORDER BY recordedAtEpochMillis")
+    @Query("SELECT * FROM reminder_actions WHERE dispatchState IN ('PENDING','DISPATCHING') ORDER BY recordedAtEpochMillis")
     suspend fun pendingActions(): List<ReminderActionRow>
 
     @Query("""

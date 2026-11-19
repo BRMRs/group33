@@ -8,6 +8,7 @@ on:
       - 'gradle/**'
       - '.github/workflows/runtime-action-api35.yml'
       - 'scripts/run_runtime_action_api35.py'
+      - 'scripts/check_reminder_dispatch_recovery.py'
       - 'docs/contracts/GATE1_ARTIFACTS.sha256'
 
 permissions:
@@ -51,7 +52,7 @@ jobs:
       - name: Build runtime and notification boundary tests
         run: ./gradlew :android-app:assembleDebug :android-app:assembleDebugAndroidTest --console=plain --max-workers=2 --no-parallel
 
-      - name: Run thirteen API35 runtime and notification regressions
+      - name: Run original thirteen boundaries and dispatch recovery
         env:
           EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
         run: python3 scripts/run_runtime_action_api35.py --output "$RUNNER_TEMP/runtime-action-api35"

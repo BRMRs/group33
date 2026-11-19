@@ -125,6 +125,11 @@ def main():
             result['notification_screenshot_sha256'] = hashlib.sha256(screenshot.stdout).hexdigest()
             if not result['passed']:
                 raise RuntimeError('All thirteen exact-head API35 regressions must pass')
+            from check_reminder_dispatch_recovery import run_checks
+            boundary_passed = result['passed']
+            result['passed'] = False
+            result['dispatch_recovery'] = run_checks(adb, serial, out / 'dispatch-recovery', env)
+            result['passed'] = boundary_passed and result['dispatch_recovery']['passed']
     finally:
         if process is not None and process.poll() is None:
             try:
