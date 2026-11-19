@@ -5,6 +5,12 @@ import com.nimbusds.jose.jwk.JWKSet
 import com.nimbusds.jose.jwk.OctetSequenceKey
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet
 import com.nimbusds.jose.proc.SecurityContext
+import com.group33.server.auth.CurrentPhoneAccountValidator
+import com.group33.server.auth.PhoneAccountStore
+import com.group33.server.auth.PhoneAccountReadUnavailable
+import org.springframework.security.config.ObjectPostProcessor
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter
+import org.springframework.security.web.authentication.AuthenticationEntryPointFailureHandler
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -43,6 +49,16 @@ class SecurityConfig {
             it.jwt {}
             it.authenticationEntryPoint(errors)
             it.accessDeniedHandler(errors)
+            it.withObjectPostProcessor(object : ObjectPostProcessor<BearerTokenAuthenticationFilter> {
+                override fun <O : BearerTokenAuthenticationFilter> postProcess(filter: O): O {
+                    val defaultFailure = AuthenticationEntryPointFailureHandler(errors)
+                    filter.setAuthenticationFailureHandler { request, response, failure ->
+                        if (failure is PhoneAccountReadUnavailable) errors.commence(request, response, failure)
+                        else defaultFailure.onAuthenticationFailure(request, response, failure)
+                    }
+                    return filter
+                }
+            })
         }
         .build()
 
@@ -63,11 +79,19 @@ class SecurityConfig {
     fun jwtDecoder(
         secretKey: SecretKey,
         @Value("\${app.jwt.issuer}") issuer: String,
+        phoneAccounts: PhoneAccountStore,
     ): JwtDecoder = NimbusJwtDecoder
         .withSecretKey(secretKey)
         .macAlgorithm(MacAlgorithm.HS256)
         .build()
-        .apply { setJwtValidator(JwtValidators.createDefaultWithIssuer(issuer)) }
+        .apply {
+            val standard = JwtValidators.createDefaultWithIssuer(issuer)
+            val currentPhone = CurrentPhoneAccountValidator(phoneAccounts::findByUserId)
+            setJwtValidator { token ->
+                val result = standard.validate(token)
+                if (result.hasErrors()) result else currentPhone.validate(token)
+            }
+        }
 
     @Bean
     fun jwtEncoder(secretKey: SecretKey): JwtEncoder {
