@@ -188,3 +188,57 @@ does not prove any of these.
 Revert this client/composition slice. No migration or account-history merge is
 performed. Switching back to the anonymous build reuses its original separate
 profile; it does not transfer pending commands to another account/environment.
+
+## Privacy-policy configuration validation — 2026-11-19
+
+Local revision: base `66c67de8b11c57e8c7b759d6065aa1ca5929d210` plus the
+uncommitted C1 policy-validation slice. This is not a published revision or a
+verified team APK. The existing clean checkout was switched to the existing
+login branch; no merge, rebase, dependency upgrade or service deployment occurred.
+
+Previously, a prefix check accepted `https:///privacy`. Build configuration and
+`verifyPhoneTestConfiguration` now require a parseable HTTPS URI with a host,
+without embedded credentials, invalid ports, control characters or BuildConfig
+escape characters. Login composition and the consent entry use the same runtime
+validator. Empty configuration remains allowed for the ordinary unconfigured
+build, but not for a non-local team phone-test configuration. The existing
+explicit loopback trial exception is retained. This checks syntax only, not
+ownership, availability or suitability of an actual privacy policy.
+
+Commands run on Windows/JDK 17, with `--offline --no-daemon --max-workers=1
+--no-parallel --console=plain`:
+
+```text
+./gradlew.bat :android-app:testDebugUnitTest :android-app:testReleaseUnitTest :android-app:lintDebug :android-app:assembleDebug :android-app:assembleRelease
+./gradlew.bat help -PphoneAuthPrivacyPolicyUrl=https://example.test/privacy?lang=zh#terms
+./gradlew.bat help -PphoneAuthPrivacyPolicyUrl=https:///privacy
+./gradlew.bat help -PphoneAuthPrivacyPolicyUrl=https://name:password@example.test/privacy
+./gradlew.bat :android-app:verifyPhoneTestConfiguration -PphoneAuthBaseUrl=https://example.test
+python scripts/check_repository_policy.py
+git diff --check
+```
+
+- Main verification: BUILD SUCCESSFUL in 12m 5s; Debug 147 and Release 137
+  tests, zero failures/errors/skips. Four new tests per variant cover valid
+  policy paths/queries/fragments, missing/malformed host and schemes, credentials
+  and ports, and control/escape characters. Lint: zero errors, 45 warnings.
+  Debug and Release APK builds passed; existing provider D8 warnings remain.
+- Four actual Gradle configuration checks passed their expected outcomes: valid
+  policy accepted; missing host and embedded credentials rejected at project
+  configuration; missing policy rejected by the team verification task before
+  any registered-certificate claim. These negative commands intentionally return
+  nonzero, with the expected validation messages.
+- Raw local evidence is retained in the primary checkout's ignored
+  `.git/c1-local-recovery-20261117/`: `login-policy-build-01.log`,
+  `login-policy-build-cases.json` and the four `login-policy-*.log` case logs.
+- No UI layout, user-facing wording or keyboard behavior changed. No additional
+  human UI acceptance is requested for this syntax-only slice. No APK was
+  installed, provider initialized, SMS sent, secret read or real phone login
+  attempted. No Server/shared code changed; full Server tests and fresh Linux
+  CI were not run for this unpublished slice.
+
+The S1 D1–D4 decisions recorded in #118 are acknowledged; their recording is not
+proof that the corresponding Server implementation, independent security review,
+phone-enabled HTTPS environment, actual policy URL or registered signing profile
+has been delivered. Those gates and final main integration remain separate.
+Rollback is to revert this validation slice; no stored-data migration is needed.

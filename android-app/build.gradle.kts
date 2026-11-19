@@ -8,6 +8,13 @@ plugins {
     alias(libs.plugins.kotlin.kapt)
 }
 
+fun isValidPhonePrivacyPolicyUrl(value: String): Boolean {
+    if (value.any { it == '"' || it == '\\' || it.isISOControl() }) return false
+    val uri = runCatching { URI(value) }.getOrNull() ?: return false
+    return uri.scheme == "https" && !uri.host.isNullOrBlank() && uri.rawUserInfo == null &&
+        (uri.port == -1 || uri.port in 1..65535)
+}
+
 android {
     namespace = "com.group33.medicationreminder"
     compileSdk = 35
@@ -32,7 +39,9 @@ android {
             require(serverUrl.matches(Regex("https?://[A-Za-z0-9.:-]+/?")))
             require(phoneUrl.isBlank() || phoneUrl == serverUrl) { "Phone authentication and business must use the same server origin" }
             val policyUrl = providers.gradleProperty("phoneAuthPrivacyPolicyUrl").getOrElse("")
-            require(policyUrl.isEmpty() || (policyUrl.startsWith("https://") && !policyUrl.any { it == '"' || it == '\\' || it.isISOControl() }))
+            require(policyUrl.isEmpty() || isValidPhonePrivacyPolicyUrl(policyUrl)) {
+                "phoneAuthPrivacyPolicyUrl must be a valid HTTPS address without credentials"
+            }
             val localTrial = providers.gradleProperty("phoneAuthLocalTrial").getOrElse("false")
             require(localTrial == "true" || localTrial == "false")
             buildConfigField("String", "PHONE_AUTH_BASE_URL", "\"$phoneUrl\"")
@@ -125,7 +134,7 @@ val verifyPhoneTestConfiguration = tasks.register("verifyPhoneTestConfiguration"
         require(uri?.host != null && (uri.scheme == "https" || local)) {
             "Set phoneAuthBaseUrl to the team HTTPS phone service (loopback HTTP is local-trial only)"
         }
-        require(local || providers.gradleProperty("phoneAuthPrivacyPolicyUrl").orNull.orEmpty().startsWith("https://")) {
+        require(local || isValidPhonePrivacyPolicyUrl(providers.gradleProperty("phoneAuthPrivacyPolicyUrl").orNull.orEmpty())) {
             "Set phoneAuthPrivacyPolicyUrl for the team test build"
         }
         val expected = providers.gradleProperty("phoneAuthSigningMd5").orNull.orEmpty().lowercase()

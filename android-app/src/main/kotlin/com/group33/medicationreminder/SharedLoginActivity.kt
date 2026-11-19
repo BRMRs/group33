@@ -344,7 +344,8 @@ class SharedLoginActivity : AppCompatActivity() {
                 .show()
             return
         }
-        if (BuildConfig.PHONE_AUTH_BASE_URL.isBlank() || !policyUrl.startsWith("https://")) {
+        if (BuildConfig.PHONE_AUTH_BASE_URL.isBlank() ||
+            !com.group33.medicationreminder.auth.isValidPhonePrivacyPolicyUrl(policyUrl)) {
             onContinue()
             return
         }
