@@ -2,6 +2,7 @@ package com.group33.medicationreminder.caregiver
 
 import android.content.Intent
 import android.view.View
+import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.ListView
 import android.widget.TextView
@@ -25,6 +26,7 @@ import com.group33.shared.contract.OccurrenceGenerationEvidence
 import com.group33.shared.contract.OccurrenceKey
 import com.group33.shared.contract.TimeResolutionPolicy
 import com.group33.shared.model.DoseStatus
+import java.time.LocalDate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
@@ -37,6 +39,62 @@ class CaregiverHistoryHostTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val scope = RepositoryScope("test-cloud", "test-installation", "test-caregiver")
     private val range = LocalDateRange("2026-10-01", "2026-10-30")
+
+    @Test fun missingDefaultOpensCalendarAndKeepsManualReadAndDraftOnSourceUpdates() = withHost { activity, host, repository ->
+        val trusted = context()
+        val fragments = activity.supportFragmentManager
+        fun from() = host.findViewById<EditText>(R.id.history_from)
+        fun through() = host.findViewById<EditText>(R.id.history_through)
+        val applied = LocalDateRange("2026-10-20", "2026-10-21")
+        onMain {
+            host.bind(activity, repository, trusted, null, fragments)
+            assertEquals("", from().text.toString())
+            host.findViewById<View>(R.id.history_pick_range).performClick()
+            fragments.executePendingTransactions()
+            val calendar = fragments.fragments.filterIsInstance<CaregiverHistoryDateRangeDialog>().single()
+            assertTrue(calendar.requireDialog().isShowing)
+            calendar.requireDialog().findViewById<View>(R.id.history_dialog_cancel).performClick()
+        }
+        awaitIdle()
+        onMain {
+            assertTrue(repository.observations.isEmpty())
+            assertEquals("", from().text.toString())
+            host.findViewById<View>(R.id.history_pick_range).performClick()
+            fragments.executePendingTransactions()
+            val calendar = fragments.fragments.filterIsInstance<CaregiverHistoryDateRangeDialog>().single()
+            val dialog = calendar.requireDialog()
+            val grid = dialog.findViewById<ViewGroup>(R.id.history_calendar_grid)
+            val days = (0 until grid.childCount).map(grid::getChildAt).filter { it.tag is LocalDate }
+            val start = days.first().tag as LocalDate
+            val end = days[1].tag as LocalDate
+            days.first().performClick()
+            assertFalse(dialog.findViewById<View>(R.id.history_dialog_confirm).isEnabled)
+            days[1].performClick()
+            dialog.findViewById<View>(R.id.history_dialog_confirm).performClick()
+            assertEquals(start.toString(), from().text.toString())
+            assertEquals(end.toString(), through().text.toString())
+            assertTrue(repository.observations.isEmpty())
+            from().setText(applied.fromDate)
+            through().setText(applied.throughDate)
+            host.findViewById<View>(R.id.history_apply).performClick()
+        }
+        awaitIdle()
+        onMain {
+            from().setText("2026-10-19")
+            host.bind(activity, repository, trusted, range, fragments)
+            host.bind(activity, repository, trusted, null, fragments)
+        }
+        awaitIdle()
+        onMain {
+            assertEquals(listOf("elder-a" to applied), repository.observations)
+            assertEquals("2026-10-19", from().text.toString())
+            assertEquals(applied.throughDate, through().text.toString())
+            host.bind(activity, repository, trusted.copy(sessionGeneration = trusted.sessionGeneration + 1), null, fragments)
+            assertEquals("", from().text.toString())
+            assertEquals("", through().text.toString())
+            assertEquals(1, repository.observations.size)
+        }
+    }
 
     @Test fun trustedContextAndExplicitRangeReachReadOnlyRepository() = withHost { activity, host, repository ->
         val trusted = context(generation = 7, relationship = "relationship-a", elder = "elder-a", name = "Elder A")

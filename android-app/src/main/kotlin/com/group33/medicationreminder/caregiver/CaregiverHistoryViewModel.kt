@@ -23,7 +23,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 enum class HistoryRangeError { INVALID_DATE, REVERSED, TOO_MANY_DATES }
-enum class HistoryMessage { SELECT_ELDER, LOADING, ACCESS_UNKNOWN, REVOKED, UNAVAILABLE, NO_LOCAL_DATA, EMPTY, RESULTS }
+enum class HistoryMessage { SELECT_ELDER, SELECT_DATES, LOADING, ACCESS_UNKNOWN, REVOKED, UNAVAILABLE, NO_LOCAL_DATA, EMPTY, RESULTS }
 
 data class CaregiverHistoryState(
     val elder: UserView?,
@@ -44,6 +44,7 @@ data class CaregiverHistoryState(
     val message: HistoryMessage get() = when {
         elder == null || scope == null -> HistoryMessage.SELECT_ELDER
         access == AccessState.REVOKED -> HistoryMessage.REVOKED
+        range == null -> HistoryMessage.SELECT_DATES
         isLoading -> HistoryMessage.LOADING
         observationFailed && !authorized -> HistoryMessage.UNAVAILABLE
         !authorized -> HistoryMessage.ACCESS_UNKNOWN
@@ -58,10 +59,11 @@ class CaregiverHistoryViewModel(
     repository: DoseEventRepository,
     scope: RepositoryScope,
     elder: UserView,
-    range: LocalDateRange,
+    range: LocalDateRange?,
 ) : ViewModel() {
-    private data class Selection(val repository: DoseEventRepository, val scope: RepositoryScope, val elder: UserView, val range: LocalDateRange)
+    private data class Selection(val repository: DoseEventRepository, val scope: RepositoryScope, val elder: UserView, val range: LocalDateRange?)
     private var selection: Selection? = null
+    private var manualRange: LocalDateRange? = null
     private var generation = Any()
     private var observation: Job? = null
     private val revoked = mutableSetOf<Pair<RepositoryScope, String>>()
@@ -82,20 +84,39 @@ class CaregiverHistoryViewModel(
     }
 
     @MainThread
-    fun selectContext(repository: DoseEventRepository, scope: RepositoryScope, elder: UserView, range: LocalDateRange) {
+    fun selectContext(repository: DoseEventRepository, scope: RepositoryScope, elder: UserView, range: LocalDateRange?) {
+        manualRange = null
+        selectRange(repository, scope, elder, range)
+    }
+
+    /** The Host only calls this when its trusted identity is unchanged. */
+    @MainThread
+    internal fun rebindDateSource(repository: DoseEventRepository, scope: RepositoryScope, elder: UserView, range: LocalDateRange?) {
+        val effectiveRange = manualRange ?: range
+        val current = selection
+        if (current != null && current.repository === repository && current.scope == scope && current.elder.id == elder.id &&
+            current.range == effectiveRange) {
+            selection = current.copy(elder = elder)
+            mutableState.update { it.copy(elder = elder) }
+        } else {
+            selectRange(repository, scope, elder, effectiveRange)
+        }
+    }
+
+    private fun selectRange(repository: DoseEventRepository, scope: RepositoryScope, elder: UserView, range: LocalDateRange?) {
         require(elder.id.isNotBlank())
         generation = Any()
         observation?.cancel()
         selection = Selection(repository, scope, elder, range)
         val denied = (scope to elder.id) in revoked
-        val invalid = tooLong(range)
+        val invalid = range != null && tooLong(range)
         mutableState.value = CaregiverHistoryState(
             elder, scope, range,
             access = if (denied) AccessState.REVOKED else AccessState.UNKNOWN,
-            isLoading = !denied && !invalid,
+            isLoading = range != null && !denied && !invalid,
             rangeError = if (invalid) HistoryRangeError.TOO_MANY_DATES else null,
         )
-        if (!denied && !invalid) observe()
+        if (range != null && !denied && !invalid) observe()
     }
 
     /** Check draft dates without applying them, replacing cached results, or opening an observation. */
@@ -111,9 +132,11 @@ class CaregiverHistoryViewModel(
     @MainThread
     fun applyRange(fromText: String, throughText: String): Boolean {
         val current = selection ?: return false
+        if (mutableState.value.access == AccessState.REVOKED) return false
         if (!validateRangeDraft(fromText, throughText)) return false
         val range = LocalDateRange(LocalDate.parse(fromText.trim()).toString(), LocalDate.parse(throughText.trim()).toString())
-        selectContext(current.repository, current.scope, current.elder, range)
+        manualRange = range
+        selectRange(current.repository, current.scope, current.elder, range)
         return true
     }
 
@@ -137,6 +160,7 @@ class CaregiverHistoryViewModel(
     fun clearContext() {
         generation = Any()
         selection = null
+        manualRange = null
         observation?.cancel()
         mutableState.value = CaregiverHistoryState(null, null, null, isLoading = false)
     }
@@ -145,7 +169,8 @@ class CaregiverHistoryViewModel(
     @MainThread
     fun retryObservation() {
         val current = selection ?: return
-        if (mutableState.value.access == AccessState.REVOKED || tooLong(current.range)) return
+        val range = current.range ?: return
+        if (mutableState.value.access == AccessState.REVOKED || tooLong(range)) return
         generation = Any()
         observation?.cancel()
         observe()
@@ -163,15 +188,16 @@ class CaregiverHistoryViewModel(
 
     private fun observe() {
         val current = selection ?: return
+        val range = current.range ?: return
         val token = generation
-        val from = LocalDate.parse(current.range.fromDate)
-        val through = LocalDate.parse(current.range.throughDate)
+        val from = LocalDate.parse(range.fromDate)
+        val through = LocalDate.parse(range.throughDate)
         mutableState.update { it.copy(isLoading = it.cached == null) }
         observation = viewModelScope.launch(start = CoroutineStart.LAZY) {
             var emitted = false
             try {
                 if (token !== generation) return@launch
-                current.repository.observeEvents(current.elder.id, current.range).collect { cached ->
+                current.repository.observeEvents(current.elder.id, range).collect { cached ->
                     if (token !== generation) return@collect
                     emitted = true
                     if (cached.access == AccessState.REVOKED) {

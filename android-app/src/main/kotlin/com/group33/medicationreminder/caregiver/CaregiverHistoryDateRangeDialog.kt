@@ -45,7 +45,9 @@ internal class CaregiverHistoryDateRangeDialog : DialogFragment() {
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         from = (savedInstanceState ?: requireArguments()).getString(FROM)?.let(LocalDate::parse)
         through = (savedInstanceState ?: requireArguments()).getString(THROUGH)?.let(LocalDate::parse)
-        month = savedInstanceState?.getString(MONTH)?.let(YearMonth::parse) ?: YearMonth.from(checkNotNull(from))
+        // A vacant calendar needs a month to display. This never supplies a selection or read range.
+        month = savedInstanceState?.getString(MONTH)?.let(YearMonth::parse)
+            ?: from?.let(YearMonth::from) ?: YearMonth.now()
         binding = ViewCaregiverHistoryDateDialogBinding.inflate(requireActivity().layoutInflater)
         ViewCompat.setAccessibilityHeading(binding.historyCalendarMonth, true)
         binding.historyCalendarPrevious.setOnClickListener { moveMonth(-1) }
@@ -202,7 +204,7 @@ internal class CaregiverHistoryDateRangeDialog : DialogFragment() {
         private const val FROM = "from"
         private const val THROUGH = "through"
         private const val MONTH = "month"
-        fun create(from: String, through: String) = CaregiverHistoryDateRangeDialog().apply {
+        fun create(from: String?, through: String?) = CaregiverHistoryDateRangeDialog().apply {
             arguments = Bundle().apply { putString(FROM, from); putString(THROUGH, through) }
         }
     }
