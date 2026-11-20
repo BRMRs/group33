@@ -140,4 +140,57 @@ class CommonPhoneSessionIntegrationTest {
             assertNull(f.phone.restore())
         } finally { f.phone.clear() }
     }
+
+    @Test fun suspended_old_ticket_check_cannot_replace_new_ticket_in_real_store() = runBlocking {
+        val f = Fixture(context)
+        try {
+            withTimeout(10_000) {
+                val checked = CompletableDeferred<Unit>()
+                val release = CompletableDeferred<Unit>()
+                var pauseNextCheck = true
+                val guarded = object : PhoneSessionAccess by f.phone {
+                    override suspend fun isCurrent(attempt: PhoneSignInAttempt): Boolean {
+                        val result = f.phone.isCurrent(attempt)
+                        if (pauseNextCheck) {
+                            pauseNextCheck = false
+                            checked.complete(Unit)
+                            release.await()
+                        }
+                        return result
+                    }
+                }
+                var calls = 0
+                var usedTicket: String? = null
+                val client = object : PhoneServerClient {
+                    override fun grant(): FusionSdkGrant = error("No provider call")
+                    override fun verify(token: String, expectedPhone: String?): VerifiedPhone = error("No provider proof")
+                    override fun register(ticket: String, role: UserRole, displayName: String?): VerifiedPhone {
+                        calls++; usedTicket = ticket
+                        return VerifiedPhone.Existing(AppSession(
+                            PhoneAccount("replacement-account", UserRole.CAREGIVER, "Example caregiver"),
+                            "replacement.token", 900))
+                    }
+                }
+                val repository = FusionPhoneAuthRepository(client, guarded)
+                val oldAttempt = repository.beginAuthentication()
+                val oldResponse = async(start = CoroutineStart.UNDISPATCHED) {
+                    repository.completeVerifiedResponse(oldAttempt, VerifiedPhone.New("old-ticket"))
+                }
+                checked.await()
+                val replacement = async(start = CoroutineStart.UNDISPATCHED) {
+                    val attempt = repository.beginAuthentication()
+                    repository.completeVerifiedResponse(attempt, VerifiedPhone.New("replacement-ticket"))
+                }
+                release.complete(Unit)
+                oldResponse.await()
+                assertEquals(PhoneAuthResult.RegistrationRequired, replacement.await())
+                assertNull(f.phone.restore())
+                assertTrue(repository.register(UserRole.CAREGIVER, "Example caregiver", null) is PhoneAuthResult.SignedIn)
+                assertEquals("replacement-ticket", usedTicket); assertEquals(1, calls)
+                assertEquals("replacement-account", f.phone.restore()?.id)
+                val reopened = CommonPhoneSession(PrivateSessionStore(context, f.environment, f.namespace))
+                assertEquals(f.phone.restore(), reopened.restore())
+            }
+        } finally { f.phone.clear() }
+    }
 }

@@ -9,6 +9,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.lang.ref.WeakReference
@@ -22,6 +24,9 @@ internal class FusionPhoneAuthRepository(
     private var activity = WeakReference<Activity>(null)
     private class PendingRegistration(val ticket: String, val attempt: PhoneSignInAttempt)
     private val pendingTicket = AtomicReference<PendingRegistration?>(null)
+    // Keep attempt changes and ticket publication ordered across suspending store calls.
+    // Provider/HTTP work must remain outside this lock.
+    private val authenticationState = Mutex()
 
     override fun attach(activity: Activity) { this.activity = WeakReference(activity) }
 
@@ -52,11 +57,13 @@ internal class FusionPhoneAuthRepository(
     }
 
     /** Called only with a verified server response; the original attempt fences disk writes. */
-    internal suspend fun beginAuthentication(): PhoneSignInAttempt = sessions.begin().also { pendingTicket.set(null) }
+    internal suspend fun beginAuthentication(): PhoneSignInAttempt = authenticationState.withLock {
+        sessions.begin().also { pendingTicket.set(null) }
+    }
 
     internal suspend fun completeVerifiedResponse(attempt: PhoneSignInAttempt, verified: VerifiedPhone): PhoneAuthResult =
         when (verified) {
-            is VerifiedPhone.New -> {
+            is VerifiedPhone.New -> authenticationState.withLock {
                 if (sessions.isCurrent(attempt)) {
                     pendingTicket.set(PendingRegistration(verified.ticket, attempt))
                     PhoneAuthResult.RegistrationRequired
@@ -142,7 +149,7 @@ internal class FusionPhoneAuthRepository(
         return if (saved) PhoneAuthResult.SignedIn(session.account) else PhoneAuthResult.Failed(PhoneAuthError.CODE_EXPIRED)
     }
 
-    override suspend fun signOut() {
+    override suspend fun signOut(): Unit = authenticationState.withLock {
         pendingTicket.set(null)
         withContext(Dispatchers.IO) { sessions.clear() }
     }

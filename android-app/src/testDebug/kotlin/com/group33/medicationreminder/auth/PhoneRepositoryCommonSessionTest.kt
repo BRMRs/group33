@@ -3,6 +3,7 @@ package com.group33.medicationreminder.auth
 import com.group33.shared.model.UserRole
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -18,10 +19,13 @@ class PhoneRepositoryCommonSessionTest {
         var account: PhoneAccount? = null
         var writes = 0
         var failStorage = false
+        var afterCurrentCheck: (suspend () -> Unit)? = null
         override suspend fun begin(): PhoneSignInAttempt = Attempt().also { current = it; account = null }
         override suspend fun isCurrent(attempt: PhoneSignInAttempt): Boolean {
             if (failStorage) throw PhoneSessionStorageException()
-            return current === attempt
+            val result = current === attempt
+            afterCurrentCheck?.invoke()
+            return result
         }
         override suspend fun complete(attempt: PhoneSignInAttempt, session: AppSession): Boolean {
             if (!isCurrent(attempt)) return false
@@ -156,6 +160,37 @@ class PhoneRepositoryCommonSessionTest {
         assertEquals(result.account, f.repo.restore()); assertEquals(1, f.sessions.writes)
         assertEquals(2, f.server.calls)
     }
+    @Test fun old_ticket_publication_cannot_overwrite_new_authentication_ticket() = runBlocking {
+        withTimeout(10_000) {
+            val f = Fixture()
+            val oldAttempt = f.repo.beginAuthentication()
+            val checked = CompletableDeferred<Unit>()
+            val release = CompletableDeferred<Unit>()
+            f.sessions.afterCurrentCheck = {
+                f.sessions.afterCurrentCheck = null
+                checked.complete(Unit)
+                release.await()
+            }
+            val oldResponse = async(start = CoroutineStart.UNDISPATCHED) {
+                f.repo.completeVerifiedResponse(oldAttempt, VerifiedPhone.New("old-ticket"))
+            }
+            checked.await()
+            // Start the replacement while the old current-check result is suspended.
+            // No timing assumptions: UNDISPATCHED runs until the first suspension.
+            val replacement = async(start = CoroutineStart.UNDISPATCHED) {
+                val attempt = f.repo.beginAuthentication()
+                f.repo.completeVerifiedResponse(attempt, VerifiedPhone.New("replacement-ticket"))
+            }
+            release.complete(Unit)
+            oldResponse.await()
+            assertEquals(PhoneAuthResult.RegistrationRequired, replacement.await())
+            assertNull(f.repo.restore()); assertEquals(0, f.sessions.writes)
+            assertTrue(f.repo.register(UserRole.CAREGIVER, "Example", null) is PhoneAuthResult.SignedIn)
+            assertEquals("replacement-ticket", f.server.ticket)
+            assertEquals(1, f.server.calls); assertEquals(1, f.sessions.writes)
+        }
+    }
+
     companion object {
         private fun session() = AppSession(PhoneAccount("fictional-user", UserRole.CAREGIVER, "Example caregiver"), "fictional.bearer", 900)
     }

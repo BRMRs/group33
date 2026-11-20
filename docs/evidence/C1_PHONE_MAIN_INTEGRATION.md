@@ -409,3 +409,97 @@ has not been committed/pushed and has no CI result. Prior device, Server and
 Release results above belong to the prior integration, not this execution.
 No additional manual/device acceptance is needed for these JVM-test-only changes;
 real service/configuration and formal wire implementation still depend on #118.
+
+## Registration ticket publication ordering - 2026-11-20 local follow-up
+
+Base: #88 `51d9d718a19ee78616a79d830d7af5127e1cb513`. A deterministic regression
+reproduced a separate check/publication race: the old attempt's `isCurrent`
+result was true, then a replacement attempt published its ticket while that
+old check was suspended. Resuming the old response overwrote the replacement
+ticket. Explicit registration then failed instead of using the new ticket.
+The targeted JVM test failed on the unmodified Repository at its SignedIn
+assertion; this was a functional failure, not a timeout.
+
+The Repository now serializes beginAuthentication, new-ticket current-check
+and publication, and signOut with a coroutine Mutex. The lock covers only
+local attempt/ticket/store work. Provider/HTTP calls and registration completion
+remain outside it; PrivateSessionStore still fences persisted session writes.
+No HTTP/DTO, auth binding, anonymous fallback, Shared/Server or UI change is made.
+
+The JVM regression coordinates the exact interleaving with deferred signals and
+UNDISPATCHED starts, without sleeps. The corresponding device regression uses
+the real CommonPhoneSession/PrivateSessionStore with one gated current-check,
+then verifies the replacement ticket and account, including reopening the store.
+Its Server response is fictional; it never calls the SDK or provider.
+
+The user subsequently reconnected the physical Xiaomi and authorized execution;
+ADB reports `9c69cae2`, API27, unlocked. Tests use only the existing isolated
+`com.group33.medicationreminder.c1dev88` package. Building its test APK alone
+is not execution or real one-tap/SMS acceptance. No publication is authorized
+for this follow-up.
+
+The baseline failure log/XML are retained under the primary checkout's ignored
+`.git/c1-local-recovery-20261117/registration-publication-before.log` and
+`registration-publication-before.xml`.
+
+Final no-device validation (same JDK17/offline/single-worker flags as above):
+
+```text
+gradlew.bat :android-app:testDebugUnitTest :android-app:testReleaseUnitTest :android-app:lintDebug :android-app:assembleDebug :android-app:assembleRelease :android-app:assembleDebugAndroidTest --offline --no-daemon --max-workers=1 --no-parallel --console=plain
+```
+
+BUILD SUCCESSFUL in 9m59s. Debug 159 (including all 13 Repository/session
+boundary cases), Release 145; zero failures/errors/skips. Debug/Release and
+instrumentation APKs compiled. The new JVM case fails before the fix and passes
+after it. Lint has zero errors and 58 warnings. Device results are recorded
+separately after execution.
+
+Linux same-worktree Server/Shared command uses the previously documented isolated
+build output/project cache and read-only dependency cache, with no repository or
+dependency changes:
+
+```text
+env GRADLE_RO_DEP_CACHE=/root/.cache/group33-pr88-linux/ro-cache java -Xmx64m -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain -PserverOnly :server:test :shared:test :server:bootJar :server:schemaMigrationDist -I /mnt/d/learning/xjtlu/year4/CSI301/CSI301_Group_Project/code/group33/.git/c1-local-recovery-20261117/login-linux.init.gradle --project-cache-dir /root/.cache/group33-pr88-linux/project-cache --offline --no-daemon --max-workers=1 --no-parallel --console=plain
+```
+
+BUILD SUCCESSFUL in 2m19s; Server 635, zero failures/errors/skips, actually
+executed. Shared 18 passing reports reused as UP-TO-DATE; bootJar and migration
+distribution succeeded. This avoids the previously documented Windows POSIX
+private-storage limitation rather than relaxing the storage tests.
+
+Logs: `registration-publication-after.log`, `registration-publication-linux.log`
+under the same ignored evidence directory.
+
+Physical execution completed using `run_login_sync_device.py --run
+login-sync-device-03` from that directory. It builds with the existing isolated
+applicationId init, validates app/test package IDs with aapt before installation,
+and executes the same seven instrumentation classes listed above. Both profiles
+include `suspended_old_ticket_check_cannot_replace_new_ticket_in_real_store`:
+
+- Unconfigured: 41 reported, 40 pass, one configuration-applicability skip.
+- Explicit loopback trial: 41 reported, 40 pass, one configuration-applicability
+  skip. Total 80 pass / two applicability skips / zero failures. The new
+  real-store regression passed in both; neither skip is that regression.
+- All six bilingual real-IME submit/back cases pass in each profile. Inspected
+  all four final keyboard images; inputs/submit remain above the real keyboard.
+  No new layout or interaction was introduced; no extra manual UI acceptance is
+  requested for this concurrency fix. Real provider login remains a #118 gate.
+
+APK SHA-256 (application / instrumentation):
+
+- Unconfigured: `f5a9bfc2f2ec92b3ca7cd4ecfdb352025541e3e9d4a8f2b61cfa1e768e470c17`
+  / `7caf3e5ea2b0f137ab46a634c0872605c98d61e4e1f4286b7468697fd4af9c27`.
+- Trial: `9b3927e0abe7da91aedf24c83a110543a2d27fccb317696cff4e065809937338`
+  / `8a0b61d7d1f863dc3f1dd9002f5626e31de9c6fce142e3f32e4369520161f441`.
+
+Raw commands, profile results, images and instrumentation logs are in
+`login-sync-device-03/`; original XML reports are archived in
+`registration-publication-windows-reports.zip` and
+`registration-publication-linux-reports.zip`. Tested source digests are in
+`registration-publication-validation.json` and still match the final sources.
+ADB initially lost the debug transport despite Windows listing the USB device;
+after reconnect it reported device/unlocked and both suites completed. Only the
+isolated package was installed/force-stopped; no original application data or
+global device settings were changed. No commit, push, CI or human approval for
+this follow-up is claimed. Reverting the local Repository mutex and added
+regressions is source-only rollback; no schema or persisted format was changed.
