@@ -12,7 +12,7 @@ aec721a25349e65dc3f05fd7fdcc016f0348f2ef5e9cf02f4b478ca7104b1255  .github/pull_r
 7e063845d1f05a51bd892d522b3710d05b94b4a4127e26255117653766770790  .gitignore
 2880b8b2abf156a5f0dab196acf096d04ad20b5a6cd2c36b0bd2d121e55f1796  AGENTS.md
 5205a2d5d4a6acbc518c7156e38a88c03e55e99d82f3fdccfa66612edda4a559  CONTRIBUTING.md
-90bb0f53c791c1509fb803f8a920b99e57bb4ccb41d20868cbbd5427fbc729f6  CONTRIBUTIONS.md
+aa07d6d15c935d41158b67520c9bd7fb2f8467aaf4be9e15f8c3a553422af926  CONTRIBUTIONS.md
 3225db460214d3ffc3f8492873b382a3dacae53f4ee541a9b7f2abe35751e047  GLOSSARY.md
 266eb79fdc980546b620de1f4226c9f4c768dd9f7db6b29cca73323f47131004  README.md
 052ea6f1761457b49842d44ed7dea524337a2467c38d2edb681d1bf18ecc91f0  android-app/build.gradle.kts
@@ -258,6 +258,12 @@ d9179a7b0a2f7056d750accd42e672a7995882877b4a6cd3531f595e00ec8542  docs/evidence/
 b69c002564ab8f409a2f2d71d6a1ebba222874fc2de308ecf7431d4441a6a202  docs/evidence/c2-editor/en-320dp-200-top.png
 b38514d481e590484a2fc95f24d92c116c87c214ae1dcfe031a836352bb3d8e4  docs/evidence/c2-editor/zh-CN-320dp-200-bottom.png
 7c02f52332cc8758672bd78259bd9de167700e6061c1d6c3257285b6cd022e43  docs/evidence/c2-editor/zh-CN-320dp-200-top.png
+203fdc3aad341e7411f2f745489a487f0bd1baf97f204ab70ba8a8cb3adaedb7  docs/evidence/c3-history-no-default-date/pr136-en-01-no-default.png
+749c36a5566fa4ffa0a0e7314908943fd10a3af45aa62ac20b8ed376aa344823  docs/evidence/c3-history-no-default-date/pr136-en-02-draft.png
+45b5bb0ba5c48c9503adbccc7a648d90088af05d0bb2156f1e495d95668cf68e  docs/evidence/c3-history-no-default-date/pr136-en-03-read.png
+4f8b47c7dd950714a38d11114ffc4ed57bc7424f154633bbf2a8a964b77a8d59  docs/evidence/c3-history-no-default-date/pr136-zh-01-no-default.png
+710cc7ad26ab51f3f8fef88fe7e231f28d5fcbba5960efb0f334d5229e502762  docs/evidence/c3-history-no-default-date/pr136-zh-02-draft.png
+54289c13a3c7a03264ca3d008dbe17d8585048eb07fa9becec1d237885a486cb  docs/evidence/c3-history-no-default-date/pr136-zh-03-read.png
 1653c5c26c131d2b3b7c15cd36179e770b78c58173e13cfbda6346ae4162e3a6  docs/evidence/c3-history/calendar-en-actions-200.png
 123b1c8420b79fe82f6a0ce96d24976e9f3f5493b8b9525a8911bdabe2a3483f  docs/evidence/c3-history/calendar-zh-200.png
 61931841ff0ecfeaf69d2435672001b73ea87602d71fabe2953c877510063850  docs/evidence/c3-history/history-detail-en.png
