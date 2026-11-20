@@ -110,6 +110,15 @@ internal class PrivateSessionStore(
         }.flatten()
     }
 
+    /** Adapter guard before using an in-memory registration ticket from this attempt. */
+    suspend fun isCurrentAuthentication(attempt: AuthenticationAttempt): Outcome<Boolean> = access {
+        val record = current()
+        publish(record)
+        record.user == null && attempt.environmentId == environmentId &&
+            attempt.installationId == record.installationId && attempt.generation == record.generation &&
+            attempt.epoch == file.epoch && !file.clearRequested && clock.millis() >= attempt.startedAtMillis
+    }
+
     /** Clearing credentials leaves installation identity and all business/journal files intact. */
     suspend fun clear(): Outcome<Unit> {
         file.requestClear()

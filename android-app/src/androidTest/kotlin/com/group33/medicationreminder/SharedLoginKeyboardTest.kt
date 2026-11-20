@@ -46,15 +46,19 @@ class SharedLoginKeyboardTest {
         try {
             ActivityScenario.launch<SharedLoginActivity>(Intent(context, SharedLoginActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)).use { scenario ->
+                awaitLoginLayout(R.id.one_tap_button)
                 onView(withId(R.id.other_methods_button)).perform(scrollTo(), click())
+                awaitLoginLayout(if (mode == "sms") R.id.sms_button else R.id.password_button)
                 onView(withId(if (mode == "sms") R.id.sms_button else R.id.password_button))
                     .perform(scrollTo(), click())
+                awaitLoginLayout(R.id.phone_input)
                 if (mode == "reset") onView(withId(R.id.forgot_password_button)).perform(scrollTo(), click())
                 val lastInput = when (mode) {
-                    "sms" -> R.id.code_input
+                    "sms" -> R.id.phone_input // Codes are entered in the provider's scene.
                     "password" -> R.id.password_input
                     else -> R.id.new_password_input
                 }
+                awaitLoginLayout(lastInput)
                 onView(withId(lastInput)).perform(scrollTo(), click())
                 // Wait for the actual keyboard and its final layout, rather than assuming focus shows it.
                 val deadline = android.os.SystemClock.uptimeMillis() + 5_000
@@ -93,9 +97,20 @@ class SharedLoginKeyboardTest {
                 }
                 // A physical Espresso tap must reach the button and reveal its inline status.
                 onView(withId(R.id.form_submit_button)).perform(click())
-                scenario.onActivity { assertEquals(View.VISIBLE, it.findViewById<View>(R.id.login_status).visibility) }
-                androidx.test.espresso.Espresso.pressBack()
-                onView(withId(R.id.back_to_methods_button)).perform(scrollTo(), click())
+                if (BuildConfig.PHONE_AUTH_LOCAL_TRIAL && mode != "password") {
+                    onView(androidx.test.espresso.matcher.ViewMatchers.withText(R.string.login_trial_privacy_title))
+                        .check(androidx.test.espresso.assertion.ViewAssertions.matches(
+                            androidx.test.espresso.matcher.ViewMatchers.isDisplayed()))
+                    onView(androidx.test.espresso.matcher.ViewMatchers.withText(android.R.string.cancel)).perform(click())
+                } else {
+                    awaitLoginLayout(R.id.form_feedback_card)
+                    onView(withId(R.id.form_feedback_card)).check(androidx.test.espresso.assertion.ViewAssertions.matches(
+                        androidx.test.espresso.matcher.ViewMatchers.isDisplayed()))
+                }
+                androidx.test.espresso.Espresso.closeSoftKeyboard()
+                awaitLoginLayout(R.id.back_to_methods_button)
+                onView(withId(R.id.back_to_methods_button)).perform(scrollTo(), settleKeyboardLayout, click())
+                awaitLoginLayout(R.id.one_tap_button)
                 onView(withId(R.id.one_tap_button)).perform(scrollTo())
                     .check(androidx.test.espresso.assertion.ViewAssertions.matches(
                         androidx.test.espresso.matcher.ViewMatchers.isDisplayed()))

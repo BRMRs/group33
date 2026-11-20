@@ -37,6 +37,8 @@ private class AnonymousLoginModel(private val auth: AuthRepository) : ViewModel(
 
 /** The only anonymous login controls, attached inside #59's existing shared entry in Debug. */
 internal fun installSharedAuthentication(activity: AppCompatActivity, host: ViewGroup) {
+    // A configured phone build has one identity source; it cannot fall back to an anonymous actor.
+    if ((activity.application as Group33Application).phoneAuth != null) return
     val services = checkNotNull((activity.application as Group33Application).featureServices)
     val model = ViewModelProvider(activity, object : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST") override fun <T : ViewModel> create(modelClass: Class<T>) = AnonymousLoginModel(services.auth) as T

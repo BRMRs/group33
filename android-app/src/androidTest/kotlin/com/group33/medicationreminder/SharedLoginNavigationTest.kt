@@ -38,11 +38,16 @@ class SharedLoginNavigationTest {
                 if (choice == LanguageChoice.SIMPLIFIED_CHINESE) "zh" else "en",
                 androidx.core.os.ConfigurationCompat.getLocales(activity.resources.configuration)[0]?.language)
             }
+            awaitLoginLayout(R.id.one_tap_button)
+            androidx.test.espresso.Espresso.closeSoftKeyboard()
             onView(withId(R.id.one_tap_button)).perform(scrollTo()).check(matches(isDisplayed()))
-            onView(withId(R.id.other_methods_button)).perform(scrollTo(), click())
+            onView(withId(R.id.other_methods_button)).perform(scrollTo(), settleLoginScroll, click())
+            awaitLoginLayout(R.id.sms_button)
             onView(withId(R.id.sms_button)).perform(scrollTo(), click())
+            awaitLoginLayout(R.id.phone_input)
             onView(withId(R.id.phone_input)).perform(scrollTo()).check(matches(isDisplayed()))
             onView(withId(R.id.back_to_methods_button)).perform(scrollTo(), click())
+            awaitLoginLayout(R.id.one_tap_button)
             onView(withId(R.id.one_tap_button)).perform(scrollTo()).check(matches(isDisplayed()))
         } } finally {
             runBlocking { app.languageSettings.setChoice(LanguageChoice.FOLLOW_SYSTEM) }

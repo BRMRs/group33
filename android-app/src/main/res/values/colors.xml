@@ -6,4 +6,12 @@
     <color name="group33_navigation_selected">#E1ECFA</color>
     <color name="group33_text_primary">#17212F</color>
     <color name="group33_text_secondary">#425466</color>
+
+<color name="group33_error">#7A271A</color>
+    <color name="group33_error_container">#FCE8E6</color>
+    <color name="group33_error_outline">#B3261E</color>
+    <color name="group33_success">#14532D</color>
+    <color name="group33_success_container">#E6F4EA</color>
+    <color name="group33_success_outline">#2E7D32</color>
+
 </resources>
