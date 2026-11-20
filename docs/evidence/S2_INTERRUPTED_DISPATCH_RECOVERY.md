@@ -71,7 +71,8 @@ builds retain AndroidJUnitRunner and the existing Debug application.
 After the receiver accepts and holds the first response, the host force-stops the app. Startup in
 a different process discovers the claimed record. Verification never calls enqueue, claim or a
 dispatch helper: it observes the original work UUID, an actual busy-claim retry and automatic retry
-after the original 60-second claim expires. Local Android37 evidence observed 105,117ms between
+after the original 60-second claim expires. The saved trace distinguishes pre-kill attempt 1 from
+new-process ENQUEUED attempts 2/3 and successful attempt 4. Local Android37 evidence observed 105,271ms between
 successful claims, the same work/action/payload, two requests/one test-receiver effect and durable
 ACK with the original deadline. Neither clock injection nor manual recovery is used.
 

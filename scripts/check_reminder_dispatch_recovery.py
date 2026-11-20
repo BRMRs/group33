@@ -106,12 +106,12 @@ def run_checks(adb, serial, output, env=None, skip_room=False, automatic=False):
             expected.check_returncode(); original = json.loads(expected.stdout)
             if automatic:
                 deadline = time.monotonic() + 10
-                while 'workId' not in original and time.monotonic() < deadline:
+                while 'claimedRunAttemptCount' not in original and time.monotonic() < deadline:
                     time.sleep(.05)
                     expected = device('exec-out', 'run-as', PACKAGE, 'cat', 'no_backup/' + prefix + '.json')
                     try: original = json.loads(expected.stdout)
                     except json.JSONDecodeError: continue
-                assert 'workId' in original
+                assert 'workId' in original and 'claimedRunAttemptCount' in original
             (out / 'original-action.json').write_text(json.dumps(original, indent=2) + '\n')
             device('shell', 'am', 'force-stop', PACKAGE).check_returncode()
             preparing.wait(timeout=15)
@@ -128,6 +128,10 @@ def run_checks(adb, serial, output, env=None, skip_room=False, automatic=False):
         if automatic:
             assert durable['manualRecoveryCalls'] == 0 and durable['observedRetry']
             assert durable['elapsedClaimMillis'] > 60_000 and durable['workId'] == original['workId']
+            assert durable['originalRunAttemptCount'] == original['claimedRunAttemptCount']
+            assert any(x['state'] == 'ENQUEUED' and x['actionState'] == 'DISPATCHING'
+                       and x['runAttemptCount'] > original['claimedRunAttemptCount']
+                       for x in durable['workObservations'])
         result.update(passed=True, process_probe=durable, receiver_requests=2, receiver_effects=1,
                       payload_replay_identical=True, prepare_process_intentionally_killed=True)
     finally:

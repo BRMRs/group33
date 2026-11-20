@@ -80,9 +80,10 @@ class AutomaticRecoveryProbeTest {
                 withTimeout(10_000) {
                     while (true) {
                         val infos = work.getWorkInfosForUniqueWork("reminder-action-$id").get(10, TimeUnit.SECONDS)
-                        if (infos.isNotEmpty()) {
+                        if (infos.isNotEmpty() && dao.action(id)?.dispatchState == ReminderDispatchState.DISPATCHING.name) {
                             assertEquals(1, infos.size)
-                            expected.writeText(JSONObject(expected.readText()).put("workId", infos.single().id).toString())
+                            expected.writeText(JSONObject(expected.readText()).put("workId", infos.single().id)
+                                .put("claimedRunAttemptCount", infos.single().runAttemptCount).toString())
                             break
                         }
                         delay(25)
@@ -99,6 +100,9 @@ class AutomaticRecoveryProbeTest {
                 assertTrue(System.currentTimeMillis() - claimedAt < 60_000)
                 var observedRetry = false
                 val originalWorkId = UUID.fromString(before.getString("workId"))
+                val originalRunCount = before.getInt("claimedRunAttemptCount")
+                val observations = JSONArray()
+                var lastObservation = ""
                 withTimeout(180_000) {
                     while (true) {
                         val infos = work.getWorkInfosForUniqueWork("reminder-action-$id").get(10, TimeUnit.SECONDS)
@@ -106,7 +110,15 @@ class AutomaticRecoveryProbeTest {
                             assertEquals(1, infos.size)
                             val info = infos.single()
                             assertEquals(originalWorkId, info.id)
-                            if (info.runAttemptCount > 0 && dao.action(id)?.dispatchState == ReminderDispatchState.DISPATCHING.name)
+                            val actionState = dao.action(id)?.dispatchState
+                            val observation = "${info.state}:${info.runAttemptCount}:$actionState"
+                            if (observation != lastObservation) {
+                                observations.put(JSONObject().put("state", info.state.name)
+                                    .put("runAttemptCount", info.runAttemptCount).put("actionState", actionState))
+                                lastObservation = observation
+                            }
+                            if (info.runAttemptCount > originalRunCount && info.state == WorkInfo.State.ENQUEUED &&
+                                actionState == ReminderDispatchState.DISPATCHING.name)
                                 observedRetry = true
                             if (dao.action(id)?.dispatchState == ReminderDispatchState.ACKNOWLEDGED.name && info.state == WorkInfo.State.SUCCEEDED) break
                         }
@@ -124,6 +136,7 @@ class AutomaticRecoveryProbeTest {
                 File(context.filesDir, "automatic-recovery-result.json").writeText(JSONObject()
                     .put("actionId", id).put("oldPid", before.getInt("pid")).put("newPid", Process.myPid())
                     .put("workId", originalWorkId).put("observedRetry", observedRetry)
+                    .put("originalRunAttemptCount", originalRunCount).put("workObservations", observations)
                     .put("elapsedClaimMillis", checkNotNull(accepted.lastDispatchAtEpochMillis) - claimedAt)
                     .put("attempts", accepted.dispatchAttempts).put("state", accepted.dispatchState)
                     .put("originalDeadlinePreserved", true).put("manualRecoveryCalls", 0).toString())
