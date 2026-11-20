@@ -32,6 +32,10 @@ internal fun ItemCaregiverOverviewEventBinding.bindEvent(event: OverviewEventRow
         context.serverAcceptedLateReportText(it)
     }
     serverAcceptedLateReports.visibility = if (event.serverAcceptedLateReports.isEmpty()) View.GONE else View.VISIBLE
+    serverAcceptedTakenReport.text = event.serverAcceptedTakenRecordedAtEpochMillis?.let {
+        context.serverAcceptedTakenReportText(it)
+    }.orEmpty()
+    serverAcceptedTakenReport.visibility = if (event.serverAcceptedTakenRecordedAtEpochMillis == null) View.GONE else View.VISIBLE
     reportLinkError.text = context.getString(R.string.c3_report_unlinked).takeIf { event.hasUnlinkedReports }.orEmpty()
     reportLinkError.visibility = if (event.hasUnlinkedReports) View.VISIBLE else View.GONE
 }

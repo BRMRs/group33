@@ -40,6 +40,11 @@ internal fun Context.capabilityDetails(capability: ReminderCapabilityView): Stri
     caregiverInstant(capability.receivedAtEpochMillis),
 )
 
+internal fun Context.serverAcceptedTakenReportText(recordedAtEpochMillis: Long): String = getString(
+    R.string.c3_server_accepted_taken_report,
+    caregiverInstant(recordedAtEpochMillis),
+)
+
 internal fun Context.serverAcceptedLateReportText(report: CaregiverServerAcceptedLateReport): String = getString(
     R.string.c3_server_accepted_late_report,
     caregiverInstant(report.recordedAtEpochMillis),

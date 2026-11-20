@@ -565,10 +565,19 @@ class CaregiverHistoryViewTest {
 
     @Test fun revocationClearsRowsAndOpenDetailsAndDisablesFiltering() = withScreen {
         var removed: View? = null
+        onMain {
+            repository.updates.value = repository.updates.value.copy(value = repository.updates.value.value.map {
+                it.copy(effectiveStatus = DoseStatus.TAKEN, lastAcceptedStatus = DoseStatus.TAKEN,
+                    serverAcceptedTakenAtEpochMillis = it.generationEvidence.plannedAtEpochMillis + 3_600_000L)
+            })
+        }
         onMain { model.selectEvent(model.state.value.events.first().occurrence) }
         onMain { showDetails() }
         onMain {
             removed = details()
+            val report = checkNotNull(removed).findViewById<TextView>(R.id.server_accepted_taken_report)
+            assertEquals(View.VISIBLE, report.visibility)
+            assertTrue(report.text.isNotEmpty())
             repository.updates.value = repository.updates.value.copy(access = AccessState.REVOKED)
         }
         onMain {
@@ -576,6 +585,13 @@ class CaregiverHistoryViewTest {
             assertEquals("", text(R.id.history_elder).text.toString())
             assertEquals("", checkNotNull(removed).findViewById<TextView>(R.id.history_instructions).text.toString())
             assertEquals("", checkNotNull(removed).findViewById<TextView>(R.id.medication).text.toString())
+            val report = checkNotNull(removed).findViewById<TextView>(R.id.server_accepted_taken_report)
+            assertEquals("", report.text.toString())
+            val node = report.createAccessibilityNodeInfo()
+            try { assertTrue(node.text.isNullOrEmpty()) } finally {
+                @Suppress("DEPRECATION")
+                node.recycle()
+            }
             assertTrue(view.findViewById<View>(R.id.history_details)?.visibility != View.VISIBLE)
             assertFalse(header.findViewById<View>(R.id.history_apply).isEnabled)
             assertEquals(1, list.adapter.count)

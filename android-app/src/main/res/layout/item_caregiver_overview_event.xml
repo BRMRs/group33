@@ -40,6 +40,14 @@
       android:textAppearance="@style/TextAppearance.Group33.Supporting" />
 
     <TextView
+      android:id="@+id/server_accepted_taken_report"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="@dimen/group33_spacing_small"
+      android:textAppearance="@style/TextAppearance.Group33.Supporting"
+      android:visibility="gone" />
+
+    <TextView
       android:id="@+id/local_sync"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
