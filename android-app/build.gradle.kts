@@ -16,7 +16,9 @@ android {
         versionCode = 1
         versionName = "0.1.0"
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = if (providers.gradleProperty("automaticRecoveryRunner").orNull == "true")
+            "com.group33.medicationreminder.core.reminder.AutomaticRecoveryRunner"
+        else "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {

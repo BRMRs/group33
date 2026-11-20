@@ -54,3 +54,54 @@ The repair PR targets #119's existing branch, exposing only this repair rather t
 unmerged runtime. The lead can adopt it after normal review; no original review is auto-resolved.
 Rollback reverts code/scheduling, without rewriting stored actions or terminal facts. #130/#131
 joint decisions, capability merges, security approval and dual-device/LAN acceptance remain separate.
+
+## 2026-11-20 additional verification
+
+Two earlier limits are tested separately without changing production App/Worker/Server code or
+accepted wire/schema. These are complementary traces, not one Android-to-production-Server trace
+and not a V2 or real-provider acceptance claim.
+
+### Real startup and WorkManager, with the real clock
+
+An opt-in test APK (`-PautomaticRecoveryRunner=true`) installs a test Application inheriting the
+unchanged production `Group33Application` bootstrap. It uses the ordinary reminders DB, actual
+Coordinator local transaction and real WorkManager; only loopback transport is injected. Ordinary
+builds retain AndroidJUnitRunner and the existing Debug application.
+
+After the receiver accepts and holds the first response, the host force-stops the app. Startup in
+a different process discovers the claimed record. Verification never calls enqueue, claim or a
+dispatch helper: it observes the original work UUID, an actual busy-claim retry and automatic retry
+after the original 60-second claim expires. Local Android37 evidence observed 105,117ms between
+successful claims, the same work/action/payload, two requests/one test-receiver effect and durable
+ACK with the original deadline. Neither clock injection nor manual recovery is used.
+
+CI runs this after the original 13 cases, eight Room/Worker cases and deterministic process probe.
+It clears only its explicitly disposable installation before preparation so earlier pending fixtures
+cannot reach the new receiver. It never clears between preparation and new-process verification.
+
+### Real packaged Server and PostgreSQL
+
+`check_postgres_receipt_recovery.py` creates an isolated random loopback test schema using existing
+V1–V10 SQL fixtures, starts the actual Boot JAR in `postgres-local` mode and performs real anonymous
+authentication, pairing/consent, private photo upload, two plan confirmations and batch registration.
+No memory Store, mocked receiver or modified business endpoint is involved in this backend flow.
+Fixture SQL setup does not claim Flyway-managed rollout validation.
+
+A proxy forwards a whole-group Snooze, receives committed success, then drops only its client
+response. Three retries preserve the original receipt and two event rows; same-key changed intent
+conflicts. A separate legitimate Taken changes current events while old Snooze/registration receipts
+stay original. After stopping the whole Server JVM and starting a different JVM on the same schema,
+both action receipts, current authorized caregiver reads and counts remain correct: two registered
+occurrences, two current event rows and two distinct legitimate command receipts. Retries add no rows.
+The local backend flow passed 62 assertions, representing checks in one flow rather than 62 defects.
+
+Initial local setup failed because the fixture object directory was not 0700. The private adapter
+correctly rejected it; fixture permissions were corrected and original failure evidence retained.
+No production permission check was relaxed. Keys/objects are removed on success; failed private logs
+are excluded from uploads. Both JVMs/proxy stop, the schema is dropped and local orchestration restores
+the practice database's original stopped state.
+
+Exact-head API35 CI adds automatic process verification (23 device report instances total) and the
+real PostgreSQL flow. Raw UUIDs/logs, real elapsed time, original receipts, row counts, process IDs and
+cleanup results must be verified before declaring that head successful. Earlier Android37/API35
+evidence stays attributable to its own run.
