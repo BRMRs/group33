@@ -103,13 +103,13 @@ class CaregiverOverviewViewTest {
             model.selectContext(repository, scope, "test-elder", range)
         }
         onMain {
-            assertEquals(context.getString(R.string.c3_access_unknown), view.findViewById<TextView>(R.id.state_message).text)
+            assertEquals(context.getString(R.string.c3_overview_access_unknown), view.findViewById<TextView>(R.id.state_message).text)
             assertEquals("", view.findViewById<TextView>(R.id.elder_name).text.toString())
             assertFalse(view.findViewById<View>(R.id.history_button).isEnabled)
             repository.updates.value = repository.updates.value.copy(access = AccessState.AUTHORIZED, hasLocalData = false)
         }
         onMain {
-            assertEquals(context.getString(R.string.c3_no_local_data), view.findViewById<TextView>(R.id.state_message).text)
+            assertEquals(context.getString(R.string.c3_overview_no_local_data), view.findViewById<TextView>(R.id.state_message).text)
             assertEquals(0, view.findViewById<ViewGroup>(R.id.event_rows).childCount)
             repository.updates.value = repository.updates.value.let { cached ->
                 cached.copy(hasLocalData = true, value = cached.value.copy(events = emptyList()))
@@ -413,7 +413,7 @@ class CaregiverOverviewViewTest {
                 model.selectContext(repository, scope, "test-elder", range)
             }
             onMain {
-                assertEquals(context.getString(R.string.c3_unavailable), view.findViewById<TextView>(R.id.state_message).text)
+                assertEquals(context.getString(R.string.c3_overview_unavailable), view.findViewById<TextView>(R.id.state_message).text)
                 assertEquals(0, view.findViewById<ViewGroup>(R.id.event_rows).childCount)
                 assertTrue(view.findViewById<View>(R.id.refresh_button).isEnabled)
                 assertFalse(view.findViewById<View>(R.id.history_button).isEnabled)
