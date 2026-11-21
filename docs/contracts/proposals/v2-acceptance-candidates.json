@@ -1,0 +1,768 @@
+{
+  "status": "PROPOSED_NOT_ACCEPTED",
+  "scope": "TEST_REVIEW_ENVELOPE_NOT_PRODUCTION_WIRE",
+  "wire": [
+    {
+      "name": "group",
+      "type": "FrozenDoseGroup",
+      "value": {
+        "doseGroupId": "00000000-0000-4000-8000-000000000024",
+        "elderId": "fictional-elder",
+        "executionScopeId": "fictional-env/install/elder",
+        "plannedAtEpochMillis": 1792454400000,
+        "members": [
+          {
+            "generationId": "00000000-0000-4000-8000-000000000100",
+            "occurrence": {
+              "planId": "plan-1",
+              "localDate": "2026-10-20",
+              "localTime": "08:00"
+            },
+            "planRevision": 1,
+            "generatedAtEpochMillis": 1792450800000,
+            "executionTimeZoneId": "Asia/Shanghai",
+            "plannedAtEpochMillis": 1792454400000,
+            "resolvedOffsetSeconds": 28800,
+            "resolutionPolicyVersion": "P0_TIME_V1",
+            "sourceSnapshotVersion": "confirmed-before-generation",
+            "sourceSnapshotServerAtEpochMillis": 1792368000000
+          }
+        ]
+      }
+    },
+    {
+      "name": "followUpUnknown",
+      "type": "FollowUpFact",
+      "value": {
+        "command": {
+          "actionId": "00000000-0000-4000-8000-000000000201",
+          "followUpId": "00000000-0000-4000-8000-000000000210",
+          "doseGroupId": "00000000-0000-4000-8000-000000000024",
+          "expectedRevision": 0,
+          "outcome": "UNKNOWN",
+          "actualTime": {
+            "knowledge": "UNKNOWN",
+            "epochMillis": null
+          },
+          "enteredAtEpochMillis": 1792455000000
+        },
+        "actorId": "fictional-caregiver",
+        "revision": 1,
+        "receivedAtEpochMillis": 1792455001000
+      }
+    },
+    {
+      "name": "followUpTaken",
+      "type": "FollowUpFact",
+      "value": {
+        "command": {
+          "actionId": "00000000-0000-4000-8000-000000000201",
+          "followUpId": "00000000-0000-4000-8000-000000000210",
+          "doseGroupId": "00000000-0000-4000-8000-000000000024",
+          "expectedRevision": 0,
+          "outcome": "TAKEN",
+          "actualTime": {
+            "knowledge": "KNOWN",
+            "epochMillis": 1792454700000
+          },
+          "enteredAtEpochMillis": 1792455000000
+        },
+        "actorId": "fictional-caregiver",
+        "revision": 1,
+        "receivedAtEpochMillis": 1792455001000
+      }
+    },
+    {
+      "name": "followUpCorrection",
+      "type": "FollowUpFact",
+      "value": {
+        "command": {
+          "actionId": "00000000-0000-4000-8000-000000000202",
+          "followUpId": "00000000-0000-4000-8000-000000000210",
+          "doseGroupId": "00000000-0000-4000-8000-000000000024",
+          "expectedRevision": 1,
+          "outcome": "NOT_TAKEN",
+          "actualTime": {
+            "knowledge": "UNKNOWN",
+            "epochMillis": null
+          },
+          "enteredAtEpochMillis": 1792455600000
+        },
+        "actorId": "fictional-caregiver",
+        "revision": 2,
+        "receivedAtEpochMillis": 1792455601000
+      }
+    },
+    {
+      "name": "lateTaken",
+      "type": "GroupIntent",
+      "value": {
+        "actionId": "00000000-0000-4000-8000-000000000220",
+        "group": {
+          "doseGroupId": "00000000-0000-4000-8000-000000000024",
+          "elderId": "fictional-elder",
+          "executionScopeId": "fictional-env/install/elder",
+          "plannedAtEpochMillis": 1792454400000,
+          "members": [
+            {
+              "generationId": "00000000-0000-4000-8000-000000000100",
+              "occurrence": {
+                "planId": "plan-1",
+                "localDate": "2026-10-20",
+                "localTime": "08:00"
+              },
+              "planRevision": 1,
+              "generatedAtEpochMillis": 1792450800000,
+              "executionTimeZoneId": "Asia/Shanghai",
+              "plannedAtEpochMillis": 1792454400000,
+              "resolvedOffsetSeconds": 28800,
+              "resolutionPolicyVersion": "P0_TIME_V1",
+              "sourceSnapshotVersion": "confirmed-before-generation",
+              "sourceSnapshotServerAtEpochMillis": 1792368000000
+            }
+          ]
+        },
+        "kind": "TAKEN",
+        "recordedAtEpochMillis": 1792454460000
+      }
+    },
+    {
+      "name": "oldReceipt",
+      "type": "GroupIntentReceipt",
+      "value": {
+        "actionId": "00000000-0000-4000-8000-000000000220",
+        "doseGroupId": "00000000-0000-4000-8000-000000000024",
+        "receivedAtEpochMillis": 1792458600000
+      }
+    },
+    {
+      "name": "help",
+      "type": "GroupIntent",
+      "value": {
+        "actionId": "00000000-0000-4000-8000-000000000221",
+        "group": {
+          "doseGroupId": "00000000-0000-4000-8000-000000000024",
+          "elderId": "fictional-elder",
+          "executionScopeId": "fictional-env/install/elder",
+          "plannedAtEpochMillis": 1792454400000,
+          "members": [
+            {
+              "generationId": "00000000-0000-4000-8000-000000000100",
+              "occurrence": {
+                "planId": "plan-1",
+                "localDate": "2026-10-20",
+                "localTime": "08:00"
+              },
+              "planRevision": 1,
+              "generatedAtEpochMillis": 1792450800000,
+              "executionTimeZoneId": "Asia/Shanghai",
+              "plannedAtEpochMillis": 1792454400000,
+              "resolvedOffsetSeconds": 28800,
+              "resolutionPolicyVersion": "P0_TIME_V1",
+              "sourceSnapshotVersion": "confirmed-before-generation",
+              "sourceSnapshotServerAtEpochMillis": 1792368000000
+            }
+          ]
+        },
+        "kind": "HELP",
+        "recordedAtEpochMillis": 1792454520000
+      }
+    },
+    {
+      "name": "deliverySENT",
+      "type": "DeliveryAcknowledgement",
+      "value": {
+        "alertId": "00000000-0000-4000-8000-000000000230",
+        "deliveryId": "00000000-0000-4000-8000-000000000231",
+        "attemptId": "00000000-0000-4000-8000-000000000232",
+        "fencingToken": 1,
+        "stage": "SENT",
+        "recordedAtEpochMillis": 1792454580000
+      }
+    },
+    {
+      "name": "deliveryDEVICE_RECEIVED",
+      "type": "DeliveryAcknowledgement",
+      "value": {
+        "alertId": "00000000-0000-4000-8000-000000000230",
+        "deliveryId": "00000000-0000-4000-8000-000000000231",
+        "attemptId": "00000000-0000-4000-8000-000000000232",
+        "fencingToken": 1,
+        "stage": "DEVICE_RECEIVED",
+        "recordedAtEpochMillis": 1792454580001
+      }
+    },
+    {
+      "name": "deliveryVISIBLE",
+      "type": "DeliveryAcknowledgement",
+      "value": {
+        "alertId": "00000000-0000-4000-8000-000000000230",
+        "deliveryId": "00000000-0000-4000-8000-000000000231",
+        "attemptId": "00000000-0000-4000-8000-000000000232",
+        "fencingToken": 1,
+        "stage": "VISIBLE",
+        "recordedAtEpochMillis": 1792454580002
+      }
+    },
+    {
+      "name": "deliveryREAD",
+      "type": "DeliveryAcknowledgement",
+      "value": {
+        "alertId": "00000000-0000-4000-8000-000000000230",
+        "deliveryId": "00000000-0000-4000-8000-000000000231",
+        "attemptId": "00000000-0000-4000-8000-000000000232",
+        "fencingToken": 1,
+        "stage": "READ",
+        "recordedAtEpochMillis": 1792454580003
+      }
+    },
+    {
+      "name": "ordinaryDelayedReceipt",
+      "type": "GroupIntent",
+      "value": {
+        "actionId": "00000000-0000-4000-8000-000000000240",
+        "group": {
+          "doseGroupId": "00000000-0000-4000-8000-000000000024",
+          "elderId": "fictional-elder",
+          "executionScopeId": "fictional-env/install/elder",
+          "plannedAtEpochMillis": 1792454400000,
+          "members": [
+            {
+              "generationId": "00000000-0000-4000-8000-000000000100",
+              "occurrence": {
+                "planId": "plan-1",
+                "localDate": "2026-10-20",
+                "localTime": "08:00"
+              },
+              "planRevision": 1,
+              "generatedAtEpochMillis": 1792450800000,
+              "executionTimeZoneId": "Asia/Shanghai",
+              "plannedAtEpochMillis": 1792454400000,
+              "resolvedOffsetSeconds": 28800,
+              "resolutionPolicyVersion": "P0_TIME_V1",
+              "sourceSnapshotVersion": "confirmed-before-generation",
+              "sourceSnapshotServerAtEpochMillis": 1792368000000
+            }
+          ]
+        },
+        "kind": "REMIND_LATER",
+        "recordedAtEpochMillis": 1792454700000
+      }
+    },
+    {
+      "name": "beforeDue",
+      "type": "GroupIntent",
+      "value": {
+        "actionId": "00000000-0000-4000-8000-000000000241",
+        "group": {
+          "doseGroupId": "00000000-0000-4000-8000-000000000024",
+          "elderId": "fictional-elder",
+          "executionScopeId": "fictional-env/install/elder",
+          "plannedAtEpochMillis": 1792454400000,
+          "members": [
+            {
+              "generationId": "00000000-0000-4000-8000-000000000100",
+              "occurrence": {
+                "planId": "plan-1",
+                "localDate": "2026-10-20",
+                "localTime": "08:00"
+              },
+              "planRevision": 1,
+              "generatedAtEpochMillis": 1792450800000,
+              "executionTimeZoneId": "Asia/Shanghai",
+              "plannedAtEpochMillis": 1792454400000,
+              "resolvedOffsetSeconds": 28800,
+              "resolutionPolicyVersion": "P0_TIME_V1",
+              "sourceSnapshotVersion": "confirmed-before-generation",
+              "sourceSnapshotServerAtEpochMillis": 1792368000000
+            }
+          ]
+        },
+        "kind": "REMIND_LATER",
+        "recordedAtEpochMillis": 1792454399999
+      }
+    },
+    {
+      "name": "targetBeforeCutoff",
+      "type": "GroupIntent",
+      "value": {
+        "actionId": "00000000-0000-4000-8000-000000000242",
+        "group": {
+          "doseGroupId": "00000000-0000-4000-8000-000000000024",
+          "elderId": "fictional-elder",
+          "executionScopeId": "fictional-env/install/elder",
+          "plannedAtEpochMillis": 1792454400000,
+          "members": [
+            {
+              "generationId": "00000000-0000-4000-8000-000000000100",
+              "occurrence": {
+                "planId": "plan-1",
+                "localDate": "2026-10-20",
+                "localTime": "08:00"
+              },
+              "planRevision": 1,
+              "generatedAtEpochMillis": 1792450800000,
+              "executionTimeZoneId": "Asia/Shanghai",
+              "plannedAtEpochMillis": 1792454400000,
+              "resolvedOffsetSeconds": 28800,
+              "resolutionPolicyVersion": "P0_TIME_V1",
+              "sourceSnapshotVersion": "confirmed-before-generation",
+              "sourceSnapshotServerAtEpochMillis": 1792368000000
+            }
+          ]
+        },
+        "kind": "REMIND_LATER",
+        "recordedAtEpochMillis": 1792460999999
+      }
+    },
+    {
+      "name": "targetAtCutoff",
+      "type": "GroupIntent",
+      "value": {
+        "actionId": "00000000-0000-4000-8000-000000000243",
+        "group": {
+          "doseGroupId": "00000000-0000-4000-8000-000000000024",
+          "elderId": "fictional-elder",
+          "executionScopeId": "fictional-env/install/elder",
+          "plannedAtEpochMillis": 1792454400000,
+          "members": [
+            {
+              "generationId": "00000000-0000-4000-8000-000000000100",
+              "occurrence": {
+                "planId": "plan-1",
+                "localDate": "2026-10-20",
+                "localTime": "08:00"
+              },
+              "planRevision": 1,
+              "generatedAtEpochMillis": 1792450800000,
+              "executionTimeZoneId": "Asia/Shanghai",
+              "plannedAtEpochMillis": 1792454400000,
+              "resolvedOffsetSeconds": 28800,
+              "resolutionPolicyVersion": "P0_TIME_V1",
+              "sourceSnapshotVersion": "confirmed-before-generation",
+              "sourceSnapshotServerAtEpochMillis": 1792368000000
+            }
+          ]
+        },
+        "kind": "REMIND_LATER",
+        "recordedAtEpochMillis": 1792461000000
+      }
+    },
+    {
+      "name": "targetAfterCutoff",
+      "type": "GroupIntent",
+      "value": {
+        "actionId": "00000000-0000-4000-8000-000000000244",
+        "group": {
+          "doseGroupId": "00000000-0000-4000-8000-000000000024",
+          "elderId": "fictional-elder",
+          "executionScopeId": "fictional-env/install/elder",
+          "plannedAtEpochMillis": 1792454400000,
+          "members": [
+            {
+              "generationId": "00000000-0000-4000-8000-000000000100",
+              "occurrence": {
+                "planId": "plan-1",
+                "localDate": "2026-10-20",
+                "localTime": "08:00"
+              },
+              "planRevision": 1,
+              "generatedAtEpochMillis": 1792450800000,
+              "executionTimeZoneId": "Asia/Shanghai",
+              "plannedAtEpochMillis": 1792454400000,
+              "resolvedOffsetSeconds": 28800,
+              "resolutionPolicyVersion": "P0_TIME_V1",
+              "sourceSnapshotVersion": "confirmed-before-generation",
+              "sourceSnapshotServerAtEpochMillis": 1792368000000
+            }
+          ]
+        },
+        "kind": "REMIND_LATER",
+        "recordedAtEpochMillis": 1792461000001
+      }
+    },
+    {
+      "name": "timelyActionLateReceipt",
+      "type": "GroupIntent",
+      "value": {
+        "actionId": "00000000-0000-4000-8000-000000000245",
+        "group": {
+          "doseGroupId": "00000000-0000-4000-8000-000000000024",
+          "elderId": "fictional-elder",
+          "executionScopeId": "fictional-env/install/elder",
+          "plannedAtEpochMillis": 1792454400000,
+          "members": [
+            {
+              "generationId": "00000000-0000-4000-8000-000000000100",
+              "occurrence": {
+                "planId": "plan-1",
+                "localDate": "2026-10-20",
+                "localTime": "08:00"
+              },
+              "planRevision": 1,
+              "generatedAtEpochMillis": 1792450800000,
+              "executionTimeZoneId": "Asia/Shanghai",
+              "plannedAtEpochMillis": 1792454400000,
+              "resolvedOffsetSeconds": 28800,
+              "resolutionPolicyVersion": "P0_TIME_V1",
+              "sourceSnapshotVersion": "confirmed-before-generation",
+              "sourceSnapshotServerAtEpochMillis": 1792368000000
+            }
+          ]
+        },
+        "kind": "REMIND_LATER",
+        "recordedAtEpochMillis": 1792454700000
+      }
+    },
+    {
+      "name": "actionAtCutoff",
+      "type": "GroupIntent",
+      "value": {
+        "actionId": "00000000-0000-4000-8000-000000000246",
+        "group": {
+          "doseGroupId": "00000000-0000-4000-8000-000000000024",
+          "elderId": "fictional-elder",
+          "executionScopeId": "fictional-env/install/elder",
+          "plannedAtEpochMillis": 1792454400000,
+          "members": [
+            {
+              "generationId": "00000000-0000-4000-8000-000000000100",
+              "occurrence": {
+                "planId": "plan-1",
+                "localDate": "2026-10-20",
+                "localTime": "08:00"
+              },
+              "planRevision": 1,
+              "generatedAtEpochMillis": 1792450800000,
+              "executionTimeZoneId": "Asia/Shanghai",
+              "plannedAtEpochMillis": 1792454400000,
+              "resolvedOffsetSeconds": 28800,
+              "resolutionPolicyVersion": "P0_TIME_V1",
+              "sourceSnapshotVersion": "confirmed-before-generation",
+              "sourceSnapshotServerAtEpochMillis": 1792368000000
+            }
+          ]
+        },
+        "kind": "REMIND_LATER",
+        "recordedAtEpochMillis": 1792461600000
+      }
+    }
+  ],
+  "scenarios": {
+    "noCanonicalEvent": {
+      "id": "V2-R01",
+      "group": "group",
+      "canonicalEvents": [],
+      "followUp": "followUpUnknown",
+      "expected": {
+        "currentRevision": 1,
+        "effectiveOutcome": "UNKNOWN",
+        "source": "CAREGIVER",
+        "fabricateElderEvent": false
+      }
+    },
+    "correctionAndReplay": {
+      "id": "V2-R02",
+      "group": "group",
+      "followUps": [
+        "followUpTaken",
+        "followUpCorrection"
+      ],
+      "lateElderIntent": "lateTaken",
+      "lateElderReceivedAtEpochMillis": 1792458600000,
+      "replayedReceipt": "oldReceipt",
+      "expected": {
+        "currentRevision": 2,
+        "effectiveOutcome": "NOT_TAKEN",
+        "source": "CAREGIVER",
+        "retainedFollowUpRevisions": [
+          1,
+          2
+        ],
+        "retainLateElderFact": true,
+        "receiptIsCurrentProjection": false
+      }
+    },
+    "independentEvidence": {
+      "id": "V2-E01",
+      "intent": "help",
+      "observations": [
+        {
+          "localState": "RECORDED",
+          "serverAccepted": false,
+          "remoteKnowsLocalAction": false,
+          "delivery": "deliverySENT",
+          "expectedTaken": false
+        },
+        {
+          "localState": "RECORDED",
+          "serverAccepted": false,
+          "remoteKnowsLocalAction": false,
+          "delivery": "deliveryDEVICE_RECEIVED",
+          "expectedTaken": false
+        },
+        {
+          "localState": "RECORDED",
+          "serverAccepted": false,
+          "remoteKnowsLocalAction": false,
+          "delivery": "deliveryVISIBLE",
+          "expectedTaken": false
+        },
+        {
+          "localState": "RECORDED",
+          "serverAccepted": false,
+          "remoteKnowsLocalAction": false,
+          "delivery": "deliveryREAD",
+          "expectedTaken": false
+        },
+        {
+          "localState": "PENDING_SYNC",
+          "serverAccepted": false,
+          "remoteKnowsLocalAction": false,
+          "delivery": "deliverySENT",
+          "expectedTaken": false
+        },
+        {
+          "localState": "PENDING_SYNC",
+          "serverAccepted": false,
+          "remoteKnowsLocalAction": false,
+          "delivery": "deliveryDEVICE_RECEIVED",
+          "expectedTaken": false
+        },
+        {
+          "localState": "PENDING_SYNC",
+          "serverAccepted": false,
+          "remoteKnowsLocalAction": false,
+          "delivery": "deliveryVISIBLE",
+          "expectedTaken": false
+        },
+        {
+          "localState": "PENDING_SYNC",
+          "serverAccepted": false,
+          "remoteKnowsLocalAction": false,
+          "delivery": "deliveryREAD",
+          "expectedTaken": false
+        },
+        {
+          "localState": "SERVER_ACCEPTED",
+          "serverAccepted": true,
+          "remoteKnowsLocalAction": true,
+          "delivery": "deliverySENT",
+          "expectedTaken": false
+        },
+        {
+          "localState": "SERVER_ACCEPTED",
+          "serverAccepted": true,
+          "remoteKnowsLocalAction": true,
+          "delivery": "deliveryDEVICE_RECEIVED",
+          "expectedTaken": false
+        },
+        {
+          "localState": "SERVER_ACCEPTED",
+          "serverAccepted": true,
+          "remoteKnowsLocalAction": true,
+          "delivery": "deliveryVISIBLE",
+          "expectedTaken": false
+        },
+        {
+          "localState": "SERVER_ACCEPTED",
+          "serverAccepted": true,
+          "remoteKnowsLocalAction": true,
+          "delivery": "deliveryREAD",
+          "expectedTaken": false
+        },
+        {
+          "localState": "SERVER_REJECTED",
+          "serverAccepted": false,
+          "remoteKnowsLocalAction": true,
+          "delivery": "deliverySENT",
+          "expectedTaken": false
+        },
+        {
+          "localState": "SERVER_REJECTED",
+          "serverAccepted": false,
+          "remoteKnowsLocalAction": true,
+          "delivery": "deliveryDEVICE_RECEIVED",
+          "expectedTaken": false
+        },
+        {
+          "localState": "SERVER_REJECTED",
+          "serverAccepted": false,
+          "remoteKnowsLocalAction": true,
+          "delivery": "deliveryVISIBLE",
+          "expectedTaken": false
+        },
+        {
+          "localState": "SERVER_REJECTED",
+          "serverAccepted": false,
+          "remoteKnowsLocalAction": true,
+          "delivery": "deliveryREAD",
+          "expectedTaken": false
+        }
+      ]
+    },
+    "offlineSnooze": {
+      "id": "V2-E02",
+      "plannedAtEpochMillis": 1792454400000,
+      "deadlineEpochMillis": 1792461600000,
+      "cases": [
+        {
+          "id": "ordinaryDelayedReceipt",
+          "intent": "ordinaryDelayedReceipt",
+          "serverReceivedAtEpochMillis": 1792454880000,
+          "observedAtEpochMillis": 1792454900000,
+          "expected": {
+            "actionInsideWindow": true,
+            "nominalTargetEpochMillis": 1792455300000,
+            "activeTargetEpochMillis": 1792455300000,
+            "repeatAtObservation": false
+          }
+        },
+        {
+          "id": "beforeDue",
+          "intent": "beforeDue",
+          "serverReceivedAtEpochMillis": 1792454401000,
+          "observedAtEpochMillis": 1792454402000,
+          "expected": {
+            "actionInsideWindow": false,
+            "nominalTargetEpochMillis": 1792454999999,
+            "activeTargetEpochMillis": null,
+            "repeatAtObservation": false
+          }
+        },
+        {
+          "id": "targetBeforeCutoff",
+          "intent": "targetBeforeCutoff",
+          "serverReceivedAtEpochMillis": 1792461001000,
+          "observedAtEpochMillis": 1792461599999,
+          "expected": {
+            "actionInsideWindow": true,
+            "nominalTargetEpochMillis": 1792461599999,
+            "activeTargetEpochMillis": 1792461599999,
+            "repeatAtObservation": true
+          }
+        },
+        {
+          "id": "targetAtCutoff",
+          "intent": "targetAtCutoff",
+          "serverReceivedAtEpochMillis": 1792461001000,
+          "observedAtEpochMillis": 1792461002000,
+          "expected": {
+            "actionInsideWindow": true,
+            "nominalTargetEpochMillis": 1792461600000,
+            "activeTargetEpochMillis": null,
+            "repeatAtObservation": false
+          }
+        },
+        {
+          "id": "targetAfterCutoff",
+          "intent": "targetAfterCutoff",
+          "serverReceivedAtEpochMillis": 1792461001000,
+          "observedAtEpochMillis": 1792461002000,
+          "expected": {
+            "actionInsideWindow": true,
+            "nominalTargetEpochMillis": 1792461600001,
+            "activeTargetEpochMillis": null,
+            "repeatAtObservation": false
+          }
+        },
+        {
+          "id": "timelyActionLateReceipt",
+          "intent": "timelyActionLateReceipt",
+          "serverReceivedAtEpochMillis": 1792461600001,
+          "observedAtEpochMillis": 1792461600001,
+          "expected": {
+            "actionInsideWindow": true,
+            "nominalTargetEpochMillis": 1792455300000,
+            "activeTargetEpochMillis": 1792455300000,
+            "repeatAtObservation": false
+          }
+        },
+        {
+          "id": "actionAtCutoff",
+          "intent": "actionAtCutoff",
+          "serverReceivedAtEpochMillis": 1792461600001,
+          "observedAtEpochMillis": 1792461600001,
+          "expected": {
+            "actionInsideWindow": false,
+            "nominalTargetEpochMillis": 1792462200000,
+            "activeTargetEpochMillis": null,
+            "repeatAtObservation": false
+          }
+        }
+      ]
+    },
+    "rejectedSnoozeRecovery": {
+      "id": "V2-E03/E04",
+      "decision": "PENDING_E_S1_SERVER",
+      "intent": "ordinaryDelayedReceipt",
+      "serverRejectedAtEpochMillis": 1792454760000,
+      "rejectionReason": "UNFROZEN_REVIEW_PLACEHOLDER_NOT_WIRE_CODE",
+      "cases": [
+        {
+          "guard": "NONE",
+          "observedAtEpochMillis": 1792454820000,
+          "candidateRestoreOriginalPrompt": true,
+          "preserveRejectedRecord": true,
+          "serverAccepted": false,
+          "createNewOccurrence": false,
+          "resetDeadline": false
+        },
+        {
+          "guard": "AT_CUTOFF",
+          "observedAtEpochMillis": 1792461600000,
+          "candidateRestoreOriginalPrompt": false,
+          "preserveRejectedRecord": true,
+          "serverAccepted": false,
+          "createNewOccurrence": false,
+          "resetDeadline": false
+        },
+        {
+          "guard": "KNOWN_TAKEN",
+          "observedAtEpochMillis": 1792454820000,
+          "candidateRestoreOriginalPrompt": false,
+          "preserveRejectedRecord": true,
+          "serverAccepted": false,
+          "createNewOccurrence": false,
+          "resetDeadline": false
+        },
+        {
+          "guard": "KNOWN_HELP",
+          "observedAtEpochMillis": 1792454820000,
+          "candidateRestoreOriginalPrompt": false,
+          "preserveRejectedRecord": true,
+          "serverAccepted": false,
+          "createNewOccurrence": false,
+          "resetDeadline": false
+        },
+        {
+          "guard": "ACKNOWLEDGED_TAKEOVER",
+          "observedAtEpochMillis": 1792454820000,
+          "candidateRestoreOriginalPrompt": false,
+          "preserveRejectedRecord": true,
+          "serverAccepted": false,
+          "createNewOccurrence": false,
+          "resetDeadline": false
+        },
+        {
+          "guard": "REVOKED_AUTHORIZATION",
+          "observedAtEpochMillis": 1792454820000,
+          "candidateRestoreOriginalPrompt": false,
+          "preserveRejectedRecord": true,
+          "serverAccepted": false,
+          "createNewOccurrence": false,
+          "resetDeadline": false
+        },
+        {
+          "guard": "OBSOLETE_EXECUTION_SCOPE",
+          "observedAtEpochMillis": 1792454820000,
+          "candidateRestoreOriginalPrompt": false,
+          "preserveRejectedRecord": true,
+          "serverAccepted": false,
+          "createNewOccurrence": false,
+          "resetDeadline": false
+        }
+      ]
+    }
+  }
+}

@@ -73,3 +73,19 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 2026-11-05 — BRMRs, Refs #15 / PR #110: reused #59 shared entry and #92 navigation, removed the parallel Debug launcher and legacy role chooser, and retained anonymous login only in Debug. Merge-readiness audit reproduced and corrected obsolete-Elder cache publication, same-Elder relationship reattachment, false recovery success and Elder sync-management UI; nine new JVM regressions, bilingual 14-phase reruns and 67 device regressions passed. [Review routing and remaining merge conditions](docs/PR110_MERGE_READINESS.md). Automated audit is not member approval; no main merge, parent-issue completion or physical-device acceptance is implied.
 
 2026-11-07 - tianiridescent / C1, Refs #19: shared-login keyboard viewport correction from current main, preserving existing authentication boundaries. Real API35 320/360dp 200% English/Chinese keyboard tests cover SMS/password/reset submission and return; the baseline password counterexamples fail before the correction. [Scope and evidence](docs/evidence/C1_LOGIN_KEYBOARD_INSETS.md). API27 physical-tablet bilingual compatibility also passed (24 total device cases). Local candidate; publication and non-author review remain separate.
+
+### 2026-11-17 — XinyanXue / S2 — V2 group/follow-up/probe/delivery contract
+
+Proposed isolated Shared DTOs, reviewed-design notes and identical Android/Shared/Boot-Jackson vectors. No production endpoint, DB/Room, signature or delivery acceptance claimed; same-head S1 review requested.
+
+### 2026-11-18 — XinyanXue / S2 — #131 frozen member ownership
+
+Address C2 P2 with owned immutable ordered members across construction/copy/kotlinx/Boot Jackson; retain original wire/value semantics and add caller-mutation/view/decode regressions. Four Shared cases first fail unchanged on old head; final verification recorded on PR.
+
+### 2026-11-19 — XinyanXue / S2 — #131 acceptance candidates
+
+Add the [C3/E acceptance packet](docs/contracts/proposals/V2_ACCEPTANCE_CANDIDATES.md), one cross-runtime fixture and existing-DTO round trips plus review-fixture invariants. Retain caregiver source/revision, original receipts, independent delivery evidence and original Snooze cutoff. Rejection recovery is explicitly pending joint decisions; no production reducer, HTTP, Room/SQL or device acceptance claimed. Final commands/results are recorded in the PR and local evidence packet.
+
+### 2026-11-19 — XinyanXue / S2 — consistent-read implementation preparation
+
+Map the current primary plan-read transaction, registration/action-read distinction, retained plan/photo context and capability dependencies in the [implementation plan](docs/contracts/proposals/V2_CONSISTENT_READ_PLAN.md). Specify authorization/snapshot boundaries, accepted 90-date/10,000-entity budgets, 20 deterministic future verification cases and review exits. Documentation only; these planned checks are not newly executed tests or a production snapshot implementation. Final repository checks are recorded on the PR.
