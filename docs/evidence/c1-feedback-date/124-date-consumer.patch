@@ -1,5 +1,561 @@
+diff --git a/android-app/src/androidTest/kotlin/com/group33/medicationreminder/integration/CaregiverFeedbackEntryTest.kt b/android-app/src/androidTest/kotlin/com/group33/medicationreminder/integration/CaregiverFeedbackEntryTest.kt
+index 2c5ef10c347023e8a3eb1131d60d1b994b5a9ddd..b0dcfec721f25cf2cd96172cebedab752d5029c8 100644
+--- a/android-app/src/androidTest/kotlin/com/group33/medicationreminder/integration/CaregiverFeedbackEntryTest.kt
++++ b/android-app/src/androidTest/kotlin/com/group33/medicationreminder/integration/CaregiverFeedbackEntryTest.kt
+@@ -33,7 +33,7 @@ class CaregiverFeedbackEntryTest {
+     @Test fun explicitDatesRouteFullPagesAndPreservePairingAndPlanSections() = withEntry { h ->
+         h.await { find(h.root, CaregiverOverviewHost::class.java) != null }
+         h.act {
+-            assertEquals(1, h.providerCalls)
++            assertTrue(h.providerCalls >= 1)
+             assertNotNull(findText(h.root, it.getString(R.string.chain_no_plans)))
+             h.root.findViewById<View>(R.id.refresh_button).performClick()
+         }
+@@ -43,7 +43,7 @@ class CaregiverFeedbackEntryTest {
+         h.act {
+             assertEquals(CaregiverDestination.RECORDS, h.lastDestination)
+             assertEquals(listOf("elder" to dates), h.fixture.historyQueries)
+-            assertEquals(1, h.providerCalls)
++            assertTrue(h.providerCalls >= 1)
+             h.content.show(CaregiverDestination.SETTINGS)
+         }
+         h.await { find(h.root, CaregiverHistoryHost::class.java) == null }
+@@ -51,7 +51,7 @@ class CaregiverFeedbackEntryTest {
+             assertTrue(allViews(h.root).filterIsInstance<EditText>().any {
+                 it.hint?.toString() == activity.getString(R.string.chain_enter_code) && it.isShown
+             })
+-            assertEquals(1, h.fixture.refreshes.size)
++            assertEquals(listOf("elder" to dates, "elder" to dates), h.fixture.refreshes)
+         }
+     }
+
+@@ -87,12 +87,15 @@ class CaregiverFeedbackEntryTest {
+         h.act { assertNull(find(h.root, CaregiverHistoryHost::class.java)) }
+     }
+
+-    @Test fun callerWithoutDateProviderKeepsExistingPanelInsteadOfInventingADefault() = withEntry(false) { h ->
+-        h.await { findText(h.root, instrumentation.targetContext.getString(R.string.dose_records_overview)) != null }
++    @Test fun callerWithoutDateProviderDoesNotQueryGuessedDates() = withEntry(false) { h ->
++        h.await { findText(h.root, h.root.context.getString(R.string.c1_feedback_date_unavailable)) != null }
++        captureDateEvidence("unavailable")
+         h.act {
+             assertNull(find(h.root, CaregiverOverviewHost::class.java))
+             assertNull(find(h.root, CaregiverHistoryHost::class.java))
+             assertEquals(0, h.providerCalls)
++            assertTrue(h.fixture.historyQueries.isEmpty())
++            assertTrue(h.fixture.refreshes.isEmpty())
+         }
+     }
+
+@@ -303,7 +306,7 @@ class CaregiverFeedbackEntryTest {
+         var offset = 0
+         h.act { position = list.firstVisiblePosition; offset = list.getChildAt(0).top }
+         swipeVisible(h, h.root, up = false, pageContent = true, holdBeforeRelease = false)
+-        h.await { list.firstVisiblePosition < position ||
++        h.await("Reverse drag must move back from first=$position, top=$offset") { list.firstVisiblePosition < position ||
+             list.firstVisiblePosition == position && (list.getChildAt(0)?.top ?: offset) > offset }
+         var atEnd = false
+         repeat(32) {
+@@ -315,7 +318,7 @@ class CaregiverFeedbackEntryTest {
+         val row = android.graphics.Rect()
+         h.act { assertTrue(findText(list, "Scroll medication 24")!!.getGlobalVisibleRect(row)) }
+         tapPoint(row.exactCenterX(), row.exactCenterY())
+-        h.await { list.count == 26 }
++        h.await("Tapping the final row must open inline details") { list.count == 26 }
+         val close = android.graphics.Rect()
+         var closeVisible = false
+         repeat(8) {
+@@ -327,17 +330,22 @@ class CaregiverFeedbackEntryTest {
+         }
+         assertTrue("Inline detail close must be reachable at the last record", closeVisible)
+         tapPoint(close.exactCenterX(), close.exactCenterY())
+-        h.await { list.count == 25 && findText(list, "Scroll medication 24") != null }
++        h.await("Closing inline details must retain the final record") { list.count == 25 && findText(list, "Scroll medication 24") != null }
+     }
+
+     private fun tapPoint(x: Float, y: Float) {
+-        val down = android.os.SystemClock.uptimeMillis()
+-        for (action in listOf(android.view.MotionEvent.ACTION_DOWN, android.view.MotionEvent.ACTION_UP)) {
+-            val event = android.view.MotionEvent.obtain(down, android.os.SystemClock.uptimeMillis(), action, x, y, 0)
+-            instrumentation.sendPointerSync(event); event.recycle()
+-            android.os.SystemClock.sleep(30)
+-        }
+-        instrumentation.waitForIdleSync()
++        androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.isRoot())
++            .perform(object : androidx.test.espresso.ViewAction {
++                override fun getDescription() = "Send one verified tap at the captured visible coordinates"
++                override fun getConstraints(): org.hamcrest.Matcher<View> =
++                    androidx.test.espresso.matcher.ViewMatchers.isRoot()
++                override fun perform(controller: androidx.test.espresso.UiController, view: View) {
++                    // Tap.SINGLE synchronizes input delivery; call it directly to avoid click retries.
++                    assertEquals(androidx.test.espresso.action.Tapper.Status.SUCCESS,
++                        androidx.test.espresso.action.Tap.SINGLE.sendTap(controller, floatArrayOf(x, y),
++                            androidx.test.espresso.action.Press.FINGER.describePrecision()))
++                }
++            })
+     }
+
+     private fun swipeVisible(h: Harness, target: View, up: Boolean, horizontalFraction: Float = .5f,
+@@ -372,7 +380,11 @@ class CaregiverFeedbackEntryTest {
+             }
+             val event = android.view.MotionEvent.obtain(down, android.os.SystemClock.uptimeMillis(),
+                 action, x, from + (to - from) * step / 12, 0)
+-            instrumentation.sendPointerSync(event)
++            event.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
++            // An edge gesture can be routed through a system-owned window on API27/MIUI.
++            // Use the automation input channel, retaining the exact start region and assertions.
++            assertTrue("The automation channel must deliver each drag event",
++                instrumentation.uiAutomation.injectInputEvent(event, true))
+             event.recycle()
+             android.os.SystemClock.sleep(20)
+         }
+@@ -419,67 +431,299 @@ class CaregiverFeedbackEntryTest {
+         assertTrue("Touch scrolling must reach the last history record through the shared parent", reached)
+     }
+
++
++    @Test fun dateUnavailableDoesNotQueryUntilExplicitHostRebind() = withEntry(initialDateAvailable = false) { h ->
++        var fallbackQueries = emptyList<Pair<String, LocalDateRange>>()
++        h.await { findText(h.root, h.root.context.getString(R.string.c1_feedback_date_unavailable)) != null }
++        h.act {
++            assertNull(find(h.root, CaregiverOverviewHost::class.java))
++            h.content.show(CaregiverDestination.RECORDS)
++        }
++        h.act {
++            assertNotNull(find(h.root, CaregiverHistoryHost::class.java))
++            assertEquals("", h.root.findViewById<EditText>(R.id.history_from).text.toString())
++            assertEquals(View.GONE, h.root.findViewById<View>(R.id.caregiver_scroll).visibility)
++            assertEquals(View.VISIBLE, h.root.findViewById<View>(R.id.caregiver_records_content).visibility)
++            fallbackQueries = h.fixture.historyQueries.toList()
++            assertTrue(fallbackQueries.isEmpty())
++            h.suppliedToday = java.time.LocalDate.parse("2026-10-30")
++            h.content.show(CaregiverDestination.RECORDS)
++        }
++        h.await { find(h.root, CaregiverHistoryHost::class.java) != null }
++        h.await { h.fixture.historyQueries.size == fallbackQueries.size + 1 }
++        h.act { assertEquals(fallbackQueries + ("elder" to dates), h.fixture.historyQueries) }
++    }
++
++    @Test fun restoredSessionRejectsOldDateBeforeMountingHistory() = withEntry { h ->
++        var fallbackQueries = emptyList<Pair<String, LocalDateRange>>()
++        h.await { find(h.root, CaregiverOverviewHost::class.java) != null }
++        h.act {
++            h.content.show(CaregiverDestination.SETTINGS)
++            h.dateContextOverride = CaregiverElderContext(h.fixture.scope, 1, "relationship", "elder", "Fixture elder")
++            h.fixture.trusted.value = TrustedSessionContext(h.fixture.scope, 2)
++        }
++        h.await { (h.model.state.value.context as? CaregiverContextState.Active)?.context?.sessionGeneration == 2L }
++        h.act { h.content.show(CaregiverDestination.RECORDS) }
++        h.act {
++            assertNotNull(find(h.root, CaregiverHistoryHost::class.java))
++            assertEquals("", h.root.findViewById<EditText>(R.id.history_from).text.toString())
++            fallbackQueries = h.fixture.historyQueries.toList()
++            assertTrue(fallbackQueries.isEmpty())
++            h.dateContextOverride = null
++            h.content.show(CaregiverDestination.RECORDS)
++        }
++        h.await { find(h.root, CaregiverHistoryHost::class.java) != null }
++        h.await { h.fixture.historyQueries.size == fallbackQueries.size + 1 }
++        h.act { assertEquals(fallbackQueries + ("elder" to dates), h.fixture.historyQueries) }
++    }
++
++    @Test fun reentryWithoutDateDoesNotReuseThePreviousRange() = withEntry { h ->
++        h.await { find(h.root, CaregiverOverviewHost::class.java) != null }
++        h.act {
++            h.content.show(CaregiverDestination.SETTINGS)
++            h.suppliedToday = null
++            h.content.show(CaregiverDestination.RECORDS)
++        }
++        h.act {
++            assertNull(find(h.root, CaregiverOverviewHost::class.java))
++            assertNotNull(find(h.root, CaregiverHistoryHost::class.java))
++            assertEquals("", h.root.findViewById<EditText>(R.id.history_from).text.toString())
++            assertTrue(h.fixture.historyQueries.isEmpty())
++            assertEquals(View.VISIBLE, h.root.findViewById<View>(R.id.caregiver_records_content).visibility)
++        }
++    }
++
++    @Test fun sameContextDateUpdateRebindsTheDefaultRange() = withEntry { h ->
++        h.await { find(h.root, CaregiverOverviewHost::class.java) != null }
++        h.act { h.content.show(CaregiverDestination.RECORDS) }
++        h.await { h.fixture.historyQueries == listOf("elder" to dates) }
++        val next = LocalDateRange("2026-10-02", "2026-10-31")
++        h.act {
++            h.suppliedToday = java.time.LocalDate.parse("2026-10-31")
++            h.content.show(CaregiverDestination.RECORDS)
++        }
++        h.await { h.fixture.historyQueries == listOf("elder" to dates, "elder" to next) }
++    }
++
++    @Test fun sameContextDateWithdrawalClearsHistoryAndDoesNotQueryFallback() = withEntry { h ->
++        h.await { find(h.root, CaregiverOverviewHost::class.java) != null }
++        h.act { h.content.show(CaregiverDestination.RECORDS) }
++        h.await { h.fixture.historyQueries == listOf("elder" to dates) }
++        h.act {
++            h.suppliedToday = null
++            h.content.show(CaregiverDestination.RECORDS)
++        }
++        h.await { h.root.findViewById<EditText>(R.id.history_from).text.toString().isEmpty() }
++        h.act {
++            assertNull(find(h.root, CaregiverOverviewHost::class.java))
++            assertNotNull(find(h.root, CaregiverHistoryHost::class.java))
++            assertEquals(listOf("elder" to dates), h.fixture.historyQueries)
++            h.suppliedToday = java.time.LocalDate.parse("2026-10-30")
++            h.content.show(CaregiverDestination.RECORDS)
++        }
++        h.await { h.fixture.historyQueries == listOf("elder" to dates, "elder" to dates) }
++    }
++
++    @Test fun unchangedDefaultDoesNotOverwriteExplicitHistorySelection() = withEntry { h ->
++        h.await { find(h.root, CaregiverOverviewHost::class.java) != null }
++        h.act { h.content.show(CaregiverDestination.RECORDS) }
++        h.await { h.fixture.historyQueries == listOf("elder" to dates) }
++        val explicit = LocalDateRange("2026-10-10", "2026-10-11")
++        h.act {
++            h.root.findViewById<EditText>(R.id.history_from).setText(explicit.fromDate)
++            h.root.findViewById<EditText>(R.id.history_through).setText(explicit.throughDate)
++            h.root.findViewById<View>(R.id.history_apply).performClick()
++        }
++        h.await { h.fixture.historyQueries == listOf("elder" to dates, "elder" to explicit) }
++        h.act { h.content.show(CaregiverDestination.RECORDS) }
++        h.act {
++            assertEquals(explicit.fromDate, h.root.findViewById<EditText>(R.id.history_from).text.toString())
++            assertEquals(listOf("elder" to dates, "elder" to explicit), h.fixture.historyQueries)
++        }
++    }
++
++    @Test fun missingDefaultAllowsCalendarDraftAndExplicitRead() = withEntry(false) { h ->
++        h.await { findText(h.root, h.root.context.getString(R.string.c1_feedback_date_unavailable)) != null }
++        h.act { h.content.show(CaregiverDestination.RECORDS) }
++        h.await { find(h.root, CaregiverHistoryHost::class.java) != null }
++        var selected: LocalDateRange? = null
++        h.act { activity ->
++            assertTrue(h.fixture.historyQueries.isEmpty())
++            h.root.findViewById<View>(R.id.history_pick_range).performClick()
++            activity.supportFragmentManager.executePendingTransactions()
++            val dialog = activity.supportFragmentManager.fragments
++                .filterIsInstance<CaregiverHistoryDateRangeDialog>().single().requireDialog()
++            val grid = dialog.findViewById<ViewGroup>(R.id.history_calendar_grid)
++            val days = (0 until grid.childCount).map(grid::getChildAt).filter { it.tag is java.time.LocalDate }
++            selected = LocalDateRange(days[0].tag.toString(), days[1].tag.toString())
++            days[0].performClick(); days[1].performClick()
++            dialog.findViewById<View>(R.id.history_dialog_confirm).performClick()
++            assertTrue("Calendar confirmation only fills a draft", h.fixture.historyQueries.isEmpty())
++            assertTrue("Calendar confirmation must not sync", h.fixture.refreshes.isEmpty())
++            assertEquals(selected!!.fromDate, h.root.findViewById<EditText>(R.id.history_from).text.toString())
++        }
++        h.act { h.root.findViewById<View>(R.id.history_apply).performClick() }
++        h.await { h.fixture.historyQueries == listOf("elder" to selected!!) }
++        h.await { h.fixture.refreshes == listOf("elder" to selected!!) }
++        h.await {
++            h.root.findViewById<TextView>(R.id.history_applied_range).text.toString().contains(selected!!.fromDate) &&
++                h.root.findViewById<TextView>(R.id.history_elder).text.isNotBlank()
++        }
++        captureDateEvidence("manual-history")
++    }
++
++    @Test fun changedAndWithdrawnDefaultsKeepManualReadAndPendingDraftUntilSessionChanges() = withEntry { h ->
++        h.await { find(h.root, CaregiverOverviewHost::class.java) != null }
++        h.act { h.content.show(CaregiverDestination.RECORDS) }
++        h.await { h.fixture.historyQueries == listOf("elder" to dates) }
++        val manual = LocalDateRange("2026-10-10", "2026-10-11")
++        lateinit var original: CaregiverHistoryHost
++        h.act {
++            original = checkNotNull(find(h.root, CaregiverHistoryHost::class.java))
++            h.root.findViewById<EditText>(R.id.history_from).setText(manual.fromDate)
++            h.root.findViewById<EditText>(R.id.history_through).setText(manual.throughDate)
++            h.root.findViewById<View>(R.id.history_apply).performClick()
++        }
++        h.await { h.fixture.historyQueries == listOf("elder" to dates, "elder" to manual) }
++        h.act { h.root.findViewById<EditText>(R.id.history_from).setText("2026-10-09") }
++        for (source in listOf(java.time.LocalDate.parse("2026-10-31"), null)) {
++            h.act { h.suppliedToday = source; h.content.show(CaregiverDestination.RECORDS) }
++            h.act {
++                assertSame(original, find(h.root, CaregiverHistoryHost::class.java))
++                assertEquals("2026-10-09", h.root.findViewById<EditText>(R.id.history_from).text.toString())
++                assertEquals(manual.throughDate, h.root.findViewById<EditText>(R.id.history_through).text.toString())
++                assertEquals(listOf("elder" to dates, "elder" to manual), h.fixture.historyQueries)
++            }
++        }
++        captureDateEvidence("preserved-draft")
++        h.act { h.fixture.trusted.value = TrustedSessionContext(h.fixture.scope, 2) }
++        h.await { (h.model.state.value.context as? CaregiverContextState.Active)?.context?.sessionGeneration == 2L }
++        h.act {
++            assertEquals("", h.root.findViewById<EditText>(R.id.history_from).text.toString())
++            assertEquals("", h.root.findViewById<EditText>(R.id.history_through).text.toString())
++            assertEquals(listOf("elder" to dates, "elder" to manual), h.fixture.historyQueries)
++        }
++    }
++
++    private fun captureDateEvidence(name: String) {
++        instrumentation.waitForIdleSync()
++        // Material floating labels finish after text changes; do not capture an intermediate frame.
++        android.os.SystemClock.sleep(300)
++        instrumentation.waitForIdleSync()
++        val language = InstrumentationRegistry.getArguments().getString("c1DateLanguage", "system")
++        val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
++        try {
++            java.io.File(instrumentation.targetContext.filesDir, "date-$name-$language.png").outputStream().use {
++                check(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it))
++            }
++        } finally { bitmap.recycle() }
++    }
++
+     private fun withEntry(explicitDates: Boolean = true, eventRows: List<DoseEventState> = emptyList(),
+-        language: String? = null, fontScale: Float? = null, widthDp: Int? = null, block: (Harness) -> Unit) {
+-        ActivityScenario.launch<CaregiverHistoryTestActivity>(
+-            Intent(instrumentation.targetContext, CaregiverHistoryTestActivity::class.java),
+-        ).use { scenario ->
+-            val h = Harness(scenario, eventRows)
+-            var original: android.content.res.Configuration? = null
+-            h.act { activity ->
+-                if (language != null || fontScale != null) {
+-                    val config = android.content.res.Configuration(activity.resources.configuration)
+-                    original = android.content.res.Configuration(config)
+-                    language?.let { config.setLocale(java.util.Locale.forLanguageTag(it)) }
+-                    fontScale?.let { config.fontScale = it }
+-                    @Suppress("DEPRECATION")
+-                    activity.resources.updateConfiguration(config, activity.resources.displayMetrics)
+-                }
+-                // Mirror C1's production IME/system-bar avoidance within this controlled test window.
+-                androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(activity.container) { view, insets ->
+-                    val bars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() or
+-                        androidx.core.view.WindowInsetsCompat.Type.ime())
+-                    view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+-                    androidx.core.view.WindowInsetsCompat.CONSUMED
++        language: String? = InstrumentationRegistry.getArguments().getString("c1DateLanguage"), fontScale: Float? = null, widthDp: Int? = null,
++        initialDateAvailable: Boolean = true, block: (Harness) -> Unit) {
++        val previousLocales = androidx.appcompat.app.AppCompatDelegate.getApplicationLocales()
++        if (language != null) instrumentation.runOnMainSync {
++            // Set the locale before Activity creation so inflated and dynamic strings agree.
++            androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(
++                androidx.core.os.LocaleListCompat.forLanguageTags(language))
++        }
++        try {
++            ActivityScenario.launch<CaregiverHistoryTestActivity>(
++                Intent(instrumentation.targetContext, CaregiverHistoryTestActivity::class.java),
++            ).use { scenario ->
++                val h = Harness(scenario, eventRows)
++                if (!initialDateAvailable) h.suppliedToday = null
++                var original: android.content.res.Configuration? = null
++                h.act { activity ->
++                    if (fontScale != null) {
++                        val config = android.content.res.Configuration(activity.resources.configuration)
++                        original = android.content.res.Configuration(config)
++                        fontScale?.let { config.fontScale = it }
++                        @Suppress("DEPRECATION")
++                        activity.resources.updateConfiguration(config, activity.resources.displayMetrics)
++                    }
++                    language?.let {
++                        assertEquals(java.util.Locale.forLanguageTag(it).language,
++                            androidx.core.os.ConfigurationCompat.getLocales(activity.resources.configuration)[0]?.language)
++                    }
++                    // Mirror C1's production IME/system-bar avoidance within this controlled test window.
++                    androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(activity.container) { view, insets ->
++                        val bars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() or
++                            androidx.core.view.WindowInsetsCompat.Type.ime())
++                        view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
++                        androidx.core.view.WindowInsetsCompat.CONSUMED
++                    }
++                    h.root = activity.layoutInflater.inflate(R.layout.activity_caregiver_home, activity.container, false) as ViewGroup
++                    val density = activity.resources.displayMetrics.density
++                    activity.container.addView(h.root, FrameLayout.LayoutParams(
++                        widthDp?.let { (it * density).toInt() } ?: -1, if (widthDp == null) -1 else (480 * density).toInt()))
++                    androidx.core.view.ViewCompat.requestApplyInsets(activity.container)
++                    val model = ChainViewModel(h.fixture.services)
++                    h.model = model
++                    h.store.put("entry", model)
++                    h.content = OnlineFeatureContent(activity, h.root.findViewById(R.id.feature_content),
++                        UserRole.CAREGIVER, model, h.fixture.services,
++                        navigate = { destination -> h.lastDestination = destination; h.content.show(destination) },
++                        feedbackRange = if (explicitDates) ({ requested ->
++                            h.providerCalls++
++                            CaregiverFeedbackRangeInput(
++                                { (model.state.value.context as? CaregiverContextState.Active)?.context },
++                                { h.suppliedToday?.let { CaregiverFeedbackDate(h.dateContextOverride ?: requested, it) } },
++                            ).resolve(requested)
++                        }) else null)
+                 }
+-                h.root = activity.layoutInflater.inflate(R.layout.activity_caregiver_home, activity.container, false) as ViewGroup
+-                val density = activity.resources.displayMetrics.density
+-                activity.container.addView(h.root, FrameLayout.LayoutParams(
+-                    widthDp?.let { (it * density).toInt() } ?: -1, if (widthDp == null) -1 else (480 * density).toInt()))
+-                androidx.core.view.ViewCompat.requestApplyInsets(activity.container)
+-                val model = ChainViewModel(h.fixture.services)
+-                h.store.put("entry", model)
+-                h.content = OnlineFeatureContent(activity, h.root.findViewById(R.id.feature_content),
+-                    UserRole.CAREGIVER, model, h.fixture.services,
+-                    navigate = { destination -> h.lastDestination = destination; h.content.show(destination) },
+-                    feedbackRange = if (explicitDates) ({ _ -> h.providerCalls++; dates }) else null)
++                try { block(h) } finally { h.act { activity ->
++                    h.content.close(); h.store.clear()
++                    original?.let {
++                        @Suppress("DEPRECATION")
++                        activity.resources.updateConfiguration(it, activity.resources.displayMetrics)
++                    }
++                } }
++            }
++        } finally {
++            if (language != null) instrumentation.runOnMainSync {
++                androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(previousLocales)
+             }
+-            try { block(h) } finally { h.act { activity ->
+-                h.content.close(); h.store.clear()
+-                original?.let {
+-                    @Suppress("DEPRECATION")
+-                    activity.resources.updateConfiguration(it, activity.resources.displayMetrics)
+-                }
+-            } }
+         }
+     }
+
+     private class Harness(val scenario: ActivityScenario<CaregiverHistoryTestActivity>, eventRows: List<DoseEventState>) {
+         val fixture = Services(eventRows)
+         val store = ViewModelStore()
++        lateinit var model: ChainViewModel
+         lateinit var root: ViewGroup
+         lateinit var content: OnlineFeatureContent
+         var providerCalls = 0
++        var suppliedToday: java.time.LocalDate? = java.time.LocalDate.parse("2026-10-30")
++        var dateContextOverride: CaregiverElderContext? = null
+         var lastDestination: CaregiverDestination? = null
+         fun act(action: (CaregiverHistoryTestActivity) -> Unit) = scenario.onActivity { action(it) }
+-        fun await(condition: () -> Boolean) = runBlocking {
+-            withTimeout(5_000) {
+-                while (true) {
+-                    var result = false
+-                    act { result = condition() }
+-                    if (result) break
+-                    delay(25)
++        fun await(description: String = "Expected entry state", condition: () -> Boolean) = runBlocking {
++            try {
++                withTimeout(5_000) {
++                    while (true) {
++                        var result = false
++                        act { result = condition() }
++                        if (result) break
++                        delay(25)
++                    }
++                }
++            } catch (timeout: kotlinx.coroutines.TimeoutCancellationException) {
++                var actual = ""
++                act {
++                    val list = root.findViewById<android.widget.ListView>(R.id.history_list)
++                    actual = "count=${list?.count}, first=${list?.firstVisiblePosition}, " +
++                        "last=${list?.lastVisiblePosition}, top=${list?.getChildAt(0)?.top}"
+                 }
++                val instrumentation = InstrumentationRegistry.getInstrumentation()
++                val image = instrumentation.uiAutomation.takeScreenshot()
++                if (image != null) try {
++                    val language = InstrumentationRegistry.getArguments().getString("c1DateLanguage", "system")
++                    java.io.File(instrumentation.targetContext.filesDir, "date-timeout-$language.png")
++                        .outputStream().use { image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
++                } finally { image.recycle() }
++                throw AssertionError("$description; $actual", timeout)
+             }
+         }
+     }
+diff --git a/android-app/src/androidTest/kotlin/com/group33/medicationreminder/integration/CaregiverHistoryOnlineEntryTest.kt b/android-app/src/androidTest/kotlin/com/group33/medicationreminder/integration/CaregiverHistoryOnlineEntryTest.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..5c6e94fb86e8ed9772cdc6deb22877172f261f3f
+--- /dev/null
++++ b/android-app/src/androidTest/kotlin/com/group33/medicationreminder/integration/CaregiverHistoryOnlineEntryTest.kt
+@@ -0,0 +1,92 @@
++package com.group33.medicationreminder.integration
++
++import android.widget.EditText
++import android.widget.TextView
++import androidx.test.core.app.ActivityScenario
++import androidx.test.platform.app.InstrumentationRegistry
++import com.google.android.material.bottomnavigation.BottomNavigationView
++import com.group33.medicationreminder.R
++import com.group33.medicationreminder.caregiver.CaregiverHomeActivity
++import com.group33.medicationreminder.core.data.contract.*
++import com.group33.shared.contract.CareRelationshipStatus
++import kotlinx.coroutines.*
++import kotlinx.coroutines.flow.first
++import org.junit.Assert.*
++import org.junit.Assume.assumeTrue
++import org.junit.Test
++
++/** Opt-in local anonymous Debug acceptance; uses the actual HTTP/Room/application path.
++ * Prepare a fictional active relationship first. No caller-provided token or fake authorized cache.
++ */
++class CaregiverHistoryOnlineEntryTest {
++    @Test fun selectedRangeReadsThroughHttpRoomAndActualActivity(): Unit = runBlocking<Unit> {
++        val instrumentation = InstrumentationRegistry.getInstrumentation()
++        assumeTrue(InstrumentationRegistry.getArguments().getString("c1HistoryOnline") == "true")
++        val app = instrumentation.targetContext.applicationContext as DebugChainApplication
++        val repository = app.repository
++        val session = withTimeout(15_000) {
++            repository.observeSession().first { it.readiness != AuthReadiness.RESTORING }
++        }
++        assertEquals(AuthReadiness.READY, session.readiness)
++        // Process restoration invalidates cached authority. Confirm the relationship through
++        // real HTTP as normal entry does; do not preload or grant event-range authority.
++        assertTrue(repository.refresh() is Outcome.Success)
++        val relationships = withTimeout(15_000) {
++            repository.observeRelationships().first { it.access == AccessState.AUTHORIZED }
++        }
++        val elder = relationships.value.single { it.status == CareRelationshipStatus.ACTIVE }.elderId
++        // Fresh, explicit range not used by the manual attempt; proves no preseeded authorization.
++        val args = InstrumentationRegistry.getArguments()
++        val range = LocalDateRange(args.getString("c1HistoryFrom") ?: "2026-11-03",
++            args.getString("c1HistoryThrough") ?: "2026-11-04")
++        val initial = repository.observeEvents(elder, range).first()
++        assertEquals(AccessState.UNKNOWN, initial.access)
++        assertFalse("Use a range with no preseeded local document", initial.hasLocalData)
++        ActivityScenario.launch(CaregiverHomeActivity::class.java).use { scenario ->
++            scenario.onActivity {
++                it.findViewById<BottomNavigationView>(R.id.bottom_navigation).selectedItemId = R.id.nav_records
++            }
++            withTimeout(15_000) {
++                var ready = false
++                while (!ready) {
++                    scenario.onActivity { ready = it.findViewById<EditText>(R.id.history_from) != null }
++                    if (!ready) delay(50)
++                }
++            }
++            scenario.onActivity {
++                it.findViewById<EditText>(R.id.history_from).setText(range.fromDate)
++                it.findViewById<EditText>(R.id.history_through).setText(range.throughDate)
++            }
++            // Editing alone does not start sync.
++            assertEquals(AccessState.UNKNOWN, repository.observeEvents(elder, range).first().access)
++            scenario.onActivity { it.findViewById<android.view.View>(R.id.history_apply).performClick() }
++            val cache = withTimeout(20_000) {
++                repository.observeEvents(elder, range).first { it.access == AccessState.AUTHORIZED }
++            }
++            assertTrue(cache.hasLocalData)
++            assertTrue(cache.value.isEmpty()) // Local fixture has no events, not a general product assumption.
++            withTimeout(10_000) {
++                var rendered = false
++                while (!rendered) {
++                    scenario.onActivity {
++                        val applied = it.findViewById<TextView>(R.id.history_applied_range).text.toString()
++                        val status = it.findViewById<TextView>(R.id.history_state).text.toString()
++                        rendered = applied.contains(range.fromDate) && applied.contains(range.throughDate) &&
++                            status == it.getString(R.string.c3_empty)
++                    }
++                    if (!rendered) delay(50)
++                }
++            }
++            instrumentation.waitForIdleSync()
++            val language = args.getString("c1HistoryLanguage") ?: "fixture"
++            require(language in setOf("en", "zh-CN", "fixture"))
++            instrumentation.uiAutomation.takeScreenshot()?.let { bitmap ->
++                try {
++                    java.io.File(app.filesDir, "history-online-$language.png").outputStream().use {
++                        bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
++                    }
++                } finally { bitmap.recycle() }
++            }
++        }
++    }
++}
 diff --git a/android-app/src/main/kotlin/com/group33/medicationreminder/integration/CaregiverFeedbackRangeInput.kt b/android-app/src/main/kotlin/com/group33/medicationreminder/integration/CaregiverFeedbackRangeInput.kt
 new file mode 100644
+index 0000000000000000000000000000000000000000..a520ab2536c0c3cc74813c0ceb10d3c7ab908f59
 --- /dev/null
 +++ b/android-app/src/main/kotlin/com/group33/medicationreminder/integration/CaregiverFeedbackRangeInput.kt
 @@ -0,0 +1,37 @@
@@ -40,8 +596,211 @@ new file mode 100644
 +    private fun isCurrent(expected: CaregiverElderContext): Boolean =
 +        currentContext()?.let(expected::isCurrentFor) == true
 +}
+diff --git a/android-app/src/main/kotlin/com/group33/medicationreminder/integration/CaregiverHistorySyncRepository.kt b/android-app/src/main/kotlin/com/group33/medicationreminder/integration/CaregiverHistorySyncRepository.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..94b2eed0abb24fa4f2ef41d3ba784529b4b37dfc
+--- /dev/null
++++ b/android-app/src/main/kotlin/com/group33/medicationreminder/integration/CaregiverHistorySyncRepository.kt
+@@ -0,0 +1,40 @@
++package com.group33.medicationreminder.integration
++
++import com.group33.medicationreminder.core.data.contract.*
++import kotlinx.coroutines.CoroutineStart
++import kotlinx.coroutines.Job
++import kotlinx.coroutines.flow.channelFlow
++import kotlinx.coroutines.launch
++
++/** C1 composition adapter: a valid history subscription coordinates one explicit range sync.
++ * Results still come exclusively from the bound event Repository, never the refresh receipt.
++ * It is owned by one trusted context and is not a production Repository registration.
++ */
++internal class CaregiverHistorySyncRepository(
++    private val events: DoseEventRepository,
++    private val dashboard: CaregiverDashboardRepository,
++    private val elderId: String,
++    private val isCurrent: () -> Boolean,
++) : DoseEventRepository by events {
++    override fun observeEvents(elderId: String, range: LocalDateRange) = channelFlow {
++        if (elderId != this@CaregiverHistorySyncRepository.elderId || !isCurrent()) return@channelFlow
++        var denied = false
++        var refresh: Job? = null
++        // Subscribe before refreshing so a first HTTP result cannot be lost. A known denial
++        // must not be revived by another read. The Host cancels this flow on range/context change.
++        launch(start = CoroutineStart.UNDISPATCHED) {
++            events.observeEvents(elderId, range).collect { cached ->
++                if (isCurrent()) {
++                    if (cached.access == AccessState.REVOKED) {
++                        denied = true
++                        refresh?.cancel()
++                    }
++                    send(cached)
++                }
++            }
++        }
++        if (!denied && isCurrent()) refresh = launch {
++            if (isCurrent()) dashboard.refresh(elderId, range)
++        }
++    }
++}
+diff --git a/android-app/src/main/kotlin/com/group33/medicationreminder/integration/OnlineFeatureContent.kt b/android-app/src/main/kotlin/com/group33/medicationreminder/integration/OnlineFeatureContent.kt
+index 8be30195e4e97ca0dc71a7f3ff7455d3eae29513..530af2ed6c13d3386e7f5224df40b2a19c2af065 100644
+--- a/android-app/src/main/kotlin/com/group33/medicationreminder/integration/OnlineFeatureContent.kt
++++ b/android-app/src/main/kotlin/com/group33/medicationreminder/integration/OnlineFeatureContent.kt
+@@ -11,6 +11,7 @@ import com.group33.medicationreminder.R
+ import com.group33.medicationreminder.caregiver.CaregiverDestination
+ import com.group33.medicationreminder.caregiver.CaregiverFeedbackContent
+ import com.group33.medicationreminder.caregiver.CaregiverFeedbackPage
++import com.group33.medicationreminder.caregiver.CaregiverHistoryHost
+ import com.group33.medicationreminder.caregiver.plan.*
+ import com.group33.medicationreminder.core.data.contract.*
+ import com.group33.shared.contract.*
+@@ -28,7 +29,7 @@ internal class OnlineFeatureContent internal constructor(
+     private val services: ChainServices,
+     private val navigate: (CaregiverDestination) -> Unit,
+     // Explicit caller-supplied dates only. No default time-zone policy is selected here.
+-    private val feedbackRange: ((CaregiverElderContext) -> LocalDateRange)? = null,
++    private val feedbackRange: ((CaregiverElderContext) -> LocalDateRange?)? = null,
+ ) {
+     private val column = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; host.addView(this) }
+     private fun dp(n: Int) = (n * activity.resources.displayMetrics.density).toInt()
+@@ -50,7 +51,7 @@ internal class OnlineFeatureContent internal constructor(
+     private val dosePanel = if (role == UserRole.CAREGIVER && services.caregiverDashboard != null && services.doseEvents != null)
+         com.group33.medicationreminder.caregiver.CaregiverDosePanel(activity, section(), services.caregiverDashboard, services.doseEvents)
+         else null
+-    private val recordsContainer = if (role == UserRole.CAREGIVER && feedbackRange != null &&
++    private val recordsContainer = if (role == UserRole.CAREGIVER &&
+         services.caregiverDashboard != null && services.doseEvents != null
+     ) requireNotNull(activity.findViewById<FrameLayout>(R.id.caregiver_records_content)) {
+         "Full caregiver feedback requires the shared records content container"
+@@ -62,9 +63,13 @@ internal class OnlineFeatureContent internal constructor(
+     } }
+     private var feedbackContext: CaregiverElderContext? = null
+     private var feedbackDates: LocalDateRange? = null
++    private var feedbackDefaultDates: LocalDateRange? = null
++    private val history = recordsContainer?.let { CaregiverHistoryHost(activity) }
++    private var historySync: CaregiverHistorySyncRepository? = null
++    private var historySyncContext: CaregiverElderContext? = null
+     private val feedback = feedbackSlot?.let { slot ->
+         CaregiverFeedbackContent(activity, slot, checkNotNull(services.caregiverDashboard), checkNotNull(services.doseEvents),
+-            recordsSlot = recordsContainer, parentScrollsOverview = true) { elder, dates ->
++            parentScrollsOverview = true) { elder, dates ->
+             val active = (model.state.value.context as? CaregiverContextState.Active)?.context
+             if (active != null && feedbackContext?.isCurrentFor(active) == true && active.elderId == elder) {
+                 feedbackDates = dates
+@@ -142,20 +147,49 @@ internal class OnlineFeatureContent internal constructor(
+         controls.visibility = if (records) View.GONE else View.VISIBLE
+         val active = (state.context as? CaregiverContextState.Active)?.context
+         val elder = state.relationships.firstOrNull { it.id == active?.relationshipId }?.elder
+-        // Existing callers without a date provider retain the existing path until the shared
+-        // default-date source is agreed. Do not silently give the new history a UTC/device default.
+-        dosePanel?.show(active.takeIf { !settings && feedback == null }, elder, records)
++        // Missing default input never authorizes the old UTC-based panel query.
++        // The future date owner rebinds this host when its scoped input changes.
+         if (feedback != null && active != null && !settings) {
+-            if (feedbackContext?.isCurrentFor(active) != true) {
++            val supplied = feedbackRange?.invoke(active)
++            if (feedbackContext?.isCurrentFor(active) != true || feedbackDefaultDates != supplied) {
++                feedbackDefaultDates = supplied
++                feedbackDates = supplied
+                 feedbackContext = active
+-                feedbackDates = checkNotNull(feedbackRange)(active)
+             }
+-            showRecordsContainer(records)
+-            feedback.show(if (records) CaregiverFeedbackPage.HISTORY else CaregiverFeedbackPage.OVERVIEW,
+-                active, checkNotNull(feedbackDates))
++            val dates = feedbackDates
++            val latest = (model.state.value.context as? CaregiverContextState.Active)?.context
++            if (latest?.let(active::isCurrentFor) != true) clearFeedback()
++            else if (records) {
++                feedback.clear()
++                val current = checkNotNull(history)
++                if (current.parent == null) checkNotNull(recordsContainer).addView(current,
++                    FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
++                if (historySyncContext?.isCurrentFor(active) != true) {
++                    historySyncContext = active
++                    historySync = CaregiverHistorySyncRepository(checkNotNull(services.doseEvents),
++                        checkNotNull(services.caregiverDashboard), active.elderId) {
++                        val stateNow = model.state.value
++                        val contextNow = (stateNow.context as? CaregiverContextState.Active)?.context
++                        !closed && destination == CaregiverDestination.RECORDS &&
++                            stateNow.signOut == SignOutStatus.IDLE &&
++                            contextNow?.let(active::isCurrentFor) == true
++                    }
++                }
++                current.bind(activity, checkNotNull(historySync), active, dates, activity.supportFragmentManager)
++                showRecordsContainer(true)
++            } else {
++                clearHistory()
++                showRecordsContainer(false)
++                if (dates != null) feedback.show(CaregiverFeedbackPage.OVERVIEW, active, dates)
++                else feedback.clear()
++            }
+         } else clearFeedback()
++        dosePanel?.show(null, null, records)
+         identity.text = activity.getString(if (role == UserRole.ELDER) R.string.chain_elder_identity else R.string.chain_caregiver_identity, user.displayName)
+         status.setText(if (state.busy) R.string.chain_working else state.message)
++        if (role == UserRole.CAREGIVER && active != null && !settings && feedbackDates == null) {
++            status.setText(R.string.c1_feedback_date_unavailable)
++        }
+         // Session/cache refresh is automatic; Elders do not manage synchronization.
+         if (role == UserRole.ELDER) {
+             val message = when (state.message) {
+@@ -251,12 +285,23 @@ internal class OnlineFeatureContent internal constructor(
+     }
+
+     private fun clearFeedback() {
++        clearHistory()
+         showRecordsContainer(false)
+         feedbackContext = null
+         feedbackDates = null
++        feedbackDefaultDates = null
+         feedback?.clear()
+     }
+
++    private fun clearHistory() {
++        historySync = null
++        historySyncContext = null
++        history?.let { current ->
++            current.bind(activity, checkNotNull(services.doseEvents), null, null, activity.supportFragmentManager)
++            (current.parent as? ViewGroup)?.removeView(current)
++        }
++    }
++
+     fun close() {
+         closed = true
+         stateCollection?.cancel()
+@@ -267,7 +312,7 @@ internal class OnlineFeatureContent internal constructor(
+     }
+     companion object {
+         fun install(activity: AppCompatActivity, host: FrameLayout, role: UserRole,
+-                    feedbackRange: ((CaregiverElderContext) -> LocalDateRange)? = null,
++                    feedbackRange: ((CaregiverElderContext) -> LocalDateRange?)? = null,
+                     navigate: (CaregiverDestination) -> Unit = {}): OnlineFeatureContent? {
+             val services = (activity.application as Group33Application).featureServices ?: return null
+             return OnlineFeatureContent(activity, host, role, checkNotNull(featureModel(activity)), services, navigate, feedbackRange)
+diff --git a/android-app/src/main/res/values-zh/strings_c1_feedback_date.xml b/android-app/src/main/res/values-zh/strings_c1_feedback_date.xml
+new file mode 100644
+index 0000000000000000000000000000000000000000..b6dc2391c2131cbb103c9c1e51b99cf35a901fa8
+--- /dev/null
++++ b/android-app/src/main/res/values-zh/strings_c1_feedback_date.xml
+@@ -0,0 +1,4 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="c1_feedback_date_unavailable">默认记录日期暂不可用。</string>
++</resources>
+diff --git a/android-app/src/main/res/values/strings_c1_feedback_date.xml b/android-app/src/main/res/values/strings_c1_feedback_date.xml
+new file mode 100644
+index 0000000000000000000000000000000000000000..9fd240d1ed1f17a6b524fade48d80f3520f65cd5
+--- /dev/null
++++ b/android-app/src/main/res/values/strings_c1_feedback_date.xml
+@@ -0,0 +1,4 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="c1_feedback_date_unavailable">Default record dates are not available yet.</string>
++</resources>
 diff --git a/android-app/src/test/kotlin/com/group33/medicationreminder/integration/CaregiverFeedbackRangeInputTest.kt b/android-app/src/test/kotlin/com/group33/medicationreminder/integration/CaregiverFeedbackRangeInputTest.kt
 new file mode 100644
+index 0000000000000000000000000000000000000000..2b6ba4264ea49603f9ce2cac824cba205e89e9d1
 --- /dev/null
 +++ b/android-app/src/test/kotlin/com/group33/medicationreminder/integration/CaregiverFeedbackRangeInputTest.kt
 @@ -0,0 +1,112 @@
@@ -157,177 +916,125 @@ new file mode 100644
 +        assertNotNull(input.resolve(renamed))
 +    }
 +}
-diff --git a/android-app/src/androidTest/kotlin/com/group33/medicationreminder/integration/CaregiverFeedbackEntryTest.kt b/android-app/src/androidTest/kotlin/com/group33/medicationreminder/integration/CaregiverFeedbackEntryTest.kt
-index 2c5ef10..139b6b9 100644
---- a/android-app/src/androidTest/kotlin/com/group33/medicationreminder/integration/CaregiverFeedbackEntryTest.kt
-+++ b/android-app/src/androidTest/kotlin/com/group33/medicationreminder/integration/CaregiverFeedbackEntryTest.kt
-@@ -419,12 +419,86 @@ class CaregiverFeedbackEntryTest {
-         assertTrue("Touch scrolling must reach the last history record through the shared parent", reached)
-     }
-
+diff --git a/android-app/src/test/kotlin/com/group33/medicationreminder/integration/CaregiverHistorySyncRepositoryTest.kt b/android-app/src/test/kotlin/com/group33/medicationreminder/integration/CaregiverHistorySyncRepositoryTest.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..964a55de81932fe3bcb49b62a22fa4d8649bfb9e
+--- /dev/null
++++ b/android-app/src/test/kotlin/com/group33/medicationreminder/integration/CaregiverHistorySyncRepositoryTest.kt
+@@ -0,0 +1,116 @@
++package com.group33.medicationreminder.integration
 +
-+    @Test fun dateUnavailableKeepsFallbackUntilExplicitHostRebind() = withEntry(initialDateAvailable = false) { h ->
-+        var fallbackQueries = emptyList<Pair<String, LocalDateRange>>()
-+        h.await { findText(h.root, instrumentation.targetContext.getString(R.string.dose_records_overview)) != null }
-+        h.act {
-+            assertNull(find(h.root, CaregiverOverviewHost::class.java))
-+            h.content.show(CaregiverDestination.RECORDS)
++import com.group33.medicationreminder.core.data.contract.*
++import java.lang.reflect.Proxy
++import kotlinx.coroutines.*
++import kotlinx.coroutines.flow.*
++import kotlinx.coroutines.test.*
++import org.junit.Assert.*
++import org.junit.Test
++
++@OptIn(ExperimentalCoroutinesApi::class)
++class CaregiverHistorySyncRepositoryTest {
++    private val range = LocalDateRange("2026-11-12", "2026-11-26")
++    private val scope = RepositoryScope("test", "installation", "caregiver")
++    private fun cached(access: AccessState) = Cached<List<DoseEventState>>(emptyList(),
++        access == AccessState.AUTHORIZED, null, false, access)
++    private class Fixture {
++        var current = true
++        val rows = MutableStateFlow(Cached<List<DoseEventState>>(emptyList(), false, null, true, AccessState.UNKNOWN))
++        val reads = mutableListOf<Pair<String, LocalDateRange>>()
++        val refreshes = mutableListOf<Pair<String, LocalDateRange>>()
++        var refresh: suspend () -> Outcome<SyncSummary> = {
++            Outcome.Failure(RepositoryError.Local(LocalFailureCode.OFFLINE))
 +        }
-+        h.act {
-+            assertNull(find(h.root, CaregiverHistoryHost::class.java))
-+            assertEquals(View.VISIBLE, h.root.findViewById<View>(R.id.caregiver_scroll).visibility)
-+            assertEquals(View.GONE, h.root.findViewById<View>(R.id.caregiver_records_content).visibility)
-+            fallbackQueries = h.fixture.historyQueries.toList()
-+            assertLegacyFallbackQueries(fallbackQueries)
-+            h.suppliedToday = java.time.LocalDate.parse("2026-10-30")
-+            h.content.show(CaregiverDestination.RECORDS)
++        val events = Proxy.newProxyInstance(DoseEventRepository::class.java.classLoader,
++            arrayOf(DoseEventRepository::class.java)) { _, method, args ->
++            check(method.name == "observeEvents")
++            reads += (args[0] as String) to (args[1] as LocalDateRange)
++            rows
++        } as DoseEventRepository
++        val dashboard = object : CaregiverDashboardRepository {
++            override fun observeOverview(elderId: String, range: LocalDateRange): Flow<Cached<ElderOverview>> =
++                error("History must not open overview")
++            override suspend fun refresh(elderId: String, range: LocalDateRange): Outcome<SyncSummary> {
++                refreshes += elderId to range
++                return refresh()
++            }
 +        }
-+        h.await { find(h.root, CaregiverHistoryHost::class.java) != null }
-+        h.await { h.fixture.historyQueries.size == fallbackQueries.size + 1 }
-+        h.act { assertEquals(fallbackQueries + ("elder" to dates), h.fixture.historyQueries) }
++        val repository = CaregiverHistorySyncRepository(events, dashboard, "elder") { current }
 +    }
 +
-+    @Test fun restoredSessionRejectsOldDateBeforeMountingHistory() = withEntry { h ->
-+        var fallbackQueries = emptyList<Pair<String, LocalDateRange>>()
-+        h.await { find(h.root, CaregiverOverviewHost::class.java) != null }
-+        h.act {
-+            h.content.show(CaregiverDestination.SETTINGS)
-+            h.dateContextOverride = CaregiverElderContext(h.fixture.scope, 1, "relationship", "elder", "Fixture elder")
-+            h.fixture.trusted.value = TrustedSessionContext(h.fixture.scope, 2)
-+        }
-+        h.await { (h.model.state.value.context as? CaregiverContextState.Active)?.context?.sessionGeneration == 2L }
-+        h.act { h.content.show(CaregiverDestination.RECORDS) }
-+        h.act {
-+            assertNull(find(h.root, CaregiverHistoryHost::class.java))
-+            assertEquals(View.VISIBLE, h.root.findViewById<View>(R.id.caregiver_scroll).visibility)
-+            fallbackQueries = h.fixture.historyQueries.toList()
-+            assertLegacyFallbackQueries(fallbackQueries)
-+            h.dateContextOverride = null
-+            h.content.show(CaregiverDestination.RECORDS)
-+        }
-+        h.await { find(h.root, CaregiverHistoryHost::class.java) != null }
-+        h.await { h.fixture.historyQueries.size == fallbackQueries.size + 1 }
-+        h.act { assertEquals(fallbackQueries + ("elder" to dates), h.fixture.historyQueries) }
++    @Test fun `no read means no sync and current read syncs exactly its selected range`() = runTest {
++        val f = Fixture()
++        val flow = f.repository.observeEvents("elder", range)
++        assertTrue(f.refreshes.isEmpty())
++        val seen = mutableListOf<Cached<List<DoseEventState>>>()
++        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { flow.toList(seen) }
++        runCurrent()
++        assertEquals(listOf("elder" to range), f.reads)
++        assertEquals(listOf("elder" to range), f.refreshes)
++        assertEquals(AccessState.UNKNOWN, seen.last().access)
 +    }
 +
-+    @Test fun reentryWithoutDateDoesNotReuseThePreviousRange() = withEntry { h ->
-+        h.await { find(h.root, CaregiverOverviewHost::class.java) != null }
-+        h.act {
-+            h.content.show(CaregiverDestination.SETTINGS)
-+            h.suppliedToday = null
-+            h.content.show(CaregiverDestination.RECORDS)
-+        }
-+        h.act {
-+            assertNull(find(h.root, CaregiverOverviewHost::class.java))
-+            assertNull(find(h.root, CaregiverHistoryHost::class.java))
-+            assertLegacyFallbackQueries(h.fixture.historyQueries)
-+            assertEquals(View.GONE, h.root.findViewById<View>(R.id.caregiver_records_content).visibility)
-+        }
++    @Test fun `successful receipt alone does not fabricate authorized data`() = runTest {
++        val f = Fixture()
++        f.refresh = { Outcome.Success(SyncSummary(scope, "elder", SyncCompletion.COMPLETE, 1L, null)) }
++        val seen = mutableListOf<Cached<List<DoseEventState>>>()
++        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { f.repository.observeEvents("elder", range).toList(seen) }
++        runCurrent()
++        assertEquals(listOf(AccessState.UNKNOWN), seen.map { it.access })
++        f.rows.value = cached(AccessState.AUTHORIZED)
++        runCurrent()
++        assertEquals(AccessState.AUTHORIZED, seen.last().access)
 +    }
 +
-+    private fun assertLegacyFallbackQueries(queries: List<Pair<String, LocalDateRange>>) {
-+        // Compatibility fallback still uses its existing 31-date query. It must not be mistaken
-+        // for the newly supplied, authoritative 30-date range or silently removed by this patch.
-+        assertTrue(queries.isNotEmpty())
-+        for ((elder, range) in queries) {
-+            assertEquals("elder", elder)
-+            assertNotEquals(dates, range)
-+            assertEquals(31L, java.time.temporal.ChronoUnit.DAYS.between(
-+                java.time.LocalDate.parse(range.fromDate), java.time.LocalDate.parse(range.throughDate)) + 1)
-+        }
++    @Test fun `old context or different Elder cannot start an observation or refresh`() = runTest {
++        val f = Fixture()
++        f.current = false
++        assertTrue(f.repository.observeEvents("elder", range).toList().isEmpty())
++        f.current = true
++        assertTrue(f.repository.observeEvents("other", range).toList().isEmpty())
++        assertTrue(f.reads.isEmpty())
++        assertTrue(f.refreshes.isEmpty())
 +    }
 +
-     private fun withEntry(explicitDates: Boolean = true, eventRows: List<DoseEventState> = emptyList(),
--        language: String? = null, fontScale: Float? = null, widthDp: Int? = null, block: (Harness) -> Unit) {
-+        language: String? = null, fontScale: Float? = null, widthDp: Int? = null,
-+        initialDateAvailable: Boolean = true, block: (Harness) -> Unit) {
-         ActivityScenario.launch<CaregiverHistoryTestActivity>(
-             Intent(instrumentation.targetContext, CaregiverHistoryTestActivity::class.java),
-         ).use { scenario ->
-             val h = Harness(scenario, eventRows)
-+            if (!initialDateAvailable) h.suppliedToday = null
-             var original: android.content.res.Configuration? = null
-             h.act { activity ->
-                 if (language != null || fontScale != null) {
-@@ -448,11 +522,18 @@ class CaregiverFeedbackEntryTest {
-                     widthDp?.let { (it * density).toInt() } ?: -1, if (widthDp == null) -1 else (480 * density).toInt()))
-                 androidx.core.view.ViewCompat.requestApplyInsets(activity.container)
-                 val model = ChainViewModel(h.fixture.services)
-+                h.model = model
-                 h.store.put("entry", model)
-                 h.content = OnlineFeatureContent(activity, h.root.findViewById(R.id.feature_content),
-                     UserRole.CAREGIVER, model, h.fixture.services,
-                     navigate = { destination -> h.lastDestination = destination; h.content.show(destination) },
--                    feedbackRange = if (explicitDates) ({ _ -> h.providerCalls++; dates }) else null)
-+                    feedbackRange = if (explicitDates) ({ requested ->
-+                        h.providerCalls++
-+                        CaregiverFeedbackRangeInput(
-+                            { (model.state.value.context as? CaregiverContextState.Active)?.context },
-+                            { h.suppliedToday?.let { CaregiverFeedbackDate(h.dateContextOverride ?: requested, it) } },
-+                        ).resolve(requested)
-+                    }) else null)
-             }
-             try { block(h) } finally { h.act { activity ->
-                 h.content.close(); h.store.clear()
-@@ -467,9 +548,12 @@ class CaregiverFeedbackEntryTest {
-     private class Harness(val scenario: ActivityScenario<CaregiverHistoryTestActivity>, eventRows: List<DoseEventState>) {
-         val fixture = Services(eventRows)
-         val store = ViewModelStore()
-+        lateinit var model: ChainViewModel
-         lateinit var root: ViewGroup
-         lateinit var content: OnlineFeatureContent
-         var providerCalls = 0
-+        var suppliedToday: java.time.LocalDate? = java.time.LocalDate.parse("2026-10-30")
-+        var dateContextOverride: CaregiverElderContext? = null
-         var lastDestination: CaregiverDestination? = null
-         fun act(action: (CaregiverHistoryTestActivity) -> Unit) = scenario.onActivity { action(it) }
-         fun await(condition: () -> Boolean) = runBlocking {
-diff --git a/android-app/src/main/kotlin/com/group33/medicationreminder/integration/OnlineFeatureContent.kt b/android-app/src/main/kotlin/com/group33/medicationreminder/integration/OnlineFeatureContent.kt
-index 8be3019..51efbc1 100644
---- a/android-app/src/main/kotlin/com/group33/medicationreminder/integration/OnlineFeatureContent.kt
-+++ b/android-app/src/main/kotlin/com/group33/medicationreminder/integration/OnlineFeatureContent.kt
-@@ -28,7 +28,7 @@ internal class OnlineFeatureContent internal constructor(
-     private val services: ChainServices,
-     private val navigate: (CaregiverDestination) -> Unit,
-     // Explicit caller-supplied dates only. No default time-zone policy is selected here.
--    private val feedbackRange: ((CaregiverElderContext) -> LocalDateRange)? = null,
-+    private val feedbackRange: ((CaregiverElderContext) -> LocalDateRange?)? = null,
- ) {
-     private val column = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; host.addView(this) }
-     private fun dp(n: Int) = (n * activity.resources.displayMetrics.density).toInt()
-@@ -144,16 +144,21 @@ internal class OnlineFeatureContent internal constructor(
-         val elder = state.relationships.firstOrNull { it.id == active?.relationshipId }?.elder
-         // Existing callers without a date provider retain the existing path until the shared
-         // default-date source is agreed. Do not silently give the new history a UTC/device default.
--        dosePanel?.show(active.takeIf { !settings && feedback == null }, elder, records)
-+        var showingFeedback = false
-         if (feedback != null && active != null && !settings) {
-             if (feedbackContext?.isCurrentFor(active) != true) {
--                feedbackContext = active
-                 feedbackDates = checkNotNull(feedbackRange)(active)
-+                feedbackContext = active.takeIf { feedbackDates != null }
-             }
--            showRecordsContainer(records)
--            feedback.show(if (records) CaregiverFeedbackPage.HISTORY else CaregiverFeedbackPage.OVERVIEW,
--                active, checkNotNull(feedbackDates))
-+            val dates = feedbackDates
-+            if (dates != null && feedbackContext?.isCurrentFor(active) == true) {
-+                showRecordsContainer(records)
-+                feedback.show(if (records) CaregiverFeedbackPage.HISTORY else CaregiverFeedbackPage.OVERVIEW,
-+                    active, dates)
-+                showingFeedback = true
-+            } else clearFeedback()
-         } else clearFeedback()
-+        dosePanel?.show(active.takeIf { !settings && !showingFeedback }, elder, records)
-         identity.text = activity.getString(if (role == UserRole.ELDER) R.string.chain_elder_identity else R.string.chain_caregiver_identity, user.displayName)
-         status.setText(if (state.busy) R.string.chain_working else state.message)
-         // Session/cache refresh is automatic; Elders do not manage synchronization.
-@@ -267,7 +272,7 @@ internal class OnlineFeatureContent internal constructor(
-     }
-     companion object {
-         fun install(activity: AppCompatActivity, host: FrameLayout, role: UserRole,
--                    feedbackRange: ((CaregiverElderContext) -> LocalDateRange)? = null,
-+                    feedbackRange: ((CaregiverElderContext) -> LocalDateRange?)? = null,
-                     navigate: (CaregiverDestination) -> Unit = {}): OnlineFeatureContent? {
-             val services = (activity.application as Group33Application).featureServices ?: return null
-             return OnlineFeatureContent(activity, host, role, checkNotNull(featureModel(activity)), services, navigate, feedbackRange)
++    @Test fun `late old context cache and refresh results cannot publish`() = runTest {
++        val f = Fixture()
++        val receipt = CompletableDeferred<Unit>()
++        f.refresh = { withContext(NonCancellable) { receipt.await() }; Outcome.Success(
++            SyncSummary(scope, "elder", SyncCompletion.COMPLETE, 1L, null)) }
++        val seen = mutableListOf<Cached<List<DoseEventState>>>()
++        val job = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
++            f.repository.observeEvents("elder", range).toList(seen)
++        }
++        runCurrent()
++        f.current = false
++        f.rows.value = cached(AccessState.AUTHORIZED)
++        receipt.complete(Unit)
++        runCurrent()
++        assertEquals(listOf(AccessState.UNKNOWN), seen.map { it.access })
++        job.cancel()
++    }
++
++    @Test fun `known revoked observation cannot initiate another refresh`() = runTest {
++        val f = Fixture()
++        f.rows.value = cached(AccessState.REVOKED)
++        val seen = mutableListOf<Cached<List<DoseEventState>>>()
++        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { f.repository.observeEvents("elder", range).toList(seen) }
++        runCurrent()
++        assertEquals(AccessState.REVOKED, seen.single().access)
++        assertTrue(f.refreshes.isEmpty())
++    }
++
++    @Test fun `cancelled range read cancels refresh without retry`() = runTest {
++        val f = Fixture()
++        var cancelled = false
++        f.refresh = { try { awaitCancellation() } finally { cancelled = true } }
++        val job = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
++            f.repository.observeEvents("elder", range).collect()
++        }
++        runCurrent()
++        job.cancelAndJoin()
++        assertTrue(cancelled)
++        assertEquals(listOf("elder" to range), f.refreshes)
++    }
++}

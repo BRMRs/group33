@@ -1,5 +1,10 @@
 # C1 / #124 paired device comparison
 
+Historical record: these results describe the original patch published at
+`acaea5d`, not the 2026-11-20 revised candidate. The revised candidate's scoped
+checks are recorded in `docs/contracts/C1_FEEDBACK_DATE_INPUT.md`; they do not
+resolve or replace this record's outstanding scroll failures.
+
 2026-11-17; Refs [#15](https://github.com/BRMRs/group33/issues/15#issuecomment-6922291973). Local evidence only; no remote comment, PR approval or full UI acceptance is recorded here.
 
 The overview/header assertion and tablet fast-reverse timeout both reproduce on pristine #124. They do not require the C1 date adaptation to occur. This does not determine whether their cause is production scrolling, gesture construction or test timing. One additional API35 timeout occurred only in the combined group and remains unresolved.
@@ -104,3 +109,37 @@ Local raw evidence is retained under `.git/c1-local-recovery-20261117/comparison
 ## Remaining boundary
 
 C3 can investigate the reproduced original scrolling/test failures using this exact baseline. C1/C3 still need to investigate the additional combined date-side timeout. This evidence does not approve #124 or establish a green UI regression. After these tests, [S1 recorded the date rule and ownership](https://github.com/BRMRs/group33/issues/15#issuecomment-6939380941); the production provider and reviewed concrete interface remain a separate S1/S2 dependency. Main has since advanced to `bbe4997` via #116, which is not part of either tested input above. No production date source is registered by this work.
+
+## 2026-11-20 newer combination
+
+The current maintained patch targets #136 `a3d462e` plus exactly nine #124
+composition/overview paths, not either old input above. Its dependency tree,
+patch/applied-tree hashes, full commands and results are recorded in the
+[current handoff](../../contracts/C1_FEEDBACK_DATE_INPUT.md#2026-11-20-current-136-combination).
+The previous table remains historical paired evidence and is not relabeled as
+a current-main or #136 comparison.
+
+Latest API27 full run06 passed 27/27 in each language group; run04 had an English
+fast-reverse/final-row-details timeout (26/27), while Chinese passed 27/27.
+Step-specific diagnostics were added without changing the timeout, coordinates
+or assertions. Original-order reproduction later caught a last-row tap that did
+not expand details after the reverse-scroll assertion passed. The final C1 helper
+checks a single Espresso tap's delivery result without retrying; full 54/54 and
+original-order repeated 60/60 tests passed. This improves test input and does not
+establish a C3 product root cause. All old failures remain in the handoff. No current
+API35 rerun, original #136 paired comparison, formal approval or final normal-entry
+acceptance is claimed.
+
+## 2026-11-21 current dependency follow-up
+
+The maintained nine-file patch now targets #136 `021b39f` plus the same nine
+#124 composition paths. Its C1 source/patch bytes are unchanged from the user's
+accepted date/read correction. Latest combination: Debug197/Release196, lint
+0 errors/33 warnings, builds and API27 full56/56 passed; actual HTTP/Room/Activity
+passed one English and one Chinese case. No new current API35 result is claimed.
+The prior 54/54 and original-order60/60 belong to the earlier dependency revision.
+Separate latest-main source-baseline checks passed Debug146/Release145,
+lint0 errors/32 warnings and all three APK builds. These are two distinct inputs,
+not interchangeable totals. Full hashes, commands and retained setup failures
+are in the current handoff. Temporary sources were restored and the existing
+uncommitted merge remains untouched pending publication approval.
