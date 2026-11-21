@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.group33.medicationreminder.core.reminder.CommandRecoveryPolicyTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-11-21T10:59:51" hostname="MacBook.local" time="0.019">
+  <properties/>
+  <testcase name="R04 unknown completion resumes original identity rather than creating another intent" classname="com.group33.medicationreminder.core.reminder.CommandRecoveryPolicyTest" time="0.016"/>
+  <testcase name="R01 R04 environment installation and user changes reject old recovery at every stage" classname="com.group33.medicationreminder.core.reminder.CommandRecoveryPolicyTest" time="0.0"/>
+  <testcase name="R04 confirmed remote success with unknown or pending cache only refreshes cache" classname="com.group33.medicationreminder.core.reminder.CommandRecoveryPolicyTest" time="0.001"/>
+  <testcase name="R04 confirmed result already applied requires no work" classname="com.group33.medicationreminder.core.reminder.CommandRecoveryPolicyTest" time="0.0"/>
+  <testcase name="R04 unsent and definitively rejected operations never automatically replay" classname="com.group33.medicationreminder.core.reminder.CommandRecoveryPolicyTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

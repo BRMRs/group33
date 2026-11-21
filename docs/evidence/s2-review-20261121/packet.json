@@ -1,0 +1,16 @@
+{
+  "prepared_at": "2026-11-21",
+  "base_main": "b5acc05224612bf25797ee71a5cdf1a879b67d91",
+  "pr37_tested_head": "c45c856a1bacdcf5e55ef5e0c98713d3a7a3da6e",
+  "pr119_tested_head": "1308bc59f18305dd6fe2083679ea001c858e0bf9",
+  "pr37_ci": 44874221395,
+  "pr119_ci": 44874395867,
+  "pr119_api35_ci": 44874395869,
+  "artifact_id": 14695880893,
+  "artifact_zip_sha256": "535b8085aa83216e5a2d316dc2070ad61828d6281085a0fbcdcc46d251f39694",
+  "pr37_raw_xml_unmodified": true,
+  "pr37_execution_transcript_path_redacted": true,
+  "pr119_selected_artifact_files_unmodified": true,
+  "production_code_changed": false,
+  "pr37_execution_transcript_trailing_whitespace_normalized": true
+}

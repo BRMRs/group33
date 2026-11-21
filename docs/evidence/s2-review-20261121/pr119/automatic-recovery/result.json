@@ -1,0 +1,54 @@
+{
+  "passed": true,
+  "serial": "emulator-5580",
+  "physical_device": false,
+  "production_server": false,
+  "automatic_startup_end_to_end": true,
+  "lease_clock": "real clock",
+  "disposable_installation_reset_before_prepare": true,
+  "process_probe": {
+    "actionId": "f1711a95-247a-4afa-a2ab-05ae9261205f",
+    "oldPid": 4400,
+    "newPid": 4463,
+    "workId": "619cd3ff-ae50-410a-8c8d-7e39e6ad6a88",
+    "observedRetry": true,
+    "originalRunAttemptCount": 1,
+    "workObservations": [
+      {
+        "state": "ENQUEUED",
+        "runAttemptCount": 1,
+        "actionState": "DISPATCHING"
+      },
+      {
+        "state": "ENQUEUED",
+        "runAttemptCount": 2,
+        "actionState": "DISPATCHING"
+      },
+      {
+        "state": "ENQUEUED",
+        "runAttemptCount": 3,
+        "actionState": "DISPATCHING"
+      },
+      {
+        "state": "RUNNING",
+        "runAttemptCount": 4,
+        "actionState": "DISPATCHING"
+      },
+      {
+        "state": "SUCCEEDED",
+        "runAttemptCount": 4,
+        "actionState": "ACKNOWLEDGED"
+      }
+    ],
+    "elapsedClaimMillis": 105038,
+    "attempts": 2,
+    "state": "ACKNOWLEDGED",
+    "originalDeadlinePreserved": true,
+    "manualRecoveryCalls": 0
+  },
+  "receiver_requests": 2,
+  "receiver_effects": 1,
+  "payload_replay_identical": true,
+  "prepare_process_intentionally_killed": true,
+  "receiver_stopped": true
+}

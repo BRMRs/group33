@@ -1,0 +1,192 @@
+{
+  "head": "1308bc59f18305dd6fe2083679ea001c858e0bf9",
+  "api": 35,
+  "abi": "x86_64",
+  "device_report_instances": 23,
+  "original_cases": [
+    [
+      "com.group33.medicationreminder.integration.RuntimeActionBoundaryTest",
+      "sameElderInAnotherEnvironmentCannotReceiveTheOldAction",
+      0
+    ],
+    [
+      "com.group33.medicationreminder.integration.RuntimeActionBoundaryTest",
+      "unavailableServerKeepsOriginalActionRetryable",
+      0
+    ],
+    [
+      "com.group33.medicationreminder.integration.RuntimeActionBoundaryTest",
+      "rejectedActionIsNotServerAcknowledgement",
+      0
+    ],
+    [
+      "com.group33.medicationreminder.integration.RuntimeActionBoundaryTest",
+      "fullTenMinuteSnoozeStillWorksOneMillisecondBeforeItsBoundary",
+      0
+    ],
+    [
+      "com.group33.medicationreminder.integration.RuntimeActionBoundaryTest",
+      "anotherAccountDoesNotPermanentlyDiscardTheOriginalAction",
+      0
+    ],
+    [
+      "com.group33.medicationreminder.integration.RuntimeActionBoundaryTest",
+      "sameElderOnAnotherInstallationCannotReceiveTheOldAction",
+      0
+    ],
+    [
+      "com.group33.medicationreminder.integration.RuntimeActionBoundaryTest",
+      "snoozeAtTheLastTenMinutesDoesNotCommitAnUnsendableAction",
+      0
+    ],
+    [
+      "com.group33.medicationreminder.integration.RuntimeActionBoundaryTest",
+      "acceptedOriginalActionCanBeAcknowledgedAndReplayedWithoutAnotherWrite",
+      0
+    ],
+    [
+      "com.group33.medicationreminder.integration.RuntimeActionBoundaryTest",
+      "rejectedRegistrationIsNotServerAcknowledgement",
+      0
+    ],
+    [
+      "com.group33.medicationreminder.integration.RuntimeActionBoundaryTest",
+      "unsupportedHelpRemainsExplicitlyUnacknowledged",
+      0
+    ],
+    [
+      "com.group33.medicationreminder.integration.RuntimeNotificationBoundaryTest",
+      "newlyPostedLastWindowNotificationExplainsUnavailableSnoozeAndKeepsTaken",
+      0
+    ],
+    [
+      "com.group33.medicationreminder.integration.RuntimeNotificationBoundaryTest",
+      "clickingValidNotificationSnoozeKeepsOriginalDeadlineAndDuplicateDoesNotRepost",
+      0
+    ],
+    [
+      "com.group33.medicationreminder.integration.RuntimeNotificationBoundaryTest",
+      "clickingOldSnoozeAcrossBoundaryShowsFeedbackAndOldTakenStillCommitsOnce",
+      0
+    ]
+  ],
+  "room_cases": [
+    [
+      "com.group33.medicationreminder.core.reminder.ReminderDispatchRecoveryTest",
+      "repeatedRecoveryScanKeepsExistingUniqueWorkInsteadOfReplacingItsWorker",
+      0
+    ],
+    [
+      "com.group33.medicationreminder.core.reminder.ReminderDispatchRecoveryTest",
+      "recoveredActionAcknowledgesOnlyAfterAcceptanceAndTerminalReplayDoesNotResend",
+      0
+    ],
+    [
+      "com.group33.medicationreminder.core.reminder.ReminderDispatchRecoveryTest",
+      "restartScanIncludesClaimedActionsButNeverAcknowledgedOrRejectedFacts",
+      0
+    ],
+    [
+      "com.group33.medicationreminder.core.reminder.ReminderDispatchRecoveryTest",
+      "cancellationKeepsClaimRecoverableAndDoesNotFabricateAcknowledgement",
+      0
+    ],
+    [
+      "com.group33.medicationreminder.core.reminder.ReminderDispatchRecoveryTest",
+      "restartScanIncludesClaimedPhaseFactsButNotTerminalFacts",
+      0
+    ],
+    [
+      "com.group33.medicationreminder.core.reminder.ReminderDispatchRecoveryTest",
+      "staleReclaimPreservesOriginalActionAndPayloadWhileFreshClaimCannotBeStolen",
+      0
+    ],
+    [
+      "com.group33.medicationreminder.core.reminder.ReminderDispatchRecoveryTest",
+      "phaseRecoveryRetriesLiveClaimThenResendsTheSameFactOnce",
+      0
+    ],
+    [
+      "com.group33.medicationreminder.core.reminder.ReminderDispatchRecoveryTest",
+      "liveActionClaimReturnsRetryWithoutSendingOrChangingItsIdentity",
+      0
+    ]
+  ],
+  "deterministic_process": [
+    [
+      "com.group33.medicationreminder.core.reminder.ReminderDispatchProcessProbeTest",
+      "probe",
+      0
+    ]
+  ],
+  "automatic_process": [
+    [
+      "com.group33.medicationreminder.core.reminder.AutomaticRecoveryProbeTest",
+      "realStartupAndWorkManagerRecovery",
+      0
+    ]
+  ],
+  "killed_preparation_counted_as_pass": false,
+  "native_attempt_trace": {
+    "actionId": "f1711a95-247a-4afa-a2ab-05ae9261205f",
+    "oldPid": 4400,
+    "newPid": 4463,
+    "workId": "619cd3ff-ae50-410a-8c8d-7e39e6ad6a88",
+    "observedRetry": true,
+    "originalRunAttemptCount": 1,
+    "workObservations": [
+      {
+        "state": "ENQUEUED",
+        "runAttemptCount": 1,
+        "actionState": "DISPATCHING"
+      },
+      {
+        "state": "ENQUEUED",
+        "runAttemptCount": 2,
+        "actionState": "DISPATCHING"
+      },
+      {
+        "state": "ENQUEUED",
+        "runAttemptCount": 3,
+        "actionState": "DISPATCHING"
+      },
+      {
+        "state": "RUNNING",
+        "runAttemptCount": 4,
+        "actionState": "DISPATCHING"
+      },
+      {
+        "state": "SUCCEEDED",
+        "runAttemptCount": 4,
+        "actionState": "ACKNOWLEDGED"
+      }
+    ],
+    "elapsedClaimMillis": 105038,
+    "attempts": 2,
+    "state": "ACKNOWLEDGED",
+    "originalDeadlinePreserved": true,
+    "manualRecoveryCalls": 0
+  },
+  "automatic_receiver_requests": 2,
+  "automatic_receiver_effects": 1,
+  "manual_recovery_calls": 0,
+  "real_clock": true,
+  "real_postgres_flow_assertions": 62,
+  "real_postgres_rows": {
+    "occurrences": 2,
+    "events": 2,
+    "operations": 2
+  },
+  "real_server_pids": [
+    5762,
+    6004
+  ],
+  "original_receipt_immutable": true,
+  "current_facts_not_overwritten": true,
+  "server_jvms_proxy_schema_private_fixture_cleaned": true,
+  "private_artifacts_excluded": true,
+  "raw_logs_ledgers_and_source_hashes_verified": true,
+  "screenshot_sha256_verified": true,
+  "ordinary_and_opt_in_test_apks_distinct": true,
+  "continuous_android_to_real_server_trace": false
+}

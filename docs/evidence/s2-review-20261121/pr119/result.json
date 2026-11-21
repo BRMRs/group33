@@ -1,0 +1,450 @@
+{
+  "head": "1308bc59f18305dd6fe2083679ea001c858e0bf9",
+  "api": "35",
+  "abi": "x86_64",
+  "serial": "emulator-5580",
+  "passed": true,
+  "physical_device": false,
+  "live_http": false,
+  "tests": "com.group33.medicationreminder.integration.RuntimeActionBoundaryTest,com.group33.medicationreminder.integration.RuntimeNotificationBoundaryTest",
+  "sha256": {
+    "android-app/build/outputs/apk/debug/android-app-debug.apk": "c55ef8562ae9783f5bdead7e4a20a682787e186a985180ddf7a00a20aaccf011",
+    "android-app/build/outputs/apk/androidTest/debug/android-app-debug-androidTest.apk": "a8dfea3ae47940e317a7b9d00f2fda8c2ea4737739798e33c260e5b93a2f47bf",
+    "android-app/build.gradle.kts": "a25813108d82761f06f159616b13d83f0032d25892340def098a1890088de742",
+    "android-app/src/androidTest/kotlin/com/group33/medicationreminder/core/reminder/AutomaticRecoveryProbeTest.kt": "0350e59402dfa2f7c8527ec5491bcb10dd675b51ac0d3280e21344bdba756b2b",
+    "scripts/check_reminder_dispatch_recovery.py": "8a6fcbc0816c52db326180f248e79921fea4c6e7ab3a979171df49ab13531fa5",
+    "scripts/check_postgres_receipt_recovery.py": "b4029f0c5db549e88b293c69dd2095b6b0166f7c35f678455414591c7a759a2a",
+    "android-app/src/androidTest/kotlin/com/group33/medicationreminder/integration/RuntimeActionBoundaryTest.kt": "657f6f5914d82f560c192d74be8b3a97c175eb5851889cf7377c8230de857fa8",
+    "android-app/src/debug/kotlin/com/group33/medicationreminder/integration/DebugDoseReminders.kt": "4029e5b8a83b65e73d1dc3a0370586152747155967b66a8671934696bb4596f5",
+    "android-app/src/debug/kotlin/com/group33/medicationreminder/integration/DebugChainRepository.kt": "e5d2bf5dd8685b3c66a0dd906cf1695d8917482556486e3b55fcf3e35eac2500",
+    "android-app/src/main/kotlin/com/group33/medicationreminder/core/reminder/ReminderCoordinator.kt": "6334ae5938c10b34b6b1e76288ae2908e12455ceee8acf53cb1cc4dd40a6ea61",
+    "android-app/src/main/kotlin/com/group33/medicationreminder/core/reminder/ReminderNotifications.kt": "453950542895ce166dc4029e112fac8bc05818cbad1d84cf5f02206193aaa1a9",
+    "android-app/src/main/kotlin/com/group33/medicationreminder/core/reminder/ReminderAlarmReceiver.kt": "75c93e5f7da08eb681e0659a462a43c1fdaa354e2f5be0ebe4797ca333cb843d",
+    "android-app/src/androidTest/kotlin/com/group33/medicationreminder/integration/RuntimeNotificationBoundaryTest.kt": "e55011ba21733c33bb42e34a2fc2d76abd593a9443b7f736b2668572e4c49e5d"
+  },
+  "completed": [
+    {
+      "test": "sameElderInAnotherEnvironmentCannotReceiveTheOldAction",
+      "suite": "com.group33.medicationreminder.integration.RuntimeActionBoundaryTest",
+      "code": 0
+    },
+    {
+      "test": "unavailableServerKeepsOriginalActionRetryable",
+      "suite": "com.group33.medicationreminder.integration.RuntimeActionBoundaryTest",
+      "code": 0
+    },
+    {
+      "test": "rejectedActionIsNotServerAcknowledgement",
+      "suite": "com.group33.medicationreminder.integration.RuntimeActionBoundaryTest",
+      "code": 0
+    },
+    {
+      "test": "fullTenMinuteSnoozeStillWorksOneMillisecondBeforeItsBoundary",
+      "suite": "com.group33.medicationreminder.integration.RuntimeActionBoundaryTest",
+      "code": 0
+    },
+    {
+      "test": "anotherAccountDoesNotPermanentlyDiscardTheOriginalAction",
+      "suite": "com.group33.medicationreminder.integration.RuntimeActionBoundaryTest",
+      "code": 0
+    },
+    {
+      "test": "sameElderOnAnotherInstallationCannotReceiveTheOldAction",
+      "suite": "com.group33.medicationreminder.integration.RuntimeActionBoundaryTest",
+      "code": 0
+    },
+    {
+      "test": "snoozeAtTheLastTenMinutesDoesNotCommitAnUnsendableAction",
+      "suite": "com.group33.medicationreminder.integration.RuntimeActionBoundaryTest",
+      "code": 0
+    },
+    {
+      "test": "acceptedOriginalActionCanBeAcknowledgedAndReplayedWithoutAnotherWrite",
+      "suite": "com.group33.medicationreminder.integration.RuntimeActionBoundaryTest",
+      "code": 0
+    },
+    {
+      "test": "rejectedRegistrationIsNotServerAcknowledgement",
+      "suite": "com.group33.medicationreminder.integration.RuntimeActionBoundaryTest",
+      "code": 0
+    },
+    {
+      "test": "unsupportedHelpRemainsExplicitlyUnacknowledged",
+      "suite": "com.group33.medicationreminder.integration.RuntimeActionBoundaryTest",
+      "code": 0
+    },
+    {
+      "test": "newlyPostedLastWindowNotificationExplainsUnavailableSnoozeAndKeepsTaken",
+      "suite": "com.group33.medicationreminder.integration.RuntimeNotificationBoundaryTest",
+      "code": 0
+    },
+    {
+      "test": "clickingValidNotificationSnoozeKeepsOriginalDeadlineAndDuplicateDoesNotRepost",
+      "suite": "com.group33.medicationreminder.integration.RuntimeNotificationBoundaryTest",
+      "code": 0
+    },
+    {
+      "test": "clickingOldSnoozeAcrossBoundaryShowsFeedbackAndOldTakenStillCommitsOnce",
+      "suite": "com.group33.medicationreminder.integration.RuntimeNotificationBoundaryTest",
+      "code": 0
+    }
+  ],
+  "adb_exit": 0,
+  "notification_screenshot_sha256": "ea414e58ea25368e1f22959a5c8dafb364ca40c662a480a6f279d5bec3f21cb7",
+  "dispatch_recovery": {
+    "passed": true,
+    "serial": "emulator-5580",
+    "physical_device": false,
+    "production_server": false,
+    "automatic_startup_end_to_end": false,
+    "lease_clock": "injected after real process restart",
+    "room_worker_tests": 8,
+    "process_probe": {
+      "actionId": "b0d6050d-4622-4b4a-b775-5fb47c8f47d6",
+      "oldPid": 3903,
+      "newPid": 3985,
+      "attempts": 2,
+      "state": "ACKNOWLEDGED",
+      "originalDeadlinePreserved": true
+    },
+    "receiver_requests": 2,
+    "receiver_effects": 1,
+    "payload_replay_identical": true,
+    "prepare_process_intentionally_killed": true,
+    "receiver_stopped": true
+  },
+  "automatic_test_apk_sha256": "c2dc41d73748fda77aa41c6e18ff73283aef83a18559d26dc85e276afb672deb",
+  "automatic_recovery": {
+    "passed": true,
+    "serial": "emulator-5580",
+    "physical_device": false,
+    "production_server": false,
+    "automatic_startup_end_to_end": true,
+    "lease_clock": "real clock",
+    "disposable_installation_reset_before_prepare": true,
+    "process_probe": {
+      "actionId": "f1711a95-247a-4afa-a2ab-05ae9261205f",
+      "oldPid": 4400,
+      "newPid": 4463,
+      "workId": "619cd3ff-ae50-410a-8c8d-7e39e6ad6a88",
+      "observedRetry": true,
+      "originalRunAttemptCount": 1,
+      "workObservations": [
+        {
+          "state": "ENQUEUED",
+          "runAttemptCount": 1,
+          "actionState": "DISPATCHING"
+        },
+        {
+          "state": "ENQUEUED",
+          "runAttemptCount": 2,
+          "actionState": "DISPATCHING"
+        },
+        {
+          "state": "ENQUEUED",
+          "runAttemptCount": 3,
+          "actionState": "DISPATCHING"
+        },
+        {
+          "state": "RUNNING",
+          "runAttemptCount": 4,
+          "actionState": "DISPATCHING"
+        },
+        {
+          "state": "SUCCEEDED",
+          "runAttemptCount": 4,
+          "actionState": "ACKNOWLEDGED"
+        }
+      ],
+      "elapsedClaimMillis": 105038,
+      "attempts": 2,
+      "state": "ACKNOWLEDGED",
+      "originalDeadlinePreserved": true,
+      "manualRecoveryCalls": 0
+    },
+    "receiver_requests": 2,
+    "receiver_effects": 1,
+    "payload_replay_identical": true,
+    "prepare_process_intentionally_killed": true,
+    "receiver_stopped": true
+  },
+  "postgres_recovery": {
+    "passed": true,
+    "real_server": true,
+    "real_postgres": true,
+    "memory_store": false,
+    "schema_fixture": "isolated existing V1-V10 SQL; no managed rollout claimed",
+    "checks": [
+      {
+        "check": "fixture-uses-existing-ten-migrations",
+        "passed": true
+      },
+      {
+        "check": "elder-login-status",
+        "passed": true
+      },
+      {
+        "check": "elder-login-no-store",
+        "passed": true
+      },
+      {
+        "check": "caregiver-login-status",
+        "passed": true
+      },
+      {
+        "check": "caregiver-login-no-store",
+        "passed": true
+      },
+      {
+        "check": "issue-code-status",
+        "passed": true
+      },
+      {
+        "check": "issue-code-no-store",
+        "passed": true
+      },
+      {
+        "check": "request-pairing-status",
+        "passed": true
+      },
+      {
+        "check": "request-pairing-no-store",
+        "passed": true
+      },
+      {
+        "check": "elder-consent-status",
+        "passed": true
+      },
+      {
+        "check": "elder-consent-no-store",
+        "passed": true
+      },
+      {
+        "check": "photo-0-status",
+        "passed": true
+      },
+      {
+        "check": "photo-0-no-store",
+        "passed": true
+      },
+      {
+        "check": "plan-0-status",
+        "passed": true
+      },
+      {
+        "check": "plan-0-no-store",
+        "passed": true
+      },
+      {
+        "check": "photo-1-status",
+        "passed": true
+      },
+      {
+        "check": "photo-1-no-store",
+        "passed": true
+      },
+      {
+        "check": "plan-1-status",
+        "passed": true
+      },
+      {
+        "check": "plan-1-no-store",
+        "passed": true
+      },
+      {
+        "check": "register-frozen-pair-status",
+        "passed": true
+      },
+      {
+        "check": "register-frozen-pair-no-store",
+        "passed": true
+      },
+      {
+        "check": "two-canonical-events-before-actions",
+        "passed": true
+      },
+      {
+        "check": "client-loses-response-after-real-server-acceptance",
+        "passed": true
+      },
+      {
+        "check": "original-receipt-has-two-snoozed-events",
+        "passed": true
+      },
+      {
+        "check": "committed-whole-group-despite-lost-response",
+        "passed": true
+      },
+      {
+        "check": "same-action-replay-0-status",
+        "passed": true
+      },
+      {
+        "check": "same-action-replay-0-no-store",
+        "passed": true
+      },
+      {
+        "check": "same-original-receipt-0",
+        "passed": true
+      },
+      {
+        "check": "same-action-replay-1-status",
+        "passed": true
+      },
+      {
+        "check": "same-action-replay-1-no-store",
+        "passed": true
+      },
+      {
+        "check": "same-original-receipt-1",
+        "passed": true
+      },
+      {
+        "check": "same-action-replay-2-status",
+        "passed": true
+      },
+      {
+        "check": "same-action-replay-2-no-store",
+        "passed": true
+      },
+      {
+        "check": "same-original-receipt-2",
+        "passed": true
+      },
+      {
+        "check": "retries-have-one-operation-and-no-extra-events",
+        "passed": true
+      },
+      {
+        "check": "same-key-different-intent-status",
+        "passed": true
+      },
+      {
+        "check": "same-key-different-intent-no-store",
+        "passed": true
+      },
+      {
+        "check": "changed-intent-conflicts",
+        "passed": true
+      },
+      {
+        "check": "fresh-taken-status",
+        "passed": true
+      },
+      {
+        "check": "fresh-taken-no-store",
+        "passed": true
+      },
+      {
+        "check": "fresh-taken-is-current",
+        "passed": true
+      },
+      {
+        "check": "old-snooze-after-taken-status",
+        "passed": true
+      },
+      {
+        "check": "old-snooze-after-taken-no-store",
+        "passed": true
+      },
+      {
+        "check": "old-receipt-does-not-become-current-state",
+        "passed": true
+      },
+      {
+        "check": "caregiver-current-read-status",
+        "passed": true
+      },
+      {
+        "check": "caregiver-current-read-no-store",
+        "passed": true
+      },
+      {
+        "check": "current-read-keeps-taken",
+        "passed": true
+      },
+      {
+        "check": "exact-two-legitimate-operations",
+        "passed": true
+      },
+      {
+        "check": "first-server-process-stopped",
+        "passed": true
+      },
+      {
+        "check": "different-server-jvm",
+        "passed": true
+      },
+      {
+        "check": "old-receipt-restarted-status",
+        "passed": true
+      },
+      {
+        "check": "old-receipt-restarted-no-store",
+        "passed": true
+      },
+      {
+        "check": "original-snooze-survives-server-restart",
+        "passed": true
+      },
+      {
+        "check": "taken-receipt-restarted-status",
+        "passed": true
+      },
+      {
+        "check": "taken-receipt-restarted-no-store",
+        "passed": true
+      },
+      {
+        "check": "taken-receipt-survives-server-restart",
+        "passed": true
+      },
+      {
+        "check": "registration-restarted-status",
+        "passed": true
+      },
+      {
+        "check": "registration-restarted-no-store",
+        "passed": true
+      },
+      {
+        "check": "registration-receipt-remains-original",
+        "passed": true
+      },
+      {
+        "check": "caregiver-current-after-restart-status",
+        "passed": true
+      },
+      {
+        "check": "caregiver-current-after-restart-no-store",
+        "passed": true
+      },
+      {
+        "check": "current-facts-survive-restart",
+        "passed": true
+      }
+    ],
+    "receiver_mock": false,
+    "response_loss_proxy_only": true,
+    "original_action_id": "0ccac25e-5b5d-4924-a938-23b284f52f02",
+    "original_receipt_sha256": "6b0ad6e8d4e9e0b65e456b32b2bf17c4fd9eb9f4b7013d8bcc759131f969628b",
+    "original_payload_sha256": "f572b4e13dab3d025c87533234d7cc71e45c064f898d798fe7ea7e3245288796",
+    "business_rows": {
+      "occurrences": 2,
+      "events": 2,
+      "operations": 2
+    },
+    "original_receipt_immutable": true,
+    "current_facts_not_overwritten": true,
+    "server_pids": [
+      5762,
+      6004
+    ],
+    "boot_jar_sha256": "f78572db27c3efbfd826b13f425583a7d6473bc695ff7559bd60716fa1d5cac0",
+    "server_processes_stopped": true,
+    "response_proxy_stopped": true,
+    "isolated_schema_removed": true,
+    "private_fixture_removed": true
+  },
+  "emulator_stopped": true
+}

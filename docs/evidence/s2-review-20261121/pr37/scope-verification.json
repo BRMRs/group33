@@ -1,0 +1,31 @@
+{
+  "previous_reviewed_head": "a8ddc9362e801f511943e667bdfb0a43512f1084",
+  "current_head": "c45c856a1bacdcf5e55ef5e0c98713d3a7a3da6e",
+  "unchanged_six_strategy_and_test_files": true,
+  "files": [
+    {
+      "path": "android-app/src/main/kotlin/com/group33/medicationreminder/core/data/contract/CommandRecoveryPolicy.kt",
+      "sha": "0dcbb82bb7b9f3cefd8e9f0968e98d7395748222"
+    },
+    {
+      "path": "android-app/src/main/kotlin/com/group33/medicationreminder/core/reminder/FollowUpPolicy.kt",
+      "sha": "db95736d06f1c06486ff81c374d19161e96b20c5"
+    },
+    {
+      "path": "android-app/src/main/kotlin/com/group33/medicationreminder/core/reminder/ProbeRoundPolicy.kt",
+      "sha": "b8b57977def5cded19f0929af9c4a5abd0593049"
+    },
+    {
+      "path": "android-app/src/main/kotlin/com/group33/medicationreminder/core/reminder/ReminderTimingPolicy.kt",
+      "sha": "a0adc28e7c25f366441b5448747e77c72953f323"
+    },
+    {
+      "path": "android-app/src/test/kotlin/com/group33/medicationreminder/core/reminder/CommandRecoveryPolicyTest.kt",
+      "sha": "63d88cfc287d8344a4c30fefcb259c8b8a510f79"
+    },
+    {
+      "path": "android-app/src/test/kotlin/com/group33/medicationreminder/core/reminder/S1PolicyTest.kt",
+      "sha": "dc471d122999e0f278e3dd438ce7a534595966dd"
+    }
+  ]
+}

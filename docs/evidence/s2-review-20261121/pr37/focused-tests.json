@@ -1,0 +1,18 @@
+{
+  "head": "c45c856a1bacdcf5e55ef5e0c98713d3a7a3da6e",
+  "exit": 0,
+  "reports": {
+    "Debug": {
+      "tests": 38,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "Release": {
+      "tests": 38,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  }
+}
