@@ -73,3 +73,11 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 2026-11-05 — BRMRs, Refs #15 / PR #110: reused #59 shared entry and #92 navigation, removed the parallel Debug launcher and legacy role chooser, and retained anonymous login only in Debug. Merge-readiness audit reproduced and corrected obsolete-Elder cache publication, same-Elder relationship reattachment, false recovery success and Elder sync-management UI; nine new JVM regressions, bilingual 14-phase reruns and 67 device regressions passed. [Review routing and remaining merge conditions](docs/PR110_MERGE_READINESS.md). Automated audit is not member approval; no main merge, parent-issue completion or physical-device acceptance is implied.
 
 2026-11-07 - tianiridescent / C1, Refs #19: shared-login keyboard viewport correction from current main, preserving existing authentication boundaries. Real API35 320/360dp 200% English/Chinese keyboard tests cover SMS/password/reset submission and return; the baseline password counterexamples fail before the correction. [Scope and evidence](docs/evidence/C1_LOGIN_KEYBOARD_INSETS.md). API27 physical-tablet bilingual compatibility also passed (24 total device cases). Local candidate; publication and non-author review remain separate.
+
+### 2026-11-17 — XinyanXue / S2 — #102 current-main V11 integration
+
+Preserve main dose-action V10; append original index SQL as V11 and match admin/runtime history. Retain original planner/rollback assertions, cover V9/V10 upgrades and reuse five coordination regressions including original dose receipt replay and refusal of incompatible index-V10 history. This is the existing #102 scope, not a new protocol or cloud deployment.
+
+### 2026-11-18 — XinyanXue / S2 — #102 authoritative migration guide
+
+Correct SCHEMA_MIGRATIONS to reflect actual main dose V10 then this-PR index V11, immutable applied history and separate conversion for old index-V10 databases. Documentation/hash only; existing SQL/runtime/tests untouched.
