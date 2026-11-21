@@ -1,0 +1,290 @@
+[
+  {
+    "branch": "feature/10-current-phone-account-validation",
+    "local": "6ec946d6e47f80b3804ac9acec3b8ca2d6fd24b8",
+    "remote": "554387b89691f6fe76568821fe94596d22dfc438",
+    "status": "different"
+  },
+  {
+    "branch": "feature/10-pairing-code-http",
+    "local": "f09d68b860bb7357dbf1363b13e81a692547d29d",
+    "remote": null,
+    "status": "remote_branch_absent"
+  },
+  {
+    "branch": "feature/10-pairing-code-issuance",
+    "local": "3dcb4a8a8824826b64cd6f97d0fa71eed4e851f9",
+    "remote": null,
+    "status": "remote_branch_absent"
+  },
+  {
+    "branch": "feature/10-pairing-decisions",
+    "local": "f6437a082baa03964620aea7c6f3a53366f505e7",
+    "remote": null,
+    "status": "remote_branch_absent"
+  },
+  {
+    "branch": "feature/10-pairing-directory",
+    "local": "6d0bb4f678f284c506e8b693f9d1f30c8244a6e2",
+    "remote": null,
+    "status": "remote_branch_absent"
+  },
+  {
+    "branch": "feature/10-pairing-lifecycle-http",
+    "local": "22cf54670eac9fd6c0a78291f0d4ec4453b303f1",
+    "remote": null,
+    "status": "remote_branch_absent"
+  },
+  {
+    "branch": "feature/10-pairing-request-consumption",
+    "local": "7e1296d99035688178ca326ffcde7d0666c9746a",
+    "remote": null,
+    "status": "remote_branch_absent"
+  },
+  {
+    "branch": "feature/10-s2-pairing-prerequisites",
+    "local": "a883a1482ee2e49953dce9a1a572cc6333a1dc8f",
+    "remote": "a883a1482ee2e49953dce9a1a572cc6333a1dc8f",
+    "status": "same"
+  },
+  {
+    "branch": "feature/13-photo-input-validation",
+    "local": "42ef5c01e73cdae515411b6855616c9f93002623",
+    "remote": null,
+    "status": "remote_branch_absent"
+  },
+  {
+    "branch": "feature/13-photo-object-inventory",
+    "local": "84fb60fda14a2a3ea46a25c29d4a048e9bd8d330",
+    "remote": "9d2120b07242de057cdcdb4a5a14b5c2775f5f78",
+    "status": "different"
+  },
+  {
+    "branch": "feature/13-photo-reconciliation",
+    "local": "c0770555e3c7256b6cfb15e7dfe642fcce490a8c",
+    "remote": "fecb57531cf75b1c97b9ef57396c09376f9062b2",
+    "status": "different"
+  },
+  {
+    "branch": "feature/13-private-photo-api",
+    "local": "c932092b8b18184a4261bc7f96e04bd6f79b47e3",
+    "remote": null,
+    "status": "remote_branch_absent"
+  },
+  {
+    "branch": "feature/13-s2-photo-business-prerequisites",
+    "local": "374bbb1420983149b432f791879f80b264144c2c",
+    "remote": "374bbb1420983149b432f791879f80b264144c2c",
+    "status": "same"
+  },
+  {
+    "branch": "feature/13-s2-photo-prerequisites",
+    "local": "538a69e86308600572849f46b3d7dd742ded31f4",
+    "remote": "538a69e86308600572849f46b3d7dd742ded31f4",
+    "status": "same"
+  },
+  {
+    "branch": "feature/13-validated-photo-write",
+    "local": "2c72cd1fc730a9e1c979768b8f7c5789ab200593",
+    "remote": null,
+    "status": "remote_branch_absent"
+  },
+  {
+    "branch": "feature/14-initial-plan-confirmation",
+    "local": "a405347bfda5c82fee6219a4413dd603efbaaee3",
+    "remote": null,
+    "status": "remote_branch_absent"
+  },
+  {
+    "branch": "feature/14-occurrence-http-prerequisites",
+    "local": "45d2a13bfca0dd23e913393c630d67aa372237d5",
+    "remote": "45d2a13bfca0dd23e913393c630d67aa372237d5",
+    "status": "same"
+  },
+  {
+    "branch": "feature/14-occurrence-prerequisites",
+    "local": "cad9e08d5f6d0ced70840e4ff8985552faad8370",
+    "remote": "cad9e08d5f6d0ced70840e4ff8985552faad8370",
+    "status": "same"
+  },
+  {
+    "branch": "feature/14-occurrence-registration",
+    "local": "abdb3f81c5e141aee0c7f7b80241708052c2a18f",
+    "remote": null,
+    "status": "remote_branch_absent"
+  },
+  {
+    "branch": "feature/14-occurrence-registration-http",
+    "local": "9178db21654067a2dad1744af9a88ca8957ef599",
+    "remote": null,
+    "status": "remote_branch_absent"
+  },
+  {
+    "branch": "feature/14-plan-confirmation-http",
+    "local": "a6ede0ee5b35ec498a95f2369e6f45748fef9099",
+    "remote": null,
+    "status": "remote_branch_absent"
+  },
+  {
+    "branch": "feature/14-plan-input-validation",
+    "local": "cd01ec28c8cb44aa34c417c6fcf688cb432c4f73",
+    "remote": null,
+    "status": "remote_branch_absent"
+  },
+  {
+    "branch": "feature/14-plan-mutations",
+    "local": "1090a85b20b0fac3c664bfb77e75440088f6cb94",
+    "remote": null,
+    "status": "remote_branch_absent"
+  },
+  {
+    "branch": "feature/14-s2-plan-prerequisites",
+    "local": "7104a4a0ecb1bffb13c315dd02235ce8acfd4f44",
+    "remote": "7104a4a0ecb1bffb13c315dd02235ce8acfd4f44",
+    "status": "same"
+  },
+  {
+    "branch": "feature/16-capability-postgres",
+    "local": "cfc531989f379c032fd53def7e09091384df51c9",
+    "remote": "256a36cb6b5badddf4a71ee655b64e31b35c28cc",
+    "status": "different"
+  },
+  {
+    "branch": "feature/16-initial-plan-postgres",
+    "local": "375a96ca01e3581ee813e05bcbed9e6c7b9ef4cb",
+    "remote": null,
+    "status": "remote_branch_absent"
+  },
+  {
+    "branch": "feature/16-local-persistent-runtime",
+    "local": "c74279e2c45c62e37214021125d1b2e76133d708",
+    "remote": null,
+    "status": "remote_branch_absent"
+  },
+  {
+    "branch": "feature/16-managed-cloud-prerequisites",
+    "local": "57dbd5b7759a319b80c57502efbe35b0b529d60b",
+    "remote": "57dbd5b7759a319b80c57502efbe35b0b529d60b",
+    "status": "same"
+  },
+  {
+    "branch": "feature/16-managed-cloud-schema",
+    "local": "16cada3bb4e019968682398520568f08eb640b56",
+    "remote": "865e6cf3c7d7e248ac1c5818d4eae701fc34965b",
+    "status": "different"
+  },
+  {
+    "branch": "feature/16-pairing-code-postgres",
+    "local": "53c7a4a4a18cf65181cf5395bec9c1865a5c2f1c",
+    "remote": null,
+    "status": "remote_branch_absent"
+  },
+  {
+    "branch": "feature/16-readonly-plan-snapshots",
+    "local": "a223e6cf1f561d55fdae03ec09353dc88e13493d",
+    "remote": null,
+    "status": "remote_branch_absent"
+  },
+  {
+    "branch": "feature/16-render-prerequisites",
+    "local": "8aca13d58d9d17cf0503777a488aae97f6966583",
+    "remote": "bfc8650b11dc5ea302a0fc9cd93afb01250dc7b9",
+    "status": "different"
+  },
+  {
+    "branch": "feature/16-render-test-deploy",
+    "local": "02ec9559d8cb657c94573a681f3ecbe840cd9fb4",
+    "remote": null,
+    "status": "remote_branch_absent"
+  },
+  {
+    "branch": "feature/16-supabase-photo-storage",
+    "local": "69440c9f2ab2a9150f6ce6d4da2b9c1f9b1250a8",
+    "remote": "8db485a1d65ba0b10b744c3852d938c809fb217d",
+    "status": "different"
+  },
+  {
+    "branch": "feature/16-supabase-runtime",
+    "local": "b7213efcd79a3019b202468d2db03b0e6600a9c6",
+    "remote": null,
+    "status": "remote_branch_absent"
+  },
+  {
+    "branch": "feature/16-supabase-runtime-prerequisites",
+    "local": "b42e7d0cf213921707d2da92d3b9aa24d789323b",
+    "remote": "c5c5e972dedea3fc7de13ebbf2017e65511f45a2",
+    "status": "different"
+  },
+  {
+    "branch": "feature/16-validated-schema-startup",
+    "local": "909e506249dd43f06b0c0070bd9c69ec50eab6c4",
+    "remote": null,
+    "status": "remote_branch_absent"
+  },
+  {
+    "branch": "feature/16-versioned-schema-migrations",
+    "local": "fcf55fbd9941f9352a8fa4276215947c4d114f0d",
+    "remote": null,
+    "status": "remote_branch_absent"
+  },
+  {
+    "branch": "feature/17-capability-http",
+    "local": "ad88bea00aa713a7a31bf83482f139338efa5bb8",
+    "remote": "7d8b561f080317a6e83fcf55f3711323332f7a33",
+    "status": "different"
+  },
+  {
+    "branch": "feature/17-capability-runtime-prerequisites",
+    "local": "46f30b0951ecb0b75983eb0cbc1923663c9debf8",
+    "remote": "46f30b0951ecb0b75983eb0cbc1923663c9debf8",
+    "status": "same"
+  },
+  {
+    "branch": "feature/17-capability-service",
+    "local": "f2906b3cd3a9d0f88a6000808adf6986d8f5bfae",
+    "remote": "f20b68c3251ef75e0d11a37028ed5306e1787cce",
+    "status": "different"
+  },
+  {
+    "branch": "feature/20-private-local-photo-storage",
+    "local": "d58dd840f398a0081c064f258077afe85ef8f21e",
+    "remote": null,
+    "status": "remote_branch_absent"
+  },
+  {
+    "branch": "fix/16-bound-persistent-statements",
+    "local": "42f44ebe7889d97d96fd679cd42c309a5b24fbd9",
+    "remote": null,
+    "status": "remote_branch_absent"
+  },
+  {
+    "branch": "fix/16-index-plan-collections",
+    "local": "2e05b4580a53512a8f716c848e50e478b4154509",
+    "remote": "53a7cbbfaab18be9a4cd18a97b4091b23844cf6d",
+    "status": "different"
+  },
+  {
+    "branch": "fix/17-bound-capability-statements",
+    "local": "48c96bac6152a6ae710280a732289a5efcdf292b",
+    "remote": "46decafcf4647979e991ebe9582313bb9f0d1309",
+    "status": "different"
+  },
+  {
+    "branch": "fix/49-bound-phone-account-database",
+    "local": "bc3950d3fb657b76316155c966530ca672746dae",
+    "remote": "d320841986015f109f0ecd2260026ea1be598b23",
+    "status": "different"
+  },
+  {
+    "branch": "test/12-s2-pairing-code-transport",
+    "local": "3e689f7724f4375e485b0d3d068a2fb6bc1c2db4",
+    "remote": null,
+    "status": "remote_branch_absent"
+  },
+  {
+    "branch": "test/16-business-backup-recovery",
+    "local": "7cba8d5d9cecd6e4c7f442ac93c409e9636e9ee0",
+    "remote": "ce0b3cb1965c6371597754e8ffa4579eeb333867",
+    "status": "different"
+  }
+]

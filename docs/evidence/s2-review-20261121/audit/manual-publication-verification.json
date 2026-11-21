@@ -1,0 +1,22 @@
+{
+  "37": {
+    "pr": 37,
+    "url": "https://github.com/BRMRs/group33/pull/37#issuecomment-7062245511",
+    "body": "S2 技术复核完成\r\n\r\n受审提交：c45c856a1bacdcf5e55ef5e0c98713d3a7a3da6e\r\n\r\n四份生产策略及两份专项测试与上次受审版本逐字节一致，本次未发现新增 S2 阻塞。\r\n\r\n在该提交的隔离源码上实际执行：\r\n- Debug：S1PolicyTest 33 项、CommandRecoveryPolicyTest 5 项。\r\n- Release：同样 33+5 项。\r\n- 合计 76 份变体结果，零失败、错误或跳过；两个测试任务均实际执行。\r\n- 449 个源码 blob、400 项摘要及仓库 policy 核验通过。\r\n\r\n当前提交 CI：\r\nhttps://github.com/BRMRs/group33/actions/runs/44874221395\r\n\r\n本结论覆盖时间与原命令恢复纯策略，不代替 Room、HTTP、实际投递或设备验收，也不代本人正式批准。\r\n\r\n@BRMRs 当前版本的 S2 技术复核及定向回归已完成。",
+    "author": "XinyanXue",
+    "created_at": "2026-11-21T11:58:45Z",
+    "head": "c45c856a1bacdcf5e55ef5e0c98713d3a7a3da6e",
+    "method": "user manually published",
+    "remote_readback_verified": true
+  },
+  "119": {
+    "pr": 119,
+    "url": "https://github.com/BRMRs/group33/pull/119#issuecomment-7062234749",
+    "body": "S2 技术复核完成\r\n\r\n受审提交：1308bc59f18305dd6fe2083679ea001c858e0bf9\r\n\r\n#135 的中断派发恢复修复，以及原 ACK、身份范围、Snooze 边界均完整保留，本次未发现新增 S2 阻塞。\r\n\r\n已下载并核验该提交的 API35 原始产物：\r\n- 23 份设备通过报告。\r\n- 自动恢复保留原工作 UUID、动作身份、payload 和截止时间，实际约 105 秒后自动重试 ACK，人工恢复调用为 0。\r\n- 独立真实 Server/PostgreSQL 流程的 62 个断言通过，覆盖丢响应、原回执重放、防重复及 JVM 重启。\r\n- 476 个源码 blob、427 项摘要和仓库 policy 核验通过。\r\n\r\n普通 CI：https://github.com/BRMRs/group33/actions/runs/44874395867\r\nAPI35/PG CI：https://github.com/BRMRs/group33/actions/runs/44874395869\r\n\r\nAndroid 探针使用注入传输；真实 Server/PG 是独立流程，未声称完成连续端到端链路。本条不代替正式批准，E 设备/可访问性验收及其余具名评审继续保留。\r\n\r\n@BRMRs 请结合其余评审推进整合。",
+    "author": "XinyanXue",
+    "created_at": "2026-11-21T11:57:46Z",
+    "head": "1308bc59f18305dd6fe2083679ea001c858e0bf9",
+    "method": "user manually published",
+    "remote_readback_verified": true
+  }
+}

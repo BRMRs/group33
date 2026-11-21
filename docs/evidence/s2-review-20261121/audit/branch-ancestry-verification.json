@@ -1,0 +1,145 @@
+{
+  "interpretation": "base=local, head=remote; ahead with behind_by=0 means remote contains all local commits",
+  "results": [
+    {
+      "branch": "feature/10-current-phone-account-validation",
+      "local": "6ec946d6e47f80b3804ac9acec3b8ca2d6fd24b8",
+      "remote": "554387b89691f6fe76568821fe94596d22dfc438",
+      "status": "different",
+      "comparison": "ahead",
+      "ahead_by": 17,
+      "behind_by": 0,
+      "merge_base": "6ec946d6e47f80b3804ac9acec3b8ca2d6fd24b8"
+    },
+    {
+      "branch": "feature/13-photo-object-inventory",
+      "local": "84fb60fda14a2a3ea46a25c29d4a048e9bd8d330",
+      "remote": "9d2120b07242de057cdcdb4a5a14b5c2775f5f78",
+      "status": "different",
+      "comparison": "ahead",
+      "ahead_by": 16,
+      "behind_by": 0,
+      "merge_base": "84fb60fda14a2a3ea46a25c29d4a048e9bd8d330"
+    },
+    {
+      "branch": "feature/13-photo-reconciliation",
+      "local": "c0770555e3c7256b6cfb15e7dfe642fcce490a8c",
+      "remote": "fecb57531cf75b1c97b9ef57396c09376f9062b2",
+      "status": "different",
+      "comparison": "ahead",
+      "ahead_by": 13,
+      "behind_by": 0,
+      "merge_base": "c0770555e3c7256b6cfb15e7dfe642fcce490a8c"
+    },
+    {
+      "branch": "feature/16-capability-postgres",
+      "local": "cfc531989f379c032fd53def7e09091384df51c9",
+      "remote": "256a36cb6b5badddf4a71ee655b64e31b35c28cc",
+      "status": "different",
+      "comparison": "ahead",
+      "ahead_by": 19,
+      "behind_by": 0,
+      "merge_base": "cfc531989f379c032fd53def7e09091384df51c9"
+    },
+    {
+      "branch": "feature/16-managed-cloud-schema",
+      "local": "16cada3bb4e019968682398520568f08eb640b56",
+      "remote": "865e6cf3c7d7e248ac1c5818d4eae701fc34965b",
+      "status": "different",
+      "comparison": "ahead",
+      "ahead_by": 10,
+      "behind_by": 0,
+      "merge_base": "16cada3bb4e019968682398520568f08eb640b56"
+    },
+    {
+      "branch": "feature/16-render-prerequisites",
+      "local": "8aca13d58d9d17cf0503777a488aae97f6966583",
+      "remote": "bfc8650b11dc5ea302a0fc9cd93afb01250dc7b9",
+      "status": "different",
+      "comparison": "ahead",
+      "ahead_by": 1,
+      "behind_by": 0,
+      "merge_base": "8aca13d58d9d17cf0503777a488aae97f6966583"
+    },
+    {
+      "branch": "feature/16-supabase-photo-storage",
+      "local": "69440c9f2ab2a9150f6ce6d4da2b9c1f9b1250a8",
+      "remote": "8db485a1d65ba0b10b744c3852d938c809fb217d",
+      "status": "different",
+      "comparison": "ahead",
+      "ahead_by": 11,
+      "behind_by": 0,
+      "merge_base": "69440c9f2ab2a9150f6ce6d4da2b9c1f9b1250a8"
+    },
+    {
+      "branch": "feature/16-supabase-runtime-prerequisites",
+      "local": "b42e7d0cf213921707d2da92d3b9aa24d789323b",
+      "remote": "c5c5e972dedea3fc7de13ebbf2017e65511f45a2",
+      "status": "different",
+      "comparison": "ahead",
+      "ahead_by": 1,
+      "behind_by": 0,
+      "merge_base": "b42e7d0cf213921707d2da92d3b9aa24d789323b"
+    },
+    {
+      "branch": "feature/17-capability-http",
+      "local": "ad88bea00aa713a7a31bf83482f139338efa5bb8",
+      "remote": "7d8b561f080317a6e83fcf55f3711323332f7a33",
+      "status": "different",
+      "comparison": "ahead",
+      "ahead_by": 15,
+      "behind_by": 0,
+      "merge_base": "ad88bea00aa713a7a31bf83482f139338efa5bb8"
+    },
+    {
+      "branch": "feature/17-capability-service",
+      "local": "f2906b3cd3a9d0f88a6000808adf6986d8f5bfae",
+      "remote": "f20b68c3251ef75e0d11a37028ed5306e1787cce",
+      "status": "different",
+      "comparison": "ahead",
+      "ahead_by": 21,
+      "behind_by": 0,
+      "merge_base": "f2906b3cd3a9d0f88a6000808adf6986d8f5bfae"
+    },
+    {
+      "branch": "fix/16-index-plan-collections",
+      "local": "2e05b4580a53512a8f716c848e50e478b4154509",
+      "remote": "53a7cbbfaab18be9a4cd18a97b4091b23844cf6d",
+      "status": "different",
+      "comparison": "ahead",
+      "ahead_by": 13,
+      "behind_by": 0,
+      "merge_base": "2e05b4580a53512a8f716c848e50e478b4154509"
+    },
+    {
+      "branch": "fix/17-bound-capability-statements",
+      "local": "48c96bac6152a6ae710280a732289a5efcdf292b",
+      "remote": "46decafcf4647979e991ebe9582313bb9f0d1309",
+      "status": "different",
+      "comparison": "ahead",
+      "ahead_by": 13,
+      "behind_by": 0,
+      "merge_base": "48c96bac6152a6ae710280a732289a5efcdf292b"
+    },
+    {
+      "branch": "fix/49-bound-phone-account-database",
+      "local": "bc3950d3fb657b76316155c966530ca672746dae",
+      "remote": "d320841986015f109f0ecd2260026ea1be598b23",
+      "status": "different",
+      "comparison": "ahead",
+      "ahead_by": 17,
+      "behind_by": 0,
+      "merge_base": "bc3950d3fb657b76316155c966530ca672746dae"
+    },
+    {
+      "branch": "test/16-business-backup-recovery",
+      "local": "7cba8d5d9cecd6e4c7f442ac93c409e9636e9ee0",
+      "remote": "ce0b3cb1965c6371597754e8ffa4579eeb333867",
+      "status": "different",
+      "comparison": "ahead",
+      "ahead_by": 7,
+      "behind_by": 0,
+      "merge_base": "7cba8d5d9cecd6e4c7f442ac93c409e9636e9ee0"
+    }
+  ]
+}

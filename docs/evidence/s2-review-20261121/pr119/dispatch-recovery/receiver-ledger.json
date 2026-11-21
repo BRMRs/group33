@@ -1,0 +1,39 @@
+{
+  "requests": [
+    {
+      "actionId": "b0d6050d-4622-4b4a-b775-5fb47c8f47d6",
+      "sha256": "d46cb39a185a1d4757ad6028d459f4112c23e711dd68855859386d8755e4ff8b",
+      "payload": {
+        "actionId": "b0d6050d-4622-4b4a-b775-5fb47c8f47d6",
+        "groupId": "33889343972e1b68c132e993a4a4f85d7fa192985747ad3c575d0a800ecb5a73",
+        "kind": "TAKEN",
+        "recordedAt": 1795241808083,
+        "plannedAt": 1795241807083,
+        "deadlineAt": 1795249007083,
+        "members": [
+          "process-7deb5727-3970-4f81-a85f-2bc8f8ed2bef-1\u001f2026-11-11\u001f08:00",
+          "process-7deb5727-3970-4f81-a85f-2bc8f8ed2bef-2\u001f2026-11-11\u001f08:00"
+        ]
+      }
+    },
+    {
+      "actionId": "b0d6050d-4622-4b4a-b775-5fb47c8f47d6",
+      "sha256": "d46cb39a185a1d4757ad6028d459f4112c23e711dd68855859386d8755e4ff8b",
+      "payload": {
+        "actionId": "b0d6050d-4622-4b4a-b775-5fb47c8f47d6",
+        "groupId": "33889343972e1b68c132e993a4a4f85d7fa192985747ad3c575d0a800ecb5a73",
+        "kind": "TAKEN",
+        "recordedAt": 1795241808083,
+        "plannedAt": 1795241807083,
+        "deadlineAt": 1795249007083,
+        "members": [
+          "process-7deb5727-3970-4f81-a85f-2bc8f8ed2bef-1\u001f2026-11-11\u001f08:00",
+          "process-7deb5727-3970-4f81-a85f-2bc8f8ed2bef-2\u001f2026-11-11\u001f08:00"
+        ]
+      }
+    }
+  ],
+  "effects": {
+    "b0d6050d-4622-4b4a-b775-5fb47c8f47d6": "d46cb39a185a1d4757ad6028d459f4112c23e711dd68855859386d8755e4ff8b"
+  }
+}

@@ -1,0 +1,92 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.9/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build
+> Task :shared:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :shared:compileKotlin FROM-CACHE
+> Task :shared:compileJava NO-SOURCE
+> Task :shared:processResources NO-SOURCE
+> Task :shared:classes UP-TO-DATE
+> Task :shared:jar
+> Task :android-app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :android-app:preBuild UP-TO-DATE
+> Task :android-app:preDebugBuild UP-TO-DATE
+> Task :android-app:dataBindingMergeDependencyArtifactsDebug
+> Task :android-app:generateDebugResValues FROM-CACHE
+> Task :android-app:generateDebugResources
+> Task :android-app:mergeDebugResources
+> Task :android-app:packageDebugResources
+> Task :android-app:parseDebugLocalResources
+> Task :android-app:dataBindingGenBaseClassesDebug
+> Task :android-app:generateDebugBuildConfig FROM-CACHE
+> Task :android-app:checkDebugAarMetadata
+> Task :android-app:mapDebugSourceSetPaths
+> Task :android-app:createDebugCompatibleScreenManifests
+> Task :android-app:extractDeepLinksDebug FROM-CACHE
+> Task :android-app:processDebugMainManifest
+> Task :android-app:processDebugManifest
+> Task :android-app:processDebugManifestForPackage
+> Task :android-app:processDebugResources
+> Task :android-app:kaptGenerateStubsDebugKotlin
+> Task :android-app:kaptDebugKotlin
+
+> Task :android-app:compileDebugKotlin
+w: file://<WORKSPACE>/S2-integration-audit-20261121/pr37/snapshot/android-app/src/debug/kotlin/com/group33/medicationreminder/integration/DebugChainRepository.kt:252:40 Condition is always 'true'.
+w: file://<WORKSPACE>/S2-integration-audit-20261121/pr37/snapshot/android-app/src/debug/kotlin/com/group33/medicationreminder/integration/DebugChainRepository.kt:252:59 Condition is always 'true'.
+w: file://<WORKSPACE>/S2-integration-audit-20261121/pr37/snapshot/android-app/src/debug/kotlin/com/group33/medicationreminder/integration/DebugDoseReminders.kt:152:38 'fun setPriority(p0: Int): Notification.Builder!' is deprecated. Deprecated in Java.
+w: file://<WORKSPACE>/S2-integration-audit-20261121/pr37/snapshot/android-app/src/debug/kotlin/com/group33/medicationreminder/integration/DebugDoseReminders.kt:152:63 'static field PRIORITY_HIGH: Int' is deprecated. Deprecated in Java.
+
+> Task :android-app:javaPreCompileDebug FROM-CACHE
+> Task :android-app:compileDebugJavaWithJavac
+> Task :android-app:bundleDebugClassesToRuntimeJar
+> Task :android-app:bundleDebugClassesToCompileJar
+> Task :android-app:kaptGenerateStubsDebugUnitTestKotlin
+
+> Task :android-app:kaptDebugUnitTestKotlin
+警告: 以下选项未被任何处理程序识别: '[room.schemaLocation, kapt.kotlin.generated]'
+
+> Task :android-app:compileDebugUnitTestKotlin
+> Task :android-app:preDebugUnitTestBuild UP-TO-DATE
+> Task :android-app:javaPreCompileDebugUnitTest FROM-CACHE
+> Task :android-app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :android-app:processDebugJavaRes
+> Task :android-app:processDebugUnitTestJavaRes
+> Task :android-app:testDebugUnitTest
+> Task :android-app:buildKotlinToolingMetadata
+> Task :android-app:preReleaseBuild UP-TO-DATE
+> Task :android-app:dataBindingMergeDependencyArtifactsRelease
+> Task :android-app:generateReleaseResValues FROM-CACHE
+> Task :android-app:generateReleaseResources
+> Task :android-app:mergeReleaseResources
+> Task :android-app:packageReleaseResources
+> Task :android-app:parseReleaseLocalResources
+> Task :android-app:dataBindingGenBaseClassesRelease
+> Task :android-app:generateReleaseBuildConfig FROM-CACHE
+> Task :android-app:checkReleaseAarMetadata
+> Task :android-app:mapReleaseSourceSetPaths
+> Task :android-app:createReleaseCompatibleScreenManifests
+> Task :android-app:extractDeepLinksRelease FROM-CACHE
+> Task :android-app:processReleaseMainManifest FROM-CACHE
+> Task :android-app:processReleaseManifest FROM-CACHE
+> Task :android-app:processReleaseManifestForPackage FROM-CACHE
+> Task :android-app:processReleaseResources
+> Task :android-app:kaptGenerateStubsReleaseKotlin
+> Task :android-app:kaptReleaseKotlin
+> Task :android-app:compileReleaseKotlin
+> Task :android-app:javaPreCompileRelease FROM-CACHE
+> Task :android-app:compileReleaseJavaWithJavac
+> Task :android-app:bundleReleaseClassesToRuntimeJar
+> Task :android-app:bundleReleaseClassesToCompileJar
+> Task :android-app:kaptGenerateStubsReleaseUnitTestKotlin
+
+> Task :android-app:kaptReleaseUnitTestKotlin
+警告: 以下选项未被任何处理程序识别: '[room.schemaLocation, kapt.kotlin.generated]'
+
+> Task :android-app:compileReleaseUnitTestKotlin
+> Task :android-app:preReleaseUnitTestBuild UP-TO-DATE
+> Task :android-app:javaPreCompileReleaseUnitTest FROM-CACHE
+> Task :android-app:compileReleaseUnitTestJavaWithJavac NO-SOURCE
+> Task :android-app:processReleaseJavaRes
+> Task :android-app:processReleaseUnitTestJavaRes
+> Task :android-app:testReleaseUnitTest
+
+BUILD SUCCESSFUL in 44s
+63 actionable tasks: 49 executed, 14 from cache
