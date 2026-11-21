@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Run thirteen runtime/notification boundary regressions on one disposable API35 x86_64 AVD.
+"""Run boundaries, real-clock automatic recovery and real PostgreSQL replay verification.
 
 The real Android app/session/Room code receives fictional injected HTTP replies.
 No real cloud, phone/SMS, physical-device or full two-device acceptance is claimed.
-Requires the official SDK tools and pre-installed API35 google_apis x86_64 image.
+Requires SDK tools, API35 google_apis x86_64 image, built Server JAR, psql and explicit
+S2_RECOVERY_PG_* loopback test credentials. Automatic mode clears only its disposable test app.
 """
 import argparse
 import hashlib
@@ -50,6 +51,10 @@ def main():
     args = parser.parse_args()
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=True)
+    if not all(os.environ.get('S2_RECOVERY_PG_' + key) for key in ('HOST', 'PORT', 'DATABASE', 'USER', 'PASSWORD')):
+        raise RuntimeError('Explicit loopback PostgreSQL test settings are required')
+    if not (os.environ.get('S2_RECOVERY_PSQL') or shutil.which('psql')):
+        raise RuntimeError('A PostgreSQL client is required for real database verification')
     sdk = Path(os.environ.get('ANDROID_HOME') or os.environ['ANDROID_SDK_ROOT'])
     adb = sdk / 'platform-tools/adb'
     emulator = sdk / 'emulator/emulator'
@@ -65,6 +70,10 @@ def main():
     apk_paths = ['android-app/build/outputs/apk/debug/android-app-debug.apk',
                  'android-app/build/outputs/apk/androidTest/debug/android-app-debug-androidTest.apk']
     proof_paths = apk_paths + [
+        'android-app/build.gradle.kts',
+        'android-app/src/androidTest/kotlin/com/group33/medicationreminder/core/reminder/AutomaticRecoveryProbeTest.kt',
+        'scripts/check_reminder_dispatch_recovery.py',
+        'scripts/check_postgres_receipt_recovery.py',
         'android-app/src/androidTest/kotlin/com/group33/medicationreminder/integration/RuntimeActionBoundaryTest.kt',
         'android-app/src/debug/kotlin/com/group33/medicationreminder/integration/DebugDoseReminders.kt',
         'android-app/src/debug/kotlin/com/group33/medicationreminder/integration/DebugChainRepository.kt',
@@ -125,6 +134,24 @@ def main():
             result['notification_screenshot_sha256'] = hashlib.sha256(screenshot.stdout).hexdigest()
             if not result['passed']:
                 raise RuntimeError('All thirteen exact-head API35 regressions must pass')
+            from check_reminder_dispatch_recovery import run_checks
+            boundary_passed = result['passed']
+            result['passed'] = False
+            result['dispatch_recovery'] = run_checks(adb, serial, out / 'dispatch-recovery', env)
+            result['passed'] = False
+            with (out / 'automatic-runner-build.log').open('w') as automatic_log:
+                subprocess.run(['./gradlew', ':android-app:assembleDebugAndroidTest', '-PautomaticRecoveryRunner=true',
+                    '--console=plain', '--max-workers=2', '--no-parallel', '--no-daemon'], cwd=ROOT, env=env,
+                    stdout=automatic_log, stderr=subprocess.STDOUT, check=True, timeout=300)
+            test_apk = ROOT / apk_paths[1]
+            result['automatic_test_apk_sha256'] = hashlib.sha256(test_apk.read_bytes()).hexdigest()
+            device('install', '-r', str(test_apk), timeout=120).check_returncode()
+            result['automatic_recovery'] = run_checks(adb, serial, out / 'automatic-recovery', env,
+                                                       skip_room=True, automatic=True)
+            from check_postgres_receipt_recovery import run_checks as run_postgres_checks
+            result['postgres_recovery'] = run_postgres_checks(out / 'postgres-recovery', env)
+            result['passed'] = (boundary_passed and result['dispatch_recovery']['passed']
+                                and result['automatic_recovery']['passed'] and result['postgres_recovery']['passed'])
     finally:
         if process is not None and process.poll() is None:
             try:

@@ -8,6 +8,8 @@ on:
       - 'gradle/**'
       - '.github/workflows/runtime-action-api35.yml'
       - 'scripts/run_runtime_action_api35.py'
+      - 'scripts/check_reminder_dispatch_recovery.py'
+      - 'scripts/check_postgres_receipt_recovery.py'
       - 'docs/contracts/GATE1_ARTIFACTS.sha256'
 
 permissions:
@@ -17,6 +19,20 @@ jobs:
   runtime-action-api35:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: group33_recovery
+          POSTGRES_PASSWORD: ci-loopback-recovery-only
+          POSTGRES_DB: group33_recovery
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U group33_recovery -d group33_recovery"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Check out the exact reviewed head
         uses: actions/checkout@v4
@@ -25,6 +41,15 @@ jobs:
 
       - name: Verify review artifact checksums
         run: shasum -a 256 -c docs/contracts/GATE1_ARTIFACTS.sha256
+
+      - name: Prepare PostgreSQL 17 test client
+        run: |
+          cat > "$RUNNER_TEMP/recovery-psql" <<'SH'
+          #!/bin/sh
+          exec docker exec -i -e PGPASSWORD -e PGCONNECT_TIMEOUT=5 -e PGSSLMODE=disable "${{ job.services.postgres.id }}" psql "$@"
+          SH
+          chmod 700 "$RUNNER_TEMP/recovery-psql"
+          echo "S2_RECOVERY_PSQL=$RUNNER_TEMP/recovery-psql" >> "$GITHUB_ENV"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -49,11 +74,16 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build runtime and notification boundary tests
-        run: ./gradlew :android-app:assembleDebug :android-app:assembleDebugAndroidTest --console=plain --max-workers=2 --no-parallel
+        run: ./gradlew :android-app:assembleDebug :android-app:assembleDebugAndroidTest :server:bootJar --console=plain --max-workers=2 --no-parallel
 
-      - name: Run thirteen API35 runtime and notification regressions
+      - name: Run boundaries, automatic recovery and real PostgreSQL replay
         env:
           EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+          S2_RECOVERY_PG_HOST: 127.0.0.1
+          S2_RECOVERY_PG_PORT: '5432'
+          S2_RECOVERY_PG_DATABASE: group33_recovery
+          S2_RECOVERY_PG_USER: group33_recovery
+          S2_RECOVERY_PG_PASSWORD: ci-loopback-recovery-only
         run: python3 scripts/run_runtime_action_api35.py --output "$RUNNER_TEMP/runtime-action-api35"
 
       - name: Retain exact-head device evidence
@@ -61,6 +91,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: runtime-action-api35-${{ github.event.pull_request.head.sha }}
-          path: ${{ runner.temp }}/runtime-action-api35
+          path: |
+            ${{ runner.temp }}/runtime-action-api35
+            !${{ runner.temp }}/runtime-action-api35/**/private/**
           if-no-files-found: warn
           retention-days: 14
