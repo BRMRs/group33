@@ -5,18 +5,40 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import com.group33.medicationreminder.core.data.LocalLanguageSettingsRepository
 import com.group33.medicationreminder.core.data.contract.LanguageChoice
+import com.group33.medicationreminder.core.reminder.ReminderNotifications
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 open class Group33Application : Application() {
+    private val infrastructureScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     internal open val featureServices: com.group33.medicationreminder.integration.ChainServices? get() = null
     internal open val elderDoses: com.group33.medicationreminder.elder.LiveElderDoses? get() = null
+    internal open val reminderPhaseDispatcher: com.group33.medicationreminder.core.reminder.ReminderPhaseDispatcher? get() = null
+    internal open val reminderActionDispatcher: com.group33.medicationreminder.core.reminder.ReminderActionDispatcher? get() = null
+    internal open val reminderStateListener: com.group33.medicationreminder.core.reminder.ReminderStateListener? get() = null
     lateinit var languageSettings: LocalLanguageSettingsRepository
         private set
 
     override fun onCreate() {
         super.onCreate()
         languageSettings = LocalLanguageSettingsRepository(this)
+        ReminderNotifications.ensureChannel(this)
+        infrastructureScope.launch {
+            // A cold process must not turn stale scheduled rows into audible reminders. Only durable
+            // RINGING rows get an exact-alarm recovery hop that is allowed to start playback on API 35.
+            com.group33.medicationreminder.core.reminder.ReminderCoordinator(this@Group33Application)
+                .scheduleRingingRecovery()
+            if (reminderPhaseDispatcher != null) {
+                com.group33.medicationreminder.core.reminder.ReminderPhaseWorker.enqueuePending(this@Group33Application)
+            }
+            if (reminderActionDispatcher != null) {
+                com.group33.medicationreminder.core.reminder.ReminderActionWorker.enqueuePending(this@Group33Application)
+            }
+        }
         val choice = runBlocking { languageSettings.observeChoice().first() }
         applyLanguage(choice, this)
     }
