@@ -598,14 +598,13 @@ index 0000000000000000000000000000000000000000..a520ab2536c0c3cc74813c0ceb10d3c7
 +}
 diff --git a/android-app/src/main/kotlin/com/group33/medicationreminder/integration/CaregiverHistorySyncRepository.kt b/android-app/src/main/kotlin/com/group33/medicationreminder/integration/CaregiverHistorySyncRepository.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..94b2eed0abb24fa4f2ef41d3ba784529b4b37dfc
+index 0000000000000000000000000000000000000000..bc3bb870b405afd5e519514a841e11088c0eb11f
 --- /dev/null
 +++ b/android-app/src/main/kotlin/com/group33/medicationreminder/integration/CaregiverHistorySyncRepository.kt
-@@ -0,0 +1,40 @@
+@@ -0,0 +1,44 @@
 +package com.group33.medicationreminder.integration
 +
 +import com.group33.medicationreminder.core.data.contract.*
-+import kotlinx.coroutines.CoroutineStart
 +import kotlinx.coroutines.Job
 +import kotlinx.coroutines.flow.channelFlow
 +import kotlinx.coroutines.launch
@@ -623,10 +622,12 @@ index 0000000000000000000000000000000000000000..94b2eed0abb24fa4f2ef41d3ba784529
 +    override fun observeEvents(elderId: String, range: LocalDateRange) = channelFlow {
 +        if (elderId != this@CaregiverHistorySyncRepository.elderId || !isCurrent()) return@channelFlow
 +        var denied = false
++        var firstCacheReceived = false
 +        var refresh: Job? = null
-+        // Subscribe before refreshing so a first HTTP result cannot be lost. A known denial
-+        // must not be revived by another read. The Host cancels this flow on range/context change.
-+        launch(start = CoroutineStart.UNDISPATCHED) {
++        // Room's first cache value can arrive asynchronously. Decide whether to refresh only
++        // after that value, while keeping this same subscription for later changes/revocation.
++        // The Host cancels this flow on range/context change.
++        launch {
 +            events.observeEvents(elderId, range).collect { cached ->
 +                if (isCurrent()) {
 +                    if (cached.access == AccessState.REVOKED) {
@@ -634,11 +635,14 @@ index 0000000000000000000000000000000000000000..94b2eed0abb24fa4f2ef41d3ba784529
 +                        refresh?.cancel()
 +                    }
 +                    send(cached)
++                    if (!firstCacheReceived) {
++                        firstCacheReceived = true
++                        if (!denied && isCurrent()) refresh = launch {
++                            if (!denied && isCurrent()) dashboard.refresh(elderId, range)
++                        }
++                    }
 +                }
 +            }
-+        }
-+        if (!denied && isCurrent()) refresh = launch {
-+            if (isCurrent()) dashboard.refresh(elderId, range)
 +        }
 +    }
 +}
@@ -918,10 +922,10 @@ index 0000000000000000000000000000000000000000..2b6ba4264ea49603f9ce2cac824cba20
 +}
 diff --git a/android-app/src/test/kotlin/com/group33/medicationreminder/integration/CaregiverHistorySyncRepositoryTest.kt b/android-app/src/test/kotlin/com/group33/medicationreminder/integration/CaregiverHistorySyncRepositoryTest.kt
 new file mode 100644
-index 0000000000000000000000000000000000000000..964a55de81932fe3bcb49b62a22fa4d8649bfb9e
+index 0000000000000000000000000000000000000000..2a4867783cd7a2de9e61e37449a660f58f807a7c
 --- /dev/null
 +++ b/android-app/src/test/kotlin/com/group33/medicationreminder/integration/CaregiverHistorySyncRepositoryTest.kt
-@@ -0,0 +1,116 @@
+@@ -0,0 +1,211 @@
 +package com.group33.medicationreminder.integration
 +
 +import com.group33.medicationreminder.core.data.contract.*
@@ -941,6 +945,7 @@ index 0000000000000000000000000000000000000000..964a55de81932fe3bcb49b62a22fa4d8
 +    private class Fixture {
 +        var current = true
 +        val rows = MutableStateFlow(Cached<List<DoseEventState>>(emptyList(), false, null, true, AccessState.UNKNOWN))
++        var firstEmissionGate: CompletableDeferred<Unit>? = null
 +        val reads = mutableListOf<Pair<String, LocalDateRange>>()
 +        val refreshes = mutableListOf<Pair<String, LocalDateRange>>()
 +        var refresh: suspend () -> Outcome<SyncSummary> = {
@@ -950,7 +955,10 @@ index 0000000000000000000000000000000000000000..964a55de81932fe3bcb49b62a22fa4d8
 +            arrayOf(DoseEventRepository::class.java)) { _, method, args ->
 +            check(method.name == "observeEvents")
 +            reads += (args[0] as String) to (args[1] as LocalDateRange)
-+            rows
++            flow {
++                firstEmissionGate?.await()
++                emitAll(rows)
++            }
 +        } as DoseEventRepository
 +        val dashboard = object : CaregiverDashboardRepository {
 +            override fun observeOverview(elderId: String, range: LocalDateRange): Flow<Cached<ElderOverview>> =
@@ -1036,5 +1044,96 @@ index 0000000000000000000000000000000000000000..964a55de81932fe3bcb49b62a22fa4d8
 +        job.cancelAndJoin()
 +        assertTrue(cancelled)
 +        assertEquals(listOf("elder" to range), f.refreshes)
++    }
++
++    @Test fun `asynchronous first revoked cache never starts refresh`() = runTest {
++        val f = Fixture()
++        val gate = CompletableDeferred<Unit>()
++        f.firstEmissionGate = gate
++        f.rows.value = cached(AccessState.REVOKED)
++        val seen = mutableListOf<Cached<List<DoseEventState>>>()
++        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
++            f.repository.observeEvents("elder", range).toList(seen)
++        }
++        runCurrent()
++        assertTrue(f.refreshes.isEmpty())
++        assertTrue(seen.isEmpty())
++        gate.complete(Unit)
++        runCurrent()
++        assertEquals(AccessState.REVOKED, seen.single().access)
++        assertTrue(f.refreshes.isEmpty())
++    }
++
++    @Test fun `asynchronous non revoked first cache starts one refresh and keeps observing`() = runTest {
++        for (access in listOf(AccessState.UNKNOWN, AccessState.AUTHORIZED)) {
++            val f = Fixture()
++            val gate = CompletableDeferred<Unit>()
++            f.firstEmissionGate = gate
++            f.rows.value = cached(access)
++            val seen = mutableListOf<Cached<List<DoseEventState>>>()
++            val job = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
++                f.repository.observeEvents("elder", range).toList(seen)
++            }
++            runCurrent()
++            assertTrue(f.refreshes.isEmpty())
++            gate.complete(Unit)
++            runCurrent()
++            assertEquals(listOf("elder" to range), f.refreshes)
++            assertEquals(access, seen.single().access)
++            f.rows.value = cached(AccessState.REVOKED)
++            runCurrent()
++            assertEquals(AccessState.REVOKED, seen.last().access)
++            assertEquals(1, f.refreshes.size)
++            job.cancelAndJoin()
++        }
++    }
++
++    @Test fun `cancellation before first cache cannot start refresh`() = runTest {
++        val f = Fixture()
++        val gate = CompletableDeferred<Unit>()
++        f.firstEmissionGate = gate
++        val job = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
++            f.repository.observeEvents("elder", range).collect()
++        }
++        runCurrent()
++        job.cancelAndJoin()
++        gate.complete(Unit)
++        runCurrent()
++        assertEquals(listOf("elder" to range), f.reads)
++        assertTrue(f.refreshes.isEmpty())
++    }
++
++    @Test fun `context invalidated before first cache cannot publish or refresh`() = runTest {
++        val f = Fixture()
++        val gate = CompletableDeferred<Unit>()
++        f.firstEmissionGate = gate
++        val seen = mutableListOf<Cached<List<DoseEventState>>>()
++        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
++            f.repository.observeEvents("elder", range).toList(seen)
++        }
++        runCurrent()
++        f.current = false
++        gate.complete(Unit)
++        runCurrent()
++        assertTrue(seen.isEmpty())
++        assertTrue(f.refreshes.isEmpty())
++    }
++
++    @Test fun `later revoked cache cancels in flight refresh and cannot restart it`() = runTest {
++        val f = Fixture()
++        var cancelled = false
++        f.refresh = { try { awaitCancellation() } finally { cancelled = true } }
++        val seen = mutableListOf<Cached<List<DoseEventState>>>()
++        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
++            f.repository.observeEvents("elder", range).toList(seen)
++        }
++        runCurrent()
++        f.rows.value = cached(AccessState.REVOKED)
++        runCurrent()
++        assertTrue(cancelled)
++        assertEquals(AccessState.REVOKED, seen.last().access)
++        f.rows.value = cached(AccessState.AUTHORIZED)
++        runCurrent()
++        assertEquals(1, f.refreshes.size)
 +    }
 +}

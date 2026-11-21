@@ -68,3 +68,22 @@ Debug197/Release196和构建通过；新增协调测试6项包含在内。旧包
 本人回复“这次对了，继续推进”，记录为上述修复版正常入口日期选择及读取的人工验收通过；不扩大为真实手机号、有数据历史、跨账号、可信默认日期或最终整体验收。下一步消费#136新head 021b39f的日历显示时钟增量并核对main b5acc05。新组合的自动验证另行记录，不把本次人工确认冒称新版本的重新测试。继续推进不等于批准提交、推送或对外发布。
 
 随后纳入021b39f：C1九个源码文件与已验收修复版逐字节相同；最新完整设备回归中英文各28/28、共56/56通过，包含新增的固定2024年2月空日历不选择/不观察用例；真实HTTP→Room→Activity中英文各1项再次通过，Debug197/Release196及构建/lint通过。`normal-read-*`两张现有图片已更新为最新组合且逐张检查；旧图仍在本地online04证据中。新clock测试脚本首次缺变量而未执行业务，修正后完整通过，失败记录保留。新增量只改变日历显示月份的可测性，无新增需本人重复操作的C1交互项，不补写本人重测了新依赖版本。
+
+### 11-22 C3复审：首次异步缓存时序修复
+
+#132 8ed4a74d已在11-21经本人批准推送、CI通过并发布回复；之后C3新增Request changes：订阅已建立不等于Room首值已返回，REVOKED首值前可能抢先刷新。本轮先补独立异步反例，旧代码11项中4项失败、原6项仍通过；再修复C1局部适配器。没有证明真实设备泄露，不改协议、C3实现或生产注册。
+
+新实现只在收到首个当前上下文缓存值后决定是否刷新；REVOKED不刷新，UNKNOWN/AUTHORIZED最多刷新一次。首值前取消或上下文失效不刷新、不转发旧值；后续撤权取消在途刷新，仍以缓存观察为准。新增5项JVM回归覆盖这些边界。当前九文件补丁仅有适配器和测试两份源码相对旧候选变化；基线34574a3，应用后树efb2774，完整SHA及重建步骤见交接说明。
+
+实际运行命令（目录为既有c1-review-pr119，Windows/JDK17）：
+
+```powershell
+.\gradlew.bat :android-app:testDebugUnitTest --tests '*CaregiverHistorySyncRepositoryTest' -I ../group33/.git/c1-local-recovery-20261117/c1-date-manual.init.gradle --offline --no-daemon --max-workers=1 --no-parallel --console=plain
+.\gradlew.bat :android-app:testDebugUnitTest :android-app:testReleaseUnitTest :android-app:lintDebug :android-app:assembleDebug :android-app:assembleRelease :android-app:assembleDebugAndroidTest -PdebugServerUrl=http://127.0.0.1:18087 -I ../group33/.git/c1-local-recovery-20261117/c1-date-manual.init.gradle --offline --no-daemon --max-workers=1 --no-parallel --console=plain
+```
+
+第一条为修复前反例，退出1；第二条为修复后完整验证，退出0（9分46秒）。Debug202/Release201均零失败、错误、跳过，其中协调测试各11/11；lint 0错误/33警告，三个APK构建通过。原始反例XML/log、完整日志、JUnit及lint归档、匹配APK和源码摘要保存在`.git/c1-local-recovery-20261117/pr132-revoked-*`。受测源码树d699bc7与导出候选efb2774的android-app/src逐路径相同。其余模块未改，本轮未重跑Server/Shared，不把旧Linux记录写成本轮执行。
+
+本轮未运行设备或真实HTTP：ADB只列出模拟器，没有小米平板；未占用其他窗口的模拟器。此前56/56和中英文HTTP各1项为旧候选0aeea04的历史证据。没有界面或人工操作变化，本轮时序边界由可控挂起首值测试验证，无需本人重复点选；不补写新版本的人工/设备通过。最终联合验收仍按计划执行。
+
+验证后已逐一恢复51项临时源码，真实暂存树19bc9c9保持不变，只留下C1补丁及本轮证据更新。`python scripts/check_repository_policy.py`、`git diff --check`及407项规范化摘要通过；主工作区gradle.properties原始SHA不变。新版本尚未提交、推送或回复；待本人批准后更新#132，CI通过再发复审回复，保持Draft并交C3/S1复审。

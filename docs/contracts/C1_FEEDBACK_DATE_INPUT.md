@@ -84,16 +84,44 @@ blob from #124 `a377a7df0731d48fc052514b61d37955e014f06d` (`git ls-tree`, then
 - `android-app/src/androidTest/kotlin/com/group33/medicationreminder/caregiver/CaregiverNavigationUiTest.kt`
 
 The resulting `git write-tree` must be `34574a35badfab6fdc9cbd4924dcd3dae5055102`. Apply the exported patch using
-`git apply --cached`, then `git write-tree` must be `0aeea0422f7d98c3ed178487a65e94bbbf9e49f9`. This verification
+`git apply --cached`, then `git write-tree` must be `efb2774141706bf952ddf47ac693054de9dcea66`. This verification
 does not modify the real index or working files. Build only in a checked clean
 review area or with individually saved/restorable preimages; do not overwrite
-another person's work. The local temporary overlay was restored after verification,
-preserving the existing uncommitted main merge and C1 files.
+another person's work. The 11-22 temporary overlay was restored after verification,
+preserving the main-synced real index `19bc9c9`, primary configuration and other work.
 
-Patch SHA-256: `b9ea67cd27b2a4a798627692efc8babba8faca53e0fce51d28de451e72730499`.
+Patch SHA-256: `169f2f1449f5d42bbc5b9bf746f7ab28e38693bf15c286e6c4974de4cb7377de`.
 
 The nine paths comprise the previous six plus C1's `CaregiverHistorySyncRepository`,
 its JVM test and the opt-in `CaregiverHistoryOnlineEntryTest`. No C3 source is changed.
+
+### 2026-11-22 asynchronous first-cache correction
+
+C3 requested changes on #132 `8ed4a74d`: starting a cache subscription does not
+mean Room has delivered its first value. The adapter could refresh before an
+asynchronous first REVOKED value. This is a request-order defect; no real-device
+data disclosure was demonstrated.
+
+The adapter now decides its single refresh only after the first current-context
+cache value. REVOKED never starts a refresh; UNKNOWN and AUTHORIZED retain the
+existing refresh path. The same collector keeps observing; later revocation
+cancels in-flight work. Cancellation before the first value starts no refresh,
+and invalid contexts neither forward that value nor refresh. The scheduled
+refresh rechecks both context and the latched denial. No receipt grants access,
+no automatic retry is added, and no protocol or production registration changes.
+
+Five additional JVM tests use a suspended first emission, cancellation and
+context invalidation; they also preserve later-revocation cancellation and the
+one-refresh limit. Before the fix, 4/11 failed (all original six passed); raw
+counterexample XML/logs are retained locally as `pr132-revoked-before.*`.
+The current exported nine-file patch changes only the adapter and its JVM test
+relative to the previously accepted candidate `0aeea04`; the other seven C1
+files and all C3 inputs are unchanged. Full post-fix verification is recorded
+in [LOCAL_ACCEPTANCE](../evidence/c1-feedback-date/LOCAL_ACCEPTANCE.md).
+
+The previous patch SHA `b9ea67cd` / tree `0aeea04` and its 56/56 device results
+remain historical evidence, not results for this correction. This revision
+requires C3/S1 re-review after separately approved publication; #132 stays Draft.
 
 ### 2026-11-21 actual-entry sync correction
 
