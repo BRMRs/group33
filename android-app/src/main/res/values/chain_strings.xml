@@ -12,7 +12,7 @@
     <string name="chain_choose_elder">Choose an Elder</string>
     <string name="chain_select_name">Choose %1$s</string>
     <string name="chain_inspect">View photo and create plan</string>
-    <string name="chain_inspect_number">View photo %1$d and create plan</string>
+    <string name="chain_view_photo_number">View photo %1$d</string>
     <string name="chain_elder_identity">Elder: %1$s</string>
     <string name="chain_caregiver_identity">Caregiver: %1$s</string>
     <string name="chain_signed_out">Signed out</string>
@@ -20,7 +20,7 @@
     <string name="chain_request_from">Request from %1$s</string>
     <string name="chain_current_elder">Current Elder: %1$s</string>
     <string name="chain_no_elder">No active Elder. A pending request grants no access.</string>
-    <string name="chain_no_plans">No plans.</string>
+    <string name="chain_no_plans">No confirmed plans loaded.</string>
     <string name="chain_plan">%1$s — %2$s\n%3$s (%4$s)\n%5$s — %6$s · %7$s</string>
     <string name="chain_no_end">No end date</string>
     <string name="chain_active">Active</string>
@@ -44,8 +44,5 @@
     <string name="chain_pairing_accepted">Pairing request accepted.</string>
     <string name="chain_pairing_declined">Pairing request declined.</string>
     <string name="chain_revoked">Access removed.</string>
-    <string name="chain_photo_read_failed">Could not open this photo.</string>
-    <string name="chain_photo_retry">Retry opening photo</string>
-    <string name="chain_plans_unavailable">Plans are currently unavailable.</string>
     <string name="chain_code_expired">The recovered pairing code expired. Generate a new code.</string>
 </resources>
