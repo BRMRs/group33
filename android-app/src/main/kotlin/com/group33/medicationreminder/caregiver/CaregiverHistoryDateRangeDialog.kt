@@ -20,6 +20,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.group33.medicationreminder.R
 import com.group33.medicationreminder.databinding.ViewCaregiverHistoryDateDialogBinding
 import java.text.NumberFormat
+import java.time.Clock
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -45,7 +46,9 @@ internal class CaregiverHistoryDateRangeDialog : DialogFragment() {
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         from = (savedInstanceState ?: requireArguments()).getString(FROM)?.let(LocalDate::parse)
         through = (savedInstanceState ?: requireArguments()).getString(THROUGH)?.let(LocalDate::parse)
-        month = savedInstanceState?.getString(MONTH)?.let(YearMonth::parse) ?: YearMonth.from(checkNotNull(from))
+        // The initial display month is frozen in arguments. It never supplies a selection or read range.
+        month = (savedInstanceState ?: requireArguments()).getString(MONTH)?.let(YearMonth::parse)
+            ?: error("Missing calendar display month")
         binding = ViewCaregiverHistoryDateDialogBinding.inflate(requireActivity().layoutInflater)
         ViewCompat.setAccessibilityHeading(binding.historyCalendarMonth, true)
         binding.historyCalendarPrevious.setOnClickListener { moveMonth(-1) }
@@ -202,8 +205,17 @@ internal class CaregiverHistoryDateRangeDialog : DialogFragment() {
         private const val FROM = "from"
         private const val THROUGH = "through"
         private const val MONTH = "month"
-        fun create(from: String, through: String) = CaregiverHistoryDateRangeDialog().apply {
-            arguments = Bundle().apply { putString(FROM, from); putString(THROUGH, through) }
+        fun create(
+            from: String?,
+            through: String?,
+            clock: Clock = Clock.systemDefaultZone(),
+        ) = CaregiverHistoryDateRangeDialog().apply {
+            val displayMonth = from?.let(LocalDate::parse)?.let(YearMonth::from) ?: YearMonth.now(clock)
+            arguments = Bundle().apply {
+                putString(FROM, from)
+                putString(THROUGH, through)
+                putString(MONTH, displayMonth.toString())
+            }
         }
     }
 }
