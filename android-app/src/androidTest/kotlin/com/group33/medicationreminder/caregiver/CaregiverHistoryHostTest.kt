@@ -26,7 +26,11 @@ import com.group33.shared.contract.OccurrenceGenerationEvidence
 import com.group33.shared.contract.OccurrenceKey
 import com.group33.shared.contract.TimeResolutionPolicy
 import com.group33.shared.model.DoseStatus
+import java.time.Clock
+import java.time.Instant
 import java.time.LocalDate
+import java.time.YearMonth
+import java.time.ZoneOffset
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
@@ -39,6 +43,26 @@ class CaregiverHistoryHostTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val scope = RepositoryScope("test-cloud", "test-installation", "test-caregiver")
     private val range = LocalDateRange("2026-10-01", "2026-10-30")
+
+    @Test fun vacantCalendarUsesTheInjectedDisplayMonthWithoutSelectingDates() = withHost { activity, _, repository ->
+        val fragments = activity.supportFragmentManager
+        onMain {
+            val calendar = CaregiverHistoryDateRangeDialog.create(
+                null,
+                null,
+                Clock.fixed(Instant.parse("2024-02-15T12:00:00Z"), ZoneOffset.UTC),
+            )
+            calendar.show(fragments, "fixed-calendar")
+            fragments.executePendingTransactions()
+            val grid = calendar.requireDialog().findViewById<ViewGroup>(R.id.history_calendar_grid)
+            val dates = (0 until grid.childCount).map(grid::getChildAt).mapNotNull { it.tag as? LocalDate }
+            assertTrue(dates.isNotEmpty())
+            assertTrue(dates.all { YearMonth.from(it) == YearMonth.of(2024, 2) })
+            assertFalse(calendar.requireDialog().findViewById<View>(R.id.history_dialog_confirm).isEnabled)
+            assertTrue(repository.observations.isEmpty())
+            calendar.dismissNow()
+        }
+    }
 
     @Test fun missingDefaultOpensCalendarAndKeepsManualReadAndDraftOnSourceUpdates() = withHost { activity, host, repository ->
         val trusted = context()
