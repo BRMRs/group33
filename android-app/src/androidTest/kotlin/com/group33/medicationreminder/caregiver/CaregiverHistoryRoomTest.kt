@@ -131,12 +131,20 @@ class CaregiverHistoryRoomTest {
         assertDeniedEventReadClearsHistory(404)
 
     @Test fun forbiddenEventReadCannotRecoverBySelectingAnotherCachedRangeInTheSameIdentity() =
-        assertDeniedEventReadClearsHistory(403, checkTerminalAccess = true)
+        assertDeniedEventReadClearsHistory(403, TerminalRangeCheck.SYNC_AFTER_DENIAL)
 
     @Test fun inaccessibleEventReadCannotRecoverBySelectingAnotherCachedRangeInTheSameIdentity() =
-        assertDeniedEventReadClearsHistory(404, checkTerminalAccess = true)
+        assertDeniedEventReadClearsHistory(404, TerminalRangeCheck.SYNC_AFTER_DENIAL)
 
-    private fun assertDeniedEventReadClearsHistory(status: Int, checkTerminalAccess: Boolean = false) = runBlocking<Unit> {
+    @Test fun forbiddenEventReadCannotRestoreAnAlreadyCachedRangeWithoutAnHttpRead() =
+        assertDeniedEventReadClearsHistory(403, TerminalRangeCheck.PRECACHED)
+
+    @Test fun inaccessibleEventReadCannotRestoreAnAlreadyCachedRangeWithoutAnHttpRead() =
+        assertDeniedEventReadClearsHistory(404, TerminalRangeCheck.PRECACHED)
+
+    private enum class TerminalRangeCheck { SYNC_AFTER_DENIAL, PRECACHED }
+
+    private fun assertDeniedEventReadClearsHistory(status: Int, rangeCheck: TerminalRangeCheck? = null) = runBlocking<Unit> {
         val suffix = UUID.randomUUID().toString()
         val caregiver = User("denied-history-caregiver-$suffix", "Fixture caregiver", UserRole.CAREGIVER)
         val elder = User("denied-history-elder-$suffix", "Fixture elder", UserRole.ELDER)
@@ -155,6 +163,13 @@ class CaregiverHistoryRoomTest {
             val active = CaregiverContextResolver.resolve(session, trusted, relationships, relationship.id)
                 as CaregiverContextState.Active
             assertTrue(repository.refresh(elder.id, originalRange) is Outcome.Success)
+            if (rangeCheck == TerminalRangeCheck.PRECACHED) {
+                assertTrue(repository.refresh(elder.id, nextRange) is Outcome.Success)
+                val secondCache = withTimeout(5_000) { repository.observeEvents(elder.id, nextRange).first() }
+                assertEquals(AccessState.AUTHORIZED, secondCache.access)
+                assertTrue(secondCache.hasLocalData)
+                assertEquals(listOf(nextRange.fromDate), secondCache.value.map { it.occurrence.localDate })
+            }
 
             ActivityScenario.launch<CaregiverHistoryTestActivity>(
                 Intent(instrumentation.targetContext, CaregiverHistoryTestActivity::class.java),
@@ -218,21 +233,27 @@ class CaregiverHistoryRoomTest {
                     oldDetails.findViewById<View>(R.id.history_close_details).performClick()
                 }
                 instrumentation.waitForIdleSync()
-                assertEquals(2, transport.doseRequests.size)
-                assertTrue(transport.doseRequests.all { it.first == transport.path(elder.id, originalRange) &&
-                    it.second == "history-script-token" })
+                val expectedRanges = if (rangeCheck == TerminalRangeCheck.PRECACHED) {
+                    listOf(originalRange, nextRange, originalRange)
+                } else {
+                    listOf(originalRange, originalRange)
+                }
+                assertEquals(expectedRanges.map { transport.path(elder.id, it) to "history-script-token" },
+                    transport.doseRequests.toList())
                 assertEquals(relationshipReads, transport.relationshipReads.get())
                 assertEquals(AuthReadiness.READY, repository.observeSession().first().readiness)
                 assertEquals(trusted, repository.services.trusted.value)
                 val retained = repository.services.pairing.observeRelationships().first()
                 assertEquals(AccessState.AUTHORIZED, retained.access)
                 assertEquals(CareRelationshipStatus.ACTIVE, retained.value.single().status)
-                if (checkTerminalAccess) {
-                    // Another range can be populated by the existing sync source. That does not
-                    // create a new trusted identity for this already-denied history page.
-                    transport.deniedStatus = null
-                    assertTrue(repository.refresh(elder.id, nextRange) is Outcome.Success)
-                    assertEquals(transport.path(elder.id, nextRange), transport.doseRequests.last().first)
+                if (rangeCheck != null) {
+                    if (rangeCheck == TerminalRangeCheck.SYNC_AFTER_DENIAL) {
+                        // Preserve the older scenario where the sync source later populates another range.
+                        transport.deniedStatus = null
+                        assertTrue(repository.refresh(elder.id, nextRange) is Outcome.Success)
+                        assertEquals(transport.path(elder.id, nextRange), transport.doseRequests.last().first)
+                    }
+                    val requestsBeforeLocalChange = transport.doseRequests.toList()
                     scenario.onActivity {
                         host.findViewById<TextView>(R.id.history_from).text = nextRange.fromDate
                         host.findViewById<TextView>(R.id.history_through).text = nextRange.throughDate
@@ -251,6 +272,9 @@ class CaregiverHistoryRoomTest {
                         assertTrue(host.findViewById<TextView>(R.id.history_elder).text.isEmpty())
                         assertFalse(visibleText(host).contains("Fixture medication"))
                     }
+                    assertEquals("Choosing dates in history must not issue another HTTP request",
+                        requestsBeforeLocalChange, transport.doseRequests.toList())
+                    assertEquals(relationshipReads, transport.relationshipReads.get())
                 }
             }
         } finally { repository.close() }
