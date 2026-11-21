@@ -73,3 +73,11 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 2026-11-05 — BRMRs, Refs #15 / PR #110: reused #59 shared entry and #92 navigation, removed the parallel Debug launcher and legacy role chooser, and retained anonymous login only in Debug. Merge-readiness audit reproduced and corrected obsolete-Elder cache publication, same-Elder relationship reattachment, false recovery success and Elder sync-management UI; nine new JVM regressions, bilingual 14-phase reruns and 67 device regressions passed. [Review routing and remaining merge conditions](docs/PR110_MERGE_READINESS.md). Automated audit is not member approval; no main merge, parent-issue completion or physical-device acceptance is implied.
 
 2026-11-07 - tianiridescent / C1, Refs #19: shared-login keyboard viewport correction from current main, preserving existing authentication boundaries. Real API35 320/360dp 200% English/Chinese keyboard tests cover SMS/password/reset submission and return; the baseline password counterexamples fail before the correction. [Scope and evidence](docs/evidence/C1_LOGIN_KEYBOARD_INSETS.md). API27 physical-tablet bilingual compatibility also passed (24 total device cases). Local candidate; publication and non-author review remain separate.
+
+### 2026-11-17 — XinyanXue / S2 — trusted execution time-zone contract
+
+Proposed isolated Shared DTOs, reviewed-design notes and identical Android/Shared/Boot-Jackson vectors. No production endpoint, DB/Room, signature or delivery acceptance claimed; same-head S1 review requested.
+
+### 2026-11-18 — XinyanXue / S2 — #130 tzdb and UUID interoperability
+
+Separate stable zone wire syntax from registry-specific acceptance/consumption; add explicit UNAVAILABLE local view preserving raw reports, and document/test canonical lowercase UUIDs. Reproduce old unknown-zone decode failure, then tri-runtime round-trip/registry-skew/failed-lookup/syntax regression. No production adapters or old DTO changes.
