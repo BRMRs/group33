@@ -1,0 +1,51 @@
+[
+  {
+    "pr": 88,
+    "commit": "03846a9975170e7b0f6cc4e2ea030c270d7ea2fb",
+    "path": "server/src/main/resources/application.yml",
+    "sha256": "601222adb00ecb07455d9aa229422c0a5733886edc1373f19184d612656254c1",
+    "url": "https://github.com/BRMRs/group33/blob/03846a9975170e7b0f6cc4e2ea030c270d7ea2fb/server/src/main/resources/application.yml"
+  },
+  {
+    "pr": 88,
+    "commit": "03846a9975170e7b0f6cc4e2ea030c270d7ea2fb",
+    "path": "server/src/main/kotlin/com/group33/server/auth/PhoneAuthController.kt",
+    "sha256": "37922b9fac459bb21c5e61ae725fd9bedd3e71b4b76e32f2454afeda3b29ecc4",
+    "url": "https://github.com/BRMRs/group33/blob/03846a9975170e7b0f6cc4e2ea030c270d7ea2fb/server/src/main/kotlin/com/group33/server/auth/PhoneAuthController.kt"
+  },
+  {
+    "pr": 88,
+    "commit": "03846a9975170e7b0f6cc4e2ea030c270d7ea2fb",
+    "path": "docs/contracts/PHONE_AUTH_HANDOFF.md",
+    "sha256": "b13fdf2573723b55457ca0b0c1697633672a9300d6538a98e147d287ece94b21",
+    "url": "https://github.com/BRMRs/group33/blob/03846a9975170e7b0f6cc4e2ea030c270d7ea2fb/docs/contracts/PHONE_AUTH_HANDOFF.md"
+  },
+  {
+    "pr": 88,
+    "commit": "03846a9975170e7b0f6cc4e2ea030c270d7ea2fb",
+    "path": "docs/PHONE_TEAM_TEST.md",
+    "sha256": "7d0b4f2c121b20dfca84a9f0600467f7769f2f26f540354e534a807019671d9f",
+    "url": "https://github.com/BRMRs/group33/blob/03846a9975170e7b0f6cc4e2ea030c270d7ea2fb/docs/PHONE_TEAM_TEST.md"
+  },
+  {
+    "pr": 94,
+    "commit": "554387b89691f6fe76568821fe94596d22dfc438",
+    "path": "server/src/main/kotlin/com/group33/server/auth/CurrentPhoneAccountValidator.kt",
+    "sha256": "9f4a5c99aa3ac76cc2f94496bac0607056f6de8a696a4b0f1ae3aefccb9f3a5a",
+    "url": "https://github.com/BRMRs/group33/blob/554387b89691f6fe76568821fe94596d22dfc438/server/src/main/kotlin/com/group33/server/auth/CurrentPhoneAccountValidator.kt"
+  },
+  {
+    "pr": 97,
+    "commit": "d320841986015f109f0ecd2260026ea1be598b23",
+    "path": "server/src/main/kotlin/com/group33/server/auth/FusionCallExecutor.kt",
+    "sha256": "2ee97e82311f393c25a5b0d2580ec60d449b1454991921c8fea97f59346bc732",
+    "url": "https://github.com/BRMRs/group33/blob/d320841986015f109f0ecd2260026ea1be598b23/server/src/main/kotlin/com/group33/server/auth/FusionCallExecutor.kt"
+  },
+  {
+    "pr": 97,
+    "commit": "d320841986015f109f0ecd2260026ea1be598b23",
+    "path": "server/src/main/kotlin/com/group33/server/auth/FusionAuthProvider.kt",
+    "sha256": "36dbc7223885bf3c004c56b1c034fe997449a1d952bbd75dc9a1e3bf0c1ac7c0",
+    "url": "https://github.com/BRMRs/group33/blob/d320841986015f109f0ecd2260026ea1be598b23/server/src/main/kotlin/com/group33/server/auth/FusionAuthProvider.kt"
+  }
+]
