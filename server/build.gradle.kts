@@ -105,4 +105,5 @@ tasks.register<Test>("postgresIntegrationTest") {
         }
         systemProperty("s2.postgres.test.classpath", sourceSets.test.get().runtimeClasspath.asPath)
     }
+    dependsOn("schemaMigrationDist")
 }

@@ -6,6 +6,7 @@ Update this file weekly. Use links to GitHub issues and pull requests after the 
 
 | Week | Member | Issue or responsibility | Pull request or commit | Verification evidence | Status |
 |---|---|---|---|---|---|
+| 2026-11-14 | XinyanXue — S2 (agent-assisted) | #16: explicit loopback-only restored-schema copy administration | [PR #128](https://github.com/BRMRs/group33/pull/128), based on main6114071 | Fixed catalog references, immutable target history, locked atomic copy/row verification, private CLI and actual packaged-launcher PostgreSQL cases; exact current checks recorded with PR. | Scoped local recovery delivery; no cloud backup/copy/migration/deployment, no phone/V2 acceptance or issue closure. |
 | 2 | BRMRs (S1; agent-assisted implementation) | [#10](https://github.com/BRMRs/group33/issues/10), private environment-scoped session foundation | [PR #84](https://github.com/BRMRs/group33/pull/84) | [Real API23/35, cold-process and failure evidence](docs/S1_PRIVATE_SESSION.md#evidence-so-far--2026-10-29) | Local checks pass; non-author C1/S2 review and actual login-host integration pending |
 | 2 | BRMRs (S1; agent-assisted correction) | [#13](https://github.com/BRMRs/group33/issues/13), private source/scope and unknown recovery correction; original feature by Katherine-Tang | [PR #82](https://github.com/BRMRs/group33/pull/82) | [Original failing counterexamples and corrected checks](docs/evidence/E_PHOTO_SUBMIT_VALIDATION.md) | Final non-author review and real host/upload integration remain |
 | 1 | Katherine-Tang — E | [#13](https://github.com/BRMRs/group33/issues/13): local capture/select/preview and truthful submit state | [PR #82](https://github.com/BRMRs/group33/pull/82) | See `docs/evidence/E_PHOTO_SUBMIT_VALIDATION.md`; real backend and human review pending | Implemented slice; review/integration pending; not #13 completion |
@@ -73,3 +74,13 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 2026-11-05 — BRMRs, Refs #15 / PR #110: reused #59 shared entry and #92 navigation, removed the parallel Debug launcher and legacy role chooser, and retained anonymous login only in Debug. Merge-readiness audit reproduced and corrected obsolete-Elder cache publication, same-Elder relationship reattachment, false recovery success and Elder sync-management UI; nine new JVM regressions, bilingual 14-phase reruns and 67 device regressions passed. [Review routing and remaining merge conditions](docs/PR110_MERGE_READINESS.md). Automated audit is not member approval; no main merge, parent-issue completion or physical-device acceptance is implied.
 
 2026-11-07 - tianiridescent / C1, Refs #19: shared-login keyboard viewport correction from current main, preserving existing authentication boundaries. Real API35 320/360dp 200% English/Chinese keyboard tests cover SMS/password/reset submission and return; the baseline password counterexamples fail before the correction. [Scope and evidence](docs/evidence/C1_LOGIN_KEYBOARD_INSETS.md). API27 physical-tablet bilingual compatibility also passed (24 total device cases). Local candidate; publication and non-author review remain separate.
+
+| 2026-11-17 | XinyanXue — S2 (agent-assisted) | #16 independent recovery fault coverage | [PR #128](https://github.com/BRMRs/group33/pull/128) | Add two real-PG commit-boundary connection-loss cases: same client SQL08006, either rollback or persisted target, independent readback, no automatic copy retry/overwrite and original receipt replay. JDBC fault injection, no real-network/cloud claim. | Production/admin command, SQL, dependencies and wire unchanged; qualified non-author review remains required. |
+
+### 2026-11-17 — XinyanXue / S2 — #128 current-main integration
+
+Resolve checksum conflict; preserve main dose V10, explicitly require both new target tables empty, and update migration-count fixture. Original source/loopback/rollback/unknown-COMMIT boundaries retained; full and realPG checks rerun.
+
+### 2026-11-18 — XinyanXue / S2 — #128 public-entry and private-reference guards
+
+Unify pre-connect URL-option refusal; keep CLI budgets through fixed internal properties; fix0700/0600 reference operations to a verified canonical parent and identity checks. Add direct no-network entry and moved/symlinked-parent red/green regressions; preserve original realPG/COMMIT assertions.
