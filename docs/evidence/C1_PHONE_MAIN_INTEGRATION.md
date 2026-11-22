@@ -543,3 +543,10 @@ production identity/authorization, actual controlled service, policy/signature
 inputs and the verified team APK do not. This does not enable phone business
 access or accept future request fields. Keep #88 Draft; publication of this local
 main merge requires separate approval, then same-head CI and S1/S2 re-review.
+
+Publication follow-up: the first CI run on `c5707612` stopped at checksums before
+tests. The local manifest helper had incorrectly normalized CRLF bytes inside the
+three binary AARs. Corrected their hashes using raw bytes, verified identical to
+the tested SDK files and #88 `03846a9`; no dependency bytes/version changed.
+The failed run `45012402460` remains visible. Subsequent validation checks binary
+artifacts without text normalization; passing local builds above are unaffected.
