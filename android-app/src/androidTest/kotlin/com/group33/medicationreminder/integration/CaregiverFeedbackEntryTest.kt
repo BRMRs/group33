@@ -120,11 +120,24 @@ class CaregiverFeedbackEntryTest {
             outer.scrollTo(0, 0)
         }
         h.await { outer.height > 0 }
+        awaitStableScroll(h, outer)
         swipeVisible(h, h.root, up = true, pageContent = true)
+        awaitStableScroll(h, outer)
         h.act {
             assertTrue("The shared page owns movement across header and overview content", outer.scrollY > 0)
         }
-        swipeVisible(h, h.root, up = false, pageContent = true)
+        repeat(4) {
+            var before = 0
+            h.act { before = outer.scrollY }
+            if (before > 0) {
+                swipeVisible(h, h.root, up = false, pageContent = true)
+                awaitStableScroll(h, outer)
+                h.act {
+                    assertTrue("A reverse drag from the same region must move toward the shared header: " +
+                        "before=$before, after=${outer.scrollY}", outer.scrollY < before)
+                }
+            }
+        }
         h.act { assertEquals("Pulling down at the content top must reveal the shared header", 0, outer.scrollY) }
     }
 
@@ -331,6 +344,21 @@ class CaregiverFeedbackEntryTest {
         assertTrue("Inline detail close must be reachable at the last record", closeVisible)
         tapPoint(close.exactCenterX(), close.exactCenterY())
         h.await("Closing inline details must retain the final record") { list.count == 25 && findText(list, "Scroll medication 24") != null }
+    }
+
+    private fun awaitStableScroll(h: Harness, scroll: androidx.core.widget.NestedScrollView) {
+        var previousPosition: Pair<Int, Int>? = null
+        var stableSince = android.os.SystemClock.uptimeMillis()
+        h.await("Shared scroll must finish layout and movement") {
+            val position = scroll.scrollY to scroll.height
+            val now = android.os.SystemClock.uptimeMillis()
+            if (scroll.isLayoutRequested || h.root.isLayoutRequested || position != previousPosition) {
+                previousPosition = position
+                stableSince = now
+            }
+            scroll.height > 0 && !scroll.isLayoutRequested && !h.root.isLayoutRequested &&
+                now - stableSince >= 150
+        }
     }
 
     private fun tapPoint(x: Float, y: Float) {
@@ -622,16 +650,43 @@ class CaregiverFeedbackEntryTest {
     private fun withEntry(explicitDates: Boolean = true, eventRows: List<DoseEventState> = emptyList(),
         language: String? = InstrumentationRegistry.getArguments().getString("c1DateLanguage"), fontScale: Float? = null, widthDp: Int? = null,
         initialDateAvailable: Boolean = true, block: (Harness) -> Unit) {
-        val previousLocales = androidx.appcompat.app.AppCompatDelegate.getApplicationLocales()
-        if (language != null) instrumentation.runOnMainSync {
-            // Set the locale before Activity creation so inflated and dynamic strings agree.
-            androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(
-                androidx.core.os.LocaleListCompat.forLanguageTags(language))
+        val appContext = instrumentation.targetContext.applicationContext
+        val previousLocales = if (android.os.Build.VERSION.SDK_INT >= 33) {
+            androidx.core.os.LocaleListCompat.wrap(
+                appContext.getSystemService(android.app.LocaleManager::class.java).applicationLocales)
+        } else androidx.appcompat.app.AppCompatDelegate.getApplicationLocales()
+        fun applyFixtureLocales(locales: androidx.core.os.LocaleListCompat) {
+            instrumentation.runOnMainSync {
+                if (android.os.Build.VERSION.SDK_INT >= 33) {
+                    appContext.getSystemService(android.app.LocaleManager::class.java).applicationLocales =
+                        android.os.LocaleList.forLanguageTags(locales.toLanguageTags())
+                }
+                androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(locales)
+            }
+            instrumentation.waitForIdleSync()
         }
+        if (language != null) applyFixtureLocales(
+            androidx.core.os.LocaleListCompat.forLanguageTags(language))
         try {
             ActivityScenario.launch<CaregiverHistoryTestActivity>(
                 Intent(instrumentation.targetContext, CaregiverHistoryTestActivity::class.java),
             ).use { scenario ->
+                if (language != null) {
+                    val expected = java.util.Locale.forLanguageTag(language).language
+                    val deadline = android.os.SystemClock.uptimeMillis() + 10_000
+                    var observed = ""
+                    do {
+                        scenario.onActivity { activity ->
+                            observed = androidx.core.os.ConfigurationCompat.getLocales(
+                                activity.resources.configuration)[0]?.language.orEmpty()
+                        }
+                        if (observed == expected) break
+                        instrumentation.waitForIdleSync()
+                        android.os.SystemClock.sleep(16)
+                    } while (android.os.SystemClock.uptimeMillis() < deadline)
+                    assertEquals("Activity must receive the fixture language before page creation",
+                        expected, observed)
+                }
                 val h = Harness(scenario, eventRows)
                 if (!initialDateAvailable) h.suppliedToday = null
                 var original: android.content.res.Configuration? = null
@@ -682,9 +737,7 @@ class CaregiverFeedbackEntryTest {
                 } }
             }
         } finally {
-            if (language != null) instrumentation.runOnMainSync {
-                androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(previousLocales)
-            }
+            if (language != null) applyFixtureLocales(previousLocales)
         }
     }
 
