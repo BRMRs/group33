@@ -1148,3 +1148,38 @@ usability acceptance plus the automated isolation/revocation coverage above.
 This is not approval to publish or a teammate PR approval. Remaining visual
 polish is deferred until all three C1 functional tracks are complete; final
 C2/C3 composition and accessibility checks remain outstanding as listed above.
+
+### 2026-11-22 main b5acc05 compatibility verification
+
+Candidate source tree 2dca5d96262d48bd825881e548810d4b8bd186d2, based on PR head 377b34ab8e6f73f15eec233538e8da7860e4fa9a and
+main b5acc05224612bf25797ee71a5cdf1a879b67d91. This integration takes the existing main event-row component
+and its fixtures without changing C1 auth/pairing/session behavior, DTOs, Server,
+Shared or production registration. The only merge conflict was the artifact
+manifest; hashes were regenerated from raw Git blobs (CRLF checkout for .bat).
+
+Actual local command (isolated Debug application ID, offline cached dependencies):
+
+```text
+gradlew.bat :android-app:testDebugUnitTest :android-app:testReleaseUnitTest :android-app:lintDebug :android-app:assembleDebug :android-app:assembleRelease :android-app:assembleDebugAndroidTest :shared:test -PdebugServerUrl=http://127.0.0.1:18087 -I ../group33/.git/c1-local-recovery-20261117/login-isolated.init.gradle --offline --no-daemon --max-workers=1 --no-parallel --console=plain
+```
+
+Debug 162 / Release 161, zero failures/errors/skips;
+lint zero errors / 37 existing warnings; all three APKs built.
+Shared was UP-TO-DATE, not a newly executed suite. Server was not rerun: unchanged.
+Repository policy and diff whitespace checks passed. Logs, XML reports and frozen
+APK hashes are retained in the c1-main-112 local evidence, not regenerated
+build artifacts committed to Git.
+
+Mi Pad 4 Plus API27, isolated c1dev88 package: C1 CaregiverNavigationUiTest 3/3 passed in a separate run.
+This is current-main compatibility evidence, not real phone login, two-client
+pairing or final C2/C3 composition acceptance. Existing human feature acceptance
+remains historical; no additional human acceptance is claimed here.
+
+Extended main event-row device checks on the #112 candidate were 5/7 (combined
+with C1 navigation: 8/10); separate baseline reruns reproduced both failures.
+One Debug host did not receive the expected system-bar padding on API27; another
+fixture captured screenshots on the UI thread and stalled UiAutomation teardown.
+These files were exact main versions. A separate Refs #19 Debug/test-only repair
+candidate is being validated, not silently mixed into this main-sync delivery.
+Do not describe the extended component suite on this PR as fully passing.
+Final integration review and applicable non-author approvals remain required.
