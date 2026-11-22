@@ -25,6 +25,8 @@ Refs #10 / #49，C1 的 main 整合候选。复用 #88 的阿里云一键登录�
 
 AccessKey ID/Secret 由负责人配置在服务端机密设置，运行时读取 `ALIBABA_CLOUD_ACCESS_KEY_ID`、`ALIBABA_CLOUD_ACCESS_KEY_SECRET`。测试者安装 APK 时不输入 AccessKey。当前没有已核实的部署控制台入口，不应按猜测把密钥填入其他网页。
 
+11-22交接更新：S2已在[#138 `18645bd`](https://github.com/BRMRs/group33/blob/18645bdbd0d908afd61009f8fe571df5fcd77488/docs/PHONE_SERVER_DELIVERY_118.md)提供现有试验接口/未来字段差异、服务端变量及Render实际服务→Environment的操作说明。C1已核对其7份来源源码摘要一致。配置步骤已有，但实际phone-enabled服务ID/权限、正式账号/安装/会话及同事务业务授权（PS1/PS2）、政策地址和登记签名仍待交付。现有试验请求不增加未来attempt/installation字段；不向匿名预览服务填密钥。接口、服务及同版包齐全后再做真实一键/SDK短信验收。
+
 ## 构建者操作
 
 拿到以上配置后，从仓库根目录运行（替换占位值）：

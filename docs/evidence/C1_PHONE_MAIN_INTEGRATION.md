@@ -503,3 +503,43 @@ isolated package was installed/force-stopped; no original application data or
 global device settings were changed. No commit, push, CI or human approval for
 this follow-up is claimed. Reverting the local Repository mutex and added
 regressions is source-only rollback; no schema or persisted format was changed.
+
+## 2026-11-22 latest-main integration
+
+The previously approved session correction was published as #88 `03846a9`.
+Main subsequently advanced from `bbe4997` to `b5acc05`; #88 again reported a
+merge conflict. This local normal merge retains both sides of the Debug manifest
+and dimension resources, plus the main evidence-component implementation/tests.
+All nine existing login/SDK activities and seven existing dimensions retain
+their attributes/values. The only new activity is the non-exported main event-row
+test host. Auth/session sources, Android build configuration, Server and Shared
+are byte-identical to #88 HEAD; no API, production registration or persisted
+format is changed. Contribution/artifact records are merged, not discarded.
+
+Source merge tree before evidence edits: `b1254b9ce8778744d5774f2c48275874104db3bb`.
+Actual Windows/JDK17 command, in the existing reused work area:
+
+```text
+gradlew.bat :android-app:testDebugUnitTest :android-app:testReleaseUnitTest :android-app:lintDebug :android-app:assembleDebug :android-app:assembleRelease :android-app:assembleDebugAndroidTest :shared:test -I ../group33/.git/c1-local-recovery-20261117/login-isolated.init.gradle --offline --no-daemon --max-workers=1 --no-parallel --console=plain
+```
+
+BUILD SUCCESSFUL in 7m26s. Debug164/Release150 actually executed with zero
+failures/errors/skips. Lint: zero errors/46 warnings. Debug, unsigned Release
+and instrumentation APKs assembled with the existing isolated applicationId
+`com.group33.medicationreminder.c1dev88`; they were not installed. Shared was
+UP-TO-DATE, not newly executed. Server was not rerun: the unchanged source keeps
+the earlier Linux635 evidence above; no new Windows Server or cloud success is
+claimed. Historical Windows POSIX and earlier provider/setup failures remain.
+
+Exact merge checks, original XML/lint, log and matching APK hashes are retained
+under `.git/c1-local-recovery-20261117/pr88-main-20261122-*`. No device/HTTP/provider
+test was run this round; the preceding two-profile tablet results are historical.
+Login UI values and auth/session implementation are unchanged, so this source
+sync adds no manual C1 interaction check. Final real-service tests remain required.
+
+C1 also consumed S2's #138 `18645bd` source/config handoff and independently
+matched its seven source hashes. Configuration instructions now exist; PS1/PS2
+production identity/authorization, actual controlled service, policy/signature
+inputs and the verified team APK do not. This does not enable phone business
+access or accept future request fields. Keep #88 Draft; publication of this local
+main merge requires separate approval, then same-head CI and S1/S2 re-review.
