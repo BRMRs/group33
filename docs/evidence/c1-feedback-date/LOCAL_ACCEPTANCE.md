@@ -87,3 +87,31 @@ Debug197/Release196和构建通过；新增协调测试6项包含在内。旧包
 本轮未运行设备或真实HTTP：ADB只列出模拟器，没有小米平板；未占用其他窗口的模拟器。此前56/56和中英文HTTP各1项为旧候选0aeea04的历史证据。没有界面或人工操作变化，本轮时序边界由可控挂起首值测试验证，无需本人重复点选；不补写新版本的人工/设备通过。最终联合验收仍按计划执行。
 
 验证后已逐一恢复51项临时源码，真实暂存树19bc9c9保持不变，只留下C1补丁及本轮证据更新。`python scripts/check_repository_policy.py`、`git diff --check`及407项规范化摘要通过；主工作区gradle.properties原始SHA不变。新版本尚未提交、推送或回复；待本人批准后更新#132，CI通过再发复审回复，保持Draft并交C3/S1复审。
+
+### 2026-11-22 corrected-APK device execution completed
+
+Mi Pad 4 Plus 9c69cae2/API27, exact frozen corrected app/test SHA-256:
+4347dada77606a17ce3394b8a8016b0d0cfc3b26f6d6d910e7df5c8b44c420d9 /
+c257e32ae3d09bf83978d5245d82f5eefeafc7bfadb027b373cbdb6e71e07b86.
+run_pr132_revoked_device.py revoked-20261122 --full passed English28/28 and
+Chinese28/28, zero failures/errors. run_pr132_revoked_online.py then passed actual
+HTTP -> Room -> normal CaregiverHomeActivity 1/1 per language (plus two locale
+setup methods). Fresh explicit ranges were 2026-10-01..02 and 2026-10-03..04;
+initial cache UNKNOWN/no local data, edits do not sync, Read becomes Room-authorized
+empty history and renders the applied range. No inferred authority from the
+refresh receipt. Both latest screenshots were visually inspected.
+
+Raw commands/logs/source/APK metadata and pictures are retained locally in
+pr132-136-date-device-revoked-20261122 and pr132-revoked-online-20261122. The
+isolated c1datemanual package used fictional anonymous local HTTP identities;
+no real phone login, populated history, production date source or final full-team
+composition is claimed. Only the owned loopback reverse port18087 was created.
+The fixture-only proxy creates a care relationship through actual server routes;
+it does not grant event access. Its first preparation ended with a client-closed
+connection before these regressions; an explicit UI login retry succeeded. No
+test assertion/time limit was relaxed. Original app/data and device settings were
+preserved. No new manual interaction was added; prior human date/read acceptance
+is retained without calling these automated runs new human acceptance.
+
+This six-file evidence update awaits publication approval; #132 remains Draft
+and still needs S1/C3 final integration review and the production dependencies.

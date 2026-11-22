@@ -408,3 +408,16 @@ All three new date integration checks and four C1 navigation checks passed in ea
 [C3 requested exact combination inputs and pristine comparison](https://github.com/BRMRs/group33/issues/15#issuecomment-6922291973). The [2026-11-17 paired comparison](../evidence/c1-feedback-date/124_BASELINE_COMPARISON.md) now records exact source/APK hashes, matching device conditions, singles and related groups for pristine #124 and the candidate. Both target failures reproduce on the original. The new combined API35 group additionally timed out on date-side dragging; two isolated reruns per variant passed, leaving that group difference unresolved. No original-code defect cause, green full regression or human approval is inferred. Raw APKs/logs remain local for a separately authorized handoff.
 
 [C3's separate proposed denied-event-read tests](https://github.com/BRMRs/group33/issues/15#issuecomment-6923493529) request C1 context/authorization-recovery review and S1 Repository/Room review. They do not authorize a new date or identity protocol. Their implementation and human review are outside this partial delivery.
+
+### 2026-11-22 corrected composition device follow-up
+
+The exact corrected candidate efb2774 / patch 169f2f14 now passed Mi Pad 4 Plus
+API27: English28/28 and Chinese28/28 (56/56 total), then actual HTTP/Room/normal
+Activity selected-range checks 1/1 in each language. Calendar draft, no-default
+entry, rebind/withdrawal, context cleanup and explicit Read use the fixed adapter.
+The frozen APKs are the previously compiled corrected pair, not the older clock
+pair. C3 separately confirmed its 12/12 coordinator tests on PR93d78e4; that is
+adapter verification in a Comment, not full PR approval or production readiness.
+Latest normal-read screenshots are updated; prior screenshots remain in the local
+clock/online evidence. Commands and fixture limits are recorded in LOCAL_ACCEPTANCE.
+No C1/C3 source or protocol changes in this evidence-only follow-up.
