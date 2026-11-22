@@ -1,0 +1,10 @@
+// Adds external review tests only to the unit-test source set.
+gradle.afterProject { project, state ->
+    if (project.name == 'android-app') {
+        def reviewProbes = System.getProperty('s2.review.probes')
+        if (reviewProbes == null || !new File(reviewProbes).isDirectory()) {
+            throw new GradleException('Set -Ds2.review.probes to the matching pr108 or pr114 directory')
+        }
+        project.android.sourceSets.getByName('test').java.srcDir(reviewProbes)
+    }
+}
