@@ -121,7 +121,8 @@ class CaregiverEventRowViewTest {
 
     @Test fun attachedBilingualRowsWrapAtNarrowWidthsAndLargeConfiguredFont() {
         for (language in listOf("en", "zh")) for (scale in listOf(1f, 2f)) for (width in listOf(320, 360)) {
-            withRow(language, scale, width, afterLayout = { activity, row ->
+            withRow(language, scale, width, screenshotName = "c3-row-$language-$scale-$width.png",
+                afterLayout = { _, row ->
                 assertTrue(row.root.isAttachedToWindow)
                 assertTrue(ViewCompat.isAccessibilityHeading(row.medication))
                 assertTrue(row.root.height > 0)
@@ -142,12 +143,6 @@ class CaregiverEventRowViewTest {
                     assertTrue(Color.alpha(text.currentTextColor) == 255)
                     assertTrue(ColorUtils.calculateContrast(text.currentTextColor, background) >= 4.5)
                 }
-                // A real window capture, not proof of actual system font settings or spoken TalkBack output.
-                val screenshot = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
-                try {
-                    val file = File(activity.cacheDir, "c3-row-$language-$scale-$width.png")
-                    file.outputStream().use { assertTrue(screenshot.compress(Bitmap.CompressFormat.PNG, 100, it)) }
-                } finally { screenshot.recycle() }
             }) { row ->
                 row.bindEvent(event.copy(medicationSnapshot = MedicationText(
                     "Test medication / 测试药品 ".repeat(5), "Test dosage / 测试剂量 ".repeat(5)),
@@ -167,14 +162,22 @@ class CaregiverEventRowViewTest {
             assertTrue("top padding must avoid system UI", scroll.paddingTop >= bars.top)
             assertTrue("fixture must exceed viewport", row.root.height > scroll.height)
             scroll.isSmoothScrollingEnabled = false
-            scroll.fullScroll(View.FOCUS_DOWN)
             val scrollPosition = IntArray(2).also(scroll::getLocationOnScreen)
             val reportPosition = IntArray(2).also(row.syncedReports::getLocationOnScreen)
-            val safeBottom = scrollPosition[1] + scroll.height - bars.bottom
-            assertTrue("last report must be above system bar",
-                reportPosition[1] + row.syncedReports.height <= safeBottom)
-            assertTrue("last report must be fully inside the visible viewport",
-                reportPosition[1] >= scrollPosition[1] + scroll.paddingTop)
+            val safeTop = scrollPosition[1] + scroll.paddingTop
+            val safeBottom = scrollPosition[1] + scroll.height - scroll.paddingBottom
+            // A 200%-font report can exceed the landscape viewport. Prove that both
+            // ends are reachable instead of requiring the whole paragraph at once.
+            scroll.scrollTo(0, scroll.scrollY + reportPosition[1] - safeTop)
+            row.syncedReports.getLocationOnScreen(reportPosition)
+            assertTrue("report beginning must be reachable below system UI",
+                reportPosition[1] >= safeTop && reportPosition[1] < safeBottom)
+            scroll.fullScroll(View.FOCUS_DOWN)
+            row.syncedReports.getLocationOnScreen(reportPosition)
+            val reportBottom = reportPosition[1] + row.syncedReports.height
+            assertTrue("report ending must be reachable above system UI",
+                reportBottom > safeTop && reportBottom <= safeBottom)
+
         }) { row ->
         row.bindEvent(event.copy(medicationSnapshot = MedicationText("Fictional medication ".repeat(40),
             "Fictional dosage ".repeat(40)), localReports = listOf(report)).toCaregiverEventRow())
@@ -195,6 +198,7 @@ class CaregiverEventRowViewTest {
 
     private fun withRow(language: String = "en", scale: Float = 1f, widthDp: Int = 360,
         afterLayout: ((CaregiverEventRowTestActivity, ItemCaregiverOverviewEventBinding) -> Unit)? = null,
+        screenshotName: String? = null,
         block: (ItemCaregiverOverviewEventBinding) -> Unit,
     ) {
         val previousZone = TimeZone.getDefault()
@@ -219,6 +223,15 @@ class CaregiverEventRowViewTest {
             }
             instrumentation.waitForIdleSync()
             instrumentation.runOnMainSync { afterLayout?.invoke(host, row) }
+            // UiAutomation connects through the main looper; do not wait for it on main.
+            // This is a real window capture, not actual system font/TalkBack acceptance.
+            screenshotName?.let { name ->
+                val screenshot = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+                try {
+                    val file = File(host.cacheDir, name)
+                    file.outputStream().use { assertTrue(screenshot.compress(Bitmap.CompressFormat.PNG, 100, it)) }
+                } finally { screenshot.recycle() }
+            }
         } finally {
             try { activity?.let { host -> instrumentation.runOnMainSync { host.finish() } } }
             finally { TimeZone.setDefault(previousZone) }
