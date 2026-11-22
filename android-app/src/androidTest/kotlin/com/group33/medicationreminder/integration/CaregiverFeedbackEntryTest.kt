@@ -33,7 +33,7 @@ class CaregiverFeedbackEntryTest {
     @Test fun explicitDatesRouteFullPagesAndPreservePairingAndPlanSections() = withEntry { h ->
         h.await { find(h.root, CaregiverOverviewHost::class.java) != null }
         h.act {
-            assertEquals(1, h.providerCalls)
+            assertTrue(h.providerCalls >= 1)
             assertNotNull(findText(h.root, it.getString(R.string.chain_no_plans)))
             h.root.findViewById<View>(R.id.refresh_button).performClick()
         }
@@ -43,7 +43,7 @@ class CaregiverFeedbackEntryTest {
         h.act {
             assertEquals(CaregiverDestination.RECORDS, h.lastDestination)
             assertEquals(listOf("elder" to dates), h.fixture.historyQueries)
-            assertEquals(1, h.providerCalls)
+            assertTrue(h.providerCalls >= 1)
             h.content.show(CaregiverDestination.SETTINGS)
         }
         h.await { find(h.root, CaregiverHistoryHost::class.java) == null }
@@ -51,7 +51,7 @@ class CaregiverFeedbackEntryTest {
             assertTrue(allViews(h.root).filterIsInstance<EditText>().any {
                 it.hint?.toString() == activity.getString(R.string.chain_enter_code) && it.isShown
             })
-            assertEquals(1, h.fixture.refreshes.size)
+            assertEquals(listOf("elder" to dates, "elder" to dates), h.fixture.refreshes)
         }
     }
 
@@ -87,12 +87,15 @@ class CaregiverFeedbackEntryTest {
         h.act { assertNull(find(h.root, CaregiverHistoryHost::class.java)) }
     }
 
-    @Test fun callerWithoutDateProviderKeepsExistingPanelInsteadOfInventingADefault() = withEntry(false) { h ->
-        h.await { findText(h.root, instrumentation.targetContext.getString(R.string.dose_records_overview)) != null }
+    @Test fun callerWithoutDateProviderDoesNotQueryGuessedDates() = withEntry(false) { h ->
+        h.await { findText(h.root, h.root.context.getString(R.string.c1_feedback_date_unavailable)) != null }
+        captureDateEvidence("unavailable")
         h.act {
             assertNull(find(h.root, CaregiverOverviewHost::class.java))
             assertNull(find(h.root, CaregiverHistoryHost::class.java))
             assertEquals(0, h.providerCalls)
+            assertTrue(h.fixture.historyQueries.isEmpty())
+            assertTrue(h.fixture.refreshes.isEmpty())
         }
     }
 
@@ -303,7 +306,7 @@ class CaregiverFeedbackEntryTest {
         var offset = 0
         h.act { position = list.firstVisiblePosition; offset = list.getChildAt(0).top }
         swipeVisible(h, h.root, up = false, pageContent = true, holdBeforeRelease = false)
-        h.await { list.firstVisiblePosition < position ||
+        h.await("Reverse drag must move back from first=$position, top=$offset") { list.firstVisiblePosition < position ||
             list.firstVisiblePosition == position && (list.getChildAt(0)?.top ?: offset) > offset }
         var atEnd = false
         repeat(32) {
@@ -315,7 +318,7 @@ class CaregiverFeedbackEntryTest {
         val row = android.graphics.Rect()
         h.act { assertTrue(findText(list, "Scroll medication 24")!!.getGlobalVisibleRect(row)) }
         tapPoint(row.exactCenterX(), row.exactCenterY())
-        h.await { list.count == 26 }
+        h.await("Tapping the final row must open inline details") { list.count == 26 }
         val close = android.graphics.Rect()
         var closeVisible = false
         repeat(8) {
@@ -327,17 +330,22 @@ class CaregiverFeedbackEntryTest {
         }
         assertTrue("Inline detail close must be reachable at the last record", closeVisible)
         tapPoint(close.exactCenterX(), close.exactCenterY())
-        h.await { list.count == 25 && findText(list, "Scroll medication 24") != null }
+        h.await("Closing inline details must retain the final record") { list.count == 25 && findText(list, "Scroll medication 24") != null }
     }
 
     private fun tapPoint(x: Float, y: Float) {
-        val down = android.os.SystemClock.uptimeMillis()
-        for (action in listOf(android.view.MotionEvent.ACTION_DOWN, android.view.MotionEvent.ACTION_UP)) {
-            val event = android.view.MotionEvent.obtain(down, android.os.SystemClock.uptimeMillis(), action, x, y, 0)
-            instrumentation.sendPointerSync(event); event.recycle()
-            android.os.SystemClock.sleep(30)
-        }
-        instrumentation.waitForIdleSync()
+        androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.isRoot())
+            .perform(object : androidx.test.espresso.ViewAction {
+                override fun getDescription() = "Send one verified tap at the captured visible coordinates"
+                override fun getConstraints(): org.hamcrest.Matcher<View> =
+                    androidx.test.espresso.matcher.ViewMatchers.isRoot()
+                override fun perform(controller: androidx.test.espresso.UiController, view: View) {
+                    // Tap.SINGLE synchronizes input delivery; call it directly to avoid click retries.
+                    assertEquals(androidx.test.espresso.action.Tapper.Status.SUCCESS,
+                        androidx.test.espresso.action.Tap.SINGLE.sendTap(controller, floatArrayOf(x, y),
+                            androidx.test.espresso.action.Press.FINGER.describePrecision()))
+                }
+            })
     }
 
     private fun swipeVisible(h: Harness, target: View, up: Boolean, horizontalFraction: Float = .5f,
@@ -372,7 +380,11 @@ class CaregiverFeedbackEntryTest {
             }
             val event = android.view.MotionEvent.obtain(down, android.os.SystemClock.uptimeMillis(),
                 action, x, from + (to - from) * step / 12, 0)
-            instrumentation.sendPointerSync(event)
+            event.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
+            // An edge gesture can be routed through a system-owned window on API27/MIUI.
+            // Use the automation input channel, retaining the exact start region and assertions.
+            assertTrue("The automation channel must deliver each drag event",
+                instrumentation.uiAutomation.injectInputEvent(event, true))
             event.recycle()
             android.os.SystemClock.sleep(20)
         }
@@ -419,67 +431,299 @@ class CaregiverFeedbackEntryTest {
         assertTrue("Touch scrolling must reach the last history record through the shared parent", reached)
     }
 
-    private fun withEntry(explicitDates: Boolean = true, eventRows: List<DoseEventState> = emptyList(),
-        language: String? = null, fontScale: Float? = null, widthDp: Int? = null, block: (Harness) -> Unit) {
-        ActivityScenario.launch<CaregiverHistoryTestActivity>(
-            Intent(instrumentation.targetContext, CaregiverHistoryTestActivity::class.java),
-        ).use { scenario ->
-            val h = Harness(scenario, eventRows)
-            var original: android.content.res.Configuration? = null
-            h.act { activity ->
-                if (language != null || fontScale != null) {
-                    val config = android.content.res.Configuration(activity.resources.configuration)
-                    original = android.content.res.Configuration(config)
-                    language?.let { config.setLocale(java.util.Locale.forLanguageTag(it)) }
-                    fontScale?.let { config.fontScale = it }
-                    @Suppress("DEPRECATION")
-                    activity.resources.updateConfiguration(config, activity.resources.displayMetrics)
-                }
-                // Mirror C1's production IME/system-bar avoidance within this controlled test window.
-                androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(activity.container) { view, insets ->
-                    val bars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() or
-                        androidx.core.view.WindowInsetsCompat.Type.ime())
-                    view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
-                    androidx.core.view.WindowInsetsCompat.CONSUMED
-                }
-                h.root = activity.layoutInflater.inflate(R.layout.activity_caregiver_home, activity.container, false) as ViewGroup
-                val density = activity.resources.displayMetrics.density
-                activity.container.addView(h.root, FrameLayout.LayoutParams(
-                    widthDp?.let { (it * density).toInt() } ?: -1, if (widthDp == null) -1 else (480 * density).toInt()))
-                androidx.core.view.ViewCompat.requestApplyInsets(activity.container)
-                val model = ChainViewModel(h.fixture.services)
-                h.store.put("entry", model)
-                h.content = OnlineFeatureContent(activity, h.root.findViewById(R.id.feature_content),
-                    UserRole.CAREGIVER, model, h.fixture.services,
-                    navigate = { destination -> h.lastDestination = destination; h.content.show(destination) },
-                    feedbackRange = if (explicitDates) ({ _ -> h.providerCalls++; dates }) else null)
+
+    @Test fun dateUnavailableDoesNotQueryUntilExplicitHostRebind() = withEntry(initialDateAvailable = false) { h ->
+        var fallbackQueries = emptyList<Pair<String, LocalDateRange>>()
+        h.await { findText(h.root, h.root.context.getString(R.string.c1_feedback_date_unavailable)) != null }
+        h.act {
+            assertNull(find(h.root, CaregiverOverviewHost::class.java))
+            h.content.show(CaregiverDestination.RECORDS)
+        }
+        h.act {
+            assertNotNull(find(h.root, CaregiverHistoryHost::class.java))
+            assertEquals("", h.root.findViewById<EditText>(R.id.history_from).text.toString())
+            assertEquals(View.GONE, h.root.findViewById<View>(R.id.caregiver_scroll).visibility)
+            assertEquals(View.VISIBLE, h.root.findViewById<View>(R.id.caregiver_records_content).visibility)
+            fallbackQueries = h.fixture.historyQueries.toList()
+            assertTrue(fallbackQueries.isEmpty())
+            h.suppliedToday = java.time.LocalDate.parse("2026-10-30")
+            h.content.show(CaregiverDestination.RECORDS)
+        }
+        h.await { find(h.root, CaregiverHistoryHost::class.java) != null }
+        h.await { h.fixture.historyQueries.size == fallbackQueries.size + 1 }
+        h.act { assertEquals(fallbackQueries + ("elder" to dates), h.fixture.historyQueries) }
+    }
+
+    @Test fun restoredSessionRejectsOldDateBeforeMountingHistory() = withEntry { h ->
+        var fallbackQueries = emptyList<Pair<String, LocalDateRange>>()
+        h.await { find(h.root, CaregiverOverviewHost::class.java) != null }
+        h.act {
+            h.content.show(CaregiverDestination.SETTINGS)
+            h.dateContextOverride = CaregiverElderContext(h.fixture.scope, 1, "relationship", "elder", "Fixture elder")
+            h.fixture.trusted.value = TrustedSessionContext(h.fixture.scope, 2)
+        }
+        h.await { (h.model.state.value.context as? CaregiverContextState.Active)?.context?.sessionGeneration == 2L }
+        h.act { h.content.show(CaregiverDestination.RECORDS) }
+        h.act {
+            assertNotNull(find(h.root, CaregiverHistoryHost::class.java))
+            assertEquals("", h.root.findViewById<EditText>(R.id.history_from).text.toString())
+            fallbackQueries = h.fixture.historyQueries.toList()
+            assertTrue(fallbackQueries.isEmpty())
+            h.dateContextOverride = null
+            h.content.show(CaregiverDestination.RECORDS)
+        }
+        h.await { find(h.root, CaregiverHistoryHost::class.java) != null }
+        h.await { h.fixture.historyQueries.size == fallbackQueries.size + 1 }
+        h.act { assertEquals(fallbackQueries + ("elder" to dates), h.fixture.historyQueries) }
+    }
+
+    @Test fun reentryWithoutDateDoesNotReuseThePreviousRange() = withEntry { h ->
+        h.await { find(h.root, CaregiverOverviewHost::class.java) != null }
+        h.act {
+            h.content.show(CaregiverDestination.SETTINGS)
+            h.suppliedToday = null
+            h.content.show(CaregiverDestination.RECORDS)
+        }
+        h.act {
+            assertNull(find(h.root, CaregiverOverviewHost::class.java))
+            assertNotNull(find(h.root, CaregiverHistoryHost::class.java))
+            assertEquals("", h.root.findViewById<EditText>(R.id.history_from).text.toString())
+            assertTrue(h.fixture.historyQueries.isEmpty())
+            assertEquals(View.VISIBLE, h.root.findViewById<View>(R.id.caregiver_records_content).visibility)
+        }
+    }
+
+    @Test fun sameContextDateUpdateRebindsTheDefaultRange() = withEntry { h ->
+        h.await { find(h.root, CaregiverOverviewHost::class.java) != null }
+        h.act { h.content.show(CaregiverDestination.RECORDS) }
+        h.await { h.fixture.historyQueries == listOf("elder" to dates) }
+        val next = LocalDateRange("2026-10-02", "2026-10-31")
+        h.act {
+            h.suppliedToday = java.time.LocalDate.parse("2026-10-31")
+            h.content.show(CaregiverDestination.RECORDS)
+        }
+        h.await { h.fixture.historyQueries == listOf("elder" to dates, "elder" to next) }
+    }
+
+    @Test fun sameContextDateWithdrawalClearsHistoryAndDoesNotQueryFallback() = withEntry { h ->
+        h.await { find(h.root, CaregiverOverviewHost::class.java) != null }
+        h.act { h.content.show(CaregiverDestination.RECORDS) }
+        h.await { h.fixture.historyQueries == listOf("elder" to dates) }
+        h.act {
+            h.suppliedToday = null
+            h.content.show(CaregiverDestination.RECORDS)
+        }
+        h.await { h.root.findViewById<EditText>(R.id.history_from).text.toString().isEmpty() }
+        h.act {
+            assertNull(find(h.root, CaregiverOverviewHost::class.java))
+            assertNotNull(find(h.root, CaregiverHistoryHost::class.java))
+            assertEquals(listOf("elder" to dates), h.fixture.historyQueries)
+            h.suppliedToday = java.time.LocalDate.parse("2026-10-30")
+            h.content.show(CaregiverDestination.RECORDS)
+        }
+        h.await { h.fixture.historyQueries == listOf("elder" to dates, "elder" to dates) }
+    }
+
+    @Test fun unchangedDefaultDoesNotOverwriteExplicitHistorySelection() = withEntry { h ->
+        h.await { find(h.root, CaregiverOverviewHost::class.java) != null }
+        h.act { h.content.show(CaregiverDestination.RECORDS) }
+        h.await { h.fixture.historyQueries == listOf("elder" to dates) }
+        val explicit = LocalDateRange("2026-10-10", "2026-10-11")
+        h.act {
+            h.root.findViewById<EditText>(R.id.history_from).setText(explicit.fromDate)
+            h.root.findViewById<EditText>(R.id.history_through).setText(explicit.throughDate)
+            h.root.findViewById<View>(R.id.history_apply).performClick()
+        }
+        h.await { h.fixture.historyQueries == listOf("elder" to dates, "elder" to explicit) }
+        h.act { h.content.show(CaregiverDestination.RECORDS) }
+        h.act {
+            assertEquals(explicit.fromDate, h.root.findViewById<EditText>(R.id.history_from).text.toString())
+            assertEquals(listOf("elder" to dates, "elder" to explicit), h.fixture.historyQueries)
+        }
+    }
+
+    @Test fun missingDefaultAllowsCalendarDraftAndExplicitRead() = withEntry(false) { h ->
+        h.await { findText(h.root, h.root.context.getString(R.string.c1_feedback_date_unavailable)) != null }
+        h.act { h.content.show(CaregiverDestination.RECORDS) }
+        h.await { find(h.root, CaregiverHistoryHost::class.java) != null }
+        var selected: LocalDateRange? = null
+        h.act { activity ->
+            assertTrue(h.fixture.historyQueries.isEmpty())
+            h.root.findViewById<View>(R.id.history_pick_range).performClick()
+            activity.supportFragmentManager.executePendingTransactions()
+            val dialog = activity.supportFragmentManager.fragments
+                .filterIsInstance<CaregiverHistoryDateRangeDialog>().single().requireDialog()
+            val grid = dialog.findViewById<ViewGroup>(R.id.history_calendar_grid)
+            val days = (0 until grid.childCount).map(grid::getChildAt).filter { it.tag is java.time.LocalDate }
+            selected = LocalDateRange(days[0].tag.toString(), days[1].tag.toString())
+            days[0].performClick(); days[1].performClick()
+            dialog.findViewById<View>(R.id.history_dialog_confirm).performClick()
+            assertTrue("Calendar confirmation only fills a draft", h.fixture.historyQueries.isEmpty())
+            assertTrue("Calendar confirmation must not sync", h.fixture.refreshes.isEmpty())
+            assertEquals(selected!!.fromDate, h.root.findViewById<EditText>(R.id.history_from).text.toString())
+        }
+        h.act { h.root.findViewById<View>(R.id.history_apply).performClick() }
+        h.await { h.fixture.historyQueries == listOf("elder" to selected!!) }
+        h.await { h.fixture.refreshes == listOf("elder" to selected!!) }
+        h.await {
+            h.root.findViewById<TextView>(R.id.history_applied_range).text.toString().contains(selected!!.fromDate) &&
+                h.root.findViewById<TextView>(R.id.history_elder).text.isNotBlank()
+        }
+        captureDateEvidence("manual-history")
+    }
+
+    @Test fun changedAndWithdrawnDefaultsKeepManualReadAndPendingDraftUntilSessionChanges() = withEntry { h ->
+        h.await { find(h.root, CaregiverOverviewHost::class.java) != null }
+        h.act { h.content.show(CaregiverDestination.RECORDS) }
+        h.await { h.fixture.historyQueries == listOf("elder" to dates) }
+        val manual = LocalDateRange("2026-10-10", "2026-10-11")
+        lateinit var original: CaregiverHistoryHost
+        h.act {
+            original = checkNotNull(find(h.root, CaregiverHistoryHost::class.java))
+            h.root.findViewById<EditText>(R.id.history_from).setText(manual.fromDate)
+            h.root.findViewById<EditText>(R.id.history_through).setText(manual.throughDate)
+            h.root.findViewById<View>(R.id.history_apply).performClick()
+        }
+        h.await { h.fixture.historyQueries == listOf("elder" to dates, "elder" to manual) }
+        h.act { h.root.findViewById<EditText>(R.id.history_from).setText("2026-10-09") }
+        for (source in listOf(java.time.LocalDate.parse("2026-10-31"), null)) {
+            h.act { h.suppliedToday = source; h.content.show(CaregiverDestination.RECORDS) }
+            h.act {
+                assertSame(original, find(h.root, CaregiverHistoryHost::class.java))
+                assertEquals("2026-10-09", h.root.findViewById<EditText>(R.id.history_from).text.toString())
+                assertEquals(manual.throughDate, h.root.findViewById<EditText>(R.id.history_through).text.toString())
+                assertEquals(listOf("elder" to dates, "elder" to manual), h.fixture.historyQueries)
             }
-            try { block(h) } finally { h.act { activity ->
-                h.content.close(); h.store.clear()
-                original?.let {
-                    @Suppress("DEPRECATION")
-                    activity.resources.updateConfiguration(it, activity.resources.displayMetrics)
+        }
+        captureDateEvidence("preserved-draft")
+        h.act { h.fixture.trusted.value = TrustedSessionContext(h.fixture.scope, 2) }
+        h.await { (h.model.state.value.context as? CaregiverContextState.Active)?.context?.sessionGeneration == 2L }
+        h.act {
+            assertEquals("", h.root.findViewById<EditText>(R.id.history_from).text.toString())
+            assertEquals("", h.root.findViewById<EditText>(R.id.history_through).text.toString())
+            assertEquals(listOf("elder" to dates, "elder" to manual), h.fixture.historyQueries)
+        }
+    }
+
+    private fun captureDateEvidence(name: String) {
+        instrumentation.waitForIdleSync()
+        // Material floating labels finish after text changes; do not capture an intermediate frame.
+        android.os.SystemClock.sleep(300)
+        instrumentation.waitForIdleSync()
+        val language = InstrumentationRegistry.getArguments().getString("c1DateLanguage", "system")
+        val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+        try {
+            java.io.File(instrumentation.targetContext.filesDir, "date-$name-$language.png").outputStream().use {
+                check(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it))
+            }
+        } finally { bitmap.recycle() }
+    }
+
+    private fun withEntry(explicitDates: Boolean = true, eventRows: List<DoseEventState> = emptyList(),
+        language: String? = InstrumentationRegistry.getArguments().getString("c1DateLanguage"), fontScale: Float? = null, widthDp: Int? = null,
+        initialDateAvailable: Boolean = true, block: (Harness) -> Unit) {
+        val previousLocales = androidx.appcompat.app.AppCompatDelegate.getApplicationLocales()
+        if (language != null) instrumentation.runOnMainSync {
+            // Set the locale before Activity creation so inflated and dynamic strings agree.
+            androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(
+                androidx.core.os.LocaleListCompat.forLanguageTags(language))
+        }
+        try {
+            ActivityScenario.launch<CaregiverHistoryTestActivity>(
+                Intent(instrumentation.targetContext, CaregiverHistoryTestActivity::class.java),
+            ).use { scenario ->
+                val h = Harness(scenario, eventRows)
+                if (!initialDateAvailable) h.suppliedToday = null
+                var original: android.content.res.Configuration? = null
+                h.act { activity ->
+                    if (fontScale != null) {
+                        val config = android.content.res.Configuration(activity.resources.configuration)
+                        original = android.content.res.Configuration(config)
+                        fontScale?.let { config.fontScale = it }
+                        @Suppress("DEPRECATION")
+                        activity.resources.updateConfiguration(config, activity.resources.displayMetrics)
+                    }
+                    language?.let {
+                        assertEquals(java.util.Locale.forLanguageTag(it).language,
+                            androidx.core.os.ConfigurationCompat.getLocales(activity.resources.configuration)[0]?.language)
+                    }
+                    // Mirror C1's production IME/system-bar avoidance within this controlled test window.
+                    androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(activity.container) { view, insets ->
+                        val bars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() or
+                            androidx.core.view.WindowInsetsCompat.Type.ime())
+                        view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+                        androidx.core.view.WindowInsetsCompat.CONSUMED
+                    }
+                    h.root = activity.layoutInflater.inflate(R.layout.activity_caregiver_home, activity.container, false) as ViewGroup
+                    val density = activity.resources.displayMetrics.density
+                    activity.container.addView(h.root, FrameLayout.LayoutParams(
+                        widthDp?.let { (it * density).toInt() } ?: -1, if (widthDp == null) -1 else (480 * density).toInt()))
+                    androidx.core.view.ViewCompat.requestApplyInsets(activity.container)
+                    val model = ChainViewModel(h.fixture.services)
+                    h.model = model
+                    h.store.put("entry", model)
+                    h.content = OnlineFeatureContent(activity, h.root.findViewById(R.id.feature_content),
+                        UserRole.CAREGIVER, model, h.fixture.services,
+                        navigate = { destination -> h.lastDestination = destination; h.content.show(destination) },
+                        feedbackRange = if (explicitDates) ({ requested ->
+                            h.providerCalls++
+                            CaregiverFeedbackRangeInput(
+                                { (model.state.value.context as? CaregiverContextState.Active)?.context },
+                                { h.suppliedToday?.let { CaregiverFeedbackDate(h.dateContextOverride ?: requested, it) } },
+                            ).resolve(requested)
+                        }) else null)
                 }
-            } }
+                try { block(h) } finally { h.act { activity ->
+                    h.content.close(); h.store.clear()
+                    original?.let {
+                        @Suppress("DEPRECATION")
+                        activity.resources.updateConfiguration(it, activity.resources.displayMetrics)
+                    }
+                } }
+            }
+        } finally {
+            if (language != null) instrumentation.runOnMainSync {
+                androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(previousLocales)
+            }
         }
     }
 
     private class Harness(val scenario: ActivityScenario<CaregiverHistoryTestActivity>, eventRows: List<DoseEventState>) {
         val fixture = Services(eventRows)
         val store = ViewModelStore()
+        lateinit var model: ChainViewModel
         lateinit var root: ViewGroup
         lateinit var content: OnlineFeatureContent
         var providerCalls = 0
+        var suppliedToday: java.time.LocalDate? = java.time.LocalDate.parse("2026-10-30")
+        var dateContextOverride: CaregiverElderContext? = null
         var lastDestination: CaregiverDestination? = null
         fun act(action: (CaregiverHistoryTestActivity) -> Unit) = scenario.onActivity { action(it) }
-        fun await(condition: () -> Boolean) = runBlocking {
-            withTimeout(5_000) {
-                while (true) {
-                    var result = false
-                    act { result = condition() }
-                    if (result) break
-                    delay(25)
+        fun await(description: String = "Expected entry state", condition: () -> Boolean) = runBlocking {
+            try {
+                withTimeout(5_000) {
+                    while (true) {
+                        var result = false
+                        act { result = condition() }
+                        if (result) break
+                        delay(25)
+                    }
                 }
+            } catch (timeout: kotlinx.coroutines.TimeoutCancellationException) {
+                var actual = ""
+                act {
+                    val list = root.findViewById<android.widget.ListView>(R.id.history_list)
+                    actual = "count=${list?.count}, first=${list?.firstVisiblePosition}, " +
+                        "last=${list?.lastVisiblePosition}, top=${list?.getChildAt(0)?.top}"
+                }
+                val instrumentation = InstrumentationRegistry.getInstrumentation()
+                val image = instrumentation.uiAutomation.takeScreenshot()
+                if (image != null) try {
+                    val language = InstrumentationRegistry.getArguments().getString("c1DateLanguage", "system")
+                    java.io.File(instrumentation.targetContext.filesDir, "date-timeout-$language.png")
+                        .outputStream().use { image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+                } finally { image.recycle() }
+                throw AssertionError("$description; $actual", timeout)
             }
         }
     }

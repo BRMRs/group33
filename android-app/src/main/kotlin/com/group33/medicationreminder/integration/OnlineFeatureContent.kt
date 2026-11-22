@@ -11,6 +11,7 @@ import com.group33.medicationreminder.R
 import com.group33.medicationreminder.caregiver.CaregiverDestination
 import com.group33.medicationreminder.caregiver.CaregiverFeedbackContent
 import com.group33.medicationreminder.caregiver.CaregiverFeedbackPage
+import com.group33.medicationreminder.caregiver.CaregiverHistoryHost
 import com.group33.medicationreminder.caregiver.plan.*
 import com.group33.medicationreminder.core.data.contract.*
 import com.group33.shared.contract.*
@@ -28,7 +29,7 @@ internal class OnlineFeatureContent internal constructor(
     private val services: ChainServices,
     private val navigate: (CaregiverDestination) -> Unit,
     // Explicit caller-supplied dates only. No default time-zone policy is selected here.
-    private val feedbackRange: ((CaregiverElderContext) -> LocalDateRange)? = null,
+    private val feedbackRange: ((CaregiverElderContext) -> LocalDateRange?)? = null,
 ) {
     private val column = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; host.addView(this) }
     private fun dp(n: Int) = (n * activity.resources.displayMetrics.density).toInt()
@@ -50,7 +51,7 @@ internal class OnlineFeatureContent internal constructor(
     private val dosePanel = if (role == UserRole.CAREGIVER && services.caregiverDashboard != null && services.doseEvents != null)
         com.group33.medicationreminder.caregiver.CaregiverDosePanel(activity, section(), services.caregiverDashboard, services.doseEvents)
         else null
-    private val recordsContainer = if (role == UserRole.CAREGIVER && feedbackRange != null &&
+    private val recordsContainer = if (role == UserRole.CAREGIVER &&
         services.caregiverDashboard != null && services.doseEvents != null
     ) requireNotNull(activity.findViewById<FrameLayout>(R.id.caregiver_records_content)) {
         "Full caregiver feedback requires the shared records content container"
@@ -62,9 +63,13 @@ internal class OnlineFeatureContent internal constructor(
     } }
     private var feedbackContext: CaregiverElderContext? = null
     private var feedbackDates: LocalDateRange? = null
+    private var feedbackDefaultDates: LocalDateRange? = null
+    private val history = recordsContainer?.let { CaregiverHistoryHost(activity) }
+    private var historySync: CaregiverHistorySyncRepository? = null
+    private var historySyncContext: CaregiverElderContext? = null
     private val feedback = feedbackSlot?.let { slot ->
         CaregiverFeedbackContent(activity, slot, checkNotNull(services.caregiverDashboard), checkNotNull(services.doseEvents),
-            recordsSlot = recordsContainer, parentScrollsOverview = true) { elder, dates ->
+            parentScrollsOverview = true) { elder, dates ->
             val active = (model.state.value.context as? CaregiverContextState.Active)?.context
             if (active != null && feedbackContext?.isCurrentFor(active) == true && active.elderId == elder) {
                 feedbackDates = dates
@@ -142,20 +147,49 @@ internal class OnlineFeatureContent internal constructor(
         controls.visibility = if (records) View.GONE else View.VISIBLE
         val active = (state.context as? CaregiverContextState.Active)?.context
         val elder = state.relationships.firstOrNull { it.id == active?.relationshipId }?.elder
-        // Existing callers without a date provider retain the existing path until the shared
-        // default-date source is agreed. Do not silently give the new history a UTC/device default.
-        dosePanel?.show(active.takeIf { !settings && feedback == null }, elder, records)
+        // Missing default input never authorizes the old UTC-based panel query.
+        // The future date owner rebinds this host when its scoped input changes.
         if (feedback != null && active != null && !settings) {
-            if (feedbackContext?.isCurrentFor(active) != true) {
+            val supplied = feedbackRange?.invoke(active)
+            if (feedbackContext?.isCurrentFor(active) != true || feedbackDefaultDates != supplied) {
+                feedbackDefaultDates = supplied
+                feedbackDates = supplied
                 feedbackContext = active
-                feedbackDates = checkNotNull(feedbackRange)(active)
             }
-            showRecordsContainer(records)
-            feedback.show(if (records) CaregiverFeedbackPage.HISTORY else CaregiverFeedbackPage.OVERVIEW,
-                active, checkNotNull(feedbackDates))
+            val dates = feedbackDates
+            val latest = (model.state.value.context as? CaregiverContextState.Active)?.context
+            if (latest?.let(active::isCurrentFor) != true) clearFeedback()
+            else if (records) {
+                feedback.clear()
+                val current = checkNotNull(history)
+                if (current.parent == null) checkNotNull(recordsContainer).addView(current,
+                    FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+                if (historySyncContext?.isCurrentFor(active) != true) {
+                    historySyncContext = active
+                    historySync = CaregiverHistorySyncRepository(checkNotNull(services.doseEvents),
+                        checkNotNull(services.caregiverDashboard), active.elderId) {
+                        val stateNow = model.state.value
+                        val contextNow = (stateNow.context as? CaregiverContextState.Active)?.context
+                        !closed && destination == CaregiverDestination.RECORDS &&
+                            stateNow.signOut == SignOutStatus.IDLE &&
+                            contextNow?.let(active::isCurrentFor) == true
+                    }
+                }
+                current.bind(activity, checkNotNull(historySync), active, dates, activity.supportFragmentManager)
+                showRecordsContainer(true)
+            } else {
+                clearHistory()
+                showRecordsContainer(false)
+                if (dates != null) feedback.show(CaregiverFeedbackPage.OVERVIEW, active, dates)
+                else feedback.clear()
+            }
         } else clearFeedback()
+        dosePanel?.show(null, null, records)
         identity.text = activity.getString(if (role == UserRole.ELDER) R.string.chain_elder_identity else R.string.chain_caregiver_identity, user.displayName)
         status.setText(if (state.busy) R.string.chain_working else state.message)
+        if (role == UserRole.CAREGIVER && active != null && !settings && feedbackDates == null) {
+            status.setText(R.string.c1_feedback_date_unavailable)
+        }
         // Session/cache refresh is automatic; Elders do not manage synchronization.
         if (role == UserRole.ELDER) {
             val message = when (state.message) {
@@ -251,10 +285,21 @@ internal class OnlineFeatureContent internal constructor(
     }
 
     private fun clearFeedback() {
+        clearHistory()
         showRecordsContainer(false)
         feedbackContext = null
         feedbackDates = null
+        feedbackDefaultDates = null
         feedback?.clear()
+    }
+
+    private fun clearHistory() {
+        historySync = null
+        historySyncContext = null
+        history?.let { current ->
+            current.bind(activity, checkNotNull(services.doseEvents), null, null, activity.supportFragmentManager)
+            (current.parent as? ViewGroup)?.removeView(current)
+        }
     }
 
     fun close() {
@@ -267,7 +312,7 @@ internal class OnlineFeatureContent internal constructor(
     }
     companion object {
         fun install(activity: AppCompatActivity, host: FrameLayout, role: UserRole,
-                    feedbackRange: ((CaregiverElderContext) -> LocalDateRange)? = null,
+                    feedbackRange: ((CaregiverElderContext) -> LocalDateRange?)? = null,
                     navigate: (CaregiverDestination) -> Unit = {}): OnlineFeatureContent? {
             val services = (activity.application as Group33Application).featureServices ?: return null
             return OnlineFeatureContent(activity, host, role, checkNotNull(featureModel(activity)), services, navigate, feedbackRange)
