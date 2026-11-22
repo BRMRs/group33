@@ -27,17 +27,6 @@ internal fun Context.syncedReportText(report: CaregiverSyncedReport): String = g
     caregiverInstant(report.recordedAtEpochMillis),
 )
 
-internal fun Context.serverAcceptedLateReportText(report: CaregiverServerAcceptedLateReport): String = getString(
-    R.string.c3_server_accepted_late_report,
-    caregiverInstant(report.recordedAtEpochMillis),
-    caregiverInstant(report.receivedAtEpochMillis),
-)
-
-internal fun Context.serverAcceptedTakenReportText(recordedAtEpochMillis: Long): String = getString(
-    R.string.c3_server_accepted_taken_report,
-    caregiverInstant(recordedAtEpochMillis),
-)
-
 /** Last-known permission facts, not proof of notification delivery or a live connection. */
 internal fun Context.capabilityDetails(capability: ReminderCapabilityView): String = getString(
     R.string.c3_capability_details,
@@ -49,4 +38,15 @@ internal fun Context.capabilityDetails(capability: ReminderCapabilityView): Stri
         ExactAlarmAccess.DENIED -> R.string.c3_permission_denied
     }),
     caregiverInstant(capability.receivedAtEpochMillis),
+)
+
+internal fun Context.serverAcceptedTakenReportText(recordedAtEpochMillis: Long): String = getString(
+    R.string.c3_server_accepted_taken_report,
+    caregiverInstant(recordedAtEpochMillis),
+)
+
+internal fun Context.serverAcceptedLateReportText(report: CaregiverServerAcceptedLateReport): String = getString(
+    R.string.c3_server_accepted_late_report,
+    caregiverInstant(report.recordedAtEpochMillis),
+    caregiverInstant(report.receivedAtEpochMillis),
 )
