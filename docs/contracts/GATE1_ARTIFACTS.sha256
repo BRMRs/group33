@@ -468,3 +468,9 @@ d3fbcd2c7f037f6405fed6098c975dbb3f28e151cb66854102ba11b094a047ed  docs/evidence/
 8ef3c9399d10f3adce44c7c9c754b2e6846b65e516deb0f4928d56927e8fecaf  android-app/src/main/res/values-zh/strings_c1_feedback_date.xml
 196e1c6748d8aaa7523a0b8df9dc3802b839778641f810871e929079270618c6  android-app/src/main/res/values/strings_c1_feedback_date.xml
 4dd90412e6f10cc2e72c195862a9c386114a0851017eec78fe350eed957db32f  android-app/src/test/kotlin/com/group33/medicationreminder/integration/CaregiverHistorySyncRepositoryTest.kt
+6b347ffd1a59a4606f947547f95195efde33c1aac5e5283d715333ae4a701cda  docs/evidence/c3-feedback-entry/explicit-dates-10674dc/en-01-no-date.png
+3261a389c317539737753a78f8f4cc4c176859e929ddcf6f8d670fe88ce1626b  docs/evidence/c3-feedback-entry/explicit-dates-10674dc/en-02-draft.png
+a28029cd03f1032c03d68406127df2e10022bb473708e6f0b6ebc81b881a5360  docs/evidence/c3-feedback-entry/explicit-dates-10674dc/en-03-read.png
+448f79b66e93c8f0043d71b2675c7162de05fa2cf4a10574fbe16c5c4ea6e876  docs/evidence/c3-feedback-entry/explicit-dates-10674dc/zh-01-no-date.png
+6700d37dfe8f2be38fca51726451eb3941f51055401a377b5727472ad4aa6fae  docs/evidence/c3-feedback-entry/explicit-dates-10674dc/zh-02-draft.png
+b5d328a0de3f569e45e79f5ab705fcbe324c857a2279363394be5946b9c59587  docs/evidence/c3-feedback-entry/explicit-dates-10674dc/zh-03-read.png
