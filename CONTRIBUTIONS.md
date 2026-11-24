@@ -75,3 +75,5 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 2026-11-07 - tianiridescent / C1, Refs #19: shared-login keyboard viewport correction from current main, preserving existing authentication boundaries. Real API35 320/360dp 200% English/Chinese keyboard tests cover SMS/password/reset submission and return; the baseline password counterexamples fail before the correction. [Scope and evidence](docs/evidence/C1_LOGIN_KEYBOARD_INSETS.md). API27 physical-tablet bilingual compatibility also passed (24 total device cases). Local candidate; publication and non-author review remain separate.
 
 - 2026-11-23 — XinyanXue (S2), agent-assisted: implement PS1-A fixed phone account/composite installation/session persistence with same-connection current-state and revocation seams, isolated PostgreSQL regression/CI fixtures. Refs #118. No registered routes, provider calls, numbered migration, production adoption or device acceptance.
+
+2026-11-24 — XinyanXue (S2), agent-assisted: implement the bound phone authentication flow using the accepted #96 design and #143 identity store. Refs #118.
