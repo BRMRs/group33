@@ -1,5 +1,10 @@
 # S2 explicit Supabase test runtime candidate
 
+> **Current-main integration note, 2026-11-25 — BRMRs / S1.** The earlier #80 was merged into an auxiliary feature branch, not main. This landing candidate preserves actual main V1–V10/dose/occurrence startup checks on current #79; no current cloud/provider/deployment acceptance is claimed from the historical execution below. All original source and provider results retain their earlier attribution.
+>
+> The offline initializer below is intentionally only the old isolated v1–v8 fixture, not a migration/adoption tool. Do not run it against an existing schema or use it for #118. Current numbered migrations, cloud-history gate #104, future index V11 #102, same-primary phone composition and actual same-version deployment must receive their separate reviewed integration. This PR does not apply any SQL or create cloud resources.
+
+
 Refs #16, with #13/#20 boundaries. Date:2026-10-28. Draft preparation only: expanded scope, non-author Server/persistence/security review, relevant C1/C2/E/S1 perspectives and dependency landing order still require lead confirmation. Existing #47/#45 backup arrangements do not extend automatically. No Ready, review request, approval, merge or Issue/Gate closure.
 
 Updated2026-10-29: the packaged local backend with real Supabase PostgreSQL/private Storage passed78 business HTTP assertions across a complete backend JVM restart. This includes photo authorization and original receipts plus medication/plan confirmation, revisions, edit/deactivation and retained historical receipts. One503 edit retry recovered with identical input; earlier failed attempts are documented. Render deployment, device acceptance and final review remain pending.

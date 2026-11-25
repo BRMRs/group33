@@ -37,7 +37,7 @@ internal class PostgresSupabaseSchemaGateTest {
     @AfterEach fun cleanup() { dataSource().connection.use { it.createStatement().use { s -> s.execute("DROP SCHEMA IF EXISTS $schema CASCADE") } } }
 
     @Test fun `cloud path accepts exact managed history using database enforced read only startup`() {
-        assertEquals(10, SchemaMigrations(source, schema).migrate())
+        assertEquals(SchemaMigrations.VERSION.toInt(), SchemaMigrations(source, schema).migrate())
         val before = digest()
         assertNotNull(runtime(readonly = true).pairing)
         assertEquals(before, digest())

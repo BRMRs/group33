@@ -1,5 +1,8 @@
 # Read-only local photo reconciliation
 
+> **Current integration, 2026-11-25 — BRMRs / S1.** This candidate inherits #104 `4590b27` and #149/#148/#79 with actual main V1–V10/dose. Original reconciliation implementation/tests/build bytes match `fecb575`; old index code is retained independently as #102 V11, not duplicated here. The tool stays a separate explicitly invoked local read-only distribution; observations never authorize deletion. Historical results retain their original source attribution; current actual checks are recorded in the PR. Prerequisite main landing and independent final review remain required; no actual cloud/operator deployment or migration is performed.
+
+
 Refs #13 / #16. This separate administration tool inspects existing local PostgreSQL photo metadata and private local-file objects. It makes no database, object, permission, migration, receipt, upload reservation or deployment changes. It is absent from the application bootJar, has no Spring registration, HTTP route, scheduled job or delete command, and is not run on Server startup.
 
 Build with the existing JDK17/dependency cache:
@@ -46,4 +49,4 @@ Exit 0 does not prove the absence of unreferenced files, concurrent changes or p
 
 If an object was written but READY/receipt commit is unknown, the original STAGING reservation and private object remain available to the existing same-request/key retry. Rejected records retain their original identity/rejection evidence. Accepted receipts and plans are not rewritten in response to a missing file observation. No file is eligible for deletion merely because it is older than 24h: current READY/Medication references, live upload/recovery lease and reconciled concurrent state must first be handled by a separate reviewed protocol/transaction. This slice implements none of those new lease/delete semantics.
 
-Ordinary service/file/settings cases and real local PostgreSQL cases are described in [S2 evidence](evidence/S2_PHOTO_RECONCILIATION.md). No real cloud data, phone/V2, Android/normal-App/two-device or fully disconnected LAN acceptance is implied. Draft prerequisites and non-author persistence/security review remain required before normal main integration or operational deployment.
+Ordinary service/file/settings cases and real local PostgreSQL cases are described in [S2 evidence](evidence/S2_PHOTO_RECONCILIATION.md). No real cloud data, phone/V2, Android/normal-App/two-device or fully disconnected LAN acceptance is implied. Prerequisite main landing and non-author persistence/security review remain required before normal main integration or operational deployment.

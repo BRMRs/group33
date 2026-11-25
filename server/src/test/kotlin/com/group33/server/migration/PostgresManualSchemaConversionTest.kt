@@ -121,7 +121,7 @@ internal class PostgresManualSchemaConversionTest {
             MedicationText("虚构编辑药品", "虚构新用量", null))
         edited = assertInstanceOf(PlanMutationResult.Accepted::class.java,
             ReminderPlanMutationService(old, clock).update(caregiver, original.plan.id, editId, edit)).view
-        assertEquals(10, SchemaMigrations(target, targetSchema).migrate())
+        assertEquals(SchemaMigrations.VERSION.toInt(), SchemaMigrations(target, targetSchema).migrate())
     }
     @AfterEach fun cleanup() { dataSource().connection.use { it.createStatement().use { s ->
         s.execute("DROP SCHEMA IF EXISTS $originalSchema CASCADE; DROP SCHEMA IF EXISTS ${originalSchema}_old CASCADE; DROP SCHEMA IF EXISTS $targetSchema CASCADE")

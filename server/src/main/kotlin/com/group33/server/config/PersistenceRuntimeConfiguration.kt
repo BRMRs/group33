@@ -7,17 +7,17 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.env.Environment
 import java.util.UUID
+import javax.sql.DataSource
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermission
-import javax.sql.DataSource
 
 internal class PersistenceRuntime(val identities: AnonymousIdentityStore, val pairing: PlanMutationStore) {
     override fun toString() = "PersistenceRuntime(REDACTED)"
 }
 
-/** Explicit PostgreSQL opt-in. No implicit schema creation or fallback to memory. */
+/** Explicit PostgreSQL opt-in. Never applies DDL or silently falls back to memory. */
 @Configuration(proxyBeanMethods = false)
 internal class PersistenceRuntimeConfiguration {
     @Bean fun persistenceRuntime(env: Environment): PersistenceRuntime = create(env)
@@ -36,12 +36,17 @@ internal class PersistenceRuntimeConfiguration {
         require(!requireVersioned || mode in setOf("postgres-local", "postgres-supabase")) {
             "Versioned schema startup validation requires PostgreSQL persistence"
         }
+        val doseGroupsEnabled = env.getProperty("app.dose-group.enabled", Boolean::class.java, false)
+        require(!doseGroupsEnabled || occurrencesEnabled) {
+            "Dose groups require the occurrence registration runtime"
+        }
         if (mode == "memory") return PersistenceRuntime(InMemoryAnonymousIdentityStore(), InMemoryPairingCodeStore())
-        require(mode in setOf("postgres-local", "postgres-supabase")) { "app.persistence.mode must be memory, postgres-local or postgres-supabase" }
+        require(mode in setOf("postgres-local", "postgres-supabase")) {
+            "app.persistence.mode must be memory, postgres-local or postgres-supabase"
+        }
         fun setting(name: String) = env.getProperty(name)?.takeIf { it.isNotBlank() }
             ?: throw IllegalStateException("Required local persistence setting is missing: $name")
         try {
-            val source = sourceFactory(env, mode)
             val schema = setting("app.persistence.schema")
             val jwt = setting("app.jwt.secret")
             require(jwt.toByteArray(Charsets.UTF_8).size >= 32 && jwt != "GROUP33_LOCAL_DEVELOPMENT_SECRET_CHANGE_BEFORE_DEPLOYMENT_2026")
@@ -52,6 +57,7 @@ internal class PersistenceRuntimeConfiguration {
                 PosixFilePermission.GROUP_EXECUTE, PosixFilePermission.OTHERS_READ, PosixFilePermission.OTHERS_WRITE, PosixFilePermission.OTHERS_EXECUTE) })
             val key = Files.readAllBytes(file); require(key.size == 32)
             val cipher = PairingReceiptCipher(key)
+            val source = sourceFactory(env, mode)
             if (requireVersioned) RuntimeSchemaHistory.validate(source, schema)
             source.connection.use { c ->
                 if (mode == "postgres-supabase") c.createStatement().use { statement ->
@@ -86,6 +92,10 @@ internal class PersistenceRuntimeConfiguration {
                             "SELECT id, plan_id, local_date, local_time, plan_revision, elder_id, medication_id, installation_id, generation_id, origin_operation_id, receipt_payload FROM registered_occurrence LIMIT 0")
                             .forEach { sql -> s.executeQuery(sql).close() }
                     }
+                    if (doseGroupsEnabled) {
+                        s.executeQuery("SELECT elder_id, operation_id, installation_id, request_payload, response_payload FROM dose_group_operation LIMIT 0").close()
+                        s.executeQuery("SELECT occurrence_id, last_recorded_at, status, taken_recorded_at, snoozed_until, server_updated_at FROM recorded_dose_event LIMIT 0").close()
+                    }
                 }
             }
             source.connection.use { c -> c.createStatement().use { statement ->
@@ -98,7 +108,7 @@ internal class PersistenceRuntimeConfiguration {
             return PersistenceRuntime(PostgresAnonymousIdentityStore(source), PostgresPairingCodeStore(source, cipher))
         } catch (_: Exception) {
             // Connection/property/key failures can contain credentials. Deliberately omit values and the private cause.
-            throw IllegalStateException("Local PostgreSQL persistence initialization failed; verify private settings and initialized schema")
+            throw IllegalStateException("PostgreSQL persistence initialization failed; verify private settings and initialized schema")
         }
     }
 }

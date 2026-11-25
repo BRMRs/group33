@@ -1,5 +1,8 @@
 # S2 managed cloud schema integration and local conversion rehearsal
 
+> **Current integration, 2026-11-25 — BRMRs / S1.** The current candidate is stacked on #149/#148/#79 with actual main V1–V10 (dose). It provides the original read-only cloud history gate and canonical private launcher switch, not a migration or adoption operator. Old index V10 and its tests are retained/enhanced only in #102 as pending V11; they are not duplicated here. The release manifest/SQL/current business code match main, not the old auxiliary release. Historical results below retain original attribution; current fixture/CI results are recorded in this PR. No cloud resource/data/history operation is performed by publication.
+
+
 2026-11-01, Refs #16. Review candidate; no deployed Supabase/Render changes or feature/Gate completion.
 
 ## Concrete gap and resulting behavior
@@ -33,3 +36,9 @@ PostgreSQL references: [SET CONSTRAINTS](https://www.postgresql.org/docs/17/sql-
 858 ordinary report instances (Server738, Shared18, Android Debug51/Release51), 298 actual PostgreSQL cases (286 inherited + 12 new), 27 Python cases (23 inherited + 4 new), and 112 inherited packaged assertions / 39 business HTTP requests pass. The packaged harness uses this exact V10 tool/application, refuses checksum/missing/future history and memory fallback, and verifies original receipts through whole JVM/database restart. These packaged checks exercise local PostgreSQL, not the cloud transport.
 
 Root test task modes: Server=executed, Shared=FROM-CACHE, AndroidDebug=executed, AndroidRelease=executed. Standalone Server738/Shared18 tests both executed with Android absent. Old4 PostgreSQL cloud-path and4 Python feature failures are retained separately; the first conversion-fixture query cast failure is retained and is not a product counterexample. All original business/migration SQL, Shared/Android and 293 combined-baseline paths are unchanged; 304 artifact hashes and package isolation are verified. Temporary owned schemas/object roots/password copies were removed, dedicated PG stopped, existing downloads/caches preserved. No private cloud settings, supplier/SMS, real photos, deployed schema/configuration or billing changes.
+
+## 2026-11-25 current exporter correction — BRMRs / S1
+
+Independent review identified the same configuration downgrade in both axes. On unmodified f9c38eb, a real fictional exporter-to-Java-writer probe preserved canonical `=true` but accepted colon, whitespace and escaped-key forms while writing the final gate as false. The focused regression run executed three methods (including the original base64 control), with nine failing subcases/expectations covering eight noncanonical/continued/duplicate input variants and reuse of an already-disabled export. Private credentials were fictional and temporary; the probe records only booleans and exit codes.
+
+The exporter now validates the complete source key format against required data keys and the original generator's known bootstrap-controlled settings. It rejects unknown aliases, nonliteral keys, noncanonical separators and logical continuations before creating or reusing output; only the canonical optional boolean is exported. Existing canonical value escapes, comments and local-fixture settings retain original bytes. No Java/Spring/network/SQL behavior changes. The final full helper tests and CI results are recorded in the PR; source-attributed PostgreSQL results remain separate.

@@ -71,6 +71,49 @@ class RenderBootstrapTest(unittest.TestCase):
             with (path/'application.properties').open('a') as f:f.write(suffix)
             with self.assertRaises(ValueError):export.prepare(path)
             self.assertFalse((path/'render.env').exists())
+    def test_export_rejects_noncanonical_gate_syntax_instead_of_discarding_it(self):
+        key='app.persistence.require-versioned-schema'
+        cases=[key+':true\n',key+' true\n',key.replace('-',r'\u002d',1)+'=true\n',
+            key.replace('-',r'\-',1)+'=true\n','app.persistence.require-\\\n versioned-schema=true\n',
+            key+'=true\n'+key+':false\n','unused.property=continued\\\n'+key+'=true\n',
+            key+'=true\n'+key.replace('-',r'\u002d',1)+'=false\n']
+        for case,suffix in enumerate(cases):
+            with self.subTest(case=case):
+                path=self.fixture_private()
+                with (path/'application.properties').open('a') as output:output.write(suffix)
+                with self.assertRaises(ValueError):export.prepare(path)
+                self.assertFalse((path/'render.env').exists())
+    def test_noncanonical_gate_does_not_reuse_a_previously_disabled_export(self):
+        path=self.fixture_private();target=export.prepare(path);before=target.read_bytes()
+        with (path/'application.properties').open('a') as output:
+            output.write('app.persistence.require-versioned-schema:true\n')
+        with self.assertRaises(ValueError):export.prepare(path)
+        self.assertEqual(before,target.read_bytes())
+    def test_unknown_or_relaxed_gate_aliases_are_not_silently_ignored(self):
+        for key in ('app.persistence.requireVersionedSchema','app.persistence.require_versioned_schema',
+                    'PERSISTENCE_REQUIRE_VERSIONED_SCHEMA'):
+            with self.subTest(key=key):
+                path=self.fixture_private()
+                with (path/'application.properties').open('a') as output:output.write(key+'=true\n')
+                with self.assertRaises(ValueError):export.prepare(path)
+                self.assertFalse((path/'render.env').exists())
+    def test_original_canonical_local_settings_and_comments_remain_exportable(self):
+        path=self.fixture_private()
+        omitted={'server.address':'127.0.0.1','server.port':'18086','app.persistence.mode':'postgres-supabase',
+            'app.persistence.ssl-root-cert':'/fictional/database-ca.crt','app.persistence.receipt-key-file':'/fictional/receipt.key',
+            'app.photo.enabled':'true','app.photo.storage-mode':'supabase',
+            'app.photo.supabase.secret-key-file':'/fictional/storage-secret.key','app.plan.enabled':'true'}
+        with (path/'application.properties').open('a') as output:
+            output.write('\n # comment\n!comment\n'+''.join(k+'='+v+'\n' for k,v in omitted.items()))
+        target=export.prepare(path)
+        values=dict(line.split('=',1) for line in target.read_text().splitlines())
+        self.assertEqual(self.text(),base64.b64decode(values['GROUP33_RENDER_SETTINGS_B64']).decode())
+    def test_canonical_escaped_values_preserve_the_original_export_bytes(self):
+        path=self.fixture_private();original=(path/'application.properties').read_text()
+        original=original.replace(self.settings()['app.persistence.password'],r'FICTIONAL\u003dvalue\:tail\\')
+        (path/'application.properties').write_text(original)
+        values=dict(line.split('=',1) for line in export.prepare(path).read_text().splitlines())
+        self.assertEqual(original,base64.b64decode(values['GROUP33_RENDER_SETTINGS_B64']).decode())
     def test_missing_each_private_input_fails_before_files_are_created(self):
         for name in [k for k in self.env() if k.startswith('GROUP33_')]:
             with self.subTest(name=name):
