@@ -74,6 +74,13 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 
 2026-11-07 - tianiridescent / C1, Refs #19: shared-login keyboard viewport correction from current main, preserving existing authentication boundaries. Real API35 320/360dp 200% English/Chinese keyboard tests cover SMS/password/reset submission and return; the baseline password counterexamples fail before the correction. [Scope and evidence](docs/evidence/C1_LOGIN_KEYBOARD_INSETS.md). API27 physical-tablet bilingual compatibility also passed (24 total device cases). Local candidate; publication and non-author review remain separate.
 
+### 2026-11-17 — XinyanXue / S2 — #102 current-main V11 integration
+
+Preserve main dose-action V10; append original index SQL as V11 and match admin/runtime history. Retain original planner/rollback assertions, cover V9/V10 upgrades and reuse five coordination regressions including original dose receipt replay and refusal of incompatible index-V10 history. This is the existing #102 scope, not a new protocol or cloud deployment.
+
+### 2026-11-18 — XinyanXue / S2 — #102 authoritative migration guide
+
+Correct SCHEMA_MIGRATIONS to reflect actual main dose V10 then this-PR index V11, immutable applied history and separate conversion for old index-V10 databases. Documentation/hash only; existing SQL/runtime/tests untouched.
 | 2026-11-13 | XinyanXue — S2 (agent-assisted) | #96 / #118 design review follow-through | Existing #96 | Preserve actual main6114071 code/layout; correct obsolete transport-work status to delivered #97 branch and add explicit D1–D4 decision/evidence/configuration checklist. Fictional structural examples remain unchanged. | Design decisions remain PENDING/Proposed; no production protocol, migration, deployment or human approval. |
 
 | 2026-11-16 | XinyanXue — S2 (agent-assisted) | #96 / #118 | [PR #96](https://github.com/BRMRs/group33/pull/96) | Follow C1 D1 review: same-attempt SDK refresh, immutable deadline, original capability/profile, serialized grant/verify work and cancellation/switch/late-response acceptance cases; proposal only, no accepted wire or production code. | Non-author and role reviews remain required; no formal approval/main merge. |
