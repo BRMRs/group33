@@ -23,6 +23,9 @@ import java.time.Instant
 import java.time.ZoneOffset
 import java.util.UUID
 import javax.imageio.ImageIO
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -249,4 +252,45 @@ class PostgresPhotoInventoryTest {
         sql("ALTER TABLE photo_upload_operation DISABLE ROW LEVEL SECURITY")
         assertEquals(1,inspect().stagingProtected); assertEquals(before,states())
     }
+
+    @Test fun `row security on a diagnostic view source cannot hide an original recovery reservation`() {
+        val operation = UUID.randomUUID(); val id = stage(operation)
+        val path = root.resolve("$id.blob"); val bytes = Files.readAllBytes(path)
+        val before = states()
+        sql("ALTER TABLE photo_upload_operation RENAME TO inventory_original_operations")
+        sql("ALTER TABLE inventory_original_operations ENABLE ROW LEVEL SECURITY")
+        sql("CREATE VIEW photo_upload_operation WITH (security_invoker=true) AS SELECT * FROM inventory_original_operations")
+        grantReader()
+        reader.connection.use { connection -> connection.createStatement().use { statement ->
+            statement.executeQuery("SELECT count(*) FROM $schema.photo_upload_operation").use { row ->
+                assertTrue(row.next()); assertEquals(0, row.getInt(1))
+            }
+            statement.executeQuery("SELECT row_security_active('$schema.photo_upload_operation'::regclass)").use { row ->
+                assertTrue(row.next()); assertFalse(row.getBoolean(1))
+            }
+        } }
+        val report = inspect()
+        assertEquals(InventoryCompletion.DATABASE_UNAVAILABLE, report.completion)
+        assertEquals(0, report.checked); assertEquals(before, states())
+        assertArrayEquals(bytes, Files.readAllBytes(path))
+        sql("DROP VIEW photo_upload_operation")
+        sql("ALTER TABLE inventory_original_operations DISABLE ROW LEVEL SECURITY")
+        sql("ALTER TABLE inventory_original_operations RENAME TO photo_upload_operation")
+        assertEquals(1, inspect().stagingProtected); assertEquals(0, inspect().unmatchedCandidates)
+        assertEquals(id, upload(operation).id)
+    }
+
+
+    @ParameterizedTest @ValueSource(strings = ["medication_photo", "photo_upload_operation", "medication"])
+    fun `maintenance grants are not SELECT only on PostgreSQL seventeen and later`(table: String) {
+        assumeTrue(owner.connection.use { it.metaData.databaseMajorVersion >= 17 },
+            "MAINTAIN requires PostgreSQL17; the dedicated PostgreSQL17 CI executes this case")
+        upload(); val before = states()
+        sql("GRANT MAINTAIN ON $table TO $readerRole")
+        assertEquals(InventoryCompletion.DATABASE_UNAVAILABLE, inspect().completion)
+        assertEquals(before, states())
+        sql("REVOKE MAINTAIN ON $table FROM $readerRole")
+        assertEquals(1, inspect().referenced)
+    }
+
 }

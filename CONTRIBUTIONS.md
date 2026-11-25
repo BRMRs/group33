@@ -124,3 +124,5 @@ XinyanXue prepared the isolated server/Shared Docker build, pinned Java17 images
 2026-11-25 — BRMRs / S1 (agent-assisted), Refs #105 / #13 / #16: independently reproduce twelve column-grant and two RLS completeness counterexamples while preserving eleven original real-PG controls; add effective-column/maintenance admission and row-security error semantics, direct/inherited/deny-all/partial regressions and job-owned PostgreSQL17 CI. Local16 reports25 passed plus2 explicit17-only skips; actual hosted evidence/final source attribution stay in PR. No data mutation, policy repair, delete authority or self-approval.
 
 - 2026-11-25 BRMRs: synchronize #106 reverse inventory with current #105/cloud/main prerequisites; preserve original operator/test/helper bytes and historical evidence. Refs #13 / #16; current-head independent review and actual parent landing remain required.
+
+- 2026-11-25 BRMRs: reproduce and fix #106 underlying-view RLS completeness failure; add original-key recovery control and PostgreSQL17 maintenance-grant regressions for the existing SELECT-only boundary. Refs #13 / #16.

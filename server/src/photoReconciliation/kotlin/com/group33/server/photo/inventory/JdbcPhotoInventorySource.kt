@@ -19,6 +19,7 @@ class JdbcPhotoInventorySource(private val source: DataSource, private val schem
             connection.createStatement().use { statement ->
                 statement.queryTimeout = 5
                 statement.execute("SET LOCAL search_path = pg_catalog")
+                statement.execute("SET LOCAL row_security = off")
                 statement.execute("SET LOCAL statement_timeout = '3000ms'")
                 statement.execute("SET LOCAL lock_timeout = '1000ms'")
                 statement.execute("SET LOCAL idle_in_transaction_session_timeout = '10000ms'")
@@ -33,13 +34,16 @@ class JdbcPhotoInventorySource(private val source: DataSource, private val schem
                 statement.queryTimeout = 5; statement.setString(1, schema)
                 statement.executeQuery().use { row -> check(row.next() && (1..6).none { row.getBoolean(it) }) }
             }
+            val forbidden = "INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER" +
+                if (connection.metaData.databaseMajorVersion >= 17) ",MAINTAIN" else ""
             connection.prepareStatement("""SELECT has_table_privilege(?, 'SELECT'),
-                has_table_privilege(?, 'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'),
+                has_table_privilege(?, ?),
                 has_any_column_privilege(?, 'INSERT,UPDATE,REFERENCES'), row_security_active(?::regclass)""").use { statement ->
                 statement.queryTimeout = 5
                 for (table in listOf("medication_photo", "photo_upload_operation", "medication")) {
                     val relation = "\"$schema\".$table"
-                    for (index in 1..4) statement.setString(index, relation)
+                    statement.setString(1, relation); statement.setString(2, relation)
+                    statement.setString(3, forbidden); statement.setString(4, relation); statement.setString(5, relation)
                     statement.executeQuery().use { row -> check(row.next() && row.getBoolean(1) && !row.getBoolean(2) && !row.getBoolean(3) && !row.getBoolean(4)) }
                 }
             }
