@@ -12,5 +12,7 @@ internal data class ChainServices(
     val plans: ReminderPlanRepository, val commands: OnlineCommandRepository,
     val scope: StateFlow<RepositoryScope?>, val trusted: StateFlow<TrustedSessionContext?>,
     val resumePairingCode: suspend (String) -> Outcome<PairingCodeRecovery>,
+    val doseEvents: DoseEventRepository? = null,
+    val caregiverDashboard: CaregiverDashboardRepository? = null,
     val signOut: suspend () -> Outcome<Unit>,
 )
