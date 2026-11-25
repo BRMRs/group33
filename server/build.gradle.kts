@@ -88,7 +88,27 @@ tasks.processTestResources {
     from(rootProject.file("docs/contracts/examples.json")) { into("contracts") }
 }
 
-tasks.test { useJUnitPlatform { excludeTags("postgres") } }
+tasks.test { useJUnitPlatform { excludeTags("postgres", "postgres-recovery") } }
+
+tasks.register<Test>("postgresRecoveryIntegrationTest") {
+    description = "Rehearse fictional business recovery in a new dedicated local fixture database"
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform { includeTags("postgres-recovery") }
+    maxParallelForks = 1
+    outputs.upToDateWhen { false }
+    outputs.cacheIf { false }
+    doFirst {
+        require(System.getenv("S2_PG_RECOVERY_ENABLED") == "local-fixtures-only") {
+            "Explicit dedicated local recovery fixture settings are required"
+        }
+        require(!System.getenv("S2_PG_RECOVERY_ADMIN_PASSWORD").isNullOrBlank() &&
+            !System.getenv("S2_PG_RECOVERY_BIN").isNullOrBlank()) {
+            "Provide private local recovery credentials and existing PostgreSQL tools"
+        }
+    }
+}
 
 tasks.register<Test>("postgresIntegrationTest") {
     description = "Run pairing Store tests against an explicitly configured private PostgreSQL database"
