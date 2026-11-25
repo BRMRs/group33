@@ -82,3 +82,10 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 
 
 2026-11-25 — BRMRs / S1 (agent-assisted), Refs #10 / PR #141: reproduce five command-observation counterexamples against the exact original receipt-fix head, then reuse recovery identity validation before accepting journal updates and retain original recovery across invalid/missing snapshots. Add seven observation regressions without changing the original nine S2 probes or prior C1 tests. Full gate/test/lint/Debug+Release build passed; executed Server628, Shared18, Android178/177 reports have zero failures/errors/skips. See docs/evidence/S2_PAIRING_RECEIPT_IDENTITY_20261123.md. No new Server wire, permission, supplier/device acceptance or teammate approval is claimed.
+| 2026-11-13 | XinyanXue — S2 (agent-assisted) | #96 / #118 design review follow-through | Existing #96 | Preserve actual main6114071 code/layout; correct obsolete transport-work status to delivered #97 branch and add explicit D1–D4 decision/evidence/configuration checklist. Fictional structural examples remain unchanged. | Design decisions remain PENDING/Proposed; no production protocol, migration, deployment or human approval. |
+
+| 2026-11-16 | XinyanXue — S2 (agent-assisted) | #96 / #118 | [PR #96](https://github.com/BRMRs/group33/pull/96) | Follow C1 D1 review: same-attempt SDK refresh, immutable deadline, original capability/profile, serialized grant/verify work and cancellation/switch/late-response acceptance cases; proposal only, no accepted wire or production code. | Non-author and role reviews remain required; no formal approval/main merge. |
+
+### 2026-11-17 — XinyanXue / S2 — #96 decision follow-up
+
+Sync actual main; record attributable S1/lead D1–D4 decisions and15-second call boundary, unknown-attempt closure,401/403/404 recovery and configuration truth. Independent non-author security approval and actual provider/service evidence remain pending. Documentation-only own delta.
