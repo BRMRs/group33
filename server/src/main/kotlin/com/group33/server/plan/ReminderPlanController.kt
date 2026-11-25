@@ -87,6 +87,7 @@ internal class ReminderPlanController(private val actors: VerifiedPairingActorRe
         is PlanMutationResult.Accepted -> ResponseEntity.ok().cacheControl(CacheControl.noStore())
             .body(if (deactivate) value.view.plan else value.view)
         is PlanMutationResult.Rejected -> when (value.reason) {
+            PlanMutationRejection.UNAUTHENTICATED -> error(HttpStatus.UNAUTHORIZED, value.reason.name)
             PlanMutationRejection.RESOURCE_NOT_ACCESSIBLE -> error(HttpStatus.NOT_FOUND, value.reason.name)
             PlanMutationRejection.ROLE_NOT_ALLOWED -> error(HttpStatus.FORBIDDEN, value.reason.name)
             PlanMutationRejection.PLAN_VERSION_CONFLICT, PlanMutationRejection.IDEMPOTENCY_KEY_REUSED -> error(HttpStatus.CONFLICT, value.reason.name)
