@@ -2,6 +2,12 @@
 
 Status: **partial implementation candidate; production date source and integration remain pending**. Refs [#15](https://github.com/BRMRs/group33/issues/15) / [#19](https://github.com/BRMRs/group33/issues/19). This document records C1's implementation, not an accepted date-source contract or human review.
 
+## 2026-11-25 current-main S1 review preparation
+
+BRMRs synchronized the candidate with main `9e5621393c3d130bc65ec6754d0531c363c9cf9d`. Original resolver/test, the nine-file composition patch, eight screenshots, runtime/build/workflow and all historical evidence bytes remain unchanged from `a17c06052cc4ff6bea1b62274ec8799a187cdd0c`; only current review notes, contributor histories and full artifact hashes are updated. Historical local authorization/build/device statements below remain attributed to their recorded dates and source inputs, not a new run or restriction on this authorized synchronization.
+
+The patch still targets the exact documented reconstructed #136/#124 baseline and is not production/current-main registration. S1 will verify its baseline/result trees and current JVM controls separately; the unavailable trusted-date producer, final normal-entry composition and required actual role reviews remain outstanding. Keep #132 Draft; a current green build does not supply those missing deliveries.
+
 ## Baseline and implementation
 
 The branch `feature/15-c1-feedback-date-input` starts from main `61140712193b816980045c52cc7276223731c268`. Pairing HTTP corrections are a separate delivery and are excluded.
