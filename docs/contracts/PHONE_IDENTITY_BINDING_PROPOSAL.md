@@ -1,5 +1,7 @@
 # Phone account, installation and business actor binding
 
+> Current design status — 2026-11-23: **D1–D4 jointly accepted at #96 `caecd8f`**, preserving the recorded D1/D4 modifications. See the [attributable acceptance ledger](PHONE_IDENTITY_ACCEPTANCE_20261123.md). The dated pending-review statements retained below describe the prior review state; they do not reinstate a completed design-review prerequisite. Implementation, migration, provider, configuration and device gates remain.
+
 ## Recorded S1/lead decision — 2026-11-17
 
 Authority: [BRMRs on #118](https://github.com/BRMRs/group33/issues/118#issuecomment-6940293073), reviewing #96 `d4afbdb62cd707d8063bf3336cfc03575c785b81`. D1 and D4 are **accepted with modifications by S1/lead**; D2 and D3 are **accepted by S1/lead**. C1's prior consumer recommendations are retained, not upgraded to full approval. Independent non-author Server/security approval is still pending; BRMRs contributed integration commits and cannot provide that independent approval. No agent signs for a reviewer. These recorded decisions remove the former wait for S1/lead selection, not the implementation/configuration gates.
@@ -12,7 +14,7 @@ Authority: [BRMRs on #118](https://github.com/BRMRs/group33/issues/118#issuecomm
 ApplicationId is confirmed as com.group33.medicationreminder; reuse assemblePhoneTest and require same phone/business HTTPS origin, actual HTTPS policy URL and registered signing MD5. The anonymous Render preview is not a phone-enabled service. No verified phone-enabled HTTPS service/policy/registered MD5 currently exists in the recorded evidence. S2/XinyanXue is configuration accountable owner; lead controls access; secrets enter controlled Environment only. S1 builds the controlled package after configuration, C1 performs real one-tap/SMS/pairing/business acceptance. Provider proof evidence, actual configuration and independent security approval remain rollout gates.
 
 
-**Proposed design for #118 / #49 / #10 / #12 / #16; ready for joint design review, S1/lead decision recorded; independent approval and implementation pending.** S2 proposal, updated 2026-11-17. Exact recommendations below require C1/S1 and Server review before production DTO/claim/schema changes. Explicit Elder consent and current care relationships remain mandatory.
+**Historical proposal text for #118 / #49 / #10 / #12 / #16, through 2026-11-17. Current joint acceptance is recorded above; implementation remains pending.** S2 proposal, updated 2026-11-17. Exact recommendations below require C1/S1 and Server review before production DTO/claim/schema changes. Explicit Elder consent and current care relationships remain mandatory.
 
 ## 1. Evidence and decisions requested
 
