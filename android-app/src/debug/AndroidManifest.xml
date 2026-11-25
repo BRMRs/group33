@@ -4,6 +4,7 @@
     <application android:name=".integration.DebugChainApplication" android:usesCleartextTraffic="true" tools:replace="android:name">
         <activity android:name=".caregiver.plan.PlanEditorDebugActivity" android:exported="false" />
         <activity android:name=".caregiver.CaregiverNavigationPreviewActivity" android:exported="true" />
+        <activity android:name=".caregiver.CaregiverEventRowTestActivity" android:exported="false" />
         <receiver android:name=".integration.DebugDoseAlarmReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
