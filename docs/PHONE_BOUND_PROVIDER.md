@@ -33,10 +33,17 @@ Original source input: #97 `d320841986015f109f0ecd2260026ea1be598b23`. `FusionCa
 
 New coverage checks pre-call grant expiry, explicit denial versus API/malformed-data outages, pinned-SDK HTTP socket timeout, continuously readable slow responses, late completion, saturation and interruption. The real-PostgreSQL profile combines all existing identity/original-scheme/supplier-entry controls with pinned-SDK seam→current service/controller tests. It checks no transaction remains open at supplier entry, original identity after registration/relogin, retained proof/closed attempt after unavailable outcomes, unchanged supplier call count on retry and no identity/ticket/session writes after late PASS. Every supplier response is fictional; loopback HTTP is used only for SDK transport faults.
 
-Commands and executed results are recorded in the PR. The inherited dedicated PostgreSQL CI selects `*BoundPhone*PostgresTest` and includes the new integration class. No physical phone, actual provider/SMS, private credential, Render/Supabase deployment or production schema is used for these tests.
+Commands and executed results are recorded in the PR. The inherited dedicated PostgreSQL CI selects `*BoundPhone*PostgresTest` and includes the new integration class. This slice adds its scoped XML/HTML artifact with7-day retention so the exact hosted execution count can be inspected; the job uses only its fictional PostgreSQL/SDK fixtures. No physical phone, actual provider/SMS, private credential, Render/Supabase deployment or production schema is used for these tests.
 
 ## Remaining #118 handoff
 
 S2 still supplies the production Boot/configuration composition: explicit old/new route cutover, same primary DataSource and transaction/clock/scheme inputs, typed JWT and independent signing/HMAC secrets, trusted-proxy IP rate limiting, complete configuration mapping, reviewed forward migrations/history and same-version deployment evidence. C1 supplies actual SDK/proof scope/reuse/retention facts and eventual real one-click/SMS acceptance; S1 consumes the accepted service with its private installation/session and verifies the team APK. The test prototype SQL remains test-only, and the other PS2 business surfaces remain separately incomplete.
 
 Normal non-author C1 and Server/security review of the final adapter and its corrected #147/#144 prerequisites remains required. Reverting this source slice removes the supplier implementation/SDK dependency; no database or service rollback has been performed or is implied.
+
+
+## Local verification — 2026-11-25
+
+Fresh owned PostgreSQL16 fixture:36 tests passed,0 failures/errors/skips (identity15, flow9, original supplier-entry7, new provider integration5). This uses a non-superuser test DB owner and only new random schemas; its cluster, roles, receipt key and generated credentials were stopped/deleted. Initial four new row-count assertions used two incorrect fixture table names; those test-authoring failures were corrected against the unchanged original SQL and are not presented as product counterexamples.
+
+Full `gate1Check test :server:schemaMigrationDist --offline` passed:106 tasks,88 executed/7 cached/11 up-to-date. Server647 and Android Debug135/Release134 JVM cases executed with0 failures/errors/skips; Shared18 reused cache. Lint, Debug APK, bootJar and migration package passed; no Android device or new Release APK run is claimed. Both technical review axes found0 issues; this is not human approval. Exact-head hosted PostgreSQL17 results are tracked in the PR separately.
