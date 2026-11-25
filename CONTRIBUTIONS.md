@@ -77,3 +77,6 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 - 2026-11-23 — XinyanXue (S2), agent-assisted: implement PS1-A fixed phone account/composite installation/session persistence with same-connection current-state and revocation seams, isolated PostgreSQL regression/CI fixtures. Refs #118. No registered routes, provider calls, numbered migration, production adoption or device acceptance.
 
 2026-11-24 — XinyanXue (S2), agent-assisted: implement the bound phone authentication flow using the accepted #96 design and #143 identity store. Refs #118.
+
+
+2026-11-25 — BRMRs / S1 (agent-assisted), Refs #118 / #144: independently reproduce five bound-phone supplier-entry/scheme counterexamples on the original S2 head, then persist original scheme on attempt/ticket and recheck remaining original lease/deadline/call budget before upstream work. Preserve original tests and add ten PostgreSQL regression/control methods. Isolated PostgreSQL16 suite31 and JWT2 passed; full gate/test/lint/Debug+Release build passed with Server630, Android135/134 executed and Shared18 cached, zero failures/errors/skips. See docs/evidence/S1_BOUND_PHONE_REVIEW_20261125.md. Only unapplied test prototypes change; no deployed migration, supplier/phone/cloud operation or teammate approval is claimed.

@@ -11,3 +11,8 @@ A durable lease serializes refresh and verify. Supplier calls run outside the da
 The phone JWT profile verifies HS256, explicit type, issuer, audience, version, exact claim types, canonical UUID identities and the configured clock window before database access. The local receipt of a signed token still requires current account, installation and session state for protected business effects.
 
 The HTTP controller requires explicit opt-in and an injected service and trusted IP limiter. Production composition depends on a verified supplier adapter, explicit forward migrations on the same primary database, reviewed configuration and an agreed cutover from #88. The SQL under test resources creates isolated fixture tables. Provider proof retention limits are still unconfirmed, so the fixture and implementation retain fingerprints. Live SMS, team APK, policy URL, and deployment evidence follow separately.
+
+
+## S1 review follow-up — 2026-11-25
+
+The original scheme is now persisted with attempts and registration tickets; changing the configured scheme cannot retarget an existing capability or consume its ticket. Supplier entry rechecks the original lease/deadline and complete15-second budget after the validation transaction returns. The test prototype gains scheme_code columns only; reviewed forward migrations and deployment composition remain prerequisites. Exact before/after findings, real-PG regression scopes and limits are recorded in [S1 review corrections](evidence/S1_BOUND_PHONE_REVIEW_20261125.md).
