@@ -1,6 +1,6 @@
 # S1本地规则初版：代码、测试与接入边界
 
-关联：[#24](https://github.com/BRMRs/group33/issues/24)、[#12](https://github.com/BRMRs/group33/issues/12)。本地授权/规则见[ADR-0010](adr/0010-s1-local-v2-policy.md)。负责人已授权提交、推送本次S1改动并转为Ready for review；不合并、不代签，不混入#25文档分支。
+关联：[#24](https://github.com/BRMRs/group33/issues/24)、[#12](https://github.com/BRMRs/group33/issues/12)。本地授权/规则见[ADR-0011](adr/0011-s1-local-v2-policy.md)。负责人已授权提交、推送本次S1改动并转为Ready for review；不合并、不代签，不混入#25文档分支。
 
 ## 已实现
 

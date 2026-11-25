@@ -1,4 +1,4 @@
-# ADR-0010: Prepare the initial S1 V2 local policies
+# ADR-0011: Prepare the initial S1 V2 local policies
 
 ## Status
 
@@ -28,3 +28,7 @@ This is a separate S1 code branch from main, not code inserted into the docs-onl
 ## 2026-10-23 follow-up: wall-clock rollback
 
 The lead authorized addressing S2 review feedback on PR #37. Verified alert transmission, receipt and completed reminder facts survive wall-clock rollback; structural field/count validation remains. A negative visibility time difference is an unconfirmed latency measurement, not an invalid visibility event. The local planner returns wall-clock due times; real elapsed-time guarantees require monotonic scheduling anchors, restart recovery and calibrated cross-device measurements in later adapters. No wire/schema fields or production scheduling implementation are introduced. The PR is Ready for review; merge remains unauthorized.
+
+## 2026-11-25 integration numbering
+
+The local-policy ADR, not yet merged into main, was numbered 0010 on PR #37. Current main now assigns ADR-0010 to the accepted phone-identity design from #96. This local-policy record is renumbered ADR-0011 to keep distinct decisions identifiable; its original local implementation authority, protocol limits and pending independent review are unchanged.
