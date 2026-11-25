@@ -1,5 +1,16 @@
 # S2 review: edit conflict and deactivation consumers
 
+## Current integration note — 2026-11-25 (BRMRs)
+
+The evidence below retains the original November22 inputs and execution attribution.
+The components now include main9e562139 at PR108 `93abbc1603526160e2a955b363a11bbbcd73931b`
+and PR114 `caa81378c12c63a2d07436193d1958ccafb5e6e7`; their feature/test bytes are unchanged
+from the named original inputs `a89e4a9` / `0364724`. Both new-head CI runs passed.
+S1 subsequently reviewed those unchanged original component inputs; the old
+CHANGES_REQUESTED wording below describes the dated review state, not a reinstated
+current blocker. The integration pushes still require actual independent final review.
+No original probe/result is relabelled as a new run or production/device acceptance.
+
 2026-11-22. Refs #53, #108, #114. XinyanXue authorized agent-assisted technical
 re-review and publication. No formal approval or integration signature is recorded.
 
