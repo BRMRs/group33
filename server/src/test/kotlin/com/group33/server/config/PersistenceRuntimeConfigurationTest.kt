@@ -11,12 +11,13 @@ import java.nio.file.Files
 import java.nio.file.attribute.PosixFilePermissions
 
 internal class PersistenceRuntimeConfigurationTest {
-    @Test fun `capability can compose with photo plan and occurrence memory runtime`() {
+    @Test fun `capability can compose with photo plan occurrence and dose group memory runtime`() {
         val runtime = PersistenceRuntimeConfiguration().create(MockEnvironment()
             .withProperty("app.capability.enabled", "true")
             .withProperty("app.photo.enabled", "true")
             .withProperty("app.plan.enabled", "true")
-            .withProperty("app.occurrence.enabled", "true"))
+            .withProperty("app.occurrence.enabled", "true")
+            .withProperty("app.dose-group.enabled", "true"))
         assertInstanceOf(InMemoryAnonymousIdentityStore::class.java, runtime.identities)
         assertInstanceOf(InMemoryPairingCodeStore::class.java, runtime.pairing)
         assertInstanceOf(com.group33.server.capability.InMemoryCapabilityStore::class.java, runtime.capability)
@@ -32,6 +33,17 @@ internal class PersistenceRuntimeConfigurationTest {
             PersistenceRuntimeConfiguration().create(MockEnvironment()
                 .withProperty("app.capability.enabled", "true")
                 .withProperty("app.occurrence.enabled", "true"))
+        }
+    }
+
+    @ParameterizedTest @ValueSource(booleans = [false, true])
+    fun `dose groups cannot bypass occurrence prerequisites with capability opt in`(capabilityEnabled: Boolean) {
+        assertThrows(IllegalArgumentException::class.java) {
+            PersistenceRuntimeConfiguration().create(MockEnvironment()
+                .withProperty("app.capability.enabled", capabilityEnabled.toString())
+                .withProperty("app.photo.enabled", "true")
+                .withProperty("app.plan.enabled", "true")
+                .withProperty("app.dose-group.enabled", "true"))
         }
     }
 
