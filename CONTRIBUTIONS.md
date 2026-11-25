@@ -87,3 +87,5 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 ### 2026-11-17 — XinyanXue / S2 — #96 decision follow-up
 
 Sync actual main; record attributable S1/lead D1–D4 decisions and15-second call boundary, unknown-attempt closure,401/403/404 recovery and configuration truth. Independent non-author security approval and actual provider/service evidence remain pending. Documentation-only own delta.
+
+- 2026-11-25 BRMRs: adapt #97 bounded SDK transport to the current #118 bound-phone provider interface, preserve original-attempt fencing, and add real PostgreSQL identity/late-result coverage. Partial A delivery; production composition, migrations, independent review and live acceptance remain open.

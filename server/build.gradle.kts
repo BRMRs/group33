@@ -32,6 +32,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
+    implementation(libs.aliyun.dypns)
     implementation(libs.postgresql)
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
