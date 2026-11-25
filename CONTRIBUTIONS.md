@@ -81,3 +81,6 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 ### 2026-11-17 — XinyanXue / S2 — #96 decision follow-up
 
 Sync actual main; record attributable S1/lead D1–D4 decisions and15-second call boundary, unknown-attempt closure,401/403/404 recovery and configuration truth. Independent non-author security approval and actual provider/service evidence remain pending. Documentation-only own delta.
+
+
+2026-11-25 — BRMRs / S1 (agent-assisted), Refs #118 / #16: prepare bilingual review-only privacy drafts, a self-contained static review copy, source-pinned privacy/configuration notes and a 42-item deployment inventory for a separate phone integration service. User confirmed the operator/contact and authorized necessary computer use. Actual Render login and read-only Overview/Settings verification recorded without exporting secrets or changing/deploying resources. Policy retention/deletion, actual SDK fields/recipients, final cloud runtime/primary and bound-auth composition remain explicit review inputs. Documentation-only scope; no service activation, migration, provider call, device success, formal role approval or live-policy publication claimed.

@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>MedicationReminder 隐私政策 · 审阅稿</title>
+<style>body{margin:0;background:#f5f6f8;color:#182329;font:18px/1.8 system-ui,-apple-system,sans-serif}main{max-width:850px;margin:32px auto;padding:28px;background:white;border-radius:12px}nav{display:flex;gap:24px;flex-wrap:wrap}a{color:#075f70;text-underline-offset:4px;overflow-wrap:anywhere}h1{font-size:1.65rem;line-height:1.4}h2{font-size:1.2rem;margin-top:2em}p,li{overflow-wrap:anywhere}.notice{padding:16px;border-left:5px solid #9a560b;background:#fff4df}section+section{border-top:2px solid #dce1e5;margin-top:60px;padding-top:24px}li{margin-bottom:12px}@media(max-width:600px){main{margin:0;padding:20px;border-radius:0}body{font-size:18px}}@media print{body{background:white}main{margin:0;max-width:none}nav{display:none}}</style></head>
+<body><main><nav aria-label="Language"><a href="#zh">中文全文</a><a href="#en" lang="en">Full English version</a></nav><p class="notice">审阅稿 · 尚未生效 / Review draft · Not effective. 本页不提交同意、不收集表单，不代表手机号服务已开放。</p><section id="zh" lang="zh-CN"><h1>MedicationReminder 测试版隐私政策（审阅稿）</h1>
+<p>版本：2026-11-25-draft-1。编写日期：2026年11月25日。</p>
+<p><strong>状态：审阅稿，尚未生效。</strong> 本文为拟开展的手机号联调准备，不代表服务已上线。正式启用前，项目组须核实实际 SDK 数据、存储地点、保存与删除流程，并发布确定的生效日期与最终版本。请勿将本稿地址配置为已验收测试包的正式政策地址。</p>
+<p>运营者：CSI301 Group33 项目组。</p>
+<p>隐私联系邮箱：<a href="mailto:rui.zheng23@student.xjtlu.edu.cn">rui.zheng23@student.xjtlu.edu.cn</a>。</p>
+<h2>1. 适用范围</h2>
+<p>MedicationReminder（长辈服药提醒）是 CSI301 课程项目。本政策面向自愿参与的成年团队测试者，覆盖测试版的手机号认证、身份选择、配对同意、照片与计划、提醒反馈及必要的同步。测试不提供诊断、处方或紧急救援；提醒、服药报告和连接状态均不证明实际服药。</p>
+<p>联调使用虚构药品、用量、计划和不含真实患者信息的照片。请勿上传他人的手机号、病历、处方、身份证件或可识别患者的照片。测试者可以自愿使用自己的手机号验证认证功能；这仍属于个人信息处理，不因“课程测试”或手机号被哈希而变成匿名处理。</p>
+<h2>2. 项目组处理的信息与用途</h2>
+<ul>
+<li><strong>登录和身份</strong>：用于认证的手机号或短信备用流程中主动输入的手机号、认证结果；以及账号 ID、首次选择并由服务端固定的角色、照护者显示名称。服务端验证时会处理供应商确认的号码；候选持久化设计以带密钥的手机号摘要识别账号，不把该摘要称为匿名数据。</li>
+<li><strong>安装与会话</strong>：安装 ID、会话 ID、认证请求及到期状态、认证凭证、原操作标识和必要的防重放记录。它们用于维持当前身份、隔离账号与安装、恢复原操作和防止重复提交。身份验证不直接授予访问其他长者数据的权限。</li>
+<li><strong>配对与业务资料</strong>：用户主动创建并经长者同意的关系、虚构药盒照片、药品说明、计划、执行时区，以及提醒动作和服务接收时间。这些信息用于测试已授权照护流程。配对码属于临时授权信息，不用于公开展示测试资料。</li>
+<li><strong>本机设置及缓存</strong>：语言选择、必要的会话状态、Room 缓存、待同步操作和本地提醒状态，用于离线显示、到点提醒及恢复。具体文件和备份排除范围由发布版本核验，不承诺“所有数据均加密”或“卸载必然清除所有副本”。</li>
+<li><strong>连接和诊断</strong>：处理请求所需的网络 IP、请求时间、状态及安全错误分类，用于传输、限流和排错。托管平台也会处理连接数据。项目诊断应避免记录完整手机号、认证 proof、访问令牌、配对码、照片和用药正文；最终版本需验证日志配置。</li>
+</ul>
+<p>我们不以本测试提供广告投放、出售用户数据、医疗判断或面向用户的商业画像。登录风控 SDK 的数据处理仍需单独披露，不能据此声称“没有第三方 SDK”或“第三方绝不收集标识”。</p>
+<h2>3. 第三方 SDK 与服务</h2>
+<p>手机号测试候选包含以下组件。仅列入依赖不证明每个字段已实际采集；项目组须对最终 APK、实际供应商方案和网络行为逐项核验，完成最终清单后才启用真实认证。</p>
+<ul>
+<li><strong>阿里云融合认证 SDK</strong>：提供一键登录和 SDK 短信认证；官方指南列出设备名称、型号和系统版本。号码认证还可能涉及本机号码、运营商和网络相关信息。按认证页面展示的运营商协议及<a href="https://terms.aliyun.com/legal-agreement/terms/suit_bu1_ali_cloud/suit_bu1_ali_cloud202112211045_86198.html">号码认证隐私政策</a>了解详细处理。</li>
+<li><strong>短信认证 SDK</strong>：提供发送/验证短信的供应商界面与认证结果。输入的号码和验证行为由该认证链处理；设备名称、型号和系统版本等见<a href="https://terms.alicdn.com/legal-agreement/terms/privacy_policy_full/20230922101800634/20230922101800634.html">短信认证隐私政策</a>。项目不另建手工发码服务，也不要求测试者向项目组提供验证码或登录 proof。</li>
+<li><strong>图形认证及其服务提供方</strong>：供应商方案在风控需要时可能显示验证，涉及网络 IP、设备/环境和验证交互信息；具体子服务以最终方案为准。参见<a href="https://terms.alicdn.com/legal-agreement/terms/privacy_policy_full/20240510173033685/20240510173033685.html">图形认证隐私政策</a>。</li>
+<li><strong>友盟登录安全组件</strong>：当前候选打包 common 9.5.6、asms 1.8.0，并调用 SDK 关联组件的启用接口，用于登录风险检测和频控。设备标识、硬件和网络数据的实际范围须按版本、权限和方案核实；不能直接把供应商列出的所有可选标识当作本 App 的实际采集清单。参见<a href="https://www.umeng.com/policy.html">友盟隐私政策</a>。</li>
+<li><strong>Render 与 Supabase</strong>：既定方案由 Render 托管独立测试服务及静态政策页，Supabase PostgreSQL/私有 Storage 保存结构化业务资料和照片。它们接收相应网络请求并承担经审配置中的处理；新资源、地区和权限尚未全部核验，不能视为已启用。参见<a href="https://render.com/privacy">Render 隐私政策</a>及<a href="https://supabase.com/privacy">Supabase 隐私政策</a>。项目自己的最终处理披露不能由平台政策替代。</li>
+</ul>
+<p>阿里云融合认证通过其服务主体及运营商提供相关能力；号码、短信、图形及友盟具体主体和下游见各官方政策。正式披露需核对实际接收方，而不能只写一个品牌名称替代全部接收方信息。</p>
+<h2>4. 同意与设备权限</h2>
+<p>在进入真实手机号认证前，应向您展示可打开的项目隐私政策，并由您主动选择是否继续；拒绝后不应启动认证 SDK。运营商、短信及其他供应商条款按实际页面分别展示，不以默认勾选代替必要同意。打开本政策网页本身不代表同意 App 的认证或其他处理。</p>
+<p>拍摄药盒照片使用您主动调用的相机流程；通知及适用系统版本上的精确闹钟/后台播放能力仅用于提醒。拒绝相关权限会影响对应拍照或提醒能力，不应被记为“已服药”或“未服药”。最终权限以安装包和系统说明为准，不要求您提供通讯录、身份证件或精确位置来测试现有核心流程。</p>
+<p>您可以取消认证、退出测试和在系统设置中管理权限。退出本机或撤销配对不等同于删除服务器账号、原操作回执或供应商记录。</p>
+<h2>5. 保存地点、期限与删除</h2>
+<p>拟用 Render 的新加坡区域托管独立联调服务；旧演示服务也位于新加坡。新服务、数据库与照片对象的实际部署位置尚未全部确定。本稿不承诺“全部数据只在中国境内”或“全部只存在手机”。真实个人信息进入该测试环境前，项目组须明确实际接收方、地点、用途、数据种类和权利渠道，并核实适用的跨境告知、同意及其他要求；不能只凭勾选本文视为全部完成。</p>
+<p>目前尚未确定足以支撑正式联调的统一保存期限和清理机制，因此本稿不宣布真实手机号服务开放。最终版需分别公布账号/安装/会话、认证防重放摘要、业务记录/照片、诊断日志及备份的保存规则，并在目的完成后删除或按适用要求处理。认证凭证的“有效期”不等于数据库记录的“删除时间”；不能因某个 SDK grant 为900秒就承诺认证摘要900秒后删除。</p>
+<p>本测试尚未证明具备完整的自助账号注销、服务器与对象/备份联合删除功能。您可通过上述邮箱申请查询、复制、更正、撤回同意、限制处理或删除；项目组将核实请求范围和所需身份，说明可执行的处理及尚存限制。不要通过邮箱发送验证码、登录 token、密码、密钥或真实病历。正式启用前还须确认请求承接人、响应时限、删除流程和供应商权利渠道，不能以撤销会话冒充删除。</p>
+<h2>6. 数据访问与安全</h2>
+<p>业务资料按当前账号、角色和有效照护关系校验，登录本身不授予跨用户读取。团队配置中的供应商密钥、数据库密码和签名私钥仅由指定配置人员处理，不放入 App、公开仓库或测试日志。真实联调地址使用 HTTPS；本地受控脚本/模拟器的 HTTP 证据不代表云端已具备同等保障。</p>
+<p>我们尽量减少测试数据与管理权限，不保证网络或系统绝对安全。如发生信息泄露或误传，请立即停止相关测试并联系项目组；项目组应先控制暴露，再按实际情况及适用要求告知和处理。</p>
+<h2>7. 参与限制、变更与联系</h2>
+<p>当前联调不招募未成年人或真实患者。请成年测试者仅使用自己的认证信息和虚构业务资料；如发现不适当数据，请联系项目组处理。</p>
+<p>处理目的、接收方、数据类型、保存规则或供应商方案发生实质变化时，项目组将更新版本并在需要时重新告知和征求同意。本稿尚未生效；正式版本应在认证前可访问并保留版本记录。</p>
+<p>如有隐私问题，请联系 CSI301 Group33 项目组：<a href="mailto:rui.zheng23@student.xjtlu.edu.cn">rui.zheng23@student.xjtlu.edu.cn</a>。</p></section><section id="en" lang="en"><h1>MedicationReminder Test Privacy Policy — Review Draft</h1>
+<p>Version: 2026-11-25-draft-1. Prepared: 25 November 2026.</p>
+<p><strong>Review draft — not effective.</strong> This document prepares the planned phone-authentication integration test. It does not announce a live service. Before activation, the project must verify actual SDK data, storage locations, retention and deletion procedures, then publish the final policy and effective date. Do not use this draft URL as the accepted policy URL of a verified team APK.</p>
+<p>Operator: CSI301 Group33 项目组 (CSI301 Group33 Project Team).</p>
+<p>Privacy contact: <a href="mailto:rui.zheng23@student.xjtlu.edu.cn">rui.zheng23@student.xjtlu.edu.cn</a>.</p>
+<h2>1. Scope</h2>
+<p>MedicationReminder is a CSI301 course project. This policy addresses adult volunteers in the team test, covering phone authentication, role selection, consented pairing, fictional medication photos and plans, reminders, reports and necessary synchronization. It is not diagnosis, prescribing or emergency assistance. A reminder, report or connectivity state does not prove ingestion.</p>
+<p>Use fictional medication, instructions, plans and photos without identifiable patient information. Do not upload another person&#x27;s phone number, medical record, prescription, identity document or identifiable patient photo. Volunteers may use their own number to test authentication. Course testing and a keyed phone hash do not make personal information anonymous.</p>
+<h2>2. Information and purposes</h2>
+<ul>
+<li><strong>Identity and login:</strong> the number processed for verification or entered for SMS, verification result, account ID, fixed role selected at registration, and caregiver display name. Verification temporarily processes the provider-confirmed number. The candidate persistence design identifies accounts using a keyed phone digest; that digest is not anonymous data.</li>
+<li><strong>Installation and session:</strong> installation/session IDs, authentication attempts and deadlines, credentials, original operation IDs and necessary replay-protection records. These support current identity, account/installation isolation, recovery of the original operation and duplicate prevention. Authentication alone does not authorize another Elder&#x27;s data.</li>
+<li><strong>Pairing and business data:</strong> relationships created by users and consented to by the Elder, fictional photos, medication text, plans, execution zone, reminder actions and server receipt times. Pairing codes are temporary authorization data, not a public sharing mechanism.</li>
+<li><strong>Local settings and cache:</strong> language choice, required session state, Room cache, pending operations and reminder state. These support offline display and recovery. The release must verify actual storage and backup exclusions; this draft does not claim that all data is encrypted or uninstall removes every copy.</li>
+<li><strong>Connection and diagnostics:</strong> IP address, request time, status and safe error categories needed for transport, rate limits and diagnosis. Hosting platforms also process connection information. Project diagnostics must avoid full numbers, proof tokens, access tokens, pairing codes, photos and medication text; release logging remains to be verified.</li>
+</ul>
+<p>The test does not provide advertising, data sales, medical decisions or commercial user profiling. Login-risk SDK processing still requires disclosure; we do not claim that no third-party SDK or identifier collection exists.</p>
+<h2>3. SDKs and service providers</h2>
+<p>These components are present in the phone-test candidate. Packaging is not evidence that every possible field was collected. Verify the final APK, provider scheme and network behavior before real authentication.</p>
+<ul>
+<li><strong>Alibaba Cloud Fusion Authentication:</strong> one-tap and SDK SMS authentication. Its guide identifies device name, model and OS version; number verification can also process the number, carrier and network information. See the displayed carrier terms and <a href="https://terms.aliyun.com/legal-agreement/terms/suit_bu1_ali_cloud/suit_bu1_ali_cloud202112211045_86198.html">Number Verification Policy</a>.</li>
+<li><strong>SMS authentication SDK:</strong> provider-managed SMS verification and result; the authentication chain handles the entered number and verification interactions. See its device and processing details in the <a href="https://terms.alicdn.com/legal-agreement/terms/privacy_policy_full/20230922101800634/20230922101800634.html">SMS SDK Policy</a>. The project does not run a separate manual code-sending system or ask volunteers to email codes/proof tokens.</li>
+<li><strong>CAPTCHA and related providers:</strong> the actual scheme may request verification for risk control, processing IP, device/environment and interaction information. See the <a href="https://terms.alicdn.com/legal-agreement/terms/privacy_policy_full/20240510173033685/20240510173033685.html">CAPTCHA Policy</a>. Verify which sub-services the final scheme enables.</li>
+<li><strong>Umeng login security:</strong> the candidate packages common 9.5.6 and asms 1.8.0 and enables the SDK-associated component for risk detection and frequency control. Verify identifiers, hardware and network fields for the actual version, permissions and scheme; a provider&#x27;s optional-field list is not an observed collection inventory. See the <a href="https://www.umeng.com/policy.html">Umeng Policy</a>.</li>
+<li><strong>Render and Supabase:</strong> the accepted stack uses Render for the independent test service/static policy page and Supabase PostgreSQL/private Storage for structured business data and photos. They receive corresponding requests and process data under reviewed configuration. New resources, regions and permissions are not all verified and are not declared active. See <a href="https://render.com/privacy">Render&#x27;s Policy</a> and <a href="https://supabase.com/privacy">Supabase&#x27;s Policy</a>. Provider policies do not replace this project&#x27;s final processing disclosure.</li>
+</ul>
+<p>Alibaba and its service entities and carriers provide the relevant authentication capabilities. Consult the individual policies for their entities and downstream providers; a brand name alone does not complete the final recipient disclosure.</p>
+<h2>4. Choice and permissions</h2>
+<p>Before real phone authentication, the App must show an accessible project policy and let you actively choose whether to continue; declining must not start the authentication SDK. Carrier/SMS/provider terms are shown as applicable, and required consent is not replaced by preselected checkboxes. Reading this web page does not consent to App processing.</p>
+<p>Photos use a camera flow you initiate. Notifications and applicable exact-alarm/background playback capabilities support reminders. Refusal affects that feature and must not be interpreted as a dose outcome. Check the final APK and operating-system prompts. Existing core tests do not require your contacts, identity documents or precise location.</p>
+<p>You may cancel authentication, leave the test and manage system permissions. Local sign-out or pairing revocation is not deletion of the server account, original receipts or provider records.</p>
+<h2>5. Location, retention and deletion</h2>
+<p>The proposed independent Render service uses Singapore; the existing preview is also there. The new service, database and photo-storage locations are not all finalized. We do not claim that all data stays in mainland China or only on your phone. Before personal data enters this environment, the project must identify actual recipients, locations, purposes, categories and rights channels, and verify applicable cross-border notice, consent and other requirements. A checkbox for this draft does not complete those requirements.</p>
+<p>A unified retention/cleanup procedure has not been verified, so this draft does not open real-number testing. The final policy must separately state retention for identity/session records, replay-protection digests, business records/photos, diagnostics and backups, with deletion or appropriate handling once the purpose ends. Credential expiry is not database deletion. A 900-second SDK grant does not justify deleting replay fingerprints after 900 seconds.</p>
+<p>Complete self-service account cancellation and joint database/object/backup deletion have not been demonstrated. You may email requests for access, copies, correction, withdrawal, restriction or deletion. The team will verify the necessary identity and scope and explain available handling and limits. Do not email codes, login tokens, passwords, keys or real medical records. Before activation, confirm the responsible person, response window, deletion procedure and provider rights channels. Revoking a session is not deletion.</p>
+<h2>6. Access and security</h2>
+<p>Business access is checked against the current account, role and active care relationship. Provider credentials, database passwords and signing private keys are restricted to designated configuration operators, not the APK, public repository or test logs. Real integration uses HTTPS. Local HTTP fixtures do not demonstrate cloud security.</p>
+<p>We minimize data and access but cannot guarantee absolute system/network security. Stop affected tests and contact the team if data is exposed or sent in error. The team must contain exposure and then notify and handle it as applicable.</p>
+<h2>7. Participation, changes and contact</h2>
+<p>The integration test does not recruit minors or real patients. Adult volunteers should use only their own authentication information and fictional business data. Contact the team if inappropriate data is found.</p>
+<p>Material changes to purposes, recipients, categories, retention or the provider scheme require a revised version and renewed notice/consent where needed. This draft is not effective. The final policy must be accessible before authentication and retain version history.</p>
+<p>Contact CSI301 Group33 Project Team at <a href="mailto:rui.zheng23@student.xjtlu.edu.cn">rui.zheng23@student.xjtlu.edu.cn</a>.</p></section></main></body></html>

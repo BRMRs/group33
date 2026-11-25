@@ -1,0 +1,153 @@
+{
+  "date": "2026-11-25",
+  "purpose": "Privacy and deployment preparation; source facts, not release acceptance",
+  "sources": [
+    {
+      "role": "main",
+      "commit": "9e5621393c3d130bc65ec6754d0531c363c9cf9d",
+      "path": "render.yaml",
+      "sha256": "5efc78c9945f092d5f78df2e1037df12e6300e76057d49e6d707f71582417867",
+      "url": "https://github.com/BRMRs/group33/blob/9e5621393c3d130bc65ec6754d0531c363c9cf9d/render.yaml"
+    },
+    {
+      "role": "main",
+      "commit": "9e5621393c3d130bc65ec6754d0531c363c9cf9d",
+      "path": "Dockerfile",
+      "sha256": "def3ec89ebd0a556df54019f2f13ae6fc653f8f57a5a6c4aaa9f394d12d3f187",
+      "url": "https://github.com/BRMRs/group33/blob/9e5621393c3d130bc65ec6754d0531c363c9cf9d/Dockerfile"
+    },
+    {
+      "role": "main",
+      "commit": "9e5621393c3d130bc65ec6754d0531c363c9cf9d",
+      "path": "scripts/run_render_preview.sh",
+      "sha256": "333025c1c45852803c535fc193007294f51f2fa9ee80152380e1573f7598beec",
+      "url": "https://github.com/BRMRs/group33/blob/9e5621393c3d130bc65ec6754d0531c363c9cf9d/scripts/run_render_preview.sh"
+    },
+    {
+      "role": "main",
+      "commit": "9e5621393c3d130bc65ec6754d0531c363c9cf9d",
+      "path": "server/src/main/resources/application.yml",
+      "sha256": "4692d38ea00c4b3c42b362abb45bb3604926d32bd43e176d8cab4fae1a6e3561",
+      "url": "https://github.com/BRMRs/group33/blob/9e5621393c3d130bc65ec6754d0531c363c9cf9d/server/src/main/resources/application.yml"
+    },
+    {
+      "role": "main",
+      "commit": "9e5621393c3d130bc65ec6754d0531c363c9cf9d",
+      "path": "server/src/main/kotlin/com/group33/server/config/PersistenceRuntimeConfiguration.kt",
+      "sha256": "1321352eb029f7c3aa18c0ddbc9f9f37f0bb9b0c16d8617145b58782d34d6b94",
+      "url": "https://github.com/BRMRs/group33/blob/9e5621393c3d130bc65ec6754d0531c363c9cf9d/server/src/main/kotlin/com/group33/server/config/PersistenceRuntimeConfiguration.kt"
+    },
+    {
+      "role": "main",
+      "commit": "9e5621393c3d130bc65ec6754d0531c363c9cf9d",
+      "path": "docs/adr/0004-hosting-storage-and-explicit-sync.md",
+      "sha256": "94d0c822c48adb238e660e2da7ccd544f80e0fbe6a95f83dab205a25ba62bfc4",
+      "url": "https://github.com/BRMRs/group33/blob/9e5621393c3d130bc65ec6754d0531c363c9cf9d/docs/adr/0004-hosting-storage-and-explicit-sync.md"
+    },
+    {
+      "role": "main",
+      "commit": "9e5621393c3d130bc65ec6754d0531c363c9cf9d",
+      "path": "docs/SCHEMA_MIGRATIONS.md",
+      "sha256": "4dad608b708c29ffebfa7e54295d291dafcec8025bb36528140ff2420defbe10",
+      "url": "https://github.com/BRMRs/group33/blob/9e5621393c3d130bc65ec6754d0531c363c9cf9d/docs/SCHEMA_MIGRATIONS.md"
+    },
+    {
+      "role": "phone-client",
+      "commit": "c1e1b9034faa37c6b565bd39bbcad6bd5c96d706",
+      "path": "android-app/build.gradle.kts",
+      "sha256": "75442c87aaccc7fd253ed218d69784cb2e4529f17e4bae601174e9882693d246",
+      "url": "https://github.com/BRMRs/group33/blob/c1e1b9034faa37c6b565bd39bbcad6bd5c96d706/android-app/build.gradle.kts"
+    },
+    {
+      "role": "phone-client",
+      "commit": "c1e1b9034faa37c6b565bd39bbcad6bd5c96d706",
+      "path": "android-app/src/main/kotlin/com/group33/medicationreminder/SharedLoginActivity.kt",
+      "sha256": "679534cb36c612548ce81cacd8e98f6c89eec84c927ea512674305040d183133",
+      "url": "https://github.com/BRMRs/group33/blob/c1e1b9034faa37c6b565bd39bbcad6bd5c96d706/android-app/src/main/kotlin/com/group33/medicationreminder/SharedLoginActivity.kt"
+    },
+    {
+      "role": "phone-client",
+      "commit": "c1e1b9034faa37c6b565bd39bbcad6bd5c96d706",
+      "path": "android-app/src/debug/kotlin/com/group33/medicationreminder/auth/FusionSdkBridge.kt",
+      "sha256": "deb0cab96196b97775479c25778b014cc3a6a5217eff9d926aa14923428a7bc5",
+      "url": "https://github.com/BRMRs/group33/blob/c1e1b9034faa37c6b565bd39bbcad6bd5c96d706/android-app/src/debug/kotlin/com/group33/medicationreminder/auth/FusionSdkBridge.kt"
+    },
+    {
+      "role": "phone-client",
+      "commit": "c1e1b9034faa37c6b565bd39bbcad6bd5c96d706",
+      "path": "server/src/main/resources/application.yml",
+      "sha256": "601222adb00ecb07455d9aa229422c0a5733886edc1373f19184d612656254c1",
+      "url": "https://github.com/BRMRs/group33/blob/c1e1b9034faa37c6b565bd39bbcad6bd5c96d706/server/src/main/resources/application.yml"
+    },
+    {
+      "role": "phone-client",
+      "commit": "c1e1b9034faa37c6b565bd39bbcad6bd5c96d706",
+      "path": "docs/PHONE_TEAM_TEST.md",
+      "sha256": "c3cde4e6dfc044310bfede3a20aeddfd8a178f0e0140e9899d737ae8c069e3a1",
+      "url": "https://github.com/BRMRs/group33/blob/c1e1b9034faa37c6b565bd39bbcad6bd5c96d706/docs/PHONE_TEAM_TEST.md"
+    },
+    {
+      "role": "identity-store",
+      "commit": "1925982681d70de0b73c4788eaafaf8219e7e46f",
+      "path": "server/src/main/kotlin/com/group33/server/auth/BoundPhoneIdentityStore.kt",
+      "sha256": "b3de73b312d901a1ca11988730670c93f86e8bcd7611df8e318ade34c9ccc200",
+      "url": "https://github.com/BRMRs/group33/blob/1925982681d70de0b73c4788eaafaf8219e7e46f/server/src/main/kotlin/com/group33/server/auth/BoundPhoneIdentityStore.kt"
+    },
+    {
+      "role": "bound-auth",
+      "commit": "8048037a6d2fe4cd27817fdeae27106388124010",
+      "path": "server/src/main/kotlin/com/group33/server/auth/BoundPhoneAuthController.kt",
+      "sha256": "d15371c4e86ba2f78c83586b69e41896058cb56836d779ef25927cd5b6c8ac15",
+      "url": "https://github.com/BRMRs/group33/blob/8048037a6d2fe4cd27817fdeae27106388124010/server/src/main/kotlin/com/group33/server/auth/BoundPhoneAuthController.kt"
+    },
+    {
+      "role": "bound-auth",
+      "commit": "8048037a6d2fe4cd27817fdeae27106388124010",
+      "path": "server/src/main/kotlin/com/group33/server/auth/BoundPhoneAuthentication.kt",
+      "sha256": "4321762fce62f901938c1256e133bd298d4570eefeb53fc60bd44506d6d3b660",
+      "url": "https://github.com/BRMRs/group33/blob/8048037a6d2fe4cd27817fdeae27106388124010/server/src/main/kotlin/com/group33/server/auth/BoundPhoneAuthentication.kt"
+    },
+    {
+      "role": "bound-auth",
+      "commit": "8048037a6d2fe4cd27817fdeae27106388124010",
+      "path": "server/src/main/kotlin/com/group33/server/auth/BoundPhoneJwt.kt",
+      "sha256": "d91fb016497872b71d29150bfbf41e01ce7c1049c605b605161affb6eaba01bc",
+      "url": "https://github.com/BRMRs/group33/blob/8048037a6d2fe4cd27817fdeae27106388124010/server/src/main/kotlin/com/group33/server/auth/BoundPhoneJwt.kt"
+    },
+    {
+      "role": "bound-auth",
+      "commit": "8048037a6d2fe4cd27817fdeae27106388124010",
+      "path": "server/src/main/resources/application.yml",
+      "sha256": "4692d38ea00c4b3c42b362abb45bb3604926d32bd43e176d8cab4fae1a6e3561",
+      "url": "https://github.com/BRMRs/group33/blob/8048037a6d2fe4cd27817fdeae27106388124010/server/src/main/resources/application.yml"
+    },
+    {
+      "role": "phone-plan",
+      "commit": "dcb12aeeccaa674a3ebe28bab8ad02e2f88b108b",
+      "path": "docs/PHONE_PLAN_AUTHORIZATION.md",
+      "sha256": "876278b2442345a7d98644b5e932c0f500f821cb22f3f0d68141c3cbe0df2815",
+      "url": "https://github.com/BRMRs/group33/blob/dcb12aeeccaa674a3ebe28bab8ad02e2f88b108b/docs/PHONE_PLAN_AUTHORIZATION.md"
+    },
+    {
+      "role": "cloud-candidate",
+      "commit": "57dbd5b7759a319b80c57502efbe35b0b529d60b",
+      "path": ".env.example",
+      "sha256": "5b0429a2df1155000be10dbe19bbec0d752535c6c931f7ea844d5a10cfb704fe",
+      "url": "https://github.com/BRMRs/group33/blob/57dbd5b7759a319b80c57502efbe35b0b529d60b/.env.example"
+    },
+    {
+      "role": "cloud-candidate",
+      "commit": "57dbd5b7759a319b80c57502efbe35b0b529d60b",
+      "path": "server/src/main/resources/application.yml",
+      "sha256": "c313950df240f33a8d3c60f6811cb8cbe148c188279147154f96d67daffcfa9e",
+      "url": "https://github.com/BRMRs/group33/blob/57dbd5b7759a319b80c57502efbe35b0b529d60b/server/src/main/resources/application.yml"
+    },
+    {
+      "role": "cloud-candidate",
+      "commit": "57dbd5b7759a319b80c57502efbe35b0b529d60b",
+      "path": "docs/SUPABASE_TEST_SETUP.md",
+      "sha256": "b16f673868b1450de7b4e8897623effe926e00d992289b9ccdfdad00c914e293",
+      "url": "https://github.com/BRMRs/group33/blob/57dbd5b7759a319b80c57502efbe35b0b529d60b/docs/SUPABASE_TEST_SETUP.md"
+    }
+  ]
+}

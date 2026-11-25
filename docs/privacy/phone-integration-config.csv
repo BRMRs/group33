@@ -1,0 +1,43 @@
+name,scope,owner,secret,status,note
+PORT,main,Render,no,known,由平台提供；不是本机调试端口
+JWT_SECRET,main,S2/operator,yes,known-existing-profile,当前匿名签名；新phone typed profile独立key/issuer/audience映射待装配
+PERSISTENCE_MODE,main,S2/operator,no,final-cloud-binding-pending,main仅memory/loopback postgres-local；云端及新身份同primary待统一；key文件恰好32字节
+PERSISTENCE_JDBC_URL,main,S2/operator,no,final-cloud-binding-pending,main仅memory/loopback postgres-local；云端及新身份同primary待统一；key文件恰好32字节
+PERSISTENCE_SCHEMA,main,S2/operator,no,final-cloud-binding-pending,main仅memory/loopback postgres-local；云端及新身份同primary待统一；key文件恰好32字节
+PERSISTENCE_USERNAME,main,S2/operator,no,final-cloud-binding-pending,main仅memory/loopback postgres-local；云端及新身份同primary待统一；key文件恰好32字节
+PERSISTENCE_PASSWORD,main,S2/operator,yes,final-cloud-binding-pending,main仅memory/loopback postgres-local；云端及新身份同primary待统一；key文件恰好32字节
+PERSISTENCE_RECEIPT_KEY_FILE,main,S2/operator,private-path,final-cloud-binding-pending,main仅memory/loopback postgres-local；云端及新身份同primary待统一；key文件恰好32字节
+PERSISTENCE_REQUIRE_VERSIONED_SCHEMA,main,S2/operator,no,final-cloud-binding-pending,main仅memory/loopback postgres-local；云端及新身份同primary待统一；key文件恰好32字节
+PHOTO_ENABLED,main,S2/operator,no,known-but-not-enable-now,按已审迁移/授权逐项启用；新联调keep-alive建议false；本机/tmp不是持久私有Storage
+PHOTO_OBJECT_ROOT,main,S2/operator,no,known-but-not-enable-now,按已审迁移/授权逐项启用；新联调keep-alive建议false；本机/tmp不是持久私有Storage
+PLAN_ENABLED,main,S2/operator,no,known-but-not-enable-now,按已审迁移/授权逐项启用；新联调keep-alive建议false；本机/tmp不是持久私有Storage
+OCCURRENCE_ENABLED,main,S2/operator,no,known-but-not-enable-now,按已审迁移/授权逐项启用；新联调keep-alive建议false；本机/tmp不是持久私有Storage
+DOSE_GROUP_ENABLED,main,S2/operator,no,known-but-not-enable-now,按已审迁移/授权逐项启用；新联调keep-alive建议false；本机/tmp不是持久私有Storage
+KEEP_ALIVE_ENABLED,main,S2/operator,no,known-but-not-enable-now,按已审迁移/授权逐项启用；新联调keep-alive建议false；本机/tmp不是持久私有Storage
+SUPABASE_PROJECT_REF,cloud-candidate-not-main,S2/operator,no,must-reconcile-with-final-build,来源feature/16-managed-cloud-prerequisites；保持private bucket/verify-full，不把旧原型初始化当新迁移
+PERSISTENCE_SSL_ROOT_CERT,cloud-candidate-not-main,S2/operator,no,must-reconcile-with-final-build,来源feature/16-managed-cloud-prerequisites；保持private bucket/verify-full，不把旧原型初始化当新迁移
+PHOTO_STORAGE_MODE,cloud-candidate-not-main,S2/operator,no,must-reconcile-with-final-build,来源feature/16-managed-cloud-prerequisites；保持private bucket/verify-full，不把旧原型初始化当新迁移
+SUPABASE_STORAGE_ORIGIN,cloud-candidate-not-main,S2/operator,no,must-reconcile-with-final-build,来源feature/16-managed-cloud-prerequisites；保持private bucket/verify-full，不把旧原型初始化当新迁移
+SUPABASE_STORAGE_BUCKET,cloud-candidate-not-main,S2/operator,no,must-reconcile-with-final-build,来源feature/16-managed-cloud-prerequisites；保持private bucket/verify-full，不把旧原型初始化当新迁移
+SUPABASE_STORAGE_SECRET_KEY_FILE,cloud-candidate-not-main,S2/operator,private-secret-file,must-reconcile-with-final-build,来源feature/16-managed-cloud-prerequisites；保持private bucket/verify-full，不把旧原型初始化当新迁移
+SUPABASE_STORAGE_REQUEST_BUDGET_MS,cloud-candidate-not-main,S2/operator,no,must-reconcile-with-final-build,来源feature/16-managed-cloud-prerequisites；保持private bucket/verify-full，不把旧原型初始化当新迁移
+PHONE_AUTH_ENABLED,legacy-pr88-trial,S2/operator,no,not-bound-auth-activation,旧app.fusion.*试验配置；不是#144装配；禁止并行启用冲突路由或建立平行primary
+ALIBABA_CLOUD_ACCESS_KEY_ID,legacy-pr88-trial,S2/operator,yes,not-bound-auth-activation,旧app.fusion.*试验配置；不是#144装配；禁止并行启用冲突路由或建立平行primary
+ALIBABA_CLOUD_ACCESS_KEY_SECRET,legacy-pr88-trial,S2/operator,yes,not-bound-auth-activation,旧app.fusion.*试验配置；不是#144装配；禁止并行启用冲突路由或建立平行primary
+PHONE_AUTH_SCHEME_CODE,legacy-pr88-trial,S2/operator,no,not-bound-auth-activation,旧app.fusion.*试验配置；不是#144装配；禁止并行启用冲突路由或建立平行primary
+PHONE_AUTH_PACKAGE_NAME,legacy-pr88-trial,S2/operator,no,not-bound-auth-activation,旧app.fusion.*试验配置；不是#144装配；禁止并行启用冲突路由或建立平行primary
+PHONE_AUTH_PACKAGE_SIGN,legacy-pr88-trial,S2/operator,no,not-bound-auth-activation,旧app.fusion.*试验配置；不是#144装配；禁止并行启用冲突路由或建立平行primary
+PHONE_AUTH_DATABASE_URL,legacy-pr88-trial,S2/operator,no,not-bound-auth-activation,旧app.fusion.*试验配置；不是#144装配；禁止并行启用冲突路由或建立平行primary
+PHONE_AUTH_DATABASE_USER,legacy-pr88-trial,S2/operator,no,not-bound-auth-activation,旧app.fusion.*试验配置；不是#144装配；禁止并行启用冲突路由或建立平行primary
+PHONE_AUTH_DATABASE_PASSWORD,legacy-pr88-trial,S2/operator,yes,not-bound-auth-activation,旧app.fusion.*试验配置；不是#144装配；禁止并行启用冲突路由或建立平行primary
+PHONE_AUTH_HASH_KEY,legacy-pr88-trial,S2/operator,yes,not-bound-auth-activation,旧app.fusion.*试验配置；不是#144装配；禁止并行启用冲突路由或建立平行primary
+bound-auth-enable,required-input-not-an-env-name,S2,no,mapping-not-delivered,这是所需输入的说明标签；不能当Render环境变量填写；#144只有条件property且部署Beans未齐
+primary-datasource,required-input-not-an-env-name,S2,no,mapping-not-delivered,这是所需输入的说明标签；不能当Render环境变量填写；#144只有条件property且部署Beans未齐
+bounded-provider,required-input-not-an-env-name,S2,no,mapping-not-delivered,这是所需输入的说明标签；不能当Render环境变量填写；#144只有条件property且部署Beans未齐
+trusted-rate-limiter,required-input-not-an-env-name,S2,no,mapping-not-delivered,这是所需输入的说明标签；不能当Render环境变量填写；#144只有条件property且部署Beans未齐
+phone-hmac-key,required-input-not-an-env-name,S2,yes,mapping-not-delivered,这是所需输入的说明标签；不能当Render环境变量填写；#144只有条件property且部署Beans未齐
+phone-jwt-key-issuer-audience,required-input-not-an-env-name,S2,yes,mapping-not-delivered,这是所需输入的说明标签；不能当Render环境变量填写；#144只有条件property且部署Beans未齐
+phoneAuthBaseUrl,android-gradle-property-pr88,S1,no,final-client-adaptation-pending,仅用于有assemblePhoneTest任务的同版客户端；URL待实际创建并验收；证书必须实测
+phoneAuthPrivacyPolicyUrl,android-gradle-property-pr88,S1,no,final-client-adaptation-pending,仅用于有assemblePhoneTest任务的同版客户端；URL待实际创建并验收；证书必须实测
+phoneAuthSigningMd5,android-gradle-property-pr88,S1,no,final-client-adaptation-pending,仅用于有assemblePhoneTest任务的同版客户端；URL待实际创建并验收；证书必须实测
+phoneAuthPackageName,android-gradle-property-pr88,S1,no,final-client-adaptation-pending,仅用于有assemblePhoneTest任务的同版客户端；URL待实际创建并验收；证书必须实测
