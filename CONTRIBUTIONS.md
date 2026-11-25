@@ -84,3 +84,10 @@ Resolve checksum conflict; preserve main dose V10, explicitly require both new t
 ### 2026-11-18 — XinyanXue / S2 — #128 public-entry and private-reference guards
 
 Unify pre-connect URL-option refusal; keep CLI budgets through fixed internal properties; fix0700/0600 reference operations to a verified canonical parent and identity checks. Add direct no-network entry and moved/symlinked-parent red/green regressions; preserve original realPG/COMMIT assertions.
+| 2026-11-13 | XinyanXue — S2 (agent-assisted) | #96 / #118 design review follow-through | Existing #96 | Preserve actual main6114071 code/layout; correct obsolete transport-work status to delivered #97 branch and add explicit D1–D4 decision/evidence/configuration checklist. Fictional structural examples remain unchanged. | Design decisions remain PENDING/Proposed; no production protocol, migration, deployment or human approval. |
+
+| 2026-11-16 | XinyanXue — S2 (agent-assisted) | #96 / #118 | [PR #96](https://github.com/BRMRs/group33/pull/96) | Follow C1 D1 review: same-attempt SDK refresh, immutable deadline, original capability/profile, serialized grant/verify work and cancellation/switch/late-response acceptance cases; proposal only, no accepted wire or production code. | Non-author and role reviews remain required; no formal approval/main merge. |
+
+### 2026-11-17 — XinyanXue / S2 — #96 decision follow-up
+
+Sync actual main; record attributable S1/lead D1–D4 decisions and15-second call boundary, unknown-attempt closure,401/403/404 recovery and configuration truth. Independent non-author security approval and actual provider/service evidence remain pending. Documentation-only own delta.
