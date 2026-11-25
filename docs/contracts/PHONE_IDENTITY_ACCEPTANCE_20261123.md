@@ -4,6 +4,29 @@ Recorded by S2/XinyanXue on 2026-11-23, Refs #118/#96/#49/#10/#12/#16.
 This ledger records decisions actually submitted by the reviewers. It adds no
 reviewer signature and makes no runtime, provider or device acceptance claim.
 
+## Integration update — 2026-11-25
+
+BRMRs records this integration update; the original S2 ledger and reviewer
+attributions below are unchanged.
+
+The lead squash-merged the original #96 design into main as
+[`9e5621393c3d130bc65ec6754d0531c363c9cf9d`](https://github.com/BRMRs/group33/commit/9e5621393c3d130bc65ec6754d0531c363c9cf9d).
+The accepted review input below remains `caecd8f`; the squash commit does not create
+new reviewer signatures or implement bound authentication. This ledger now records
+that completed design integration, while #143/#144/#145 and #147 remain separately
+reviewed implementation inputs rather than a complete deployed service.
+
+The dated November17 configuration-absence paragraphs in the design files are
+historical snapshots. The [current #118 lead handoff](https://github.com/BRMRs/group33/issues/118#issuecomment-7152263731)
+records the selected independent Render service plan and lead operator, plus the
+user-confirmed policy subject/contact and review drafts in #146. Those owner inputs
+no longer block S2 from preparing the reviewed composition. C1 has also
+[reported supplier package/certificate registration](https://github.com/BRMRs/group33/issues/118#issuecomment-7130700068);
+S1 still verifies the final team APK certificate and package. A policy draft or
+reported registration is not an effective HTTPS policy, deployed phone service,
+configuration/migration acceptance or real supplier/device result. The remaining
+A–E implementation/fact/deployment deliverables stay with their recorded owners.
+
 ## Accepted input and attributable decisions
 
 The accepted design input is #96 commit
