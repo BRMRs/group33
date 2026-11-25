@@ -75,3 +75,10 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 2026-11-07 - tianiridescent / C1, Refs #19: shared-login keyboard viewport correction from current main, preserving existing authentication boundaries. Real API35 320/360dp 200% English/Chinese keyboard tests cover SMS/password/reset submission and return; the baseline password counterexamples fail before the correction. [Scope and evidence](docs/evidence/C1_LOGIN_KEYBOARD_INSETS.md). API27 physical-tablet bilingual compatibility also passed (24 total device cases). Local candidate; publication and non-author review remain separate.
 
 2026-11-12 — XinyanXue / S2, Refs #17/#16: synchronize existing #56 capability slice and its original tests with current main. Retain existing authorization, observation ordering and original receipts; no new wire or feature behavior. Source and exact-final-tree verification are recorded in the PR.
+| 2026-11-13 | XinyanXue — S2 (agent-assisted) | #96 / #118 design review follow-through | Existing #96 | Preserve actual main6114071 code/layout; correct obsolete transport-work status to delivered #97 branch and add explicit D1–D4 decision/evidence/configuration checklist. Fictional structural examples remain unchanged. | Design decisions remain PENDING/Proposed; no production protocol, migration, deployment or human approval. |
+
+| 2026-11-16 | XinyanXue — S2 (agent-assisted) | #96 / #118 | [PR #96](https://github.com/BRMRs/group33/pull/96) | Follow C1 D1 review: same-attempt SDK refresh, immutable deadline, original capability/profile, serialized grant/verify work and cancellation/switch/late-response acceptance cases; proposal only, no accepted wire or production code. | Non-author and role reviews remain required; no formal approval/main merge. |
+
+### 2026-11-17 — XinyanXue / S2 — #96 decision follow-up
+
+Sync actual main; record attributable S1/lead D1–D4 decisions and15-second call boundary, unknown-attempt closure,401/403/404 recovery and configuration truth. Independent non-author security approval and actual provider/service evidence remain pending. Documentation-only own delta.
