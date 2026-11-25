@@ -103,7 +103,7 @@ internal class PostgresBusinessRecoveryTest {
         admin() // Validate local-only settings before creating any fixture resource.
         source().connection.use { c -> c.createStatement().use { it.execute("CREATE SCHEMA $schema") } }
         sourceCreated = true
-        assertEquals(9, SchemaMigrations(source(), schema).migrate())
+        assertEquals(SchemaMigrations.VERSION.toInt(), SchemaMigrations(source(), schema).migrate())
         val identities = PostgresAnonymousIdentityStore(source())
         elder = identities.getOrCreate("fictional-recovery-elder-installation", "虚构长者", UserRole.ELDER)
         caregiver = identities.getOrCreate("fictional-recovery-caregiver-installation", "虚构照护者", UserRole.CAREGIVER)

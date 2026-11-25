@@ -1,0 +1,15 @@
+<resources>
+    <string name="elder_due_now_label">Need to take medicine now</string>
+    <string name="elder_action_taken">I have taken it</string>
+    <string name="elder_action_remind_later">Remind me later</string>
+    <string name="elder_action_not_recorded">This action was not recorded. Please try again.</string>
+    <string name="elder_action_saved_on_device">Recorded on this device.</string>
+    <string name="elder_snoozed_on_device">Reminder set for 10 minutes from now.</string>
+    <string name="elder_no_dose_due">No medicine is due right now.</string>
+    <string name="elder_dose_unavailable">Waiting for a confirmed plan.</string>
+    <string name="elder_enable_dose_notifications">Enable reminder notifications</string>
+    <string name="elder_dose_notification_channel">Medicine reminders</string>
+    <color name="group33_surface_card">#E8F1FA</color>
+    <color name="group33_outline_subtle">#C5D6EA</color>
+    <dimen name="group33_corner_lg">20dp</dimen>
+</resources>

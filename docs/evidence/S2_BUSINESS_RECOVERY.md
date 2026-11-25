@@ -1,5 +1,29 @@
 # Independent local business backup/recovery evidence
 
+## Current-main fixture repair — 2026-11-25 (BRMRs)
+
+This review branch now includes main `9e5621393c3d130bc65ec6754d0531c363c9cf9d`,
+including the already-applied dose V10 release. The original recovery fixture still
+asserted exactly9 migrations. On a newly initialized,owned PostgreSQL16.15 cluster,
+all three original cases failed in setup with `expected9/actual10`,before business
+seeding,backup or recovery. This is a stale fixture precondition,not evidence of
+production data loss or a business restore failure.
+
+The setup now requires the current release's `SchemaMigrations.VERSION.toInt()`
+applied count. Every case still migrates a new random schema and validates restored
+migration history; no V1–V10 SQL or production code is changed. All original dump/
+restore,new-database/object-root,17-table count,original receipt/replay,edited history,
+revocation,wrong-key and missing-object assertions remain.
+
+The corrected three cases actually passed on PostgreSQL16.15 using matching
+`pg_dump`/`pg_restore`. A dedicated local application role and independent fixture
+administrator were created only in a fresh owned cluster before the opt-in suite;
+that cluster,temporary key and private fixture files were removed after the run.
+No existing local service,cloud database or real data was touched. This is the same
+quiescent single-schema/service-factory scope described below,not an independent
+HTTP application JVM,full dose/V2 recovery,production backup or approved cloud rollout.
+The dated nine-migration/PostgreSQL17 evidence below retains its original execution.
+
 2026-10-31 — XinyanXue / S2, Refs #16 / #20. Base exact Draft99 `42f44ebe7889d97d96fd679cd42c309a5b24fbd9`. This adds three explicit PostgreSQL recovery integration cases and a separate opt-in test task; production business code, Shared/Android models, SQL/migrations and runtime configuration remain unchanged.
 
 ## What actually runs
