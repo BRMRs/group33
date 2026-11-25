@@ -14,7 +14,7 @@ import org.junit.Test
 
 class PhoneRepositoryCommonSessionTest {
     private class Sessions : PhoneSessionAccess {
-        private class Attempt : PhoneSignInAttempt
+        private class Attempt : PhoneSignInAttempt { override val installationId = "00000000-0000-4000-8000-000000000001" }
         var current: PhoneSignInAttempt? = null
         var account: PhoneAccount? = null
         var writes = 0
@@ -37,13 +37,14 @@ class PhoneRepositoryCommonSessionTest {
     private class Server : PhoneServerClient {
         var calls = 0
         var ticket: String? = null
+        var installationId: String? = null
         var failure: Exception? = null
         var beforeResponse: (() -> Unit)? = null
         var response: VerifiedPhone = VerifiedPhone.Existing(session())
-        override fun grant(): FusionSdkGrant = error("SDK not part of this session-boundary test")
-        override fun verify(token: String, expectedPhone: String?): VerifiedPhone = error("No provider proof fixture")
-        override fun register(ticket: String, role: UserRole, displayName: String?): VerifiedPhone {
-            calls++; this.ticket = ticket
+        override fun grant(installationId: String, authenticationAttemptToken: String?): FusionSdkGrant = error("SDK not part of this session-boundary test")
+        override fun verify(installationId: String, authenticationAttemptToken: String, token: String, expectedPhone: String?): VerifiedPhone = error("No provider proof fixture")
+        override fun register(installationId: String, ticket: String, role: UserRole, displayName: String?): VerifiedPhone {
+            calls++; this.ticket = ticket; this.installationId = installationId
             val result = response
             val error = failure
             beforeResponse?.invoke()
@@ -54,7 +55,8 @@ class PhoneRepositoryCommonSessionTest {
     private class Fixture {
         val sessions = Sessions()
         val server = Server()
-        val repo = FusionPhoneAuthRepository(server, sessions)
+        val clock = java.util.concurrent.atomic.AtomicLong(0)
+        val repo = FusionPhoneAuthRepository(server, sessions, clock::get)
         suspend fun pending() { repo.completeVerifiedResponse(repo.beginAuthentication(), VerifiedPhone.New("fictional-ticket")) }
     }
 
@@ -63,6 +65,7 @@ class PhoneRepositoryCommonSessionTest {
         assertNull(f.repo.restore()); assertEquals(0, f.sessions.writes)
         assertTrue(f.repo.register(UserRole.ELDER, null, null) is PhoneAuthResult.SignedIn)
         assertEquals("fictional-ticket", f.server.ticket); assertEquals(1, f.sessions.writes)
+        assertEquals("00000000-0000-4000-8000-000000000001", f.server.installationId)
     }
     @Test fun existing_account_uses_the_verified_server_role() = runBlocking {
         val f = Fixture(); val response = f.repo.completeVerifiedResponse(f.repo.beginAuthentication(), VerifiedPhone.Existing(session()))
@@ -90,18 +93,58 @@ class PhoneRepositoryCommonSessionTest {
         assertEquals(PhoneAuthResult.Failed(PhoneAuthError.CODE_EXPIRED), f.repo.register(UserRole.ELDER, null, null))
         assertEquals(0, f.server.calls)
     }
-    @Test fun transient_registration_failure_keeps_original_ticket_for_explicit_retry() = runBlocking {
+    @Test fun uncertain_bound_registration_requires_fresh_authentication_without_ticket_resend() = runBlocking {
         val f = Fixture(); f.pending(); f.server.failure = FusionHttpException(503, "SERVICE_UNAVAILABLE")
         assertTrue(f.repo.register(UserRole.ELDER, null, null) is PhoneAuthResult.Failed)
         assertNull(f.repo.restore()); assertEquals(1, f.server.calls)
         f.server.failure = null
-        assertTrue(f.repo.register(UserRole.ELDER, null, null) is PhoneAuthResult.SignedIn)
-        assertEquals("fictional-ticket", f.server.ticket); assertEquals(2, f.server.calls)
+        assertEquals(PhoneAuthResult.Failed(PhoneAuthError.CODE_EXPIRED), f.repo.register(UserRole.ELDER, null, null))
+        assertEquals("fictional-ticket", f.server.ticket); assertEquals(1, f.server.calls)
     }
     @Test fun storage_failure_is_reported_before_registration_http() = runBlocking {
         val f = Fixture(); f.pending(); f.sessions.failStorage = true
         assertEquals(PhoneAuthResult.Failed(PhoneAuthError.STORAGE), f.repo.register(UserRole.ELDER, null, null))
         assertEquals(0, f.server.calls)
+    }
+
+    @Test fun original_registration_ticket_deadline_is_not_renewed_by_role_selection() = runBlocking {
+        val f = Fixture(); f.pending(); f.clock.set(300_000)
+        assertEquals(PhoneAuthResult.Failed(PhoneAuthError.CODE_EXPIRED), f.repo.register(UserRole.CAREGIVER, "Fixture", null))
+        assertEquals(0, f.server.calls); assertNull(f.repo.restore())
+    }
+
+    @Test fun registration_response_after_local_ticket_deadline_cannot_publish_session() = runBlocking {
+        val f = Fixture(); f.pending(); f.server.beforeResponse = { f.clock.set(300_000) }
+        assertEquals(PhoneAuthResult.Failed(PhoneAuthError.CODE_EXPIRED), f.repo.register(UserRole.ELDER, null, null))
+        assertNull(f.repo.restore()); assertEquals(0, f.sessions.writes)
+        assertEquals(PhoneAuthResult.Failed(PhoneAuthError.CODE_EXPIRED), f.repo.register(UserRole.ELDER, null, null))
+        assertEquals(1, f.server.calls)
+    }
+
+    @Test fun unsupported_password_reset_never_starts_provider_or_registration_work() = runBlocking {
+        val f = Fixture()
+        assertEquals(PhoneActionResult.Failed(PhoneAuthError.NOT_CONFIGURED),
+            f.repo.resetPasswordWithSms("13800000000", "fictional-password"))
+        assertNull(f.sessions.current); assertEquals(0, f.server.calls); assertEquals(0, f.sessions.writes)
+    }
+
+    @Test fun suspended_private_store_check_cannot_send_expired_registration_ticket() = runBlocking {
+        val f = Fixture(); f.pending(); f.sessions.afterCurrentCheck = { f.clock.set(300_000) }
+        assertEquals(PhoneAuthResult.Failed(PhoneAuthError.CODE_EXPIRED), f.repo.register(UserRole.ELDER, null, null))
+        assertEquals(0, f.server.calls); assertEquals(0, f.sessions.writes)
+    }
+
+    @Test fun double_registration_click_cannot_send_original_ticket_twice() = runBlocking {
+        val f = Fixture(); f.pending()
+        val entered = CompletableDeferred<Unit>(); val release = CountDownLatch(1)
+        f.server.beforeResponse = { entered.complete(Unit); check(release.await(10, TimeUnit.SECONDS)) }
+        val first = async { f.repo.register(UserRole.ELDER, null, null) }
+        try {
+            withTimeout(10_000) { entered.await() }
+            assertEquals(PhoneAuthResult.Failed(PhoneAuthError.CODE_EXPIRED), f.repo.register(UserRole.CAREGIVER, "Fixture", null))
+            assertEquals(1, f.server.calls)
+        } finally { release.countDown() }
+        assertTrue(first.await() is PhoneAuthResult.SignedIn); assertEquals(1, f.server.calls)
     }
     @Test fun registration_cancellation_is_not_mapped_to_a_network_error() = runBlocking {
         val f = Fixture(); f.pending(); f.server.failure = CancellationException()

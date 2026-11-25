@@ -152,10 +152,9 @@ internal class FusionSdkBridge(
                         if (!finished.get()) {
                             trace("server proof result; accepted=$accepted; error=${serverError?.name ?: "none"}")
                             verified = accepted
-                            if (preferSms) {
-                                // The SDK has already checked the SMS proof. Do not
-                                // resume its fallback chain after our server rejects
-                                // the token: that reopens the cached-number page.
+                            if (preferSms || !accepted) {
+                                // A rejected/uncertain Server exchange ends this attempt.
+                                // Never let a fallback scene automatically resend its proof.
                                 if (!accepted) lastFailure = serverError ?: PhoneAuthError.INVALID_CODE
                                 finish(accepted)
                             } else {

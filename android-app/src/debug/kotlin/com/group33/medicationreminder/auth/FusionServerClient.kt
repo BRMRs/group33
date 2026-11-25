@@ -1,22 +1,24 @@
 package com.group33.medicationreminder.auth
 
 import com.group33.shared.model.UserRole
-import org.json.JSONObject
+import kotlinx.serialization.json.*
 import java.net.HttpURLConnection
 import java.net.URL
 
-internal class FusionSdkGrant(val schemeCode: String, val token: String)
+internal class FusionSdkGrant(val schemeCode: String, val token: String,
+    val authenticationAttemptToken: String, val expiresInSeconds: Long)
 internal class AppSession(val account: PhoneAccount, val token: String, val expiresInSeconds: Long)
 internal sealed interface VerifiedPhone {
     data class Existing(val session: AppSession) : VerifiedPhone
-    data class New(val ticket: String) : VerifiedPhone
+    class New(val ticket: String, val expiresInSeconds: Long = 300,
+              val localDeadline: Long? = null) : VerifiedPhone
 }
 
 /** Transport only; no credential is included in URLs or logs. */
 internal interface PhoneServerClient {
-    fun grant(): FusionSdkGrant
-    fun verify(token: String, expectedPhone: String? = null): VerifiedPhone
-    fun register(ticket: String, role: UserRole, displayName: String?): VerifiedPhone
+    fun grant(installationId: String, authenticationAttemptToken: String? = null): FusionSdkGrant
+    fun verify(installationId: String, authenticationAttemptToken: String, token: String, expectedPhone: String? = null): VerifiedPhone
+    fun register(installationId: String, ticket: String, role: UserRole, displayName: String?): VerifiedPhone
 }
 
 internal class FusionServerClient(private val baseUrl: String, allowHttp: Boolean) : PhoneServerClient {
@@ -31,42 +33,58 @@ internal class FusionServerClient(private val baseUrl: String, allowHttp: Boolea
         require(base.userInfo == null && base.query == null && base.ref == null)
     }
 
-    override fun grant(): FusionSdkGrant = post("api/v1/auth/fusion/token", JSONObject()).let {
-        FusionSdkGrant(it.getString("schemeCode"), it.getString("fusionAuthToken"))
-    }
-
-    override fun verify(token: String, expectedPhone: String?): VerifiedPhone =
-        parse(post("api/v1/auth/fusion/verify", JSONObject().put("verifyToken", token)
-            .put("expectedPhone", expectedPhone ?: JSONObject.NULL), readTimeoutMillis = 45_000))
-
-    override fun register(ticket: String, role: UserRole, displayName: String?): VerifiedPhone = parse(
-        post(
-            "api/v1/auth/phone/register",
-            JSONObject().put("registrationTicket", ticket).put("role", role.name)
-                .put("displayName", displayName ?: JSONObject.NULL),
-        ),
-    )
-
-    private fun parse(body: JSONObject): VerifiedPhone = when (body.getString("status")) {
-        "REGISTRATION_REQUIRED" -> VerifiedPhone.New(body.getString("registrationTicket").also { require(it.isNotBlank()) })
-        "SIGNED_IN" -> {
-            val user = body.getJSONObject("user")
-            val lifetime = body.getLong("expiresInSeconds")
-            require(lifetime in 1..604800)
-            val token = body.getString("accessToken").also { require(it.isNotBlank()) }
-            require(user.getString("id").isNotBlank() && user.getString("displayName").isNotBlank())
-            VerifiedPhone.Existing(
-                AppSession(
-                    PhoneAccount(user.getString("id"), UserRole.valueOf(user.getString("role")), user.getString("displayName")),
-                    token,
-                    lifetime,
-                ),
-            )
+    override fun grant(installationId: String, authenticationAttemptToken: String?): FusionSdkGrant =
+        post("api/v1/auth/fusion/token", buildJsonObject {
+            put("installationId", installationId)
+            authenticationAttemptToken?.let { put("authenticationAttemptToken", it) }
+        }).let {
+            FusionSdkGrant(it.text("schemeCode"), it.text("fusionAuthToken"),
+                it.text("authenticationAttemptToken"), it.number("expiresInSeconds"))
         }
-        else -> error("Unexpected phone authentication response")
+
+    override fun verify(installationId: String, authenticationAttemptToken: String, token: String,
+                        expectedPhone: String?): VerifiedPhone = parse(post("api/v1/auth/fusion/verify", buildJsonObject {
+        put("installationId", installationId)
+        put("authenticationAttemptToken", authenticationAttemptToken)
+        put("verifyToken", token)
+        expectedPhone?.let { put("expectedPhone", it) }
+    }, readTimeoutMillis = 45_000), installationId)
+
+    override fun register(installationId: String, ticket: String, role: UserRole, displayName: String?): VerifiedPhone =
+        parse(post("api/v1/auth/phone/register", buildJsonObject {
+            put("installationId", installationId)
+            put("registrationTicket", ticket)
+            put("role", role.name)
+            displayName?.let { put("displayName", it) }
+        }), installationId)
+
+    private fun parse(body: JsonObject, installationId: String): VerifiedPhone {
+        require(body.text("installationId") == installationId)
+        return when (body.text("status")) {
+            "REGISTRATION_REQUIRED" -> VerifiedPhone.New(body.text("registrationTicket").also {
+                require(CAPABILITY.matches(it))
+            }, body.number("registrationTicketExpiresInSeconds").also { require(it in 1..300) })
+            "SIGNED_IN" -> {
+                val user = body.getValue("user").jsonObject
+                val lifetime = body.number("expiresInSeconds").also { require(it in 1..604800) }
+                val token = body.text("accessToken").also { require(it.isNotBlank()) }
+                val id = user.text("id").also { require(it.isNotBlank()) }
+                val name = user.text("displayName").also { require(it.isNotBlank()) }
+                VerifiedPhone.Existing(AppSession(PhoneAccount(id, UserRole.valueOf(user.text("role")), name), token, lifetime))
+            }
+            else -> error("Unexpected phone authentication response")
+        }
     }
 
-    private fun post(path: String, payload: JSONObject, readTimeoutMillis: Int = 20_000): JSONObject {
+    private fun JsonObject.text(key: String): String = getValue(key).jsonPrimitive.let {
+        require(it.isString); it.content
+    }
+    private fun JsonObject.number(key: String): Long = getValue(key).jsonPrimitive.let {
+        require(!it.isString); requireNotNull(it.longOrNull)
+    }
+    private companion object { val CAPABILITY = Regex("[A-Za-z0-9_-]{43}") }
+
+    private fun post(path: String, payload: JsonObject, readTimeoutMillis: Int = 20_000): JsonObject {
         val connection = URL(base, path).openConnection() as HttpURLConnection
         try {
             connection.requestMethod = "POST"
@@ -74,21 +92,24 @@ internal class FusionServerClient(private val baseUrl: String, allowHttp: Boolea
             connection.connectTimeout = 10_000
             connection.readTimeout = readTimeoutMillis
             connection.doOutput = true
+            val bytes = payload.toString().toByteArray(Charsets.UTF_8)
+            // Streaming bodies cannot be replayed by HttpURLConnection after a lost response.
+            connection.setFixedLengthStreamingMode(bytes.size)
             connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
             connection.setRequestProperty("Accept", "application/json")
-            connection.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
+            connection.outputStream.use { it.write(bytes) }
             val status = connection.responseCode
             if (status !in 200..299) {
                 val code = runCatching {
                     val body = connection.errorStream?.bufferedReader(Charsets.UTF_8)?.use { readBounded(it, 8192) }
-                    body?.let { JSONObject(it).optString("code") }
+                    body?.let { Json.parseToJsonElement(it).jsonObject["code"]?.jsonPrimitive?.contentOrNull }
                 }.getOrNull()
                 throw FusionHttpException(status, code)
             }
             val body = connection.inputStream.bufferedReader(Charsets.UTF_8).use { reader ->
                 readBounded(reader, 32_768)
             }
-            return JSONObject(body)
+            return Json.parseToJsonElement(body).jsonObject
         } finally {
             connection.disconnect()
         }

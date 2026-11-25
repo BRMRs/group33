@@ -162,9 +162,9 @@ class CommonPhoneSessionIntegrationTest {
                 var calls = 0
                 var usedTicket: String? = null
                 val client = object : PhoneServerClient {
-                    override fun grant(): FusionSdkGrant = error("No provider call")
-                    override fun verify(token: String, expectedPhone: String?): VerifiedPhone = error("No provider proof")
-                    override fun register(ticket: String, role: UserRole, displayName: String?): VerifiedPhone {
+                    override fun grant(installationId: String, authenticationAttemptToken: String?): FusionSdkGrant = error("No provider call")
+                    override fun verify(installationId: String, authenticationAttemptToken: String, token: String, expectedPhone: String?): VerifiedPhone = error("No provider proof")
+                    override fun register(installationId: String, ticket: String, role: UserRole, displayName: String?): VerifiedPhone {
                         calls++; usedTicket = ticket
                         return VerifiedPhone.Existing(AppSession(
                             PhoneAccount("replacement-account", UserRole.CAREGIVER, "Example caregiver"),

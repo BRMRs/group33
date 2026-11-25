@@ -6,7 +6,7 @@ import com.group33.medicationreminder.core.session.PrivateSessionStore
 import com.group33.shared.contract.UserView
 
 /** Opaque attempt; neither the UI nor SDK gets session credentials. */
-internal interface PhoneSignInAttempt
+internal interface PhoneSignInAttempt { val installationId: String }
 
 internal interface PhoneSessionAccess {
     suspend fun begin(): PhoneSignInAttempt
@@ -18,7 +18,9 @@ internal interface PhoneSessionAccess {
 
 /** Uses the host's exact S1 store instance, not a second phone session file. */
 internal class CommonPhoneSession(private val store: PrivateSessionStore) : PhoneSessionAccess {
-    private class Attempt(val core: AuthenticationAttempt) : PhoneSignInAttempt
+    private class Attempt(val core: AuthenticationAttempt) : PhoneSignInAttempt {
+        override val installationId get() = core.installationId
+    }
     override suspend fun begin(): PhoneSignInAttempt = Attempt(store.beginAuthentication().required())
     override suspend fun isCurrent(attempt: PhoneSignInAttempt): Boolean =
         (attempt as? Attempt)?.let { store.isCurrentAuthentication(it.core).required() } ?: false

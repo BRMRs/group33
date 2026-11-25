@@ -20,9 +20,12 @@ import java.util.concurrent.atomic.AtomicReference
 internal class FusionPhoneAuthRepository(
     private val client: PhoneServerClient,
     private val sessions: PhoneSessionAccess,
+    private val now: () -> Long = { System.nanoTime() / 1_000_000 },
 ) : PhoneAuthRepository, ActivityBoundPhoneAuth {
     private var activity = WeakReference<Activity>(null)
-    private class PendingRegistration(val ticket: String, val attempt: PhoneSignInAttempt)
+    private class PendingRegistration(val ticket: String, val attempt: PhoneSignInAttempt, val deadline: Long)
+    private val activeExchange = AtomicReference<BoundPhoneExchange?>(null)
+    private val activeScene = AtomicReference<CompletableDeferred<Pair<VerifiedPhone?, PhoneAuthError?>>?>(null)
     private val pendingTicket = AtomicReference<PendingRegistration?>(null)
     // Keep attempt changes and ticket publication ordered across suspending store calls.
     // Provider/HTTP work must remain outside this lock.
@@ -41,11 +44,8 @@ internal class FusionPhoneAuthRepository(
         val host = activity.get()?.takeUnless { it.isFinishing || it.isDestroyed }
             ?: return PhoneAuthResult.Failed(PhoneAuthError.UNKNOWN)
         val attempt = beginAuthentication()
-        val grant = withContext(Dispatchers.IO) { client.grant() }
-        // Reuse the just-fetched token; a second identical request only delays opening the SDK.
-        val scene = runScene(host, grant, preferSms, smsPhone) {
-            client.verify(it, if (preferSms) smsPhone else null)
-        }
+        val exchange = beginExchange(attempt)
+        val scene = runScene(host, exchange, preferSms, smsPhone)
             ?: return PhoneAuthResult.Failed(if (preferSms) PhoneAuthError.UNKNOWN else PhoneAuthError.ONE_TAP_UNAVAILABLE)
         val verified = scene.first ?: return PhoneAuthResult.Failed(scene.second ?: PhoneAuthError.UNKNOWN)
         completeVerifiedResponse(attempt, verified)
@@ -58,37 +58,53 @@ internal class FusionPhoneAuthRepository(
 
     /** Called only with a verified server response; the original attempt fences disk writes. */
     internal suspend fun beginAuthentication(): PhoneSignInAttempt = authenticationState.withLock {
-        sessions.begin().also { pendingTicket.set(null) }
+        sessions.begin().also {
+            activeExchange.getAndSet(null)?.close()
+            activeScene.getAndSet(null)?.complete(Pair(null, PhoneAuthError.CANCELLED))
+            pendingTicket.set(null)
+        }
     }
 
     internal suspend fun completeVerifiedResponse(attempt: PhoneSignInAttempt, verified: VerifiedPhone): PhoneAuthResult =
         when (verified) {
             is VerifiedPhone.New -> authenticationState.withLock {
-                if (sessions.isCurrent(attempt)) {
-                    pendingTicket.set(PendingRegistration(verified.ticket, attempt))
+                val deadline = verified.localDeadline ?: (now() + verified.expiresInSeconds * 1000)
+                if (sessions.isCurrent(attempt) && now() < deadline) {
+                    pendingTicket.set(PendingRegistration(verified.ticket, attempt, deadline))
                     PhoneAuthResult.RegistrationRequired
                 } else PhoneAuthResult.Failed(PhoneAuthError.CODE_EXPIRED)
             }
             is VerifiedPhone.Existing -> signedIn(attempt, verified.session)
         }
 
-    private suspend fun <T> runScene(
-        host: Activity, grant: FusionSdkGrant, preferSms: Boolean, smsPhone: String = "",
-        verify: suspend (String) -> T,
-    ): Pair<T?, PhoneAuthError?>? =
+    private suspend fun beginExchange(attempt: PhoneSignInAttempt): BoundPhoneExchange {
+        val exchange = BoundPhoneExchange.start(client, attempt.installationId, now) { sessions.isCurrent(attempt) }
+        return authenticationState.withLock {
+            if (!sessions.isCurrent(attempt)) { exchange.close(); throw PhoneSessionStorageException() }
+            activeExchange.getAndSet(exchange)?.close()
+            exchange
+        }
+    }
+
+    private suspend fun runScene(
+        host: Activity, exchange: BoundPhoneExchange, preferSms: Boolean, smsPhone: String = "",
+    ): Pair<VerifiedPhone?, PhoneAuthError?>? =
         coroutineScope {
-            val result = CompletableDeferred<Pair<T?, PhoneAuthError?>>()
-            val freshToken = AtomicReference(grant.token)
-            var response: T? = null
+            val result = CompletableDeferred<Pair<VerifiedPhone?, PhoneAuthError?>>()
+            authenticationState.withLock {
+                check(activeExchange.get() === exchange && exchange.sdkToken() != null)
+                activeScene.getAndSet(result)?.complete(Pair(null, PhoneAuthError.CANCELLED))
+            }
+            var response: VerifiedPhone? = null
             var serverFailure: PhoneAuthError? = null
             val bridge = FusionSdkBridge(host, preferSms, smsPhone, object : FusionSdkBridge.Listener {
-                override fun refreshSdkToken(): String = freshToken.get()
+                override fun refreshSdkToken(): String? = exchange.sdkToken()
 
                 override fun verifyOnServer(token: String, completion: (Boolean, PhoneAuthError?) -> Unit) {
                     launch {
                         serverFailure = null
                         val verified = try {
-                            withContext(Dispatchers.IO) { verify(token) }
+                            exchange.verify(token, smsPhone.takeIf { preferSms })
                         } catch (error: CancellationException) {
                             throw error
                         } catch (error: Exception) {
@@ -108,19 +124,28 @@ internal class FusionPhoneAuthRepository(
                 while (isActive) {
                     delay(4 * 60_000L)
                     try {
-                        freshToken.set(client.grant().token)
+                        if (!exchange.refresh()) break
                     } catch (error: CancellationException) {
                         throw error
                     } catch (_: Exception) {
-                        // Keep the previous token; the SDK will fail closed if it expires.
+                        // An uncertain refresh closes the original scene; never silently Start again.
+                        result.complete(Pair(null, PhoneAuthError.NETWORK))
+                        break
                     }
                 }
             }
             try {
-                withContext(Dispatchers.Main) { bridge.start(grant.schemeCode, grant.token) }
-                withTimeoutOrNull(10 * 60_000L) { result.await() }
+                withContext(Dispatchers.Main) {
+                    if (!result.isCompleted && activeExchange.get() === exchange) {
+                        checkNotNull(exchange.sdkToken()).let { bridge.start(exchange.schemeCode, it) }
+                    } else result.complete(Pair(null, PhoneAuthError.CANCELLED))
+                }
+                withTimeoutOrNull(minOf(10 * 60_000L, exchange.remainingMillis())) { result.await() }
             } finally {
                 refresh.cancel()
+                exchange.close()
+                activeExchange.compareAndSet(exchange, null)
+                activeScene.compareAndSet(result, null)
                 bridge.close()
             }
         }
@@ -129,11 +154,20 @@ internal class FusionPhoneAuthRepository(
         if (!password.isNullOrBlank()) return PhoneAuthResult.Failed(PhoneAuthError.NOT_CONFIGURED)
         val pending = pendingTicket.get() ?: return PhoneAuthResult.Failed(PhoneAuthError.CODE_EXPIRED)
         return try {
-            if (!sessions.isCurrent(pending.attempt)) return PhoneAuthResult.Failed(PhoneAuthError.CODE_EXPIRED)
-            when (val result = withContext(Dispatchers.IO) { client.register(pending.ticket, role, displayName) }) {
+            if (now() >= pending.deadline || !sessions.isCurrent(pending.attempt) || now() >= pending.deadline) {
+                pendingTicket.compareAndSet(pending, null)
+                return PhoneAuthResult.Failed(PhoneAuthError.CODE_EXPIRED)
+            }
+            // A lost/uncertain response may have consumed the ticket. Never resend it or a new role.
+            if (!pendingTicket.compareAndSet(pending, null)) return PhoneAuthResult.Failed(PhoneAuthError.CODE_EXPIRED)
+            when (val result = withContext(Dispatchers.IO) {
+                if (!sessions.isCurrent(pending.attempt) || now() >= pending.deadline) null
+                else client.register(pending.attempt.installationId, pending.ticket, role, displayName)
+            }) {
+                null -> PhoneAuthResult.Failed(PhoneAuthError.CODE_EXPIRED)
                 is VerifiedPhone.Existing -> {
-                    pendingTicket.compareAndSet(pending, null)
-                    completeVerifiedResponse(pending.attempt, result)
+                    if (now() >= pending.deadline) PhoneAuthResult.Failed(PhoneAuthError.CODE_EXPIRED)
+                    else completeVerifiedResponse(pending.attempt, result)
                 }
                 is VerifiedPhone.New -> PhoneAuthResult.Failed(PhoneAuthError.UNKNOWN)
             }
@@ -150,6 +184,8 @@ internal class FusionPhoneAuthRepository(
     }
 
     override suspend fun signOut(): Unit = authenticationState.withLock {
+        activeExchange.getAndSet(null)?.close()
+        activeScene.getAndSet(null)?.complete(Pair(null, PhoneAuthError.CANCELLED))
         pendingTicket.set(null)
         withContext(Dispatchers.IO) { sessions.clear() }
     }
@@ -162,19 +198,9 @@ internal class FusionPhoneAuthRepository(
     override suspend fun resetPassword(phone: String, code: String, newPassword: String) =
         PhoneActionResult.Failed(PhoneAuthError.NOT_CONFIGURED)
 
-    override suspend fun resetPasswordWithSms(phone: String, newPassword: String): PhoneActionResult { return try {
-        if (newPassword.length !in 8..128) return PhoneActionResult.Failed(PhoneAuthError.WRONG_PASSWORD)
-        val host = activity.get()?.takeUnless { it.isFinishing || it.isDestroyed }
-            ?: return PhoneActionResult.Failed(PhoneAuthError.UNKNOWN)
-        val grant = withContext(Dispatchers.IO) { client.grant() }
-        val scene = runScene(host, grant, preferSms = true, smsPhone = phone) { client.verify(it, phone) }
-        if (scene?.first != null) PhoneActionResult.Failed(PhoneAuthError.PASSWORD_FEATURE_PENDING)
-        else PhoneActionResult.Failed(scene?.second ?: PhoneAuthError.UNKNOWN)
-    } catch (error: CancellationException) {
-        throw error
-    } catch (error: Exception) {
-        PhoneActionResult.Failed(error.asPhoneError())
-    } }
+    // #118 does not provide a password-reset protocol. Do not consume a login proof as a reset.
+    override suspend fun resetPasswordWithSms(phone: String, newPassword: String) =
+        PhoneActionResult.Failed(PhoneAuthError.NOT_CONFIGURED)
 
     private fun Exception.asPhoneError(): PhoneAuthError {
         if (this is PhoneSessionStorageException) return PhoneAuthError.STORAGE
@@ -187,6 +213,8 @@ internal class FusionPhoneAuthRepository(
             "PHONE_MISMATCH" -> PhoneAuthError.PHONE_MISMATCH
             "TOO_MANY_REQUESTS" -> PhoneAuthError.TOO_MANY_REQUESTS
             "PHONE_AUTH_UNAVAILABLE" -> PhoneAuthError.NOT_CONFIGURED
+            "REGISTRATION_INVALID" -> PhoneAuthError.CODE_EXPIRED
+            "SERVICE_UNAVAILABLE", "OPERATION_IN_PROGRESS" -> PhoneAuthError.NETWORK
             else -> when (response.status) {
                 429 -> PhoneAuthError.TOO_MANY_REQUESTS
                 503 -> PhoneAuthError.NOT_CONFIGURED
