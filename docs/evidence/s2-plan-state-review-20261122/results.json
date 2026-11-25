@@ -1,0 +1,187 @@
+{
+  "date": "2026-11-22",
+  "review_kind": "agent-assisted technical review under S2 user authorization",
+  "main": "b5acc05224612bf25797ee71a5cdf1a879b67d91",
+  "formal_approval": false,
+  "production_or_device_acceptance": false,
+  "prs": {
+    "108": {
+      "baseline": {
+        "pr": 108,
+        "head": "a89e4a9c58ab9ce299844f6b55f6cf763d7ea1ed",
+        "base": "b5acc05224612bf25797ee71a5cdf1a879b67d91",
+        "prior": "860442e9d81d0697590f7d6bae13e39570c84e73",
+        "prior_feature_changes": [],
+        "changed_paths": [
+          "CONTRIBUTIONS.md",
+          "android-app/src/main/kotlin/com/group33/medicationreminder/caregiver/plan/PlanEditDraft.kt",
+          "android-app/src/main/kotlin/com/group33/medicationreminder/caregiver/plan/PlanEditOperation.kt",
+          "android-app/src/test/kotlin/com/group33/medicationreminder/caregiver/plan/PlanEditDraftTest.kt",
+          "android-app/src/test/kotlin/com/group33/medicationreminder/caregiver/plan/PlanEditOperationTest.kt",
+          "docs/contracts/GATE1_ARTIFACTS.sha256",
+          "docs/evidence/C2_EDIT_CONFLICT.md"
+        ],
+        "main_is_ancestor": true
+      },
+      "source_verification": {
+        "head": "a89e4a9c58ab9ce299844f6b55f6cf763d7ea1ed",
+        "tree": "8150aee65fc159013731cb53e6716b6cc7972e41",
+        "source_paths_verified": 447,
+        "author_source_unchanged": true,
+        "manifest_paths": 398,
+        "policy_exit": 0,
+        "diff_check_exit": 0
+      },
+      "ci": {
+        "id": 44991556221,
+        "url": "https://github.com/BRMRs/group33/actions/runs/44991556221",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      "full_reports": {
+        "Server": {
+          "tests": 628,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "task_mode": "> Task :server:test FROM-CACHE"
+        },
+        "Shared": {
+          "tests": 18,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "task_mode": "> Task :shared:test FROM-CACHE"
+        },
+        "Debug": {
+          "tests": 154,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "task_mode": "> Task :android-app:testDebugUnitTest"
+        },
+        "Release": {
+          "tests": 153,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "task_mode": "> Task :android-app:testReleaseUnitTest"
+        }
+      },
+      "focused_with_probes": {
+        "Debug": {
+          "tests": 30,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "task_mode": "> Task :android-app:testDebugUnitTest"
+        },
+        "Release": {
+          "tests": 30,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "task_mode": "> Task :android-app:testReleaseUnitTest"
+        }
+      },
+      "lint": {
+        "errors": 0,
+        "warnings": 29
+      },
+      "external_probe_sha256": "ad21b539be1ea43caf04246a4dd02efb21acf22182336c01f154eef51590f9d8",
+      "external_probes_absent_from_apks": {
+        "debug": true,
+        "release": true
+      },
+      "conclusion": "No new S2 blocker found in the declared local state-consumer scope"
+    },
+    "114": {
+      "baseline": {
+        "pr": 114,
+        "head": "0364724b8d4e48e5181cf2ff43e56890abca053c",
+        "base": "b5acc05224612bf25797ee71a5cdf1a879b67d91",
+        "prior": "c19a6131e143c2d379e9cfd23788f627c9ce0e0d",
+        "prior_feature_changes": [],
+        "changed_paths": [
+          "CONTRIBUTIONS.md",
+          "android-app/src/main/kotlin/com/group33/medicationreminder/caregiver/plan/PlanDeactivation.kt",
+          "android-app/src/test/kotlin/com/group33/medicationreminder/caregiver/plan/PlanDeactivationTest.kt",
+          "docs/contracts/GATE1_ARTIFACTS.sha256",
+          "docs/evidence/C2_PLAN_DEACTIVATION.md"
+        ],
+        "main_is_ancestor": true
+      },
+      "source_verification": {
+        "head": "0364724b8d4e48e5181cf2ff43e56890abca053c",
+        "tree": "107151d8f102af2300092bd2e1108fe1ffbbcf33",
+        "source_paths_verified": 445,
+        "author_source_unchanged": true,
+        "manifest_paths": 396,
+        "policy_exit": 0,
+        "diff_check_exit": 0
+      },
+      "ci": {
+        "id": 44991632888,
+        "url": "https://github.com/BRMRs/group33/actions/runs/44991632888",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      "full_reports": {
+        "Server": {
+          "tests": 628,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "task_mode": "> Task :server:test FROM-CACHE"
+        },
+        "Shared": {
+          "tests": 18,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "task_mode": "> Task :shared:test FROM-CACHE"
+        },
+        "Debug": {
+          "tests": 144,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "task_mode": "> Task :android-app:testDebugUnitTest"
+        },
+        "Release": {
+          "tests": 143,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "task_mode": "> Task :android-app:testReleaseUnitTest"
+        }
+      },
+      "focused_with_probes": {
+        "Debug": {
+          "tests": 17,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "task_mode": "> Task :android-app:testDebugUnitTest"
+        },
+        "Release": {
+          "tests": 17,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "task_mode": "> Task :android-app:testReleaseUnitTest"
+        }
+      },
+      "lint": {
+        "errors": 0,
+        "warnings": 29
+      },
+      "external_probe_sha256": "30c9e5e839ba66c73acbaae3bd62f98a00ae23a17e5438c122cbb524afab0b5e",
+      "external_probes_absent_from_apks": {
+        "debug": true,
+        "release": true
+      },
+      "conclusion": "No new S2 blocker found in the declared local state-consumer scope"
+    }
+  }
+}
