@@ -26,10 +26,14 @@ import java.util.concurrent.atomic.AtomicBoolean
 import javax.imageio.ImageIO
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.ValueSource
 import org.postgresql.ds.PGSimpleDataSource
 
 @Tag("postgres")
@@ -238,6 +242,76 @@ class PostgresPhotoReconciliationTest {
         assertEquals(PhotoInspectionCompletion.DATABASE_UNAVAILABLE, report.completion)
         assertEquals(0, report.checked); assertEquals(before, states())
         sql("REVOKE INSERT ON medication_photo FROM $readerRole")
+        assertEquals(1, inspect().verified)
+    }
+
+    @ParameterizedTest @CsvSource(
+        "medication_photo,sha256,INSERT,false", "medication_photo,sha256,UPDATE,false",
+        "medication_photo,sha256,REFERENCES,false", "photo_upload_operation,state,INSERT,false",
+        "photo_upload_operation,state,UPDATE,false", "photo_upload_operation,state,REFERENCES,false",
+        "medication_photo,sha256,INSERT,true", "medication_photo,sha256,UPDATE,true",
+        "medication_photo,sha256,REFERENCES,true", "photo_upload_operation,state,INSERT,true",
+        "photo_upload_operation,state,UPDATE,true", "photo_upload_operation,state,REFERENCES,true")
+    fun `column privileges including inherited grants are refused without changing evidence`(
+        table: String, column: String, privilege: String, inherited: Boolean,
+    ) {
+        upload(); val before = states()
+        val recipient = if (inherited) required("S2_PG_PHOTO_GRANT_ROLE").also {
+            require(it.matches(Regex("s2_photo_grant_[0-9a-f]+")))
+        } else readerRole
+        sql("GRANT $privilege ($column) ON $table TO $recipient")
+        reader.connection.use { connection -> connection.createStatement().use { statement ->
+            statement.executeQuery("SELECT has_table_privilege('$schema.$table', '$privilege'), " +
+                "has_any_column_privilege('$schema.$table', '$privilege')").use { rows ->
+                assertTrue(rows.next()); assertFalse(rows.getBoolean(1)); assertTrue(rows.getBoolean(2))
+            }
+        } }
+        val report = inspect()
+        assertEquals(PhotoInspectionCompletion.DATABASE_UNAVAILABLE, report.completion)
+        assertEquals(0, report.checked); assertEquals(before, states())
+        sql("REVOKE $privilege ($column) ON $table FROM $recipient")
+        assertEquals(1, inspect().verified)
+    }
+
+    @ParameterizedTest @ValueSource(strings = ["deny-all", "partial"])
+    fun `RLS cannot turn hidden ready and staging rows into a complete inventory`(visibility: String) {
+        val first = upload(); upload()
+        val real = objectStore()
+        val uncertain = object : PhotoObjectStore {
+            override fun putIfAbsent(key: PhotoObjectKey, source: InputStream) = real.putIfAbsent(key, source)
+            override fun read(key: PhotoObjectKey): ByteArray = throw PhotoObjectException(PhotoObjectFailure.UNAVAILABLE)
+        }
+        assertInstanceOf(PhotoBusinessResult.Rejected::class.java,
+            service(uncertain).upload(elder, elder.id, UUID.randomUUID(), image(), "image/png"))
+        assertEquals(2, inspect().verified); assertEquals(1, inspect().protectedStaging)
+        val before = states()
+        sql("ALTER TABLE medication_photo ENABLE ROW LEVEL SECURITY; " +
+            "ALTER TABLE photo_upload_operation ENABLE ROW LEVEL SECURITY")
+        if (visibility == "partial") sql("CREATE POLICY selected_photo ON medication_photo FOR SELECT TO $readerRole USING (id = '${first.id}'::uuid)")
+        reader.connection.use { connection -> connection.createStatement().use { statement ->
+            statement.executeQuery("SELECT count(*) FROM $schema.medication_photo").use { rows ->
+                assertTrue(rows.next()); assertEquals(if (visibility == "partial") 1 else 0, rows.getInt(1))
+            }
+        } }
+        val report = inspect()
+        assertEquals(PhotoInspectionCompletion.DATABASE_UNAVAILABLE, report.completion)
+        assertEquals(0, report.checked); assertEquals(before, states())
+        sql("ALTER TABLE medication_photo DISABLE ROW LEVEL SECURITY; " +
+            "ALTER TABLE photo_upload_operation DISABLE ROW LEVEL SECURITY")
+        val recovered = inspect()
+        assertEquals(PhotoInspectionCompletion.COMPLETE, recovered.completion)
+        assertEquals(2, recovered.verified); assertEquals(1, recovered.protectedStaging)
+    }
+
+    @ParameterizedTest @ValueSource(strings = ["medication_photo", "photo_upload_operation"])
+    fun `maintenance grants are not accepted as SELECT only on PostgreSQL seventeen and later`(table: String) {
+        assumeTrue(owner.connection.use { it.metaData.databaseMajorVersion >= 17 },
+            "MAINTAIN requires PostgreSQL17; the dedicated PostgreSQL17 CI executes this case")
+        upload(); val before = states()
+        sql("GRANT MAINTAIN ON $table TO $readerRole")
+        assertEquals(PhotoInspectionCompletion.DATABASE_UNAVAILABLE, inspect().completion)
+        assertEquals(before, states())
+        sql("REVOKE MAINTAIN ON $table FROM $readerRole")
         assertEquals(1, inspect().verified)
     }
 }

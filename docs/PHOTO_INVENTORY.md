@@ -64,4 +64,4 @@ Elapsed checks are cooperative between operations, not an absolute kernel-I/O/cl
 
 Rollback is removal of this separate operator command/distribution; no application or database rollback is required. Unknown uploads older than24h remain recoverable using their original key and receipt. Actual cleanup still needs a separately reviewed durable lease/claim/fencing and reference-race protocol, deletion-failure recovery and applicable migration. This inventory implements none of those new write semantics and cannot be passed as a deletion plan.
 
-Verification and limits: [S2 reverse-inventory evidence](evidence/S2_PHOTO_INVENTORY.md). No normal-App, real cloud/phone/V2, two-device or disconnected-LAN acceptance is claimed. Preserve the Draft parent #105 and normal non-author security/persistence review before main integration or operational use.
+Verification and limits: [S2 reverse-inventory evidence](evidence/S2_PHOTO_INVENTORY.md). No normal-App, real cloud/phone/V2, two-device or disconnected-LAN acceptance is claimed. Preserve the current #105 dependency and normal non-author security/persistence review before main integration or operational use.

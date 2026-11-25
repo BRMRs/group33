@@ -1,5 +1,10 @@
 # Isolated Render test deployment
 
+> **Current-main landing note, 2026-11-25 — BRMRs / S1.** #83 was merged into an auxiliary feature branch, not main. This candidate restores its original isolated container on current #148/#79/main and preserves the root anonymous preview Dockerfile/ignore. Original private bootstrap/launcher/helper bytes are retained; a Dockerfile-specific private allowlist supplies the current build fixture. No cloud resource, secret, deployment or provider acceptance is performed by this publication.
+>
+> The legacy prototype setup below is not a migration/adoption plan for an existing cloud schema or #118. The current cloud-history startup gate remains #104; same-primary phone composition, reviewed numbered migrations and actual same-version deployment/acceptance remain required. Treat old actual Render/provider statements below as their original-source historical evidence.
+
+
 Refs #16. This is a test candidate on top of the Supabase runtime PR #80 and latest merged main. Keep Draft dependencies and actual human review distinct from test deployment. No production release, migration execution or Gate completion is implied.
 
 ## Configure the web service
@@ -48,8 +53,3 @@ Official references: [Docker runtime/build context/secrets](https://render.com/d
 The integrated runtime can opt in to the [read-only version gate](SCHEMA_STARTUP_GATE.md) using the optional canonical property `app.persistence.require-versioned-schema=true` in the existing private encoded settings. Use it only with the matching reviewed application/tool/managed-schema release. Omitted stays false for the existing manual test schema; this change does not modify any deployed configuration.
 
 Keep the original identity/receipt/Storage keys. The export helper preserves the property and refuses malformed/duplicate values or changed existing output. The bootstrap writes the selected property into its protected application file; adding an ambient `PERSISTENCE_REQUIRE_VERSIONED_SCHEMA` variable to Render is not the opt-in mechanism. No migration password or SQL executor is added to the container. Local conversion tests are fictional, not a completed cloud backup, schema switch, or deployment.
-
-
-## Existing managed-cloud branch review scope
-
-PR #104 adds opt-in read-only schema-history validation for postgres-supabase and passes the private switch through the isolated Render launcher. It does not migrate or take over a deployed schema. The inherited #102 index V10 remains a branch prerequisite, pending the recorded #116 dose V10 then #102 index V11 integration order; do not deploy this candidate or rewrite applied history. The current main serverOnly build path and independent memory-preview deployment are retained.

@@ -38,3 +38,8 @@ Gate1, policy, lint, Debug/Release APK, bootJar, migration/operator packages and
 Application classes/resources match parent #105; inventory/reconciliation/migration administration, helper and tests are absent from bootJar. Existing main business/SQL/migration, Shared, Android, deployment and forward-operator sources are byte-preserved. Dedicated PostgreSQL is stopped and generated fixtures/credentials removed; reusable tools/dependencies/distributions and original failure evidence remain local.
 
 The direct directory tests initially exposed the Mac JDK's missing secure-directory API. The fd-backed packaged fallback preserves handle-relative no-follow access; the strengthened replacement test proves that a renamed-root handle sees only its original directory and leaves the symlink's external target unchanged. Initial test-authoring/portability logs are retained separately. A remote CI result, if available, is recorded in the PR; local Mac results alone do not claim execution of Linux's native backend.
+
+
+## 2026-11-25 current-parent synchronization
+
+BRMRs integrated current #105 `7d0ba6fc2303bc28215d51757d2559ca5f62812f`, which inherits #104/#149/#148/#79 and main `9e5621393c3d130bc65ec6754d0531c363c9cf9d`. This replaces the obsolete mixed cloud/schema parent while preserving every original inventory source/test/launcher/helper byte from `9d2120b07242de057cdcdb4a5a14b5c2775f5f78`. The earlier evidence above remains historical and is not a rerun claim. Current-parent forward reconciliation includes the reviewed-source column-grant/RLS corrections and the PostgreSQL17 CI profile. Current inventory-specific failure-path review and fresh checks are recorded separately below. No real cloud, migration, deletion or operational acceptance is implied.

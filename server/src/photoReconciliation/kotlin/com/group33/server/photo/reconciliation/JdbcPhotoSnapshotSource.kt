@@ -22,6 +22,8 @@ class JdbcPhotoSnapshotSource(private val source: DataSource, private val schema
                 statement.execute("SET LOCAL statement_timeout = '3000ms'")
                 statement.execute("SET LOCAL lock_timeout = '1000ms'")
                 statement.execute("SET LOCAL idle_in_transaction_session_timeout = '10000ms'")
+                // Fail if a policy would filter the inspection; this does not bypass RLS.
+                statement.execute("SET LOCAL row_security = off")
                 statement.executeQuery("SELECT pg_is_in_recovery(), current_setting('transaction_read_only'), current_setting('transaction_isolation')").use { row ->
                     check(row.next() && !row.getBoolean(1) && row.getString(2) == "on" && row.getString(3) == "repeatable read")
                 }
@@ -35,11 +37,15 @@ class JdbcPhotoSnapshotSource(private val source: DataSource, private val schema
                     check(row.next() && (1..6).none { row.getBoolean(it) })
                 }
             }
-            connection.prepareStatement("SELECT has_table_privilege(?, 'SELECT'), has_table_privilege(?, 'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')").use { statement ->
+            val forbidden = "INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER" +
+                if (connection.metaData.databaseMajorVersion >= 17) ",MAINTAIN" else ""
+            connection.prepareStatement("SELECT has_table_privilege(?, 'SELECT'), " +
+                "has_table_privilege(?, ?) OR has_any_column_privilege(?, 'INSERT,UPDATE,REFERENCES')").use { statement ->
                 statement.queryTimeout = 5
                 for (table in listOf("medication_photo", "photo_upload_operation")) {
                     val selected = "\"$schema\".$table"
                     statement.setString(1, selected); statement.setString(2, selected)
+                    statement.setString(3, forbidden); statement.setString(4, selected)
                     statement.executeQuery().use { row -> check(row.next() && row.getBoolean(1) && !row.getBoolean(2)) }
                 }
             }

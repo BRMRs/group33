@@ -1,0 +1,71 @@
+name: Photo operators PostgreSQL
+on:
+  pull_request:
+    paths:
+      - "server/**"
+      - "gradle/**"
+      - ".github/workflows/photo-operators-postgres.yml"
+permissions:
+  contents: read
+jobs:
+  photo-operators-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: group33_s2_local
+          POSTGRES_USER: group33_fixture_admin
+          POSTGRES_PASSWORD: fictional-ci-admin
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U group33_fixture_admin -d group33_s2_local"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      S2_PG_INTEGRATION_URL: jdbc:postgresql://127.0.0.1:55432/group33_s2_local
+      S2_PG_INTEGRATION_USER: group33_fixture_app
+      S2_PG_INTEGRATION_PASSWORD: fictional-ci-app
+      S2_PG_PHOTO_READER_USER: s2_photo_reader_20261125
+      S2_PG_PHOTO_READER_PASSWORD: fictional-ci-reader
+      S2_PG_PHOTO_GRANT_ROLE: s2_photo_grant_20261125
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Create only job-owned fictional roles and private receipt key
+        env:
+          PGPASSWORD: fictional-ci-admin
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 55432 -U group33_fixture_admin -d group33_s2_local <<'SQL'
+          CREATE ROLE group33_fixture_app LOGIN PASSWORD 'fictional-ci-app';
+          ALTER DATABASE group33_s2_local OWNER TO group33_fixture_app;
+          CREATE ROLE s2_photo_reader_20261125 LOGIN PASSWORD 'fictional-ci-reader';
+          CREATE ROLE s2_photo_grant_20261125 NOLOGIN;
+          GRANT s2_photo_grant_20261125 TO s2_photo_reader_20261125;
+          SQL
+          python3 - <<'PY'
+          import os,pathlib
+          p=pathlib.Path(os.environ["RUNNER_TEMP"])/"photo-receipt.key"
+          p.write_bytes(os.urandom(32)); p.chmod(0o600)
+          with open(os.environ["GITHUB_ENV"],"a") as output:
+              output.write("S2_PG_RECEIPT_KEY_FILE="+str(p)+"\n")
+          PY
+      - name: Build standalone distribution and execute real PostgreSQL operator regressions
+        run: >-
+          ./gradlew -PserverOnly=true :server:photoReconciliationDist :server:postgresIntegrationTest
+          --tests '*PostgresPhoto*Test'
+      - name: Retain scoped test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: photo-operators-postgres-${{ github.sha }}
+          path: |
+            server/build/test-results/postgresIntegrationTest/*.xml
+            server/build/reports/tests/postgresIntegrationTest/**
+          retention-days: 7
+      - name: Remove job-owned receipt key
+        if: always()
+        run: rm -f -- "$RUNNER_TEMP/photo-receipt.key"

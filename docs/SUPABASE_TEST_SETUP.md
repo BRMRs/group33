@@ -1,5 +1,10 @@
 # Isolated Supabase backend test setup
 
+> **Current-main integration note, 2026-11-25 — BRMRs / S1.** The earlier #80 was merged into an auxiliary feature branch, not main. This landing candidate preserves actual main V1–V10/dose/occurrence startup checks on current #79; no current cloud/provider/deployment acceptance is claimed from the historical execution below. All original source and provider results retain their earlier attribution.
+>
+> The offline initializer below is intentionally only the old isolated v1–v8 fixture, not a migration/adoption tool. Do not run it against an existing schema or use it for #118. Current numbered migrations, cloud-history gate #104, future index V11 #102, same-primary phone composition and actual same-version deployment must receive their separate reviewed integration. This PR does not apply any SQL or create cloud resources.
+
+
 This is an opt-in S2 integration candidate for #16, using the selected Supabase PostgreSQL and private Storage stack. The [evidence record](evidence/S2_SUPABASE_RUNTIME.md) describes the actual cloud slice tested; following this guide alone is not a passed provider test or production release. The default remains memory, photos/plans disabled. Local fallback remains `postgres-local` plus `local-file`, independent of cloud settings and credentials. No shared API field changes.
 
 ## Account and project

@@ -85,3 +85,9 @@ New to development? Start with the Chinese [agent onboarding guide](docs/AGENT_S
 8. Treat [API contract](docs/API_CONTRACT.md) as the agreement between Android and server members.
 9. Apply the confirmed shared direction and Elder accessibility profile from [UI design decision](docs/UI_DESIGN_DECISION.md) before styling screens.
 10. Update [Contribution log](CONTRIBUTIONS.md) every week.
+
+## Explicit Supabase runtime integration candidate
+
+This branch restores the existing #80 opt-in behind the current #79 private object adapter and main V10 runtime. `postgres-supabase` selects the reviewed project endpoint, verify-full TLS and a restricted role; private Storage remains server-only. Defaults remain memory and disabled feature flags. No cloud resource is created or migrated by startup. See [setup boundaries](docs/SUPABASE_TEST_SETUP.md). The old #80 was merged into an auxiliary feature branch; this PR is its current-main landing candidate, not a claim it already reached main.
+
+Cloud schema-history validation is the separate #104 slice. The offline prototype v1–v8 initializer is historical isolated-test tooling, not a substitute for reviewed numbered migrations, V10/dose activation or the future #102 V11. Do not deploy this candidate as the #118 bound-phone service; that composition, forward migrations and acceptance remain open.
