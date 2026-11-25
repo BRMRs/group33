@@ -112,7 +112,7 @@ class PostgresSchemaMigrationTest {
     @Test fun `actual late history SQL failure rolls back all pending DDL and original data survives retry`() {
         initialFive()
         val (actor, _) = seedReceipt()
-        execute("ALTER TABLE group33_schema_history ADD CONSTRAINT migration_failure_fixture CHECK (version <> '9')")
+        execute("ALTER TABLE group33_schema_history ADD CONSTRAINT migration_failure_fixture CHECK (version <> '10')")
         val failure = assertThrows(IllegalStateException::class.java) { runner().migrate() }
         assertNull(failure.cause)
         assertFalse(failure.toString().contains(required("S2_PG_INTEGRATION_PASSWORD")))

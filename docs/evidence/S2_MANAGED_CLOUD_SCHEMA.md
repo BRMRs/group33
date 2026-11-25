@@ -1,5 +1,8 @@
 # S2 managed cloud schema integration and local conversion rehearsal
 
+> **Current integration, 2026-11-25 — BRMRs / S1.** The current candidate is stacked on #149/#148/#79 with actual main V1–V10 (dose). It provides the original read-only cloud history gate and canonical private launcher switch, not a migration or adoption operator. Old index V10 and its tests are retained/enhanced only in #102 as pending V11; they are not duplicated here. The release manifest/SQL/current business code match main, not the old auxiliary release. Historical results below retain original attribution; current fixture/CI results are recorded in this PR. No cloud resource/data/history operation is performed by publication.
+
+
 2026-11-01, Refs #16. Review candidate; no deployed Supabase/Render changes or feature/Gate completion.
 
 ## Concrete gap and resulting behavior
