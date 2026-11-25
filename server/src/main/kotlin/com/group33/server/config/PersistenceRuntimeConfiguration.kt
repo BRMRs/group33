@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.env.Environment
 import java.util.UUID
+import javax.sql.DataSource
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
@@ -22,7 +23,8 @@ internal class PersistenceRuntimeConfiguration {
     @Bean fun persistenceRuntime(env: Environment): PersistenceRuntime = create(env)
     @Bean fun anonymousIdentityStore(runtime: PersistenceRuntime): AnonymousIdentityStore = runtime.identities
 
-    internal fun create(env: Environment): PersistenceRuntime {
+    internal fun create(env: Environment,
+        sourceFactory: (Environment, String) -> DataSource = PersistenceDataSourceFactory::create): PersistenceRuntime {
         val plansEnabled = env.getProperty("app.plan.enabled", Boolean::class.java, false)
         val occurrencesEnabled = env.getProperty("app.occurrence.enabled", Boolean::class.java, false)
         require(!occurrencesEnabled || plansEnabled) { "Occurrence registration requires the plan runtime" }
@@ -31,7 +33,9 @@ internal class PersistenceRuntimeConfiguration {
         }
         val mode = env.getProperty("app.persistence.mode", "memory")
         val requireVersioned = env.getProperty("app.persistence.require-versioned-schema", Boolean::class.java, false)
-        require(!requireVersioned || mode == "postgres-local") { "Versioned schema startup validation requires postgres-local persistence" }
+        require(!requireVersioned || mode in setOf("postgres-local", "postgres-supabase")) {
+            "Versioned schema startup validation requires PostgreSQL persistence"
+        }
         val doseGroupsEnabled = env.getProperty("app.dose-group.enabled", Boolean::class.java, false)
         require(!doseGroupsEnabled || occurrencesEnabled) {
             "Dose groups require the occurrence registration runtime"
@@ -53,7 +57,7 @@ internal class PersistenceRuntimeConfiguration {
                 PosixFilePermission.GROUP_EXECUTE, PosixFilePermission.OTHERS_READ, PosixFilePermission.OTHERS_WRITE, PosixFilePermission.OTHERS_EXECUTE) })
             val key = Files.readAllBytes(file); require(key.size == 32)
             val cipher = PairingReceiptCipher(key)
-            val source = PersistenceDataSourceFactory.create(env, mode)
+            val source = sourceFactory(env, mode)
             if (requireVersioned) RuntimeSchemaHistory.validate(source, schema)
             source.connection.use { c ->
                 if (mode == "postgres-supabase") c.createStatement().use { statement ->

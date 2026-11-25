@@ -30,13 +30,13 @@ internal class CloudRuntimePrerequisiteTest {
         assertEquals("Occurrence registration requires the plan runtime", failure.message)
     }
 
-    @Test fun `current cloud opt in does not pretend to implement the pending cloud history gate`() {
+    @Test fun `memory cannot opt in to managed PostgreSQL history validation`() {
         val failure = assertThrows(IllegalArgumentException::class.java) {
             PersistenceRuntimeConfiguration().create(MockEnvironment()
-                .withProperty("app.persistence.mode", "postgres-supabase")
+                .withProperty("app.persistence.mode", "memory")
                 .withProperty("app.persistence.require-versioned-schema", "true"))
         }
-        assertEquals("Versioned schema startup validation requires postgres-local persistence", failure.message)
+        assertEquals("Versioned schema startup validation requires PostgreSQL persistence", failure.message)
     }
 
     @Test fun `all current feature prerequisites retain explicit memory selection`() {

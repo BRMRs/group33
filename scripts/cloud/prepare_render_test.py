@@ -4,14 +4,34 @@ import argparse,base64,os,stat,sys
 PROJECT=Path(__file__).resolve().parents[2]
 KEYS={'app.persistence.jdbc-url','app.persistence.schema','app.persistence.username','app.persistence.password',
       'app.jwt.secret','app.supabase.project-ref','app.photo.supabase.origin','app.photo.supabase.bucket'}
+SCHEMA_GATE='app.persistence.require-versioned-schema'
+# These original local-fixture settings are deliberately selected by the Render bootstrap instead.
+BOOTSTRAP_KEYS={'server.address','server.port','app.persistence.mode','app.persistence.ssl-root-cert',
+            'app.persistence.receipt-key-file','app.photo.enabled','app.photo.storage-mode',
+            'app.photo.supabase.secret-key-file','app.plan.enabled'}
+def settings_lines(raw):
+    lines=[];gate=[];seen=set()
+    for line in raw:
+        if not line.strip() or line.lstrip(' \t\f').startswith(('#','!')):continue
+        key,separator,value=line.partition('=')
+        # Accept the generator's literal, single-line key=value format, not an incomplete
+        # Java Properties parser that could discard escaped keys, aliases or continuations.
+        if not separator or key not in KEYS|BOOTSTRAP_KEYS|{SCHEMA_GATE} or key in seen:raise ValueError()
+        if (len(line)-len(line.rstrip('\\')))%2:raise ValueError()
+        seen.add(key)
+        if key==SCHEMA_GATE:
+            if value not in ('true','false'):raise ValueError()
+            gate.append(line)
+        elif key in KEYS:lines.append(line)
+    if not KEYS<=seen:raise ValueError()
+    return lines+gate
 def prepare(directory):
     directory=Path(directory).expanduser().absolute()
     if directory.is_symlink() or directory.resolve().is_relative_to(PROJECT):raise ValueError()
     for path in [directory,*[directory/n for n in ('application.properties','receipt.key','database-ca.crt','storage-secret.key')]]:
         info=path.lstat()
         if path.is_symlink() or info.st_uid!=os.getuid() or info.st_mode&0o077:raise ValueError()
-    lines=[line for line in (directory/'application.properties').read_text().splitlines() if line.split('=',1)[0] in KEYS]
-    if len(lines)!=len(KEYS) or {line.split('=',1)[0] for line in lines}!=KEYS:raise ValueError()
+    lines=settings_lines((directory/'application.properties').read_text().split('\n'))
     receipt=(directory/'receipt.key').read_bytes()
     if len(receipt)!=32:raise ValueError()
     encode=lambda data:base64.b64encode(data).decode('ascii')
