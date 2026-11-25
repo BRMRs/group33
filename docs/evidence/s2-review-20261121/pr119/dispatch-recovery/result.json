@@ -1,0 +1,22 @@
+{
+  "passed": true,
+  "serial": "emulator-5580",
+  "physical_device": false,
+  "production_server": false,
+  "automatic_startup_end_to_end": false,
+  "lease_clock": "injected after real process restart",
+  "room_worker_tests": 8,
+  "process_probe": {
+    "actionId": "b0d6050d-4622-4b4a-b775-5fb47c8f47d6",
+    "oldPid": 3903,
+    "newPid": 3985,
+    "attempts": 2,
+    "state": "ACKNOWLEDGED",
+    "originalDeadlinePreserved": true
+  },
+  "receiver_requests": 2,
+  "receiver_effects": 1,
+  "payload_replay_identical": true,
+  "prepare_process_intentionally_killed": true,
+  "receiver_stopped": true
+}

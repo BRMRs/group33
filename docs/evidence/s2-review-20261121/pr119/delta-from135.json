@@ -1,0 +1,47 @@
+[
+  {
+    "path": "CONTRIBUTIONS.md",
+    "before": "a66f76bb6f4432c39d6df65a012a9a41d1cc122f",
+    "after": "cb1565ab7bfef527690cbfcb93f23497254d7e3f"
+  },
+  {
+    "path": "android-app/src/androidTest/kotlin/com/group33/medicationreminder/caregiver/CaregiverEventRowViewTest.kt",
+    "before": null,
+    "after": "c94403f9a41d2f1209533aa6f77285ebc9045e20"
+  },
+  {
+    "path": "android-app/src/debug/AndroidManifest.xml",
+    "before": "91836ef3b9cb229b7dcaf265c6fce62748a01d9d",
+    "after": "38f28aea0715cb03d496ef0a6ca948551981a935"
+  },
+  {
+    "path": "android-app/src/debug/kotlin/com/group33/medicationreminder/caregiver/CaregiverEventRowTestActivity.kt",
+    "before": null,
+    "after": "f4f94e29871bee89cdca2861494d42ece43a22ad"
+  },
+  {
+    "path": "android-app/src/main/kotlin/com/group33/medicationreminder/caregiver/CaregiverEventRowViews.kt",
+    "before": null,
+    "after": "a48e6356254ff97581f5a5e2677e9ec6781f5a19"
+  },
+  {
+    "path": "android-app/src/main/res/layout/item_caregiver_overview_event.xml",
+    "before": null,
+    "after": "15466391e4f68e3a5c70d14dd55cc8a2a4c393b1"
+  },
+  {
+    "path": "android-app/src/main/res/values/dimens.xml",
+    "before": "ca8d8a3840f17dfacc0321e92351c8fb33d21415",
+    "after": "c7566a645dafb0f056704753f748d1b14e509359"
+  },
+  {
+    "path": "android-app/src/test/kotlin/com/group33/medicationreminder/caregiver/CaregiverEvidencePresentationTest.kt",
+    "before": null,
+    "after": "2aecdff1d03db17843db2072d5f919ce23c4f7b6"
+  },
+  {
+    "path": "docs/contracts/GATE1_ARTIFACTS.sha256",
+    "before": "252561470fcbcc80001a2a1f0af45b69c13b3926",
+    "after": "e98344bd123ad82bdfcca0e17d6e4fbc8800c150"
+  }
+]

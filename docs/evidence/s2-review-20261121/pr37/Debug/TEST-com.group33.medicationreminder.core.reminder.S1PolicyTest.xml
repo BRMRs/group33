@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.group33.medicationreminder.core.reminder.S1PolicyTest" tests="33" skipped="0" failures="0" errors="0" timestamp="2026-11-21T10:59:40" hostname="MacBook.local" time="0.016">
+  <properties/>
+  <testcase name="V201 pre-Due cannot respond and exact planned time opens" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.004"/>
+  <testcase name="V201 Help Taken or acknowledged takeover stops action and snooze" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.0"/>
+  <testcase name="V205 reconstructed progress retains the same retry request until adapter claims it" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.001"/>
+  <testcase name="V204 a verified response after a clock rollback remains a valid occurrence fact" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.0"/>
+  <testcase name="V201 reconstructed policy after recovery does not re-open expired reminder" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.0"/>
+  <testcase name="V205 visibility metrics use actual device visibility with inclusive limits" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.0"/>
+  <testcase name="V205 delivered alerts stop transport retries and remind two and five minutes after receipt" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.002"/>
+  <testcase name="V201 exact two-hour cutoff wins all later responses" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.0"/>
+  <testcase name="V204 unexecuted probes are incomplete not device failure" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.0"/>
+  <testcase name="V201 thirty minutes opens follow-up timing without withdrawing Elder response" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.0"/>
+  <testcase name="V205 handled and explicitly blocked alerts do not trigger more notifications" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.0"/>
+  <testcase name="V205 resuming late work does not burst remaining retries or close unresolved follow-up" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.0"/>
+  <testcase name="V205 no receipt remains unknown even beyond a delivery limit" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.0"/>
+  <testcase name="V205 invalid durable progress cannot skip to a fabricated successful stage" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.001"/>
+  <testcase name="V204 probes stay anchored to original reminder not ten minutes after first actual send" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.0"/>
+  <testcase name="visibleReceiptAfterWallClockRollbackIsNotReportedAsAnOnTimeMeasurement" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.0"/>
+  <testcase name="V201 decision samples its clock once so a cutoff cannot split the result" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.0"/>
+  <testcase name="V204 clock rollback does not erase a previously received verified response" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.0"/>
+  <testcase name="V204 malformed or premature attempt facts are rejected" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.0"/>
+  <testcase name="V205 retries keep one alert identity at zero fifteen and sixty seconds" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.001"/>
+  <testcase name="V203 current Caregiver entry wins over late Elder Taken for all three outcomes" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.0"/>
+  <testcase name="V201 snooze is ten minutes but never equal to or beyond original deadline" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.001"/>
+  <testcase name="completedTransmissionAfterWallClockRollbackCanBeRecorded" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.0"/>
+  <testcase name="V204 late matched response fact before alert decision suppresses it including boundary" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.0"/>
+  <testcase name="V205 delayed first reminder does not burst a second stale reminder after recovery" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.0"/>
+  <testcase name="V204 previously created alert fact prevents another alert decision" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.0"/>
+  <testcase name="V204 late dispatch gets its response wait without hiding the scheduled time" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.001"/>
+  <testcase name="verifiedReceiptAfterWallClockRollbackStillStopsTransmissionRetries" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.0"/>
+  <testcase name="completedReminderAfterWallClockRollbackCanBeRecorded" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.0"/>
+  <testcase name="V203 Caregiver unknown remains unresolved and absence of confirmation is not Not taken" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.0"/>
+  <testcase name="V203 timely Elder Taken still counts without an accepted Caregiver entry" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.0"/>
+  <testcase name="V204 clock rollback does not create a second already persisted alert" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.001"/>
+  <testcase name="V204 either valid attempt prevents two-failure alert" classname="com.group33.medicationreminder.core.reminder.S1PolicyTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

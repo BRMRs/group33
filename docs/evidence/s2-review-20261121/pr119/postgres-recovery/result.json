@@ -1,0 +1,278 @@
+{
+  "passed": true,
+  "real_server": true,
+  "real_postgres": true,
+  "memory_store": false,
+  "schema_fixture": "isolated existing V1-V10 SQL; no managed rollout claimed",
+  "checks": [
+    {
+      "check": "fixture-uses-existing-ten-migrations",
+      "passed": true
+    },
+    {
+      "check": "elder-login-status",
+      "passed": true
+    },
+    {
+      "check": "elder-login-no-store",
+      "passed": true
+    },
+    {
+      "check": "caregiver-login-status",
+      "passed": true
+    },
+    {
+      "check": "caregiver-login-no-store",
+      "passed": true
+    },
+    {
+      "check": "issue-code-status",
+      "passed": true
+    },
+    {
+      "check": "issue-code-no-store",
+      "passed": true
+    },
+    {
+      "check": "request-pairing-status",
+      "passed": true
+    },
+    {
+      "check": "request-pairing-no-store",
+      "passed": true
+    },
+    {
+      "check": "elder-consent-status",
+      "passed": true
+    },
+    {
+      "check": "elder-consent-no-store",
+      "passed": true
+    },
+    {
+      "check": "photo-0-status",
+      "passed": true
+    },
+    {
+      "check": "photo-0-no-store",
+      "passed": true
+    },
+    {
+      "check": "plan-0-status",
+      "passed": true
+    },
+    {
+      "check": "plan-0-no-store",
+      "passed": true
+    },
+    {
+      "check": "photo-1-status",
+      "passed": true
+    },
+    {
+      "check": "photo-1-no-store",
+      "passed": true
+    },
+    {
+      "check": "plan-1-status",
+      "passed": true
+    },
+    {
+      "check": "plan-1-no-store",
+      "passed": true
+    },
+    {
+      "check": "register-frozen-pair-status",
+      "passed": true
+    },
+    {
+      "check": "register-frozen-pair-no-store",
+      "passed": true
+    },
+    {
+      "check": "two-canonical-events-before-actions",
+      "passed": true
+    },
+    {
+      "check": "client-loses-response-after-real-server-acceptance",
+      "passed": true
+    },
+    {
+      "check": "original-receipt-has-two-snoozed-events",
+      "passed": true
+    },
+    {
+      "check": "committed-whole-group-despite-lost-response",
+      "passed": true
+    },
+    {
+      "check": "same-action-replay-0-status",
+      "passed": true
+    },
+    {
+      "check": "same-action-replay-0-no-store",
+      "passed": true
+    },
+    {
+      "check": "same-original-receipt-0",
+      "passed": true
+    },
+    {
+      "check": "same-action-replay-1-status",
+      "passed": true
+    },
+    {
+      "check": "same-action-replay-1-no-store",
+      "passed": true
+    },
+    {
+      "check": "same-original-receipt-1",
+      "passed": true
+    },
+    {
+      "check": "same-action-replay-2-status",
+      "passed": true
+    },
+    {
+      "check": "same-action-replay-2-no-store",
+      "passed": true
+    },
+    {
+      "check": "same-original-receipt-2",
+      "passed": true
+    },
+    {
+      "check": "retries-have-one-operation-and-no-extra-events",
+      "passed": true
+    },
+    {
+      "check": "same-key-different-intent-status",
+      "passed": true
+    },
+    {
+      "check": "same-key-different-intent-no-store",
+      "passed": true
+    },
+    {
+      "check": "changed-intent-conflicts",
+      "passed": true
+    },
+    {
+      "check": "fresh-taken-status",
+      "passed": true
+    },
+    {
+      "check": "fresh-taken-no-store",
+      "passed": true
+    },
+    {
+      "check": "fresh-taken-is-current",
+      "passed": true
+    },
+    {
+      "check": "old-snooze-after-taken-status",
+      "passed": true
+    },
+    {
+      "check": "old-snooze-after-taken-no-store",
+      "passed": true
+    },
+    {
+      "check": "old-receipt-does-not-become-current-state",
+      "passed": true
+    },
+    {
+      "check": "caregiver-current-read-status",
+      "passed": true
+    },
+    {
+      "check": "caregiver-current-read-no-store",
+      "passed": true
+    },
+    {
+      "check": "current-read-keeps-taken",
+      "passed": true
+    },
+    {
+      "check": "exact-two-legitimate-operations",
+      "passed": true
+    },
+    {
+      "check": "first-server-process-stopped",
+      "passed": true
+    },
+    {
+      "check": "different-server-jvm",
+      "passed": true
+    },
+    {
+      "check": "old-receipt-restarted-status",
+      "passed": true
+    },
+    {
+      "check": "old-receipt-restarted-no-store",
+      "passed": true
+    },
+    {
+      "check": "original-snooze-survives-server-restart",
+      "passed": true
+    },
+    {
+      "check": "taken-receipt-restarted-status",
+      "passed": true
+    },
+    {
+      "check": "taken-receipt-restarted-no-store",
+      "passed": true
+    },
+    {
+      "check": "taken-receipt-survives-server-restart",
+      "passed": true
+    },
+    {
+      "check": "registration-restarted-status",
+      "passed": true
+    },
+    {
+      "check": "registration-restarted-no-store",
+      "passed": true
+    },
+    {
+      "check": "registration-receipt-remains-original",
+      "passed": true
+    },
+    {
+      "check": "caregiver-current-after-restart-status",
+      "passed": true
+    },
+    {
+      "check": "caregiver-current-after-restart-no-store",
+      "passed": true
+    },
+    {
+      "check": "current-facts-survive-restart",
+      "passed": true
+    }
+  ],
+  "receiver_mock": false,
+  "response_loss_proxy_only": true,
+  "original_action_id": "0ccac25e-5b5d-4924-a938-23b284f52f02",
+  "original_receipt_sha256": "6b0ad6e8d4e9e0b65e456b32b2bf17c4fd9eb9f4b7013d8bcc759131f969628b",
+  "original_payload_sha256": "f572b4e13dab3d025c87533234d7cc71e45c064f898d798fe7ea7e3245288796",
+  "business_rows": {
+    "occurrences": 2,
+    "events": 2,
+    "operations": 2
+  },
+  "original_receipt_immutable": true,
+  "current_facts_not_overwritten": true,
+  "server_pids": [
+    5762,
+    6004
+  ],
+  "boot_jar_sha256": "f78572db27c3efbfd826b13f425583a7d6473bc695ff7559bd60716fa1d5cac0",
+  "server_processes_stopped": true,
+  "response_proxy_stopped": true,
+  "isolated_schema_removed": true,
+  "private_fixture_removed": true
+}
