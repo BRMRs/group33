@@ -26,6 +26,8 @@ The current Android screens are functional placeholders. The approved P0 visual 
 
 The approved P0 deployment uses Room on Android, Spring Boot on Render, Supabase PostgreSQL for business data, and Supabase Storage for Medication photos, with explicit Room ↔ Server synchronization and a local demonstration fallback. This records the target stack; cloud integration and the fallback configuration are still to be implemented. See [ADR-0004](docs/adr/0004-hosting-storage-and-explicit-sync.md).
 
+The separate [local photo reconciliation tool](docs/PHOTO_RECONCILIATION.md) checks existing READY objects and protected upload reservations with read-only metadata access. It is an explicitly invoked operator tool, not automatic cleanup or a Server endpoint.
+
 ## Repository structure
 
 ```text
