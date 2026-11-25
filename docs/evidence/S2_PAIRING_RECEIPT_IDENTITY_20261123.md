@@ -47,3 +47,49 @@ change, new retry key, automatic write, relationship grant or event/history chan
 is introduced. Original live HTTP/Room evidence belongs to its original tested
 commit; this fix's JVM tests do not replace current device, TalkBack, phone-service
 or complete #10 acceptance. C1/S1 review and lead integration remain required.
+
+
+## S1 observation-path correction — 2026-11-25
+
+A two-axis incremental review on `4bf6b5ee8f59875c5271144bd0ff02b3f6d9f659`
+found a remaining consumer path: `observeCommands` replaced the captured records
+and cleared the unresolved operation using only operation ID and terminal state.
+It bypassed the identity/reference/cache validation used by explicit resume.
+
+An external deterministic Debug probe on that unmodified head executed15 methods:
+the original nine plus the valid terminal observation control passed; five new
+counterexamples failed (wrong kind, cancellation target, result reference, missing
+confirmed cache, and confirmed-cache-pending downgrade). Each failed at the
+needs-recovery assertion. This does not claim an actual Server foreign receipt,
+unauthorized write, or that later duplicate-write assertions were reached.
+
+The observation path now validates against the captured issued command or prior
+record with the same `matchesRecovery` policy before replacing state. Invalid or
+missing observations retain original records still requiring recovery; only an
+accepted exact terminal observation releases the unresolved command. Session and
+generation changes still clear the captured state. The six probe methods are
+preserved in `S2PairingReceiptReviewTest`, with one additional empty-journal then
+valid-terminal control. The original nine methods remain unchanged.
+
+### Standards
+
+Zero blocking documented-standard violations. The correction keeps Repository
+boundaries, reuses the existing validation, adds no dispatch/retry or unrelated
+abstraction, and uses controlled clocks/dispatchers and fictional data.
+
+### Spec
+
+One P2 before correction: observation could bypass original identity and
+confirmed-state protection. Incremental source review after correction finds that
+path closed; the original counterexamples and valid completion remain covered.
+These agent-assisted axes are not independent teammate approval or Gate1 signatures.
+
+Validation on the corrected source: `gate1Check test :android-app:lintDebug
+:android-app:assembleDebug :android-app:assembleRelease --console=plain --no-daemon`
+passed. Actual executed full reports: Server628, Shared18, Android Debug178 and
+Release177, all zero failures/errors/skips. The final review test class has16 cases;
+PairingWorkflowViewModelTest has19. Full and focused/variant counts overlap and are
+not distinct new tests. Local policy, artifact checksums and whitespace are checked
+again with the final evidence/manifest revision. No new real HTTP/Room/device or
+supplier acceptance is claimed. The lead contributed this correction, so C1/another
+qualified non-author must review the final pushed head before integration.

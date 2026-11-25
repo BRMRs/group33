@@ -51,8 +51,19 @@ class PairingWorkflowViewModel(
                         }
                         .collect { (cached, journal) ->
                             if (!isCurrent(context)) return@collect
-                            records = journal.filter { it.scope == context.scope && it.commandKind in KINDS }
-                            if (records.any { it.operationId == unresolved && !it.needsRecovery() }) {
+                            val observed = journal.filter { it.scope == context.scope && it.commandKind in KINDS }
+                            val accepted = observed.filter { record ->
+                                val original = records.firstOrNull { it.operationId == record.operationId }
+                                val pending = unresolvedContext?.takeIf { it.operationId == record.operationId }
+                                (original == null && pending == null) ||
+                                    matchesRecovery(record.operationId, record, original, pending)
+                            }
+                            // An invalid, missing or downgraded observation cannot erase an original
+                            // command that still needs recovery. Resume uses the same identity checks.
+                            records = accepted + records.filter { original ->
+                                original.needsRecovery() && accepted.none { it.operationId == original.operationId }
+                            }
+                            if (accepted.any { it.operationId == unresolved && !it.needsRecovery() }) {
                                 unresolved = null; unresolvedContext = null
                             }
                             val authorized = cached.access == AccessState.AUTHORIZED

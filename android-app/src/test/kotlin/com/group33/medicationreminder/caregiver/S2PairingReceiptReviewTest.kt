@@ -161,4 +161,71 @@ class S2PairingReceiptReviewTest {
         assertEquals("",f.model.state.value.code); assertNull(f.model.state.value.notice)
         assertFalse(f.model.state.value.needsRecovery); assertEquals(1,f.begins)
     }
+    @Test fun `journal terminal with foreign kind must not release original request`() = runTest(dispatcher) {
+        val f=Fixture(); runCurrent(); f.result=OnlineCommandResult.AwaitingConfirmation(operation)
+        f.model.setCode("00123456"); f.model.submitCode(); advanceUntilIdle()
+        assertTrue(f.model.state.value.needsRecovery)
+        f.journal.value=listOf(record(OnlineCommandState.CONFIRMED,CacheState.APPLIED).copy(commandKind=OnlineCommandKind.CANCEL_PAIRING_REQUEST,targetId="foreign-request"))
+        advanceUntilIdle()
+        assertTrue("observed foreign-kind terminal must preserve original unknown",f.model.state.value.needsRecovery)
+        f.model.submitCode(); runCurrent(); assertEquals(1,f.begins)
+    }
+    @Test fun `journal confirmed without cache must not release original request`() = runTest(dispatcher) {
+        val f=Fixture(); runCurrent(); f.result=OnlineCommandResult.AwaitingConfirmation(operation)
+        f.model.setCode("00123456"); f.model.submitCode(); advanceUntilIdle()
+        assertTrue(f.model.state.value.needsRecovery)
+        f.journal.value=listOf(record(OnlineCommandState.CONFIRMED))
+        advanceUntilIdle()
+        assertTrue("observed malformed confirmation must preserve original unknown",f.model.state.value.needsRecovery)
+        f.model.submitCode(); runCurrent(); assertEquals(1,f.begins)
+    }
+
+    @Test fun `journal wrong cancellation target must not release original cancellation`() = runTest(dispatcher) {
+        val f=Fixture(); f.requests.value=cached(listOf(request())); runCurrent()
+        f.cancelResult=OnlineCommandResult.AwaitingConfirmation(operation); f.model.cancel("request"); advanceUntilIdle()
+        f.journal.value=listOf(record(OnlineCommandState.CONFIRMED,CacheState.APPLIED).copy(commandKind=OnlineCommandKind.CANCEL_PAIRING_REQUEST,targetId="foreign-request"))
+        advanceUntilIdle()
+        assertTrue("observed foreign target must preserve original cancellation",f.model.state.value.needsRecovery)
+        f.model.cancel("request"); runCurrent(); assertEquals(1,f.begins)
+    }
+    @Test fun `journal wrong result reference must not release original request`() = runTest(dispatcher) {
+        val f=Fixture(); runCurrent(); f.result=OnlineCommandResult.AwaitingConfirmation(operation)
+        f.model.setCode("00123456"); f.model.submitCode(); advanceUntilIdle()
+        f.journal.value=listOf(record(OnlineCommandState.CONFIRMED,CacheState.APPLIED).copy(resultRef=CommandResultRef(CommandResultKind.MEDICATION,"foreign-medication")))
+        advanceUntilIdle()
+        assertTrue("observed wrong result reference must preserve original unknown",f.model.state.value.needsRecovery)
+        f.model.submitCode(); runCurrent(); assertEquals(1,f.begins)
+    }
+    @Test fun `journal cannot downgrade confirmed pending into rejected and release a new write`() = runTest(dispatcher) {
+        val f=Fixture(); f.journal.value=listOf(record(OnlineCommandState.CONFIRMED,CacheState.REFRESH_REQUIRED)); runCurrent()
+        assertTrue(f.model.state.value.needsRecovery)
+        f.journal.value=listOf(record(OnlineCommandState.REJECTED)); advanceUntilIdle()
+        assertTrue("observed rejected downgrade must preserve confirmed cache recovery",f.model.state.value.needsRecovery)
+        f.model.setCode("00123456"); f.model.submitCode(); runCurrent(); assertEquals(0,f.begins)
+    }
+    @Test fun `valid exact terminal observation can release original command without a replay`() = runTest(dispatcher) {
+        val f=Fixture(); runCurrent(); f.result=OnlineCommandResult.AwaitingConfirmation(operation)
+        f.model.setCode("00123456"); f.model.submitCode(); advanceUntilIdle()
+        f.journal.value=listOf(record(OnlineCommandState.CONFIRMED,CacheState.APPLIED)); advanceUntilIdle()
+        assertFalse(f.model.state.value.needsRecovery)
+        assertEquals(1,f.begins); assertEquals(1,f.submitted.size); assertEquals(0,f.retries)
+    }
+    @Test fun `missing journal observation preserves confirmed recovery until an exact terminal record`() = runTest(dispatcher) {
+        val f = Fixture()
+        f.journal.value = listOf(record(OnlineCommandState.CONFIRMED, CacheState.REFRESH_REQUIRED))
+        runCurrent()
+        assertTrue(f.model.state.value.needsRecovery)
+        f.journal.value = emptyList()
+        advanceUntilIdle()
+        assertTrue("missing observation must not erase original cache recovery", f.model.state.value.needsRecovery)
+        f.model.setCode("00123456"); f.model.submitCode(); runCurrent()
+        assertEquals(0, f.begins)
+        f.journal.value = listOf(record(OnlineCommandState.CONFIRMED, CacheState.APPLIED))
+        advanceUntilIdle()
+        assertFalse(f.model.state.value.needsRecovery)
+        assertEquals(0, f.begins)
+        assertEquals(0, f.retries)
+        assertTrue(f.resumed.isEmpty())
+    }
+
 }
