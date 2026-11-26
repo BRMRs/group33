@@ -49,7 +49,10 @@ def completions(output):
         elif line.startswith('INSTRUMENTATION_STATUS_CODE: '):
             code = int(line.rsplit(': ', 1)[1])
             if code != 1 and pending.get('class') == SUITE and 'test' in pending:
-                completed.append(dict(test=pending['test'], code=code))
+                record = dict(test=pending['test'], code=code)
+                if code != 0:
+                    record['failure'] = pending.get('stack', '')
+                completed.append(record)
             pending = {}
     return completed
 
@@ -150,7 +153,16 @@ def main():
                 expected_failures = set(TARGETS[1:]) | ({TARGETS[0]} if args.api == 27 else set())
                 unique = len(completed) == len(expected_names) and {x['test'] for x in completed} == expected_names
                 if phase == 'before':
-                    proof['passed'] = unique and failed == expected_failures and all(x['code'] in (0, -2) for x in completed) and 'FAILURES!!!' in output
+                    messages = {x['test']: x.get('failure', '') for x in completed}
+                    font_failure = messages.get(TARGETS[2], '')
+                    locale_failure = messages.get(TARGETS[1], '')
+                    causes_match = ('Calendar control must use the component font scale' in font_failure
+                        and 'expected:<2.0> but was:<1.0>' in font_failure
+                        and 'End date: ' in locale_failure and '结束日期：' in locale_failure)
+                    if args.api == 27:
+                        causes_match = causes_match and re.search(r'expected:<([1-9][0-9]*)> but was:<0>', messages.get(TARGETS[0], '')) is not None
+                    proof['expected_assertion_causes'] = causes_match
+                    proof['passed'] = unique and failed == expected_failures and causes_match and all(x['code'] in (0, -2) for x in completed) and 'FAILURES!!!' in output
                 else:
                     proof['passed'] = unique and not failed and re.search(r'^OK \(18 tests\)$', output, re.M) is not None and 'FAILURES!!!' not in output
                 proof['passed'] = proof['passed'] and run.returncode == 0

@@ -229,7 +229,7 @@ class CaregiverHistoryViewTest {
     }
 
     @Test fun calendarGridAndButtonsRemainReadableAtBothFontsAndAllWindowWidths() {
-        for (language in listOf("en", "zh")) for (font in listOf(1f, 2f)) withScreen(language, font) {
+        for (language in listOf("en", "zh")) for (font in listOf(2f, 1f)) withScreen(language, font) {
             var picker: DialogFragment? = null
             onMain { picker = openPicker() }
             val root = checkNotNull(picker?.dialog?.window?.decorView)
@@ -243,8 +243,6 @@ class CaregiverHistoryViewTest {
                     val title = visibleViews(root).filterIsInstance<TextView>().single {
                         it.text.toString() == context.getString(R.string.c3_history_pick_range)
                     }
-                    assertEquals("Window title must match the localized calendar heading",
-                        title.text.toString(), picker?.dialog?.window?.attributes?.title?.toString())
                     val controls = listOf(R.id.history_calendar_grid, R.id.history_calendar_from,
                         R.id.history_calendar_through, R.id.history_dialog_confirm, R.id.history_dialog_cancel)
                         .map { root.findViewById<View>(it) } + title
@@ -254,6 +252,8 @@ class CaregiverHistoryViewTest {
                             ConfigurationCompat.getLocales(config)[0]?.language)
                         assertEquals("Calendar control must use the component font scale", font, config.fontScale, 0.001f)
                     }
+                    assertEquals("Window title must match the localized calendar heading",
+                        title.text.toString(), picker?.dialog?.window?.attributes?.title?.toString())
                     if (font == 2f) {
                         val inset = context.resources.getDimensionPixelSize(R.dimen.group33_spacing_medium)
                         assertTrue("Calendar title must keep glyphs inside the rounded window edge",
