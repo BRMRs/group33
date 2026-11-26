@@ -190,7 +190,13 @@ internal class DebugChainRepository(
                 authorityEpoch++
                 put(l, "requests", "", json.encodeToString(ListSerializer(PairingRequestView.serializer()), requests))
                 put(l, "relationships", "", json.encodeToString(ListSerializer(CareRelationshipView.serializer()), relationships))
-                relationships.filter { it.status == CareRelationshipStatus.REVOKED }.forEach {
+                // The cache is keyed by Elder, but the response retains individual relationship histories.
+                // An old revoked relationship must not poison the cache for a currently active pair.
+                val activeElders = relationships.filter { it.status == CareRelationshipStatus.ACTIVE }
+                    .mapTo(mutableSetOf()) { it.elderId }
+                relationships.filter {
+                    it.status == CareRelationshipStatus.REVOKED && it.elderId !in activeElders
+                }.forEach {
                     cache.documents().revoke(scopeId(l.scope), it.elderId)
                 }
             } }
