@@ -248,6 +248,22 @@ internal class BoundPhoneRuntimePostgresTest {
         assertEquals(0, calls.get())
         assertEquals(before, scalar("SELECT string_agg(xmin::text,',' ORDER BY installed_rank) FROM group33_schema_history"))
     }
+    @ParameterizedTest @ValueSource(strings = ["pg_read_all_data", "pg_write_all_data", "pg_read_all_data-no-inherit", "pg_write_all_data-no-inherit"])
+    fun `predefined all data roles cannot bypass private phone privileges`(case: String) {
+        val role = case.removeSuffix("-no-inherit")
+        val inherits = !case.endsWith("-no-inherit")
+        migrate(); grants(); admin("GRANT $role TO anon WITH INHERIT ${if (inherits) "TRUE" else "FALSE"}, SET TRUE")
+        assertEquals(inherits.toString(), scalar("SELECT has_table_privilege('anon','phone_auth_proofs','" +
+            (if (role == "pg_read_all_data") "SELECT" else "INSERT") + "')::text"))
+        assertEquals("true", scalar("SELECT pg_has_role('anon','$role','SET')::text"))
+        val before = scalar("SELECT string_agg(xmin::text,',' ORDER BY installed_rank) FROM group33_schema_history")
+        val failure = assertThrows(Exception::class.java) { start() }
+        assertTrue(generateSequence(failure as Throwable) { it.cause }.any {
+            it.message == "Bound phone schema or runtime privileges do not match this release"
+        })
+        assertEquals(0, calls.get())
+        assertEquals(before, scalar("SELECT string_agg(xmin::text,',' ORDER BY installed_rank) FROM group33_schema_history"))
+    }
     @Test fun `previous release cannot boot and formal upgrade preserves old identity data`() {
         migrate("11"); grants()
         execute("INSERT INTO anonymous_identity(id,installation_id,display_name,role) VALUES ('fictional-id','fictional-install','Fixture','ELDER')")

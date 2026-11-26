@@ -28,6 +28,14 @@ internal object BoundPhoneSchemaGate {
                 try {
                     check(count(c, """SELECT count(*) FROM pg_roles WHERE rolname=current_user AND
                         NOT (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)""") == 1L)
+                    // Predefined all-data roles confer implicit privileges without an object ACL entry.
+                    // Also reject SET-capable/non-inheriting membership, before a client can assume it.
+                    check(count(c, """SELECT count(*) FROM pg_roles client WHERE client.rolname IN ('anon','authenticated')
+                        AND EXISTS (SELECT 1 FROM pg_roles implicit_role WHERE implicit_role.rolname IN
+                            ('pg_read_all_data','pg_write_all_data','pg_maintain')
+                            AND pg_has_role(client.oid,implicit_role.oid,'MEMBER'))""") == 0L)
+                    val tablePrivileges = "SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER" +
+                        if (count(c, "SELECT current_setting('server_version_num')::bigint") >= 170000) ",MAINTAIN" else ""
                     for ((table, names) in columns) {
                         check(count(c, """SELECT count(*) FROM pg_class t JOIN pg_namespace n ON n.oid=t.relnamespace
                             WHERE n.nspname=current_schema() AND t.relname=? AND t.relkind='r'
@@ -47,6 +55,12 @@ internal object BoundPhoneSchemaGate {
                                         AND pg_has_role(client.oid,granted.grantee,'MEMBER')) END)""", table) == 1L)
                         if (table == "phone_bound_registration_tickets")
                             check(count(c, "SELECT CASE WHEN has_table_privilege(?, 'DELETE') THEN 1 ELSE 0 END", table) == 1L)
+                        check(count(c, """SELECT count(*) FROM pg_roles client JOIN pg_class t ON t.relname=?
+                            JOIN pg_namespace n ON n.oid=t.relnamespace AND n.nspname=current_schema()
+                            WHERE client.rolname IN ('anon','authenticated') AND (
+                                has_table_privilege(client.oid,t.oid,?) OR
+                                has_any_column_privilege(client.oid,t.oid,'SELECT,INSERT,UPDATE,REFERENCES'))""",
+                            table, tablePrivileges) == 0L)
                         c.createStatement().use { s -> s.queryTimeout = 5; s.executeQuery("SELECT $names FROM $table LIMIT 0").close() }
                     }
                     for ((table, names) in keys) {
