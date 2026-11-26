@@ -56,11 +56,19 @@ internal class CaregiverHistoryDateRangeDialog : DialogFragment() {
             setLocale(Locale.forLanguageTag(checkNotNull(requireArguments().getString(LOCALE))))
             fontScale = requireArguments().getFloat(FONT_SCALE)
         }
+        // AppCompat applies the application locale to its Dialog context on older Android.
+        // Keep that host-owned window separate from the component-owned content configuration.
+        val builder = MaterialAlertDialogBuilder(requireContext())
         val context = ContextThemeWrapper(requireContext(), R.style.Theme_Group33).apply {
             applyOverrideConfiguration(display)
         }
-        val builder = MaterialAlertDialogBuilder(context)
-        binding = ViewCaregiverHistoryDateDialogBinding.inflate(LayoutInflater.from(builder.context))
+        binding = ViewCaregiverHistoryDateDialogBinding.inflate(LayoutInflater.from(context))
+        val title = TextView(context, null, com.google.android.material.R.attr.materialAlertDialogTitleTextStyle).apply {
+            setText(R.string.c3_history_pick_range)
+            val inset = resources.getDimensionPixelSize(R.dimen.group33_spacing_medium)
+            setPadding(inset, inset, inset, inset)
+        }
+        ViewCompat.setAccessibilityHeading(title, true)
         ViewCompat.setAccessibilityHeading(binding.historyCalendarMonth, true)
         binding.historyCalendarPrevious.setOnClickListener { moveMonth(-1) }
         binding.historyCalendarNext.setOnClickListener { moveMonth(1) }
@@ -79,11 +87,11 @@ internal class CaregiverHistoryDateRangeDialog : DialogFragment() {
         measureCells()
         drawMonth()
         return builder
-            .setTitle(R.string.c3_history_pick_range)
+            .setCustomTitle(title)
             .setBackgroundInsetStart(0)
             .setBackgroundInsetEnd(0)
             .setView(binding.root)
-            .create()
+            .create().also { it.setTitle(title.text) }
     }
 
     override fun onStart() {

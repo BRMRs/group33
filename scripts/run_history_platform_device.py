@@ -154,6 +154,19 @@ def main():
                 else:
                     proof['passed'] = unique and not failed and re.search(r'^OK \(18 tests\)$', output, re.M) is not None and 'FAILURES!!!' not in output
                 proof['passed'] = proof['passed'] and run.returncode == 0
+                if phase == 'after' and proof['passed']:
+                    captures = {}
+                    for language in ('en', 'zh'):
+                        name = f'history-platform-{language}-2x.png'
+                        image = subprocess.run([str(adb), '-s', serial, 'exec-out', 'run-as',
+                            'com.group33.medicationreminder', 'cat', 'cache/' + name],
+                            capture_output=True, env=env, timeout=30)
+                        image.check_returncode()
+                        if not image.stdout.startswith(b'\x89PNG\r\n\x1a\n'):
+                            raise RuntimeError('Expected a real emulator PNG capture')
+                        (out / name).write_bytes(image.stdout)
+                        captures[name] = hashlib.sha256(image.stdout).hexdigest()
+                    proof['capture_sha256'] = captures
                 result[phase] = proof
                 (out / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
                 if not proof['passed']:

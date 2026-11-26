@@ -1,5 +1,6 @@
 package com.group33.medicationreminder.caregiver
 
+import android.graphics.Bitmap
 import android.app.LocaleManager
 import android.os.Build
 import android.os.LocaleList
@@ -239,12 +240,24 @@ class CaregiverHistoryViewTest {
                     assertTrue(visibleViews(root).filterIsInstance<EditText>().isEmpty())
                     assertReadable(root)
                     val grid = root.findViewById<GridLayout>(R.id.history_calendar_grid)
-                    for (id in listOf(R.id.history_calendar_grid, R.id.history_calendar_from,
-                        R.id.history_calendar_through, R.id.history_dialog_confirm, R.id.history_dialog_cancel)) {
-                        val config = root.findViewById<View>(id).resources.configuration
-                        assertEquals("Calendar control must use the component language", language,
+                    val title = visibleViews(root).filterIsInstance<TextView>().single {
+                        it.text.toString() == context.getString(R.string.c3_history_pick_range)
+                    }
+                    assertEquals("Window title must match the localized calendar heading",
+                        title.text.toString(), picker?.dialog?.window?.attributes?.title?.toString())
+                    val controls = listOf(R.id.history_calendar_grid, R.id.history_calendar_from,
+                        R.id.history_calendar_through, R.id.history_dialog_confirm, R.id.history_dialog_cancel)
+                        .map { root.findViewById<View>(it) } + title
+                    for (control in controls) {
+                        val config = control.resources.configuration
+                        assertEquals("Calendar language: id=${control.id}; component=${context.resources.configuration}; args=${picker?.arguments}", language,
                             ConfigurationCompat.getLocales(config)[0]?.language)
                         assertEquals("Calendar control must use the component font scale", font, config.fontScale, 0.001f)
+                    }
+                    if (font == 2f) {
+                        val inset = context.resources.getDimensionPixelSize(R.dimen.group33_spacing_medium)
+                        assertTrue("Calendar title must keep glyphs inside the rounded window edge",
+                            title.compoundPaddingLeft >= inset && title.compoundPaddingTop >= inset)
                     }
                     val day = grid.findViewWithTag<MaterialButton>(LocalDate.of(2026, 10, 22))
                     assertEquals("22", day.text.toString())
@@ -262,6 +275,7 @@ class CaregiverHistoryViewTest {
                     assertTrue(root.findViewById<View>(R.id.history_dialog_cancel).height >= minimum)
                 }
             }
+            if (font == 2f) captureCalendar(language)
             chooseDay("22"); chooseDay("23")
             onView(withId(R.id.history_dialog_confirm)).inRoot(withDecorView(equalTo(checkNotNull(calendarRoot)))).perform(scrollTo(), click())
             onMain {
@@ -572,6 +586,17 @@ class CaregiverHistoryViewTest {
         }
     }
 
+    private fun captureCalendar(language: String) {
+        val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+        try {
+            instrumentation.targetContext.cacheDir.resolve("history-platform-$language-2x.png").outputStream().use {
+                check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
+            }
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
     private fun withHostLanguage(language: String, block: () -> Unit) {
         val context = instrumentation.targetContext
         val previous = if (Build.VERSION.SDK_INT >= 33) ApplicationLocales33.get(context)
@@ -670,7 +695,13 @@ class CaregiverHistoryViewTest {
                 try {
                     assertEquals("Date input must expose whether its range is invalid", expected != null, node.isContentInvalid)
                     assertEquals(expected, node.error?.toString())
-                    assertEquals(context.getString(hintId), node.hintText?.toString())
+                    val hint = context.getString(hintId)
+                    if (Build.VERSION.SDK_INT >= 26) assertEquals(hint, node.hintText?.toString())
+                    else {
+                        // Material 1.12 announces value + hint before API26 due to a TalkBack bug.
+                        val value = header.findViewById<EditText>(id).text.toString()
+                        assertEquals(if (value.isEmpty()) hint else "$value, $hint", node.text?.toString())
+                    }
                 } finally {
                     node.recycle()
                 }

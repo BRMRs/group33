@@ -14,23 +14,30 @@ includes actual main `855364eb`. Cle-cre's original component retains attributio
 - The calendar receives the component's primary display locale and font scale.
   Its title, inflated controls, day buttons, weekday labels and accessibility
   descriptions use that configuration. Fragment arguments retain these display
-  inputs while the current host supplies window configuration. The Group33
-  Material theme is initialized after the display override, so older Android
-  does not reuse a Theme attached to the Activity's different Resources.
+  inputs while the current host supplies window configuration. The Material
+  window keeps the host's themed Activity context and window token. A custom
+  Material-styled title and calendar content use their own Group33 configuration
+  context; AppCompat's application-locale initialization therefore does not
+  overwrite the component's locale/font resources on older Android.
 - Tests no longer mutate Activity-wide resources with `updateConfiguration`.
   The existing 18 cases assert actual English/Chinese and 1x/2x configuration,
   widths 320/360/600/320dp, and an explicitly Chinese host with an English
   component. The per-app locale is restored in `finally`; API33+ uses the platform
-  locale service and older systems use AppCompat. No date/range/query, revocation,
+  locale service and older systems use AppCompat. Accessibility tests require
+  Material 1.12.0's exact value-plus-localized-hint announcement below API26, and
+  retain the separate hint-metadata assertion on API26+. Invalid/error assertions
+  stay unchanged. No date/range/query, revocation,
   Repository, authorization or wire behavior changes.
 
 ## Evidence and reproduction
 
-The local owned read-only API35 emulator completed all 18 cases with zero failed,
-errored or skipped completions. It was stopped and its persistent configuration
-was unchanged. An earlier baseline probe exposed that a nominal 2x popup actually
-used 1x; its font assertion failed while two control cases passed. Those local
-exploratory results are not the final same-test before/after matrix.
+Preparation runs on local owned read-only API23 and API35 emulators completed
+all 18 cases with zero failed, errored or skipped completions. Both instances
+stopped with persistent configuration unchanged. Screenshot review then added a
+title safe inset so the first glyph stays inside the rounded window edge; final
+source execution and captures are recorded in the PR. An earlier baseline probe
+exposed that a nominal 2x popup actually used 1x; its font assertion failed while
+two controls passed. These preparation results are not the final same-test matrix.
 
 The `History platform regressions` workflow checks out the exact PR head and runs
 fresh job-owned API27/x86 and API35/x86_64 emulators. It keeps the final test source
@@ -44,6 +51,9 @@ identical across two phases:
 
 Artifacts contain separate build/instrumentation logs, full head, actual API/ABI,
 source/APK hashes, individual completion codes and source/AVD cleanup results.
+The final font/width test also saves English and Chinese 2x calendar captures in
+app-private cache. The runner copies those PNGs from its own emulator into the
+artifact and records their hashes; no media-library or storage permission is used.
 Expected baseline failures never waive a final failure. Emulator and source
 cleanup run even if a phase fails; no existing device or physical device is used.
 Read the current-head workflow artifacts and PR evidence for actual hosted results.
@@ -57,4 +67,12 @@ their original dates and are not relabeled as new captures.
 Platform references: [WindowCompat inset dispatch](https://developer.android.com/reference/androidx/core/view/WindowCompat),
 [configuration-specific Context](https://developer.android.com/reference/android/content/Context#createConfigurationContext(android.content.res.Configuration)),
 [Context-specific inflation](https://developer.android.com/reference/android/view/LayoutInflater#cloneInContext(android.content.Context)),
-and [API33 per-app locales](https://developer.android.com/reference/android/app/LocaleManager).
+[API33 per-app locales](https://developer.android.com/reference/android/app/LocaleManager),
+and the exact [AppCompat 1.7.0 sources](https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat/1.7.0/appcompat-1.7.0-sources.jar)
+(`AppCompatDelegateImpl` application-locale initialization).
+
+[Material 1.12.0 accessibility implementation](https://github.com/material-components/material-components-android/blob/1.12.0/lib/java/com/google/android/material/textfield/TextInputLayout.java)
+explains the pre-API26 TalkBack-compatible hint announcement. The API23 probe's
+three earlier hint-metadata failures were a test-contract mismatch, not evidence
+that the spoken label was absent. The corrected test checks the complete native
+announcement, including the actual value and localized label.
