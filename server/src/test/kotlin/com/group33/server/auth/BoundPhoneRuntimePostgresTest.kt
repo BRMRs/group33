@@ -40,6 +40,8 @@ internal class BoundPhoneRuntimePostgresTest {
     private val runtime = "phone_app_$id"
     private val password get() = required("S2_PG_INTEGRATION_PASSWORD")
     private val calls = AtomicInteger()
+    private val createdClients = mutableListOf<String>()
+    private val clientGroup = "phone_client_$id"
     private val mapper = ObjectMapper()
     private val http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build()
     @TempDir lateinit var directory: Path
@@ -71,6 +73,13 @@ internal class BoundPhoneRuntimePostgresTest {
         require(manager.matches(Regex("[a-z][a-z0-9_]{0,62}")))
         admin("GRANT $owner TO $manager WITH SET TRUE")
         admin("CREATE SCHEMA $schema AUTHORIZATION $owner")
+        for (role in listOf("anon", "authenticated")) {
+            val exists = dataSource().connection.use { c -> c.prepareStatement("SELECT 1 FROM pg_roles WHERE rolname=?").use { q ->
+                q.setString(1, role); q.executeQuery().use { it.next() }
+            } }
+            if (!exists) { admin("CREATE ROLE $role NOLOGIN"); createdClients.add(role) }
+        }
+        admin("CREATE ROLE $clientGroup NOLOGIN")
         for ((name, value) in listOf("jwt" to 1, "phone" to 2, "receipt" to 3)) {
             val path = directory.resolve(name); Files.write(path, ByteArray(32) { value.toByte() })
             Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("rw-------"))
@@ -79,7 +88,8 @@ internal class BoundPhoneRuntimePostgresTest {
     @AfterEach fun cleanup() {
         app?.close()
         execute("DROP SCHEMA IF EXISTS $schema CASCADE")
-        admin("DROP ROLE IF EXISTS $runtime, $owner")
+        admin("DROP ROLE IF EXISTS $runtime, $owner, $clientGroup")
+        for (role in createdClients) admin("DROP ROLE $role")
     }
     private fun migrate(target: String = SchemaMigrations.VERSION) {
         Flyway.configure().dataSource(source(owner)).defaultSchema(schema).schemas(schema).createSchemas(false)
@@ -190,6 +200,51 @@ internal class BoundPhoneRuntimePostgresTest {
         val before = scalar("SELECT string_agg(xmin::text,',' ORDER BY installed_rank) FROM group33_schema_history")
         val failure = assertThrows(Exception::class.java) { start() }
         assertTrue(generateSequence(failure as Throwable) { it.cause }.any { it.message == "Bound phone schema or runtime privileges do not match this release" })
+        assertEquals(0, calls.get())
+        assertEquals(before, scalar("SELECT string_agg(xmin::text,',' ORDER BY installed_rank) FROM group33_schema_history"))
+    }
+    @Test fun `public column grant cannot bypass backend only schema gate`() {
+        migrate(); grants(); execute("GRANT SELECT(phone_hash) ON phone_accounts TO PUBLIC")
+        val failure = assertThrows(Exception::class.java) { start() }
+        assertTrue(generateSequence(failure as Throwable) { it.cause }.any {
+            it.message == "Bound phone schema or runtime privileges do not match this release"
+        })
+        assertEquals(0, calls.get())
+    }
+    @ParameterizedTest @ValueSource(strings = ["anon-column", "authenticated-column", "inherited-column", "truncate", "references", "trigger-or-maintain"])
+    fun `client direct inherited column and destructive table grants cannot bypass the gate`(kind: String) {
+        migrate(); grants()
+        when (kind) {
+            "anon-column" -> execute("GRANT SELECT(phone_hash) ON phone_accounts TO anon")
+            "authenticated-column" -> execute("GRANT UPDATE(phone_hash) ON phone_accounts TO authenticated")
+            "inherited-column" -> {
+                execute("GRANT SELECT(phone_hash) ON phone_accounts TO $clientGroup")
+                admin("GRANT $clientGroup TO anon")
+            }
+            "truncate" -> execute("GRANT TRUNCATE ON phone_auth_proofs TO anon")
+            "references" -> execute("GRANT REFERENCES(phone_hash) ON phone_accounts TO authenticated")
+            "trigger-or-maintain" -> {
+                val privilege = if (scalar("SHOW server_version_num").toInt() >= 170000) "MAINTAIN" else "TRIGGER"
+                execute("GRANT $privilege ON phone_auth_proofs TO authenticated")
+            }
+        }
+        if (kind in setOf("anon-column", "inherited-column")) {
+            execute("GRANT USAGE ON SCHEMA $schema TO anon")
+            admin("GRANT anon TO ${required("S2_PG_INTEGRATION_USER")} WITH SET TRUE")
+            // The client's column read really succeeds, although whole-table SELECT remains false.
+            dataSource(schema).connection.use { c -> c.createStatement().use { statement ->
+                statement.execute("SET ROLE anon")
+                statement.executeQuery("SELECT phone_hash FROM phone_accounts LIMIT 0").close()
+                statement.executeQuery("SELECT has_table_privilege(current_user,'phone_accounts','SELECT')").use { r ->
+                    check(r.next()); assertFalse(r.getBoolean(1))
+                }
+            } }
+        }
+        val before = scalar("SELECT string_agg(xmin::text,',' ORDER BY installed_rank) FROM group33_schema_history")
+        val failure = assertThrows(Exception::class.java) { start() }
+        assertTrue(generateSequence(failure as Throwable) { it.cause }.any {
+            it.message == "Bound phone schema or runtime privileges do not match this release"
+        })
         assertEquals(0, calls.get())
         assertEquals(before, scalar("SELECT string_agg(xmin::text,',' ORDER BY installed_rank) FROM group33_schema_history"))
     }

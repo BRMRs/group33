@@ -36,17 +36,17 @@ internal object BoundPhoneSchemaGate {
                             AND NOT pg_has_role(current_user,n.nspowner,'MEMBER')
                             AND has_table_privilege(t.oid,'SELECT') AND has_table_privilege(t.oid,'INSERT')
                             AND has_table_privilege(t.oid,'UPDATE')
-                            AND NOT EXISTS (SELECT 1 FROM aclexplode(COALESCE(t.relacl,acldefault('r',t.relowner))) a
-                                WHERE a.grantee=0 AND a.privilege_type IN ('SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER'))""", table) == 1L)
+                            AND NOT EXISTS (
+                                SELECT 1 FROM (
+                                    SELECT a.grantee FROM aclexplode(COALESCE(t.relacl,acldefault('r',t.relowner))) a
+                                    UNION ALL
+                                    SELECT a.grantee FROM pg_attribute col CROSS JOIN LATERAL aclexplode(col.attacl) a
+                                        WHERE col.attrelid=t.oid AND col.attnum>0 AND NOT col.attisdropped
+                                ) granted WHERE CASE WHEN granted.grantee=0 THEN true ELSE EXISTS (
+                                    SELECT 1 FROM pg_roles client WHERE client.rolname IN ('anon','authenticated')
+                                        AND pg_has_role(client.oid,granted.grantee,'MEMBER')) END)""", table) == 1L)
                         if (table == "phone_bound_registration_tickets")
                             check(count(c, "SELECT CASE WHEN has_table_privilege(?, 'DELETE') THEN 1 ELSE 0 END", table) == 1L)
-                        for (role in listOf("anon", "authenticated")) {
-                            check(count(c, """SELECT count(*) FROM pg_roles r JOIN pg_class t ON t.relname=?
-                                JOIN pg_namespace n ON n.oid=t.relnamespace AND n.nspname=current_schema()
-                                WHERE r.rolname=? AND (has_table_privilege(r.oid,t.oid,'SELECT')
-                                OR has_table_privilege(r.oid,t.oid,'INSERT') OR has_table_privilege(r.oid,t.oid,'UPDATE')
-                                OR has_table_privilege(r.oid,t.oid,'DELETE'))""", table, role) == 0L)
-                        }
                         c.createStatement().use { s -> s.queryTimeout = 5; s.executeQuery("SELECT $names FROM $table LIMIT 0").close() }
                     }
                     for ((table, names) in keys) {
