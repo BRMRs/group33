@@ -78,7 +78,8 @@ internal class FusionPhoneAuthRepository(
         }
 
     private suspend fun beginExchange(attempt: PhoneSignInAttempt): BoundPhoneExchange {
-        val exchange = BoundPhoneExchange.start(client, attempt.installationId, now) { sessions.isCurrent(attempt) }
+        val exchange = BoundPhoneExchange.start(client, attempt.installationId, now,
+            { sessions.isCurrentSnapshot(attempt) }) { sessions.isCurrent(attempt) }
         return authenticationState.withLock {
             if (!sessions.isCurrent(attempt)) { exchange.close(); throw PhoneSessionStorageException() }
             activeExchange.getAndSet(exchange)?.close()

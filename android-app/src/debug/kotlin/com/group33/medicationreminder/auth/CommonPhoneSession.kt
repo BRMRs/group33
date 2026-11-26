@@ -11,6 +11,7 @@ internal interface PhoneSignInAttempt { val installationId: String }
 internal interface PhoneSessionAccess {
     suspend fun begin(): PhoneSignInAttempt
     suspend fun isCurrent(attempt: PhoneSignInAttempt): Boolean
+    fun isCurrentSnapshot(attempt: PhoneSignInAttempt): Boolean
     suspend fun complete(attempt: PhoneSignInAttempt, session: AppSession): Boolean
     suspend fun restore(): PhoneAccount?
     suspend fun clear()
@@ -24,6 +25,9 @@ internal class CommonPhoneSession(private val store: PrivateSessionStore) : Phon
     override suspend fun begin(): PhoneSignInAttempt = Attempt(store.beginAuthentication().required())
     override suspend fun isCurrent(attempt: PhoneSignInAttempt): Boolean =
         (attempt as? Attempt)?.let { store.isCurrentAuthentication(it.core).required() } ?: false
+
+    override fun isCurrentSnapshot(attempt: PhoneSignInAttempt): Boolean =
+        (attempt as? Attempt)?.let { store.isCurrentAuthenticationSnapshot(it.core) } ?: false
 
     override suspend fun complete(attempt: PhoneSignInAttempt, session: AppSession): Boolean {
         val core = (attempt as? Attempt)?.core ?: return false
