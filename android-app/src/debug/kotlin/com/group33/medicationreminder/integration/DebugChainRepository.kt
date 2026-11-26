@@ -24,6 +24,9 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 import org.json.JSONObject
 
+// Schema-v1 private tombstones need a non-time marker: epoch zero remains a valid successful sync.
+private const val NO_SUCCESSFUL_EVENT_SYNC = Long.MIN_VALUE
+
 /** Debug-only composition of existing contracts, private session, journal and actual HTTP adapters. */
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class DebugChainRepository(
@@ -130,7 +133,8 @@ internal class DebugChainRepository(
             if (scope == null || !root && scope != bound) flowOf(Cached(empty, false, null, true, AccessState.UNKNOWN))
             else cache.documents().observe(rowId(scope, kind, target)).map { row ->
                 if (row == null) Cached(empty, false, null, true, AccessState.UNKNOWN)
-                else Cached(json.decodeFromString(serializer, row.body), true, row.syncedAt, row.stale,
+                else Cached(json.decodeFromString(serializer, row.body), true,
+                    row.syncedAt.takeUnless { it == NO_SUCCESSFUL_EVENT_SYNC }, row.stale,
                     AccessState.valueOf(row.access))
             }
         }.catch { emit(Cached(empty, false, null, true, AccessState.UNKNOWN)) }
@@ -381,21 +385,22 @@ internal class DebugChainRepository(
             val reply = doseHttp(lease, "GET", "/api/v1/elders/${segment(elderId)}/dose-events" +
                 "?fromDate=${range.fromDate}&throughDate=${range.throughDate}")
             if (reply.status !in 200..299) {
-                if (reply.status in setOf(403, 404)) publish(lease) {
-                    // A denied read is terminal for this trusted page identity, not an
-                    // indeterminate/offline cache state. Replace any private payload before
-                    // publishing REVOKED so current details disappear in the same Room update.
+                if (reply.status in setOf(403, 404)) publish(lease) { cache.withTransaction {
+                    // Publish the empty private payload and terminal access atomically, but a
+                    // denied read must never advance the last successful synchronization time.
+                    val id = rowId(lease.scope, kind, elderId)
+                    val successfulSync = cache.documents().read(id)?.syncedAt ?: NO_SUCCESSFUL_EVENT_SYNC
                     cache.documents().put(ChainDocument(
-                        id = rowId(lease.scope, kind, elderId),
+                        id = id,
                         scopeId = scopeId(lease.scope),
                         kind = kind,
                         target = elderId,
                         body = json.encodeToString(ListSerializer(DoseEventView.serializer()), emptyList()),
-                        syncedAt = System.currentTimeMillis(),
+                        syncedAt = successfulSync,
                         access = AccessState.REVOKED.name,
                         stale = true,
                     ))
-                }
+                } }
                 throw Failed(remote(reply))
             }
             val rows = json.decodeFromString(ItemsResponse.serializer(DoseEventView.serializer()), reply.text()).items

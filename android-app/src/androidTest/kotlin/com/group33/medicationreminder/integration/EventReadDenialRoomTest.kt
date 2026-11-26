@@ -26,6 +26,8 @@ class EventReadDenialRoomTest {
 
     private suspend fun denied(status: Int) = fixture { f ->
         f.seed(dates); f.seed(otherDates)
+        val originalSync = f.repository.observeEvents(f.elder.id, dates).first().lastSuccessfulSyncAtEpochMillis
+        assertNotNull(originalSync)
         val history = f.history(dates)
         await { history.state.value.authorized && history.state.value.events.isNotEmpty() }
         onMain { history.selectEvent(history.state.value.events.first().occurrence) }
@@ -38,6 +40,7 @@ class EventReadDenialRoomTest {
         println("EVENT_DENIAL status=$status access=${observed.access} rows=${observed.value.size} emptyPayload=${raw.first == "[]"}")
         assertEquals(AccessState.REVOKED, observed.access)
         assertTrue(observed.value.isEmpty())
+        assertEquals(originalSync, observed.lastSuccessfulSyncAtEpochMillis)
         assertEquals("[]", raw.first); assertEquals("REVOKED", raw.second)
         await { history.state.value.access == AccessState.REVOKED }
         assertTrue(history.state.value.events.isEmpty()); assertNull(history.state.value.selectedEvent)
@@ -56,7 +59,13 @@ class EventReadDenialRoomTest {
         assertTrue(f.repository.refresh(f.elder.id, dates) is Outcome.Failure)
         val cached = withTimeout(5_000) { f.repository.observeEvents(f.elder.id, dates).first() }
         assertEquals(AccessState.REVOKED, cached.access); assertTrue(cached.value.isEmpty())
+        assertNull(cached.lastSuccessfulSyncAtEpochMillis)
         assertEquals("[]" to "REVOKED", f.raw(f.elder.id, dates))
+        assertTrue(f.repository.services.signOut() is Outcome.Success)
+        assertTrue(f.repository.login(UserRole.CAREGIVER, f.caregiver.displayName) is Outcome.Success)
+        val afterLogin = f.repository.observeEvents(f.elder.id, dates).first()
+        assertEquals(AccessState.UNKNOWN, afterLogin.access)
+        assertNull(afterLogin.lastSuccessfulSyncAtEpochMillis)
     } }
 
     @Test fun unavailable503RetainsAuthorizedStaleEventsAndCanRecover() = runBlocking { fixture { f ->
@@ -75,9 +84,15 @@ class EventReadDenialRoomTest {
         val another = f.elder.id + "-another"
         f.seed(dates); assertTrue(f.repository.refresh(another, dates) is Outcome.Success)
         val old = f.raw(another, dates)
+        // Epoch zero is a real successful timestamp, not a missing-sync marker.
+        f.database.openHelper.writableDatabase.execSQL(
+            "UPDATE chain_documents SET syncedAt=0 WHERE target=? AND kind=?",
+            arrayOf(f.elder.id, "dose-events:${dates.fromDate}:${dates.throughDate}"))
         f.http.denial = 403
         assertTrue(f.repository.refresh(f.elder.id, dates) is Outcome.Failure)
-        assertEquals(AccessState.REVOKED, f.repository.observeEvents(f.elder.id, dates).first().access)
+        val denied = f.repository.observeEvents(f.elder.id, dates).first()
+        assertEquals(AccessState.REVOKED, denied.access)
+        assertEquals(0L, denied.lastSuccessfulSyncAtEpochMillis)
         assertEquals(AccessState.AUTHORIZED, f.repository.observeEvents(another, dates).first().access)
         assertEquals(old, f.raw(another, dates))
     } }

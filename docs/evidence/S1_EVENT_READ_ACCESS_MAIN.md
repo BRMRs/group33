@@ -1,6 +1,6 @@
 # S1 current-main terminal event-read access
 
-Refs #15 / #17. Original #133 merged only into the `feature/15-c3-feedback-entry` branch at `8e881a0ea3f11343589a7d5fecad589ceee0eab1`, not main. Its S1 implementation came from `b164af4`; C3's page-level regressions remain in that historical source. This candidate ports exactly the original single-file Repository correction onto main `9e5621393c3d130bc65ec6754d0531c363c9cf9d` without importing the C3 Host or UI assembly.
+Refs #15 / #17. Original #133 merged only into the `feature/15-c3-feedback-entry` branch at `8e881a0ea3f11343589a7d5fecad589ceee0eab1`, not main. Its S1 implementation came from `b164af4`; C3's page-level regressions remain in that historical source. This candidate ports the original Repository correction, then repairs its last-success metadata, onto main `9e5621393c3d130bc65ec6754d0531c363c9cf9d` without importing the C3 Host or UI assembly.
 
 ## Observable boundary
 
@@ -12,7 +12,9 @@ A direct six-case Android instrumentation suite uses actual main session, Room a
 
 Applying the original #133 single-file hunk cleanly, with the identical test source SHA256 `380129a412d0c319a1bf6f735a1f84cb5ba26b9825ddbe5182e80db796c8d80a`, makes all6 pass. Fixed assertions verify empty payload+REVOKED in one actual SQLite row, detail clearing, local switching to a pre-cached date without another HTTP request or restored records, a denied cold cache,503 retention/recovery with unchanged last-success time, another Elder cache unchanged and a late old-session denial unable to change the replacement session/cache authority. These are emulator/main Repository and ViewModel assertions, not new C3 screen/device/cloud acceptance.
 
-Both runs used separately owned read-only API35 emulator instances, exact app/test APK hashes retained in the local audit, stopped afterward with persistent AVD config unchanged. No physical/user device, private account or external service was used. Historical #133 ten/twelve page-level device results remain attributed to that branch/revision and are not counted as fresh executions here.
+Independent review then found that the original hunk wrote the denial time as a successful sync. Expanded six-case source SHA256 `575423398404aebde09e5d3dd28a14d287273f499278aacb99349488fa7a6f3a` reproduces four assertion failures on that original fix: two retained timestamps, a cold denial with no prior success and a legitimate epoch-zero success. The correction reads the prior timestamp and writes the empty REVOKED row inside the existing session fence and one Room transaction. Schema-v1 cold tombstones use a private `Long.MIN_VALUE` marker that collection mapping exposes as null, including after reauthentication changes access to UNKNOWN; epoch zero is preserved as a real timestamp. No schema migration or public field changes are needed. The final local API35 run passes all six expanded cases with identical test bytes, including retained-success, cold-null after reauthentication and epoch-zero assertions. Hosted results are recorded separately in the PR after execution.
+
+All local runs used separately owned read-only API35 emulator instances, exact app/test APK hashes retained in the local audit, stopped afterward with persistent AVD config unchanged. No physical/user device, private account or external service was used. Historical #133 ten/twelve page-level device results remain attributed to that branch/revision and are not counted as fresh executions here.
 
 ## Durable verification and review
 

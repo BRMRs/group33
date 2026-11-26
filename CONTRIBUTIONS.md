@@ -82,4 +82,4 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 
 Sync actual main; record attributable S1/lead D1–D4 decisions and15-second call boundary, unknown-attempt closure,401/403/404 recovery and configuration truth. Independent non-author security approval and actual provider/service evidence remain pending. Documentation-only own delta.
 
-- 2026-11-26 BRMRs: port original #133 S1 event-read denial propagation to current main, reproduce four failing Room assertions/two controls and verify all six after correction; add exact-head disposable API35 regression without importing C3 Hosts. Refs #15 / #17.
+- 2026-11-26 BRMRs: port original #133 S1 event-read denial propagation to current main, reproduce four failing Room assertions/two controls and verify all six after correction; independently reproduce and repair denial-time/last-success metadata, preserving cold-null and epoch zero; add exact-head disposable API35 regression without importing C3 Hosts. Refs #15 / #17.
