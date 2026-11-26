@@ -53,3 +53,7 @@ There are no destructive down migrations. Application rollback is permitted only
 ## Bound-phone V12 integration candidate
 
 The #118 runtime-composition branch inherits the reserved V11 index migration from #102 and appends `V12__bound_phone_identity.sql`. The administrative tool now targets12 and the exact read-only runtime history includes its checksum. V1–V11 SQL bytes are unchanged. This is a coordinated source candidate, not evidence of either prerequisite main adoption or a real online migration. See [runtime composition and adoption procedure](S1_BOUND_PHONE_RUNTIME_COMPOSITION.md) for separate owner/runtime roles, restricted backend-only grants, trial-object refusal, upgrade/restart tests and rollback limits. The exact-history gate rejects a V11 schema until administrative migration; it never applies or repairs SQL during startup.
+
+## Primary principal V13 candidate
+
+The #118 C runtime child adds `V13__primary_principal_registry.sql` after the unchanged V1–V12 sequence. It replaces the anonymous-only dose receipt FK with a non-cascading reference to a backend-private registry of both identity roots, with transactional root triggers, fixed IDs/roles, collision refusal and restricted read-only runtime access. The source tool/history now targets13; this is not a reserved/merged/applied migration. S2 must coordinate version/adoption and default grants. See [C runtime, evidence and administrative rollback limits](PHONE_PLAN_RUNTIME_COMPOSITION.md).

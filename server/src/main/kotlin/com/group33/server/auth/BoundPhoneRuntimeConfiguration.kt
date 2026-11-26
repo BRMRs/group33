@@ -22,6 +22,7 @@ internal class BoundPhoneRuntimeConfiguration {
     @Bean fun boundPhoneInfrastructure(settings: BoundPhoneRuntimeSettings, runtime: PersistenceRuntime): BoundPhoneInfrastructure {
         val source = checkNotNull(runtime.primary) { "Phone authentication requires the managed primary database" }
         BoundPhoneSchemaGate.validate(source)
+        PrimaryPrincipalRegistryGate.validate(source)
         val clock = Clock.systemUTC()
         return BoundPhoneInfrastructure(source, clock, BoundPhoneIdentityStore(source),
             BoundPhoneJwt(settings.jwtKey, settings.issuer, settings.audience, clock, settings.allowanceSeconds))

@@ -6,7 +6,7 @@ Status: implementation candidate, not deployment or #118 completion. S1 (`BRMRs`
 
 ```text
 private startup snapshot
-  exact managed V1–V12 history + read-only phone schema/privilege gate
+  exact managed V1–V13 history + read-only phone schema/privilege gate
   PersistenceRuntime.primary (also used by existing persistence adapters)
     BoundPhoneIdentityStore + attempts/tickets
     dedicated typed phone JWT + UTC clock
@@ -19,7 +19,7 @@ private startup snapshot
 
 The disabled default retains the old preview behavior and does not read phone key files. Enabling bound phone disables anonymous issuance and requires the old fusion mode to be false. The three capability/proof routes have their own stateless security chain; they do not authenticate through the legacy bearer decoder. Original scheme, deadline, lease, proof replay and post-commit signing fences from #147/#150 are retained.
 
-**Protected P0 business adapters still use their legacy identity/authorization path. Bound-phone mode therefore denies every other route except GET /health until PS2 is actually wired; legacy bearers cannot enter that path through this candidate.** This candidate does not make a phone JWT usable by pairing, photos, plans, occurrence registration, dose groups or history. PS2 current-state/effect/receipt authorization on the same primary transaction, trusted date input, formal client hosts and device acceptance remain separate #118 work. Do not distribute this as a completed phone-enabled APK or release.
+**Current child update:** only PATCH plan edit and POST plan deactivation now use their dedicated typed-phone/same-primary transaction. See [the C runtime and V13 registry](PHONE_PLAN_RUNTIME_COMPOSITION.md). Every other unfinished P0 path remains denied except GET /health; no legacy bearer enters that phone business chain. Pairing, photo/plan confirmation and reads, occurrence, dose and history are not wired by this slice. PS2 current-state/effect/receipt authorization on the same primary transaction, trusted date input, formal client hosts and device acceptance remain separate #118 work. Do not distribute this as a completed phone-enabled APK or release.
 
 ## Required private configuration
 
@@ -29,7 +29,7 @@ Direct properties and environment mappings are in `application.yml` and `.env.ex
 |---|---|
 | `BOUND_PHONE_AUTH_ENABLED` | Explicit `true`; old `PHONE_AUTH_ENABLED` must be `false` |
 | `PERSISTENCE_MODE` | `postgres-local` for private loopback fixture, `postgres-supabase` for reviewed cloud |
-| `PERSISTENCE_REQUIRE_VERSIONED_SCHEMA` | `true`; exact candidate V1–V12 release and checksums |
+| `PERSISTENCE_REQUIRE_VERSIONED_SCHEMA` | `true`; exact candidate V1–V13 release and checksums |
 | `PERSISTENCE_JDBC_URL/SCHEMA/USERNAME/PASSWORD` | S2 supplies existing managed primary and restricted runtime role; no phone-only second database |
 | `PERSISTENCE_RECEIPT_KEY_FILE` | Preserve the existing receipt key, exactly 32 raw binary bytes, owner-only absolute regular file |
 | `JWT_SECRET` | Explicit stable legacy UTF-8 key ≥32 bytes, separate from all three binary keys |
@@ -64,6 +64,8 @@ Use the separate free integration service authorized in #118. Retain the existin
 9. Finish PS2 and remaining formal hosts before C1/S1 run the final APK against this exact service/primary/schema/profile. Record actual supplier token/verify, real SMS where used, original-attempt retry/refresh/mismatch/replay, new/existing account, revocation, protected effects, English/Chinese UI, physical device and restart evidence. Synthetic provider tests below do not prove any of these real-provider/device events.
 
 ## Formal V12 and privilege adoption
+
+The current C child additionally requires forward candidate V13 and a read-only runtime grant on its principal registry. See [V13 adoption/rollback](PHONE_PLAN_RUNTIME_COMPOSITION.md). V12 below is retained unchanged.
 
 V1–V10 bytes are unchanged. V11 is inherited from #102; V12 is new and must be coordinated with S2 before another migration reserves that number. V12 creates six private phone tables with fixed identity/session keys, original attempt/scheme/lease data, single-use registration tickets and proof fingerprints. It refuses any `phone_`/`fusion_` trial object in the selected schema. There is no silent baseline, schema repair, prototype import, arbitrary fingerprint expiry or startup migration.
 
