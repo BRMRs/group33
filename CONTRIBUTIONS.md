@@ -84,3 +84,5 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 ### 2026-11-17 — XinyanXue / S2 — #96 decision follow-up
 
 Sync actual main; record attributable S1/lead D1–D4 decisions and15-second call boundary, unknown-attempt closure,401/403/404 recovery and configuration truth. Independent non-author security approval and actual provider/service evidence remain pending. Documentation-only own delta.
+
+- 2026-11-26 BRMRs / S1: adopt C1-approved #134 into formal-host #111, integrate actual main855364eb, verify the final Room combination and correct current-versus-historical component provenance without changing runtime/tests. Refs #50 / #52 / #15.

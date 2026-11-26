@@ -2,7 +2,7 @@
 
 Refs #50, #52, #15。集成负责人：BRMRs；原组件作者：Iris-wly。
 
-本次从 #110 待评审提交 `4db15b775a85b143fa79cc6aeb29fc9d95f25800` 创建独立分支 `feature/52-photo-plan-formal-host`。所有实现、测试和修复都在新分支；不更新 #110 的 head，不把这次验证当成 #110 已经获得的新证据或批准。新 PR 以 #110 分支为临时 base，父 PR 合入后需要对实际 main 重新核对差异和验证。
+最初接入阶段从 #110 冻结提交 `4db15b775a85b143fa79cc6aeb29fc9d95f25800` 创建独立分支 `feature/52-photo-plan-formal-host`，当时以 #110 为临时 base；该来源记录不更新 #110 的 head，也不为它补签验证。**2026-11-26 当前组合**已继承实际 main `855364eb5b23594f6c38ceac4d243a8f1ee1bcdf`，并实际采用 #134 的 Repository 缓存修复（squash `d3cf54f6cc24252648042724ea21d20eac98f8da`）。历史设备证据保留各自执行版本，当前组合验证单列于 PR。
 
 ## 复用与职责
 
@@ -12,7 +12,7 @@ Refs #50, #52, #15。集成负责人：BRMRs；原组件作者：Iris-wly。
 | #107 | `1638f116b8e55c7968b3b5287a8b5c3b3a25d8cc`，通过正常 merge 保留历史 | 原 `PlanBrowserViewModel` 的集合、计划选择/详情、缺失/空/陈旧/错误、观察重试和预览匹配状态 |
 | #110 | `4db15b7` | #59/#92 正式入口导航、#84/#85 会话与原操作恢复、#82 拍照、#86 原编辑器、#100 可信长辈上下文及真实 HTTP/Room 适配 |
 
-#55/#107 两个原 ViewModel 的生产代码保持原样。宿主保存它们的状态对象，不另存照片/计划/Medication 列表，也不另写内容选择、加载或详情选择状态机。`ChainViewModel` 保留认证、配对、网络刷新和可信上下文装配；实际字节解码与是否打开编辑器属于宿主呈现状态。
+#55/#107 是原组件来源，当前版本还包含此前的重配恢复调整：`CaregiverPhotoViewModel.selectContext` 与 `PlanBrowserViewModel.bind` 增加 `recoverInitialRevocation`，让新关系实例等待实际资源授权，旧已撤销实例继续锁定。因此当前两个 ViewModel 不再与最初来源逐字节相同；#134 本身只修正 Repository 的关系历史处理并补真实 Room 回归。宿主保存它们的状态对象，不另存照片/计划/Medication 列表，也不另写内容选择、加载或详情选择状态机。`ChainViewModel` 保留认证、配对、网络刷新和可信上下文装配；实际字节解码与是否打开编辑器属于宿主呈现状态。
 
 ```text
 #92 CaregiverHome / Plans
