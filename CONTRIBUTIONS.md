@@ -83,3 +83,5 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 ### 2026-11-17 — XinyanXue / S2 — #96 decision follow-up
 
 Sync actual main; record attributable S1/lead D1–D4 decisions and15-second call boundary, unknown-attempt closure,401/403/404 recovery and configuration truth. Independent non-author security approval and actual provider/service evidence remain pending. Documentation-only own delta.
+
+2026-11-26 — BRMRs / S1 (agent-assisted), Refs #19 / PR #89: corrected Debug Host inset ownership and passed the history component's language/font configuration to all calendar controls. Removed fixture-wide deprecated resource mutation; strengthened the existing 18 device cases to assert actual display configuration and a Chinese-host/English-component mismatch. Local owned read-only API35: 18/18 passed, emulator stopped and persistent configuration unchanged. New job-owned API27/API35 before/after workflow gates final acceptance on all 18 cases; hosted results and current-head human review remain separate. Original Cle-cre component attribution is retained; no formal page, real data, TalkBack, Server or whole-issue acceptance is claimed.
