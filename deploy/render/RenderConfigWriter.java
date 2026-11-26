@@ -13,6 +13,12 @@ public final class RenderConfigWriter {
     private static final Set<String> KEYS = Set.of("app.persistence.jdbc-url", "app.persistence.schema",
         "app.persistence.username", "app.persistence.password", "app.jwt.secret", "app.supabase.project-ref",
         "app.photo.supabase.origin", "app.photo.supabase.bucket");
+    private static final String PHONE = "app.bound-phone.enabled";
+    private static final Set<String> PHONE_REQUIRED = Set.of("app.bound-phone.jwt-issuer", "app.bound-phone.jwt-audience",
+        "app.bound-phone.access-key-id", "app.bound-phone.access-key-secret", "app.bound-phone.scheme-code",
+        "app.bound-phone.android-package", "app.bound-phone.android-signature", "app.bound-phone.trusted-proxy-cidrs");
+    private static final Set<String> PHONE_OPTIONAL = Set.of("app.bound-phone.session-seconds",
+        "app.bound-phone.clock-allowance-seconds", "app.bound-phone.requests-per-minute", "app.bound-phone.max-tracked-clients");
     private static byte[] decode(String name, int max) {
         String value = Objects.requireNonNull(System.getenv(name));
         if (value.length() > ((max + 2) / 3) * 4) throw new IllegalArgumentException();
@@ -37,7 +43,8 @@ public final class RenderConfigWriter {
             String text = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
                 .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(settings)).toString();
             Properties props = new Properties(); props.load(new StringReader(text));
-            Set<String> allowed = new HashSet<>(KEYS); allowed.add(SCHEMA_GATE);
+            Set<String> allowed = new HashSet<>(KEYS); allowed.add(SCHEMA_GATE); allowed.add(PHONE);
+            allowed.addAll(PHONE_REQUIRED); allowed.addAll(PHONE_OPTIONAL);
             if (!props.stringPropertyNames().containsAll(KEYS) || !allowed.containsAll(props.stringPropertyNames())
                 || text.lines().count() != props.size()
                 || props.values().stream().anyMatch(v -> v.toString().isBlank())
@@ -48,9 +55,31 @@ public final class RenderConfigWriter {
                 throw new IllegalArgumentException();
             // Existing manual test schemas remain opt-out until explicit reviewed conversion.
             props.setProperty(SCHEMA_GATE, props.getProperty(SCHEMA_GATE, "false"));
+            stage = "phone-mode";
+            String mode = props.getProperty(PHONE, "false");
+            if (!Set.of("true", "false").contains(mode)) throw new IllegalArgumentException();
+            boolean phone = mode.equals("true");
+            if (props.containsKey(PHONE) && text.lines().filter(line -> line.equals(PHONE + "=" + mode)).count() != 1)
+                throw new IllegalArgumentException();
+            if (phone) {
+                if (!props.stringPropertyNames().containsAll(PHONE_REQUIRED) || !props.getProperty(SCHEMA_GATE).equals("true"))
+                    throw new IllegalArgumentException();
+            } else if (props.stringPropertyNames().stream().anyMatch(k -> PHONE_REQUIRED.contains(k) || PHONE_OPTIONAL.contains(k))) {
+                throw new IllegalArgumentException();
+            }
             stage = "receipt-key";
             byte[] receipt = decode("GROUP33_RENDER_RECEIPT_KEY_B64", 32);
             if (receipt.length != 32) throw new IllegalArgumentException();
+            stage = "phone-keys";
+            byte[] jwt = null, phoneHash = null;
+            if (phone) {
+                jwt = decode("GROUP33_RENDER_PHONE_JWT_KEY_B64", 32);
+                phoneHash = decode("GROUP33_RENDER_PHONE_HASH_KEY_B64", 32);
+                if (jwt.length != 32 || phoneHash.length != 32) throw new IllegalArgumentException();
+                byte[][] keys = {receipt, jwt, phoneHash, props.getProperty("app.jwt.secret").getBytes(StandardCharsets.UTF_8)};
+                for (int i = 0; i < keys.length; i++) for (int j = 0; j < i; j++)
+                    if (java.security.MessageDigest.isEqual(keys[i], keys[j])) throw new IllegalArgumentException();
+            }
             stage = "database-ca";
             byte[] ca = decode("GROUP33_RENDER_DATABASE_CA_B64", 65536);
             if (CertificateFactory.getInstance("X.509").generateCertificates(new java.io.ByteArrayInputStream(ca)).isEmpty())
@@ -64,6 +93,15 @@ public final class RenderConfigWriter {
             write(directory.resolve("receipt.key"), receipt);
             write(directory.resolve("database-ca.crt"), ca);
             write(directory.resolve("storage-secret.key"), secret.getBytes(StandardCharsets.UTF_8));
+            props.setProperty(PHONE, mode);
+            props.setProperty("app.fusion.enabled", "false");
+            props.setProperty("server.forward-headers-strategy", "none");
+            if (phone) {
+                write(directory.resolve("phone-jwt.key"), jwt);
+                write(directory.resolve("phone-hash.key"), phoneHash);
+                props.setProperty("app.bound-phone.jwt-key-file", directory.resolve("phone-jwt.key").toString());
+                props.setProperty("app.bound-phone.phone-hash-key-file", directory.resolve("phone-hash.key").toString());
+            }
             props.setProperty("app.persistence.mode", "postgres-supabase");
             props.setProperty("app.photo.enabled", "true"); props.setProperty("app.plan.enabled", "true");
             props.setProperty("app.photo.storage-mode", "supabase");
@@ -75,11 +113,11 @@ public final class RenderConfigWriter {
             System.out.println(output); // Captured by start.sh; never credential values.
         } catch (Exception ignored) {
             if (directory != null) {
-                for (String name : List.of("application.properties", "receipt.key", "database-ca.crt", "storage-secret.key"))
+                for (String name : List.of("application.properties", "receipt.key", "database-ca.crt", "storage-secret.key", "phone-jwt.key", "phone-hash.key"))
                     try { Files.deleteIfExists(directory.resolve(name)); } catch (Exception unused) { }
                 try { Files.deleteIfExists(directory); } catch (Exception unused) { }
             }
-            System.err.println("Render private configuration is invalid; verify the four private variables and PORT (" + stage + ")");
+            System.err.println("Render private configuration is invalid; verify private variables and PORT (" + stage + ")");
             System.exit(64);
         }
     }

@@ -137,6 +137,61 @@ class RenderBootstrapTest(unittest.TestCase):
     def test_port_is_bounded_for_unprivileged_runtime(self):
         for port in ('0','80','65536','-1','010000','10000;echo secret'):
             env=self.env();env['PORT']=port;self.denied(env)
+    def phone_text(self):
+        values={'app.persistence.require-versioned-schema':'true','app.bound-phone.enabled':'true',
+            'app.bound-phone.jwt-issuer':'https://phone.fixture.invalid','app.bound-phone.jwt-audience':'fixture-phone',
+            'app.bound-phone.access-key-id':'FICTIONAL_ID','app.bound-phone.access-key-secret':'FICTIONAL_SECRET',
+            'app.bound-phone.scheme-code':'fictional-scheme','app.bound-phone.android-package':'com.group33.medicationreminder',
+            'app.bound-phone.android-signature':'ab'*16,'app.bound-phone.trusted-proxy-cidrs':'192.0.2.0/24'}
+        return self.text()+''.join(k+'='+v+'\n' for k,v in values.items())
+    def phone_env(self):
+        env=self.env();env.update(GROUP33_RENDER_SETTINGS_B64=self.encode(self.phone_text().encode()),
+            GROUP33_RENDER_PHONE_JWT_KEY_B64=self.encode(b'j'*32),GROUP33_RENDER_PHONE_HASH_KEY_B64=self.encode(b'h'*32))
+        return env
+    def test_phone_export_bootstrap_preserves_original_keys_and_exclusive_routes(self):
+        directory=self.fixture_private();(directory/'application.properties').write_text(self.phone_text())
+        for name,data in [('phone-jwt.key',b'j'*32),('phone-hash.key',b'h'*32)]:
+            path=directory/name;path.write_bytes(data);path.chmod(0o600)
+        target=export.prepare(directory);env=self.env();env.update(dict(line.split('=',1) for line in target.read_text().splitlines()))
+        result=self.writer(env);self.assertEqual(0,result.returncode,result.stderr)
+        path=Path(result.stdout.strip());text=path.read_text()
+        self.assertEqual(b'j'*32,(path.parent/'phone-jwt.key').read_bytes())
+        self.assertEqual(b'h'*32,(path.parent/'phone-hash.key').read_bytes())
+        self.assertIn('app.bound-phone.enabled=true',text);self.assertIn('app.fusion.enabled=false',text)
+        self.assertIn('server.forward-headers-strategy=none',text)
+        self.assertTrue(all(x.stat().st_mode&0o777==0o600 for x in path.parent.iterdir()))
+    def test_phone_mode_rejects_missing_reused_malformed_keys_or_unversioned_schema(self):
+        for kind in ('missing-jwt','missing-hash','reuse','size','legacy','gate','profile'):
+            with self.subTest(kind=kind):
+                env=self.phone_env()
+                if kind=='missing-jwt':del env['GROUP33_RENDER_PHONE_JWT_KEY_B64']
+                if kind=='missing-hash':del env['GROUP33_RENDER_PHONE_HASH_KEY_B64']
+                if kind=='reuse':env['GROUP33_RENDER_PHONE_HASH_KEY_B64']=env['GROUP33_RENDER_RECEIPT_KEY_B64']
+                if kind=='size':env['GROUP33_RENDER_PHONE_JWT_KEY_B64']=self.encode(b'j'*31)
+                if kind=='legacy':
+                    env['GROUP33_RENDER_SETTINGS_B64']=self.encode(self.phone_text().replace(self.settings()['app.jwt.secret'],'j'*32).encode())
+                if kind=='gate':env['GROUP33_RENDER_SETTINGS_B64']=self.encode(self.phone_text().replace('require-versioned-schema=true','require-versioned-schema=false').encode())
+                if kind=='profile':env['GROUP33_RENDER_SETTINGS_B64']=self.encode(self.phone_text().replace('app.bound-phone.jwt-audience=fixture-phone\n','').encode())
+                self.denied(env)
+    def test_disabled_phone_mode_does_not_read_phone_keys_and_rejects_partial_phone_settings(self):
+        env=self.env();env['GROUP33_RENDER_PHONE_JWT_KEY_B64']='bad';env['GROUP33_RENDER_PHONE_HASH_KEY_B64']='bad'
+        result=self.writer(env);self.assertEqual(0,result.returncode)
+        self.assertFalse((Path(result.stdout.strip()).parent/'phone-jwt.key').exists())
+        for flag in ('TRUE','1',' true','false '):
+            env=self.env();env['GROUP33_RENDER_SETTINGS_B64']=self.encode((self.text()+'app.bound-phone.enabled='+flag+'\n').encode());self.denied(env)
+        env=self.env();env['GROUP33_RENDER_SETTINGS_B64']=self.encode((self.text()+'app.bound-phone.jwt-audience=partial\n').encode());self.denied(env)
+    def test_phone_export_rejects_unsafe_key_files_before_creating_import(self):
+        for kind in ('missing','wide','symlink','reuse'):
+            directory=self.fixture_private();(directory/'application.properties').write_text(self.phone_text())
+            for name,data in [('phone-jwt.key',b'j'*32),('phone-hash.key',b'h'*32)]:
+                path=directory/name;path.write_bytes(data);path.chmod(0o600)
+            key=directory/'phone-jwt.key'
+            if kind=='missing':key.unlink()
+            if kind=='wide':key.chmod(0o644)
+            if kind=='symlink':key.unlink();key.symlink_to(directory/'phone-hash.key')
+            if kind=='reuse':key.write_bytes(bytes(range(32)))
+            with self.assertRaises((ValueError,FileNotFoundError)):export.prepare(directory)
+            self.assertFalse((directory/'render.env').exists())
     def fixture_private(self):
         path=Path(tempfile.mkdtemp(dir=self.temp));os.chmod(path,0o700)
         for name,data in [('application.properties',self.text().encode()),('receipt.key',bytes(range(32))),

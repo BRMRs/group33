@@ -162,7 +162,7 @@ internal class PostgresPlanIndexMigrationTest {
         val history = fixture.history()
         assertThrows(IllegalStateException::class.java) { RuntimeSchemaHistory.validate(fixture.source, fixture.schema) }
         assertEquals(history, fixture.history())
-        assertEquals(11 - initialVersion, fixture.migrate())
+        assertEquals(SchemaMigrations.VERSION.toInt() - initialVersion, fixture.migrate())
         assertEquals(3, fixture.indexes())
         assertEquals(saved, fixture.contents())
         RuntimeSchemaHistory.validate(fixture.source.apply { options = "-c default_transaction_read_only=on" }, fixture.schema)
@@ -191,7 +191,7 @@ internal class PostgresPlanIndexMigrationTest {
         assertEquals(1, fixture.indexes())
         assertEquals("pairing_issuance_guard", fixture.scalar("SELECT tablename FROM pg_indexes WHERE schemaname='${fixture.schema}' AND indexname='reminder_plan_revision_elder_collection'"))
         fixture.sql("DROP INDEX reminder_plan_revision_elder_collection")
-        assertEquals(1, fixture.migrate()); assertEquals(3, fixture.indexes()); assertEquals(saved, fixture.contents())
+        assertEquals(SchemaMigrations.VERSION.toInt() - 10, fixture.migrate()); assertEquals(3, fixture.indexes()); assertEquals(saved, fixture.contents())
     }
 
     @Test fun `blocked middle table fails within lock budget and rolls back earlier index before retry`() {
@@ -206,6 +206,6 @@ internal class PostgresPlanIndexMigrationTest {
             } finally { blocking.rollback() }
         }
         assertEquals(saved, fixture.contents())
-        assertEquals(1, fixture.migrate()); assertEquals(3, fixture.indexes()); assertEquals(saved, fixture.contents())
+        assertEquals(SchemaMigrations.VERSION.toInt() - 10, fixture.migrate()); assertEquals(3, fixture.indexes()); assertEquals(saved, fixture.contents())
     }
 }

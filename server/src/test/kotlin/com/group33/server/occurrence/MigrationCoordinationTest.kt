@@ -21,6 +21,7 @@ import java.util.UUID
 
 @Tag("postgres")
 internal class MigrationCoordinationTest : OccurrenceRegistrationContract() {
+    private val version=SchemaMigrations.VERSION.toInt()
     private val schema="s2_coord_"+UUID.randomUUID().toString().replace("-","")
     private fun sql(value:String)=dataSource(schema).connection.use { c -> c.createStatement().use { it.execute(value) } }
     private fun scalar(value:String)=dataSource(schema).connection.use { c -> c.createStatement().use { s -> s.executeQuery(value).use { r ->check(r.next());r.getString(1) } } }
@@ -51,7 +52,7 @@ internal class MigrationCoordinationTest : OccurrenceRegistrationContract() {
     @Test fun `coord upgrade keeps original accepted dose and all business row versions`() {
         val input=acceptedDose();val groups=DebugDoseGroups(store,clock)
         val receipt=groups.submit(elder,elder.id,input);val before=dataSnapshot();val h=historyBeforeEleven()
-        assertEquals(1,admin().migrate());assertEquals(before,dataSnapshot());assertEquals(h,historyBeforeEleven())
+        assertEquals(version-10,admin().migrate());assertEquals(before,dataSnapshot());assertEquals(h,historyBeforeEleven())
         assertEquals("V10__dose_action_groups.sql",scalar("SELECT script FROM group33_schema_history WHERE version='10'"))
         assertEquals("621384662",scalar("SELECT checksum FROM group33_schema_history WHERE version='10'"))
         assertEquals("-96611416",scalar("SELECT checksum FROM group33_schema_history WHERE version='11'"))
@@ -62,9 +63,9 @@ internal class MigrationCoordinationTest : OccurrenceRegistrationContract() {
         assertEquals("RESOURCE_NOT_ACCESSIBLE",assertThrows(ApiException::class.java){groups.read(caregiver,elder.id,date,date)}.code)
         admin().validate();RuntimeSchemaHistory.validate(dataSource(schema),schema)
     }
-    @Test fun `coord runtime refuses V10 then validates V11 with read only connection`() {
+    @Test fun `coord runtime refuses V10 then validates current release with read only connection`() {
         val old=historyBeforeEleven();assertThrows(IllegalStateException::class.java){RuntimeSchemaHistory.validate(dataSource(schema),schema)}
-        assertEquals(old,historyBeforeEleven());assertEquals(1,admin().migrate())
+        assertEquals(old,historyBeforeEleven());assertEquals(version-10,admin().migrate())
         val after=history();val xmin=historyBeforeEleven()
         RuntimeSchemaHistory.validate(dataSource(schema).apply {options="-c default_transaction_read_only=on"},schema)
         assertEquals(after,history());assertEquals(xmin,historyBeforeEleven());assertEquals(0,admin().migrate())
@@ -77,7 +78,7 @@ internal class MigrationCoordinationTest : OccurrenceRegistrationContract() {
         assertEquals(h,history());assertEquals(before,dataSnapshot())
         assertNull(scalar("SELECT to_regclass('$schema.medication_elder_collection')::text"))
         assertNull(scalar("SELECT to_regclass('$schema.reminder_plan_revision_elder_collection')::text"))
-        sql("DROP TABLE reminder_plan_elder_collection");assertEquals(1,admin().migrate())
+        sql("DROP TABLE reminder_plan_elder_collection");assertEquals(version-10,admin().migrate())
         assertEquals(before,dataSnapshot());assertEquals(receipt,groups.submit(elder,elder.id,input))
     }
     @Test fun `coord already applied indexes V10 is refused without repair or data rewriting`() {
@@ -98,8 +99,8 @@ internal class MigrationCoordinationTest : OccurrenceRegistrationContract() {
         assertEquals(h,historyBeforeEleven());assertEquals(actor,PostgresAnonymousIdentityStore(dataSource(schema)).findById(actor.id))
         assertNull(scalar("SELECT to_regclass('$schema.dose_group_operation')::text"))
     }
-    @Test fun `coord fresh schema applies all eleven versions and both features exist`() {
-        reset();assertEquals(11,admin().migrate());assertEquals("1,2,3,4,5,6,7,8,9,10,11",history())
+    @Test fun `coord fresh schema applies all current versions and existing features remain`() {
+        reset();assertEquals(version,admin().migrate());assertEquals((1..version).joinToString(","),history())
         for(name in listOf("dose_group_operation","recorded_dose_event","medication_elder_collection","reminder_plan_elder_collection","reminder_plan_revision_elder_collection"))
             assertNotNull(scalar("SELECT to_regclass('$schema.$name')::text"))
         RuntimeSchemaHistory.validate(dataSource(schema),schema);admin().validate();assertEquals(0,admin().migrate())

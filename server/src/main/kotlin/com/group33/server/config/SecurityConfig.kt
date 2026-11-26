@@ -6,6 +6,7 @@ import com.nimbusds.jose.jwk.OctetSequenceKey
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet
 import com.nimbusds.jose.proc.SecurityContext
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
@@ -25,6 +26,7 @@ import javax.crypto.spec.SecretKeySpec
 @Configuration
 class SecurityConfig {
     @Bean
+    @ConditionalOnProperty(name = ["app.bound-phone.enabled"], havingValue = "false", matchIfMissing = true)
     fun securityFilterChain(http: HttpSecurity, errors: ApiSecurityHandlers): SecurityFilterChain = http
         .csrf { it.disable() }
         .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }

@@ -131,3 +131,5 @@ Preserve main dose-action V10; append original index SQL as V11 and match admin/
 ### 2026-11-18 — XinyanXue / S2 — #102 authoritative migration guide
 
 Correct SCHEMA_MIGRATIONS to reflect actual main dose V10 then this-PR index V11, immutable applied history and separate conversion for old index-V10 databases. Documentation/hash only; existing SQL/runtime/tests untouched.
+
+2026-11-26 — BRMRs / S1 (agent-assisted), Refs #118: implement the recorded A runtime-composition backup: exclusive formal authentication routes, one managed primary, dedicated private phone keys/JWT profile, explicit trusted-proxy process-local quota, read-only schema/privilege gates, formal candidate V12 after reserved V11, and Render private import mapping. Add actual Boot/HTTP/restart and restricted-role migration regression coverage. Inherits unmerged provider/cloud/design/index candidates; does not claim their approval/main adoption, PS2 completion, managed cloud mutation, real supplier/SMS or physical-device acceptance. See docs/S1_BOUND_PHONE_RUNTIME_COMPOSITION.md.

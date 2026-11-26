@@ -5,6 +5,7 @@ import com.group33.server.pairing.*
 import com.group33.server.plan.PlanMutationStore
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.core.env.Environment
 import java.util.UUID
 import javax.sql.DataSource
@@ -13,18 +14,25 @@ import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermission
 
-internal class PersistenceRuntime(val identities: AnonymousIdentityStore, val pairing: PlanMutationStore) {
+internal class PersistenceRuntime(val identities: AnonymousIdentityStore, val pairing: PlanMutationStore,
+                                  val primary: DataSource? = null) {
     override fun toString() = "PersistenceRuntime(REDACTED)"
 }
 
 /** Explicit PostgreSQL opt-in. Never applies DDL or silently falls back to memory. */
 @Configuration(proxyBeanMethods = false)
 internal class PersistenceRuntimeConfiguration {
-    @Bean fun persistenceRuntime(env: Environment): PersistenceRuntime = create(env)
+    @Bean fun persistenceRuntime(env: Environment, phone: ObjectProvider<BoundPhoneRuntimeSettings>): PersistenceRuntime =
+        build(env, PersistenceDataSourceFactory::create, phone.getIfAvailable())
     @Bean fun anonymousIdentityStore(runtime: PersistenceRuntime): AnonymousIdentityStore = runtime.identities
 
     internal fun create(env: Environment,
-        sourceFactory: (Environment, String) -> DataSource = PersistenceDataSourceFactory::create): PersistenceRuntime {
+        sourceFactory: (Environment, String) -> DataSource = PersistenceDataSourceFactory::create): PersistenceRuntime =
+        build(env, sourceFactory, null)
+
+    private fun build(env: Environment, sourceFactory: (Environment, String) -> DataSource,
+                      phone: BoundPhoneRuntimeSettings?): PersistenceRuntime {
+        require(!BoundPhoneMode.read(env).enabled || phone != null) { "Phone mode requires its validated startup configuration" }
         val plansEnabled = env.getProperty("app.plan.enabled", Boolean::class.java, false)
         val occurrencesEnabled = env.getProperty("app.occurrence.enabled", Boolean::class.java, false)
         require(!occurrencesEnabled || plansEnabled) { "Occurrence registration requires the plan runtime" }
@@ -56,6 +64,7 @@ internal class PersistenceRuntimeConfiguration {
             require(permissions.none { it in setOf(PosixFilePermission.GROUP_READ, PosixFilePermission.GROUP_WRITE,
                 PosixFilePermission.GROUP_EXECUTE, PosixFilePermission.OTHERS_READ, PosixFilePermission.OTHERS_WRITE, PosixFilePermission.OTHERS_EXECUTE) })
             val key = Files.readAllBytes(file); require(key.size == 32)
+            if (phone != null) require(java.security.MessageDigest.isEqual(key, phone.receiptKey))
             val cipher = PairingReceiptCipher(key)
             val source = sourceFactory(env, mode)
             if (requireVersioned) RuntimeSchemaHistory.validate(source, schema)
@@ -105,7 +114,7 @@ internal class PersistenceRuntimeConfiguration {
                         rows.getString("receipt_id"), rows.getLong("receipt_expiry"), rows.getBytes("receipt_cipher"))
                 }
             } }
-            return PersistenceRuntime(PostgresAnonymousIdentityStore(source), PostgresPairingCodeStore(source, cipher))
+            return PersistenceRuntime(PostgresAnonymousIdentityStore(source), PostgresPairingCodeStore(source, cipher), source)
         } catch (_: Exception) {
             // Connection/property/key failures can contain credentials. Deliberately omit values and the private cause.
             throw IllegalStateException("PostgreSQL persistence initialization failed; verify private settings and initialized schema")
