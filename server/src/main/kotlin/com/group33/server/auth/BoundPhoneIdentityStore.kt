@@ -125,6 +125,32 @@ internal class BoundPhoneIdentityTransaction(private val db: Connection) {
         }.singleOrNull()
     }
 
+    /** Current-state check inside a read-only REPEATABLE READ snapshot transaction (no FOR UPDATE). */
+    fun readCurrentSession(claims: BoundPhoneSessionClaims, nowSeconds: Long,
+                           clockAllowanceSeconds: Long = 60): User? {
+        require(clockAllowanceSeconds in 0..60)
+        require(nowSeconds in 0..MAX_SECONDS)
+        if (claims.authVersion != 1 || claims.profile.isBlank() || claims.profile.length > 128 ||
+            claims.issuedAtSeconds !in 0..MAX_SECONDS || claims.expiresAtSeconds !in 1..MAX_SECONDS ||
+            claims.expiresAtSeconds <= claims.issuedAtSeconds ||
+            claims.issuedAtSeconds > nowSeconds + clockAllowanceSeconds ||
+            claims.expiresAtSeconds <= nowSeconds - clockAllowanceSeconds) return null
+        val user = query("SELECT user_id, role, display_name, revoked_at_ms FROM phone_accounts WHERE user_id = ?",
+            listOf(claims.userId.toString())) { currentUser(it) }.singleOrNull() ?: return null
+        val installationCurrent = query(
+            "SELECT revoked_at_ms FROM phone_account_installations WHERE user_id = ? AND installation_id = ?",
+            listOf(claims.userId.toString(), claims.installationId.toString())) { it.getObject(1) == null }.singleOrNull() == true
+        if (user.role != claims.role || !installationCurrent) return null
+        return query("""SELECT profile, auth_version, issued_at_ms, expires_at_ms, revoked_at_ms
+            FROM phone_auth_sessions WHERE session_id = ? AND user_id = ? AND installation_id = ?""",
+            listOf(claims.sessionId.toString(), claims.userId.toString(), claims.installationId.toString())) { row ->
+            user.takeIf { row.getObject("revoked_at_ms") == null && row.getString("profile") == claims.profile &&
+                row.getInt("auth_version") == claims.authVersion &&
+                row.getLong("issued_at_ms") == claims.issuedAtSeconds * 1000 &&
+                row.getLong("expires_at_ms") == claims.expiresAtSeconds * 1000 }
+        }.singleOrNull()
+    }
+
     /** Internal administration seam; no logout/revocation HTTP endpoint is introduced. */
     fun revokeSession(userId: UUID, installationId: UUID, sessionId: UUID, atMillis: Long) {
         require(atMillis >= 0)

@@ -2,8 +2,10 @@ package com.group33.server.plan
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.group33.server.auth.AnonymousUser
+import com.group33.server.auth.BoundPhoneJwt
 import com.group33.server.pairing.CodeStoreBusy
 import com.group33.server.pairing.PairingCodeIssuanceService
+import com.group33.server.pairing.PostgresPairingCodeStore
 import com.group33.server.photo.storage.PhotoObjectStore
 import com.group33.shared.contract.*
 import com.group33.shared.model.UserRole
@@ -12,7 +14,7 @@ import java.time.ZoneId
 import java.util.UUID
 
 internal enum class PlanConfirmationRejection {
-    RESOURCE_NOT_ACCESSIBLE, ROLE_NOT_ALLOWED, IDEMPOTENCY_KEY_REUSED, VALIDATION_FAILED, OVERLAPPING_PLAN,
+    UNAUTHENTICATED, RESOURCE_NOT_ACCESSIBLE, ROLE_NOT_ALLOWED, IDEMPOTENCY_KEY_REUSED, VALIDATION_FAILED, OVERLAPPING_PLAN,
     OPERATION_IN_PROGRESS, SERVICE_UNAVAILABLE,
 }
 internal data class ConfirmationViolation(val field: String, val code: String)
@@ -23,43 +25,84 @@ internal sealed interface PlanConfirmationResult {
     data class Rejected(val reason: PlanConfirmationRejection, val violations: List<ConfirmationViolation> = emptyList()) : PlanConfirmationResult
 }
 
+private typealias PlanConfirmWrite = (PlanWriteActor, PlanConfirmationTransaction, (String) -> Boolean) -> PlanConfirmationResult
+private typealias PlanConfirmRead = (PlanWriteActor, PlanReadTransaction, (String) -> Boolean) -> PlanConfirmationResult
+
 /** Initial confirmation transaction shared by the opt-in HTTP and local PostgreSQL adapters. */
 internal class ReminderPlanConfirmationService(private val store: PlanConfirmationStore, private val objects: PhotoObjectStore,
     private val clock: Clock = Clock.systemUTC()) {
-    fun confirm(actor: AnonymousUser, elderId: String, operationId: UUID, request: ConfirmReminderPlanRequest): PlanConfirmationResult {
+    fun confirm(actor: AnonymousUser, elderId: String, operationId: UUID, request: ConfirmReminderPlanRequest): PlanConfirmationResult =
+        confirmWith(elderId, operationId, request, anonymousWrite(actor))
+
+    fun confirmPhone(postgres: PostgresPairingCodeStore, jwt: BoundPhoneJwt, bearer: String, elderId: String,
+                     operationId: UUID, request: ConfirmReminderPlanRequest): PlanConfirmationResult =
+        confirmWith(elderId, operationId, request, phoneWrite(postgres, jwt, bearer))
+
+    fun medications(actor: AnonymousUser, elderId: String): PlanConfirmationResult =
+        medicationsWith(elderId, anonymousRead(actor))
+
+    fun medicationsPhone(postgres: PostgresPairingCodeStore, jwt: BoundPhoneJwt, bearer: String, elderId: String): PlanConfirmationResult =
+        medicationsWith(elderId, phoneRead(postgres, jwt, bearer))
+
+    fun plans(actor: AnonymousUser, elderId: String): PlanConfirmationResult =
+        plansWith(elderId, anonymousRead(actor))
+
+    fun plansPhone(postgres: PostgresPairingCodeStore, jwt: BoundPhoneJwt, bearer: String, elderId: String): PlanConfirmationResult =
+        plansWith(elderId, phoneRead(postgres, jwt, bearer))
+
+    private fun anonymousWrite(actor: AnonymousUser): (PlanConfirmWrite) -> PlanConfirmationResult = { work ->
+        store.confirmationTransaction { tx -> work(PlanWriteActor(actor.id, actor.installationId, actor.role), tx) { true } }
+    }
+
+    private fun phoneWrite(postgres: PostgresPairingCodeStore, jwt: BoundPhoneJwt, bearer: String): (PlanConfirmWrite) -> PlanConfirmationResult = { work ->
+        val claims = jwt.validate(bearer) ?: throw PlanPhoneUnauthenticated()
+        postgres.phonePlanConfirmation(claims, { clock.instant().epochSecond }, jwt.allowance, work)
+    }
+
+    private fun anonymousRead(actor: AnonymousUser): (PlanConfirmRead) -> PlanConfirmationResult = { work ->
+        store.planReadTransaction { tx -> work(PlanWriteActor(actor.id, actor.installationId, actor.role), tx) { true } }
+    }
+
+    private fun phoneRead(postgres: PostgresPairingCodeStore, jwt: BoundPhoneJwt, bearer: String): (PlanConfirmRead) -> PlanConfirmationResult = { work ->
+        val claims = jwt.validate(bearer) ?: throw PlanPhoneUnauthenticated()
+        postgres.phonePlanRead(claims, { clock.instant().epochSecond }, jwt.allowance, work)
+    }
+
+    private fun confirmWith(elderId: String, operationId: UUID, request: ConfirmReminderPlanRequest,
+                            authorize: (PlanConfirmWrite) -> PlanConfirmationResult): PlanConfirmationResult {
         // Detach the decoded collection before validation, hashing, or waiting for the transaction.
         val input = request.copy(plan = request.plan.copy(localTimes = request.plan.localTimes.toList()))
         return safely {
-            store.confirmationTransaction { tx ->
-                if (actor.role != UserRole.CAREGIVER) return@confirmationTransaction (
+            authorize { actor, tx, currentElder ->
+                if (actor.role != UserRole.CAREGIVER) return@authorize (
                     if (actor.id == elderId) rejected(PlanConfirmationRejection.ROLE_NOT_ALLOWED) else inaccessible())
-                if (tx.activeRelationship(elderId)?.caregiverId != actor.id) return@confirmationTransaction inaccessible()
+                if (!currentElder(elderId) || tx.activeRelationship(elderId)?.caregiverId != actor.id) return@authorize inaccessible()
                 val key = PlanConfirmationKey(actor.id, operationId)
                 val canonical = input.copy(plan = input.plan.copy(localTimes = input.plan.localTimes.sorted()))
                 val fingerprint = PairingCodeIssuanceService.hash("${ContractProtocol.CANONICALIZATION_VERSION}:CONFIRM_REMINDER_PLAN:$elderId:" +
                     mapper.writeValueAsString(canonical))
                 val old = tx.confirmationOperation(key)
                 if (old != null && (old.installationId != actor.installationId || old.elderId != elderId || old.fingerprint != fingerprint))
-                    return@confirmationTransaction rejected(PlanConfirmationRejection.IDEMPOTENCY_KEY_REUSED)
-                old?.receipt?.let { return@confirmationTransaction PlanConfirmationResult.Confirmed(it) }
+                    return@authorize rejected(PlanConfirmationRejection.IDEMPOTENCY_KEY_REUSED)
+                old?.receipt?.let { return@authorize PlanConfirmationResult.Confirmed(it) }
                 fun reject(reason: PlanConfirmationRejection, fields: List<ConfirmationViolation> = emptyList()): PlanConfirmationResult.Rejected {
                     val failure = PlanConfirmationResult.Rejected(reason, fields)
                     tx.putConfirmationOperation(key, PlanConfirmationOperation(actor.installationId, elderId, fingerprint, rejection = failure))
                     return failure
                 }
                 val violations = validate(input)
-                if (violations.isNotEmpty()) return@confirmationTransaction reject(PlanConfirmationRejection.VALIDATION_FAILED, violations)
+                if (violations.isNotEmpty()) return@authorize reject(PlanConfirmationRejection.VALIDATION_FAILED, violations)
                 val photo = tx.readyPhoto(input.photoId)
                 // Missing, unready and another Elder's private photo have the same non-disclosing failure.
-                if (photo == null || photo.view.elderId != elderId) return@confirmationTransaction reject(PlanConfirmationRejection.RESOURCE_NOT_ACCESSIBLE)
-                if (PlanSelfOverlapValidator.hasCollision(input.plan)) return@confirmationTransaction reject(PlanConfirmationRejection.OVERLAPPING_PLAN,
+                if (photo == null || photo.view.elderId != elderId) return@authorize reject(PlanConfirmationRejection.RESOURCE_NOT_ACCESSIBLE)
+                if (PlanSelfOverlapValidator.hasCollision(input.plan)) return@authorize reject(PlanConfirmationRejection.OVERLAPPING_PLAN,
                     listOf(ConfirmationViolation("plan.localTimes", "DUPLICATE_RESOLVED_INSTANT")))
                 // Keep the complete request binding even when an otherwise READY private object is
                 // temporarily unavailable. Explicit retry may re-evaluate the same original input.
                 try { objects.read(photo.objectKey) }
                 catch (failure: Exception) {
                     if (failure is InterruptedException) Thread.currentThread().interrupt()
-                    return@confirmationTransaction reject(PlanConfirmationRejection.SERVICE_UNAVAILABLE)
+                    return@authorize reject(PlanConfirmationRejection.SERVICE_UNAVAILABLE)
                 }
                 val now = clock.millis()
                 val medication = MedicationView(UUID.randomUUID().toString(), elderId, input.medication.displayName,
@@ -77,16 +120,25 @@ internal class ReminderPlanConfirmationService(private val store: PlanConfirmati
         }
     }
 
-    fun medications(actor: AnonymousUser, elderId: String): PlanConfirmationResult = safely {
-        store.planReadTransaction { tx -> if (canRead(tx, actor, elderId)) PlanConfirmationResult.Medications(tx.medications(elderId)) else inaccessible() }
+    private fun medicationsWith(elderId: String, authorize: (PlanConfirmRead) -> PlanConfirmationResult): PlanConfirmationResult = safely {
+        authorize { actor, tx, currentElder ->
+            if (canRead(tx, actor, elderId, currentElder)) PlanConfirmationResult.Medications(tx.medications(elderId)) else inaccessible()
+        }
     }
-    fun plans(actor: AnonymousUser, elderId: String): PlanConfirmationResult = safely {
-        store.planReadTransaction { tx -> if (canRead(tx, actor, elderId))
-            PlanConfirmationResult.Plans(ReminderPlanCollection(tx.plans(elderId), tx.revisions(elderId))) else inaccessible() }
+
+    private fun plansWith(elderId: String, authorize: (PlanConfirmRead) -> PlanConfirmationResult): PlanConfirmationResult = safely {
+        authorize { actor, tx, currentElder ->
+            if (canRead(tx, actor, elderId, currentElder))
+                PlanConfirmationResult.Plans(ReminderPlanCollection(tx.plans(elderId), tx.revisions(elderId))) else inaccessible()
+        }
     }
-    private fun canRead(tx: PlanReadTransaction, actor: AnonymousUser, elderId: String) =
-        actor.role == UserRole.ELDER && actor.id == elderId || actor.role == UserRole.CAREGIVER && tx.activeRelationship(elderId)?.caregiverId == actor.id
+
+    private fun canRead(tx: PlanReadTransaction, actor: PlanWriteActor, elderId: String, currentElder: (String) -> Boolean) =
+        currentElder(elderId) && (actor.role == UserRole.ELDER && actor.id == elderId ||
+            actor.role == UserRole.CAREGIVER && tx.activeRelationship(elderId)?.caregiverId == actor.id)
+
     private fun safely(work: () -> PlanConfirmationResult): PlanConfirmationResult = try { work() }
+        catch (_: PlanPhoneUnauthenticated) { rejected(PlanConfirmationRejection.UNAUTHENTICATED) }
         catch (_: CodeStoreBusy) { rejected(PlanConfirmationRejection.OPERATION_IN_PROGRESS) }
         catch (failure: Exception) {
             if (failure is InterruptedException) Thread.currentThread().interrupt()

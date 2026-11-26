@@ -5,16 +5,22 @@ Refs #118 / #53. S1/lead is the recorded temporary implementation backup for thi
 ## Actual boundary
 
 ```text
+POST  /api/v1/elders/{elderId}/reminder-plan-confirmations
+GET   /api/v1/elders/{elderId}/medications
+GET   /api/v1/elders/{elderId}/reminder-plans
 PATCH /api/v1/reminder-plans/{planId}
 POST  /api/v1/reminder-plans/{planId}/deactivate
   strict typed-phone bearer filter (before body binding / database work)
-  accepted plan wire parser + original operation key
-  #145 plan mutation
+  accepted plan wire parser + original operation key (for writes)
+  plan confirmation / mutation (writes):
     same primary: current account → installation → session → pairing guard
       current principal/relationship → original receipt or effect+receipt → commit
+  plan / medication collection reads (GET):
+    same primary: single read-only REPEATABLE READ snapshot
+      current account/installation/session + principal directory + self-Elder or active Caregiver relation → snapshot items + retained revisions → rollback
 ```
 
-Only these two protected paths are opened in phone mode when `app.plan.enabled=true`. Their anonymous controller is mutually exclusive. Every other unfinished PS2 business path stays denied by the fallback chain. The disabled default keeps the legacy preview contract. A phone token is never passed to the anonymous JWT decoder or anonymous actor resolver. The HTTP filter stores redacted claims and no bearer credentials in the transient security context; the context is cleared after the request. The existing service independently validates the typed token before its database connection and rechecks current identity/authority inside the actual write/receipt transaction.
+Only these five protected ReminderPlan paths are opened in phone mode when `app.plan.enabled=true`. Their anonymous controller is mutually exclusive. Every other unfinished PS2 business path stays denied by the fallback chain. The disabled default keeps the legacy preview contract. A phone token is never passed to the anonymous JWT decoder or anonymous actor resolver. The HTTP filter stores redacted claims and no bearer credentials in the transient security context; the context is cleared after the request. The existing services independently validate the typed token before their database connection and recheck current identity/authority inside the actual write/receipt or read-only snapshot transaction.
 
 The composed operations use #155's exact primary store, JWT profile and UTC clock, not a second authentication database or a parallel feature session. Accepted plan payloads, coercions, idempotency header parsing, status/error envelopes, no-store, request IDs, revision conflicts and original receipt DTOs share one `PlanHttpSupport` with the existing anonymous controller. No new wire fields or arbitrary client-selected actor IDs are introduced.
 

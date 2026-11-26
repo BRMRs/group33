@@ -66,25 +66,10 @@ internal class ReminderPlanController(private val actors: VerifiedPairingActorRe
     fun plans(@AuthenticationPrincipal jwt: Jwt, @PathVariable elderId: String,
         request: HttpServletRequest): ResponseEntity<*> {
         val actor = actors.resolve(jwt); wire.noQuery(request)
-        return result(service.plans(actor, elderId))
+        return wire.confirmationResult(service.plans(actor, elderId))
     }
 
-    private fun result(value: PlanConfirmationResult): ResponseEntity<*> = when (value) {
-        is PlanConfirmationResult.Confirmed -> ResponseEntity.status(HttpStatus.CREATED)
-            .cacheControl(CacheControl.noStore()).body(value.view)
-        is PlanConfirmationResult.Medications -> ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ItemsResponse(value.items))
-        is PlanConfirmationResult.Plans -> ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(value.value)
-        is PlanConfirmationResult.Rejected -> when (value.reason) {
-            PlanConfirmationRejection.RESOURCE_NOT_ACCESSIBLE -> wire.error(HttpStatus.NOT_FOUND, value.reason.name)
-            PlanConfirmationRejection.ROLE_NOT_ALLOWED -> wire.error(HttpStatus.FORBIDDEN, value.reason.name)
-            PlanConfirmationRejection.IDEMPOTENCY_KEY_REUSED -> wire.error(HttpStatus.CONFLICT, value.reason.name)
-            PlanConfirmationRejection.OPERATION_IN_PROGRESS -> wire.error(HttpStatus.CONFLICT, value.reason.name, true, 1)
-            PlanConfirmationRejection.SERVICE_UNAVAILABLE -> wire.error(HttpStatus.SERVICE_UNAVAILABLE, value.reason.name, true)
-            PlanConfirmationRejection.VALIDATION_FAILED, PlanConfirmationRejection.OVERLAPPING_PLAN ->
-                wire.error(HttpStatus.UNPROCESSABLE_ENTITY, value.reason.name,
-                    fields = value.violations.map { FieldError(it.field, it.code) }.takeIf { it.isNotEmpty() })
-        }
-    }
+    private fun result(value: PlanConfirmationResult): ResponseEntity<*> = wire.confirmationResult(value)
 
     @ExceptionHandler(ApiException::class)
     fun invalid(exception: ApiException) = wire.error(exception.status, exception.code)

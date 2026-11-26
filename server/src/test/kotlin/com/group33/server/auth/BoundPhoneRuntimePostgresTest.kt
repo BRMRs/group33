@@ -184,7 +184,7 @@ internal class BoundPhoneRuntimePostgresTest {
         assertEquals("1", scalar("SELECT count(*) FROM phone_accounts")); assertEquals("2", scalar("SELECT count(*) FROM phone_auth_sessions"))
         assertEquals(401, post("anonymous", mapOf("installationId" to install, "role" to "ELDER")).statusCode())
         assertEquals(0, second.getBeansOfType(AuthController::class.java).size)
-        val protectedRequest = HttpRequest.newBuilder(URI("http://127.0.0.1:${second.webServer.port}/api/v1/elders/${claims.userId}/medications"))
+        val protectedRequest = HttpRequest.newBuilder(URI("http://127.0.0.1:${second.webServer.port}/api/v1/elders/${claims.userId}/medication-photos"))
             .header("Authorization", "Bearer $token").GET().build()
         assertEquals(401, http.send(protectedRequest, HttpResponse.BodyHandlers.ofString()).statusCode())
         val health = http.send(HttpRequest.newBuilder(URI("http://127.0.0.1:${second.webServer.port}/health")).GET().build(), HttpResponse.BodyHandlers.ofString())
@@ -415,18 +415,18 @@ internal class BoundPhoneRuntimePostgresTest {
         put("app.plan.enabled", "true"); put("app.photo.enabled", "true")
         put("app.photo.root", directory.resolve("objects").toString())
     }
-    private data class PlanFixture(val original: ConfirmReminderPlanResponse, val edit: UpdateReminderPlanRequest,
-                                   val caregiverToken: String, val caregiverInstallation: String,
+    private data class PlanFixture(val original: ConfirmReminderPlanResponse, val confirmInput: ConfirmReminderPlanRequest,
+                                   val edit: UpdateReminderPlanRequest, val caregiverToken: String, val caregiverInstallation: String,
                                    val elderToken: String, val elderClaims: BoundPhoneSessionClaims, val relation: CareRelationshipView)
     private fun seedPhonePlan(): PlanFixture {
         val context = checkNotNull(app); val infra = context.getBean(BoundPhoneInfrastructure::class.java)
-        // Administrative fixture setup for the still-closed pairing/photo/confirmation paths.
-        // Actual plan HTTP below uses the application's restricted runtime store.
+        // Administrative fixture setup for the still-closed pairing/photo paths.
+        // Actual plan confirmation, read and mutation HTTP below use the application's restricted runtime store.
         val store = PostgresPairingCodeStore(source(owner), PairingReceiptCipher(Files.readAllBytes(directory.resolve("receipt"))))
         val install = UUID.randomUUID().toString(); val caregiver = phoneLogin(install)
         val caregiverClaims = assertNotNullClaims(infra.jwt.validate(caregiver["accessToken"].asText()))
         // Independent phone Elder fixture, no corresponding anonymous row. No claim that its
-        // photo/pairing/confirmation HTTP path is wired yet; only writes below use the actual routes.
+        // photo/pairing HTTP path is wired yet; plan confirmation, reads and writes below use the actual routes.
         val elder = infra.identity.transaction { tx ->
             val user = tx.registerVerifiedPhone("f".repeat(64), UserRole.ELDER, null)
             val now = infra.clock.instant().epochSecond
@@ -447,13 +447,32 @@ internal class BoundPhoneRuntimePostgresTest {
         val zone = "Asia/Shanghai"; val date = LocalDate.ofInstant(infra.clock.instant(), ZoneId.of(zone)).toString()
         val draft = ReminderPlanDraft(listOf("08:00"), date, zone)
         val acknowledgment = TimeZoneAcknowledgement(zone, false, zone, zone)
+        val confirmInput = ConfirmReminderPlanRequest(photo.id, MedicationText("Fixture", "Fixture"), draft, acknowledgment)
         val original = assertInstanceOf(PlanConfirmationResult.Confirmed::class.java,
-            ReminderPlanConfirmationService(store, objects, infra.clock).confirm(caregiverSetup, elder.user.id, UUID.randomUUID(),
-                ConfirmReminderPlanRequest(photo.id, MedicationText("Fixture", "Fixture"), draft, acknowledgment))).view
+            ReminderPlanConfirmationService(store, objects, infra.clock).confirm(caregiverSetup, elder.user.id, UUID.randomUUID(), confirmInput)).view
         assertEquals("0", scalar("SELECT count(*) FROM anonymous_identity WHERE id IN ('${elder.user.id}','${caregiverClaims.userId}')"))
         assertEquals("2", scalar("SELECT count(*) FROM server_principal WHERE kind='PHONE'"))
-        return PlanFixture(original, UpdateReminderPlanRequest(1, draft.copy(localTimes=listOf("09:00")), acknowledgment),
+        return PlanFixture(original, confirmInput, UpdateReminderPlanRequest(1, draft.copy(localTimes=listOf("09:00")), acknowledgment),
             caregiver["accessToken"].asText(), install, infra.jwt.issue(elder.claims), elder.claims, relation)
+    }
+    private fun confirmHttp(elderId: String, token: String, key: UUID, body: String, suffix: String = ""): HttpResponse<String> {
+        val path = "/api/v1/elders/$elderId/reminder-plan-confirmations$suffix"
+        val request = HttpRequest.newBuilder(URI("http://127.0.0.1:${checkNotNull(app).webServer.port}$path"))
+            .timeout(Duration.ofSeconds(10)).header("Content-Type", "application/json")
+            .header("Authorization", "Bearer $token").header(ContractProtocol.IDEMPOTENCY_HEADER, key.toString())
+            .POST(HttpRequest.BodyPublishers.ofString(body)).build()
+        return http.send(request, HttpResponse.BodyHandlers.ofString())
+    }
+    private fun readHttp(elderId: String, resource: String, token: String, suffix: String = ""): HttpResponse<String> {
+        val path = "/api/v1/elders/$elderId/$resource$suffix"
+        val request = HttpRequest.newBuilder(URI("http://127.0.0.1:${checkNotNull(app).webServer.port}$path"))
+            .timeout(Duration.ofSeconds(10)).header("Authorization", "Bearer $token").GET().build()
+        return http.send(request, HttpResponse.BodyHandlers.ofString())
+    }
+    private fun created(response: HttpResponse<String>): JsonNode {
+        assertEquals(201, response.statusCode(), response.body())
+        assertTrue(response.headers().firstValue("Cache-Control").orElseThrow().contains("no-store"))
+        return mapper.readTree(response.body())
     }
     private fun planRequest(fixture: PlanFixture, token: String = fixture.caregiverToken, key: UUID,
                             stop: Boolean = false, body: String = mapper.writeValueAsString(fixture.edit),
@@ -526,5 +545,42 @@ internal class BoundPhoneRuntimePostgresTest {
         assertEquals("11", scalar("SELECT max(version::int) FROM group33_schema_history"))
         assertEquals("preserved", scalar("SELECT marker FROM phone_trial"))
         assertEquals("0", scalar("SELECT count(*) FROM pg_class WHERE relnamespace='$schema'::regnamespace AND relname='phone_accounts'"))
+    }
+    @Test fun `phone confirmation and collection read routes enforce current auth replay and read only snapshots`() {
+        migrate(); grants(); val values = planProperties(); start(values); val fixture = seedPhonePlan()
+        val elderId = fixture.elderClaims.userId.toString(); val confirmKey = UUID.randomUUID()
+        val body = mapper.writeValueAsString(fixture.confirmInput.copy(
+            medication = MedicationText("Confirmed By Phone", "1 tablet", "after meal"),
+            plan = fixture.confirmInput.plan.copy(localTimes = listOf("18:00", "08:00"))))
+        val confirmed = created(confirmHttp(elderId, fixture.caregiverToken, confirmKey, body))
+        assertEquals("Confirmed By Phone", confirmed["medication"]["displayName"].asText())
+        assertEquals(listOf("08:00", "18:00"), confirmed["plan"]["localTimes"].map { it.asText() })
+        app?.close(); app = null; start(values)
+        val renewed = phoneLogin(fixture.caregiverInstallation)["accessToken"].asText()
+        assertEquals(confirmed, created(confirmHttp(elderId, renewed, confirmKey, body)))
+        val otherInstall = phoneLogin(UUID.randomUUID().toString())["accessToken"].asText()
+        problem(confirmHttp(elderId, otherInstall, confirmKey, body), 409, "IDEMPOTENCY_KEY_REUSED")
+        problem(confirmHttp(elderId, fixture.elderToken, UUID.randomUUID(), body), 403, "ROLE_NOT_ALLOWED")
+        for (token in listOf(renewed, fixture.elderToken)) {
+            val meds = ok(readHttp(elderId, "medications", token))["items"]
+            assertEquals(2, meds.size())
+            val plans = ok(readHttp(elderId, "reminder-plans", token))
+            assertEquals(2, plans["items"].size())
+            assertEquals(2, plans["planRevisions"].size())
+        }
+        problem(readHttp(elderId, "medications", renewed, "?actorId=forged"), 400, "MALFORMED_REQUEST")
+        problem(readHttp(elderId, "reminder-plans", "invalid"), 401, "UNAUTHENTICATED")
+        val infra = checkNotNull(app).getBean(BoundPhoneInfrastructure::class.java)
+        val store = PostgresPairingCodeStore(source(owner), PairingReceiptCipher(Files.readAllBytes(directory.resolve("receipt"))))
+        val elder = AnonymousUser(elderId, fixture.elderClaims.installationId.toString(), "Fixture", UserRole.ELDER)
+        assertInstanceOf(PairingDecisionResult.Relationship::class.java,
+            PairingDecisionService(store, infra.clock).revoke(elder, fixture.relation.id, UUID.randomUUID()))
+        problem(confirmHttp(elderId, renewed, confirmKey, body), 404, "RESOURCE_NOT_ACCESSIBLE")
+        problem(readHttp(elderId, "medications", renewed), 404, "RESOURCE_NOT_ACCESSIBLE")
+        problem(readHttp(elderId, "reminder-plans", renewed), 404, "RESOURCE_NOT_ACCESSIBLE")
+        assertEquals(2, ok(readHttp(elderId, "medications", fixture.elderToken))["items"].size())
+        infra.identity.transaction { it.revokeSession(fixture.elderClaims.userId, fixture.elderClaims.installationId, fixture.elderClaims.sessionId, infra.clock.millis()) }
+        problem(readHttp(elderId, "medications", fixture.elderToken), 401, "UNAUTHENTICATED")
+        problem(readHttp(elderId, "reminder-plans", fixture.elderToken), 401, "UNAUTHENTICATED")
     }
 }

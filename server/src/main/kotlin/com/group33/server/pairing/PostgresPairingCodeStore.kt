@@ -99,6 +99,36 @@ internal class PostgresPairingCodeStore(
         work(actor, tx) { id -> directory.find(id)?.user?.role == UserRole.ELDER }
     }
 
+    fun phonePlanConfirmation(
+        claims: BoundPhoneSessionClaims,
+        nowSeconds: () -> Long,
+        allowance: Long,
+        work: (PlanWriteActor, PlanConfirmationTransaction, (String) -> Boolean) -> PlanConfirmationResult,
+    ): PlanConfirmationResult = guardedWrite({ connection ->
+        val user = BoundPhoneIdentityTransaction(connection).lockCurrentSession(claims, nowSeconds(), allowance)
+        val directory = PrimaryPrincipalDirectory(connection)
+        if (user == null || directory.find(user.id)?.kind != PrincipalKind.PHONE) throw PlanPhoneUnauthenticated()
+        PlanWriteActor(user.id, claims.installationId.toString(), user.role)
+    }) { actor, tx, connection ->
+        if (claims.expiresAtSeconds <= nowSeconds() - allowance) throw PlanPhoneUnauthenticated()
+        val directory = PrimaryPrincipalDirectory(connection)
+        work(actor, tx) { id -> directory.find(id)?.user?.role == UserRole.ELDER }
+    }
+
+    fun phonePlanRead(
+        claims: BoundPhoneSessionClaims,
+        nowSeconds: () -> Long,
+        allowance: Long,
+        work: (PlanWriteActor, PlanReadTransaction, (String) -> Boolean) -> PlanConfirmationResult,
+    ): PlanConfirmationResult = planReadTransaction { tx ->
+        val connection = (tx as Transaction).connection()
+        val user = BoundPhoneIdentityTransaction(connection).readCurrentSession(claims, nowSeconds(), allowance)
+        val directory = PrimaryPrincipalDirectory(connection)
+        if (user == null || directory.find(user.id)?.kind != PrincipalKind.PHONE) throw PlanPhoneUnauthenticated()
+        val actor = PlanWriteActor(user.id, claims.installationId.toString(), user.role)
+        work(actor, tx) { id -> directory.find(id)?.user?.role == UserRole.ELDER }
+    }
+
     private fun <C, T> guardedWrite(
         beforeGuard: (Connection) -> C,
         work: (C, OccurrenceRegistrationTransaction, Connection) -> T,
@@ -132,6 +162,7 @@ internal class PostgresPairingCodeStore(
     }
 
     private class Transaction(private val db: Connection, private val cipher: PairingReceiptCipher) : OccurrenceRegistrationTransaction {
+        fun connection(): Connection = db
         override fun doseGroupOperation(key: RegistrationKey) = query(
             "SELECT installation_id, request_payload, response_payload FROM dose_group_operation WHERE elder_id = ? AND operation_id = ?",
             listOf(key.actorId, key.operationId),

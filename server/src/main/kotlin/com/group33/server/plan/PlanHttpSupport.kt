@@ -54,6 +54,24 @@ internal class PlanHttpSupport(mapper: ObjectMapper) {
         }
     }
 
+    fun confirmationResult(value: PlanConfirmationResult): ResponseEntity<*> = when (value) {
+        is PlanConfirmationResult.Confirmed -> ResponseEntity.status(HttpStatus.CREATED)
+            .cacheControl(CacheControl.noStore()).body(value.view)
+        is PlanConfirmationResult.Medications -> ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ItemsResponse(value.items))
+        is PlanConfirmationResult.Plans -> ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(value.value)
+        is PlanConfirmationResult.Rejected -> when (value.reason) {
+            PlanConfirmationRejection.UNAUTHENTICATED -> error(HttpStatus.UNAUTHORIZED, value.reason.name)
+            PlanConfirmationRejection.RESOURCE_NOT_ACCESSIBLE -> error(HttpStatus.NOT_FOUND, value.reason.name)
+            PlanConfirmationRejection.ROLE_NOT_ALLOWED -> error(HttpStatus.FORBIDDEN, value.reason.name)
+            PlanConfirmationRejection.IDEMPOTENCY_KEY_REUSED -> error(HttpStatus.CONFLICT, value.reason.name)
+            PlanConfirmationRejection.OPERATION_IN_PROGRESS -> error(HttpStatus.CONFLICT, value.reason.name, true, 1)
+            PlanConfirmationRejection.SERVICE_UNAVAILABLE -> error(HttpStatus.SERVICE_UNAVAILABLE, value.reason.name, true)
+            PlanConfirmationRejection.VALIDATION_FAILED, PlanConfirmationRejection.OVERLAPPING_PLAN ->
+                error(HttpStatus.UNPROCESSABLE_ENTITY, value.reason.name,
+                    fields = value.violations.map { FieldError(it.field, it.code) }.takeIf { it.isNotEmpty() })
+        }
+    }
+
     fun noQuery(request: HttpServletRequest) { if (request.queryString != null) malformed() }
     private fun malformed(): Nothing = throw ApiException(HttpStatus.BAD_REQUEST, "MALFORMED_REQUEST", "Malformed plan request")
     fun error(status: HttpStatus, code: String, retryable: Boolean = false,
