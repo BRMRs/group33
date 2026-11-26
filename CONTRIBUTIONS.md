@@ -85,3 +85,5 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 Sync actual main; record attributable S1/lead D1–D4 decisions and15-second call boundary, unknown-attempt closure,401/403/404 recovery and configuration truth. Independent non-author security approval and actual provider/service evidence remain pending. Documentation-only own delta.
 
 - 2026-11-25 BRMRs: replay original C3 overview #95 as a current-main landing candidate on #41, retaining source authorship and all scope controls; reconcile only current Debug declarations and review records. Refs #15 / #19.
+
+- 2026-11-26 BRMRs: integrate actual main after #41 squash landing; preserve all original fourteen scope tests and the C3 reauthentication control with no runtime/test/capture changes. Refs #15 / #19; actual C1/E review still required.
