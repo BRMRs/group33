@@ -78,7 +78,7 @@ class BoundPhoneWireTest {
     private fun answer(body: String, status: Int = 200) { responses.add(status to body) }
 
     @Test fun start_refresh_verify_register_send_exact_bound_shapes_and_keep_capability_private() = runBlocking {
-        answer(grant()); val exchange = BoundPhoneExchange.start(client, installation, { 0 }) { true }
+        answer(grant()); val exchange = BoundPhoneExchange.start(client, installation, { 0 }, { true }) { true }
         var request = requests.remove()
         assertEquals("/api/v1/auth/fusion/token", request.first)
         assertEquals(setOf("installationId"), request.second.keys)

@@ -14,6 +14,7 @@ internal class BoundPhoneExchange private constructor(
     private val original: FusionSdkGrant,
     startedAt: Long,
     private val now: () -> Long,
+    private val currentSnapshot: () -> Boolean,
     private val isCurrent: suspend () -> Boolean,
 ) {
     private val work = Mutex()
@@ -23,14 +24,17 @@ internal class BoundPhoneExchange private constructor(
     @Volatile private var token = original.token
     val schemeCode get() = original.schemeCode
     fun remainingMillis(): Long = (deadline - now()).coerceAtLeast(0)
-    fun sdkToken(): String? = token.takeIf { !closed && !verifying && now() < deadline }
+    fun sdkToken(): String? {
+        if (!runCatching(currentSnapshot).getOrDefault(false)) { close(); return null }
+        return token.takeIf { !closed && !verifying && now() < deadline }
+    }
     fun close() { closed = true; token = "" }
 
     private suspend fun checkCurrent() {
         check(!closed && now() < deadline) { "Original phone attempt unavailable" }
         val current = isCurrent()
         // The private-store check may suspend; recheck time/close after it returns.
-        check(current && !closed && now() < deadline) { "Original phone attempt unavailable" }
+        check(current && currentSnapshot() && !closed && now() < deadline) { "Original phone attempt unavailable" }
     }
 
     /** False means verification has already taken ownership; do not renew or start another attempt. */
@@ -73,14 +77,18 @@ internal class BoundPhoneExchange private constructor(
 
     companion object {
         suspend fun start(client: PhoneServerClient, installationId: String,
-                          now: () -> Long, isCurrent: suspend () -> Boolean): BoundPhoneExchange {
+                          now: () -> Long, currentSnapshot: () -> Boolean, isCurrent: suspend () -> Boolean): BoundPhoneExchange {
             require(runCatching { UUID.fromString(installationId).toString() == installationId }.getOrDefault(false))
             check(isCurrent())
             val requestedAt = now()
-            val grant = withContext(Dispatchers.IO) { client.grant(installationId) }
+            val grant = withContext(Dispatchers.IO) {
+                check(isCurrent())
+                check(currentSnapshot())
+                client.grant(installationId)
+            }
             validate(grant)
             check(isCurrent())
-            return BoundPhoneExchange(client, installationId, grant, requestedAt, now, isCurrent).also {
+            return BoundPhoneExchange(client, installationId, grant, requestedAt, now, currentSnapshot, isCurrent).also {
                 try { it.checkCurrent() } catch (error: Exception) { it.close(); throw error }
             }
         }

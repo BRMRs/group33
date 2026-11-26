@@ -119,6 +119,16 @@ internal class PrivateSessionStore(
             attempt.epoch == file.epoch && !file.clearRequested && clock.millis() >= attempt.startedAtMillis
     }
 
+    /** Nonblocking same-process revocation guard for synchronous SDK callbacks.
+     * Uses only the published private generation; never restores or reads credentials from disk.
+     * HTTP and completion must still use the authoritative suspending checks. */
+    fun isCurrentAuthenticationSnapshot(attempt: AuthenticationAttempt): Boolean {
+        val observation = file.state.value
+        return observation.view.readiness == AuthReadiness.SIGNED_OUT &&
+            attempt.environmentId == environmentId && attempt.generation == observation.generation &&
+            attempt.epoch == observation.epoch && clock.millis() >= attempt.startedAtMillis
+    }
+
     /** Clearing credentials leaves installation identity and all business/journal files intact. */
     suspend fun clear(): Outcome<Unit> {
         file.requestClear()
