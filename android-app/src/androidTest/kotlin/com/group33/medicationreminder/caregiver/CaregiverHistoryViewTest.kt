@@ -3,6 +3,7 @@ package com.group33.medicationreminder.caregiver
 import android.app.LocaleManager
 import android.os.Build
 import android.os.LocaleList
+import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.view.ContextThemeWrapper
@@ -572,13 +573,12 @@ class CaregiverHistoryViewTest {
     }
 
     private fun withHostLanguage(language: String, block: () -> Unit) {
-        val manager = if (Build.VERSION.SDK_INT >= 33)
-            instrumentation.targetContext.getSystemService(LocaleManager::class.java) else null
-        val previous = if (Build.VERSION.SDK_INT >= 33) LocaleListCompat.wrap(checkNotNull(manager).applicationLocales)
+        val context = instrumentation.targetContext
+        val previous = if (Build.VERSION.SDK_INT >= 33) ApplicationLocales33.get(context)
             else AppCompatDelegate.getApplicationLocales()
         fun setLanguages(locales: LocaleListCompat) {
             onMain {
-                if (Build.VERSION.SDK_INT >= 33) checkNotNull(manager).applicationLocales = LocaleList.forLanguageTags(locales.toLanguageTags())
+                if (Build.VERSION.SDK_INT >= 33) ApplicationLocales33.set(context, locales)
                 else AppCompatDelegate.setApplicationLocales(locales)
             }
             instrumentation.waitForIdleSync()
@@ -588,6 +588,22 @@ class CaregiverHistoryViewTest {
             block()
         } finally {
             setLanguages(previous)
+        }
+    }
+
+    // Keep API33 class references out of reflected JUnit methods on older ART.
+    private object ApplicationLocales33 {
+        fun get(context: Context): LocaleListCompat {
+            if (Build.VERSION.SDK_INT >= 33) return LocaleListCompat.wrap(
+                checkNotNull(context.getSystemService(LocaleManager::class.java)).applicationLocales)
+            error("Platform per-app locales require API33")
+        }
+
+        fun set(context: Context, locales: LocaleListCompat) {
+            if (Build.VERSION.SDK_INT >= 33) {
+                checkNotNull(context.getSystemService(LocaleManager::class.java)).applicationLocales =
+                    LocaleList.forLanguageTags(locales.toLanguageTags())
+            } else error("Platform per-app locales require API33")
         }
     }
 
