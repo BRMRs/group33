@@ -123,3 +123,11 @@ XinyanXue prepared the isolated server/Shared Docker build, pinned Java17 images
 2026-11-25 — BRMRs / S1 (agent-assisted), Refs #16 / #104: replay the original cloud-schema gate on current #149/#148/#79/main V10, preserve current dose/occurrence/schema safeguards, remove only the obsolete unmerged index copy already retained/enhanced as #102 V11, adapt the inherited pending-gate control to the now-implemented explicit PostgreSQL mode gate, and bind the two fixture counts to the actual release version instead of hard-coding10. Old histories remain in Git; no applied SQL or actual cloud data changed.
 
 2026-11-25 — BRMRs / S1 (agent-assisted), Refs #104 / #16: reproduce exporter-to-writer loss of explicit schema gate on colon/space/escaped keys (canonical control passes), then enforce the original generator's literal single-line known-key format before export/reuse. Preserve canonical value bytes and fail closed on aliases/continuations/duplicates; add regression and original-generator compatibility controls. No cloud or actual secret used; new head requires independent final review.
+
+### 2026-11-17 — XinyanXue / S2 — #102 current-main V11 integration
+
+Preserve main dose-action V10; append original index SQL as V11 and match admin/runtime history. Retain original planner/rollback assertions, cover V9/V10 upgrades and reuse five coordination regressions including original dose receipt replay and refusal of incompatible index-V10 history. This is the existing #102 scope, not a new protocol or cloud deployment.
+
+### 2026-11-18 — XinyanXue / S2 — #102 authoritative migration guide
+
+Correct SCHEMA_MIGRATIONS to reflect actual main dose V10 then this-PR index V11, immutable applied history and separate conversion for old index-V10 databases. Documentation/hash only; existing SQL/runtime/tests untouched.
