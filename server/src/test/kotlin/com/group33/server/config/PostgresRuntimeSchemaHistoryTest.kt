@@ -54,6 +54,27 @@ internal class PostgresRuntimeSchemaHistoryTest {
         assertEquals(SchemaMigrations.VERSION, scalar("SELECT count(*) FROM group33_schema_history"))
     }
 
+    @Test fun `current dose and occurrence startup retains the managed release without changing history`() {
+        assertEquals(SchemaMigrations.VERSION.toInt(), migrate())
+        val before = history()
+        assertDoesNotThrow {
+            PersistenceRuntimeConfiguration().create(environment().withProperty("app.dose-group.enabled", "true"))
+        }
+        assertEquals(before, history())
+    }
+
+    @Test fun `missing dose table fails closed without repairing managed history`() {
+        migrate()
+        sql("ALTER TABLE dose_group_operation RENAME TO missing_dose_group_operation")
+        val before = history()
+        val failure = assertThrows(IllegalStateException::class.java) {
+            PersistenceRuntimeConfiguration().create(environment().withProperty("app.dose-group.enabled", "true"))
+        }
+        assertNull(failure.cause)
+        assertEquals(before, history())
+        assertNull(scalar("SELECT to_regclass('dose_group_operation')"))
+    }
+
     @Test fun `empty schema fails without installing tables or history`() {
         rejects()
         assertEquals("0", scalar("SELECT count(*) FROM pg_catalog.pg_class WHERE relnamespace='$schema'::regnamespace"))
