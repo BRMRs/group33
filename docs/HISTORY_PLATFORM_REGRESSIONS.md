@@ -14,7 +14,9 @@ includes actual main `855364eb`. Cle-cre's original component retains attributio
 - The calendar receives the component's primary display locale and font scale.
   Its title, inflated controls, day buttons, weekday labels and accessibility
   descriptions use that configuration. Fragment arguments retain these display
-  inputs while the current host supplies window configuration and theme.
+  inputs while the current host supplies window configuration. The Group33
+  Material theme is initialized after the display override, so older Android
+  does not reuse a Theme attached to the Activity's different Resources.
 - Tests no longer mutate Activity-wide resources with `updateConfiguration`.
   The existing 18 cases assert actual English/Chinese and 1x/2x configuration,
   widths 320/360/600/320dp, and an explicitly Chinese host with an English

@@ -56,7 +56,7 @@ internal class CaregiverHistoryDateRangeDialog : DialogFragment() {
             setLocale(Locale.forLanguageTag(checkNotNull(requireArguments().getString(LOCALE))))
             fontScale = requireArguments().getFloat(FONT_SCALE)
         }
-        val context = ContextThemeWrapper(requireContext(), requireContext().theme).apply {
+        val context = ContextThemeWrapper(requireContext(), R.style.Theme_Group33).apply {
             applyOverrideConfiguration(display)
         }
         val builder = MaterialAlertDialogBuilder(context)
