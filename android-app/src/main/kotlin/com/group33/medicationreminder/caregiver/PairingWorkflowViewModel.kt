@@ -24,6 +24,7 @@ class PairingWorkflowViewModel(
     private var work: Job? = null
     private var records = emptyList<OnlineCommandRecord>()
     private var unresolved: String? = null
+    private var unresolvedContext: CommandContext? = null
     private val observationRetry = MutableStateFlow(0L)
 
     init {
@@ -34,7 +35,7 @@ class PairingWorkflowViewModel(
                     session.user?.role == UserRole.CAREGIVER && session.user.id == it.scope.userId }
             }.distinctUntilChanged().collectLatest { context ->
                 current = context
-                work?.cancel(); work = null; records = emptyList(); unresolved = null
+                work?.cancel(); work = null; records = emptyList(); unresolved = null; unresolvedContext = null
                 mutableState.value = PairingWorkflowState(notice = if (context == null) PairingNotice.SessionUnavailable else null)
                 if (context == null) return@collectLatest
                 try {
@@ -50,8 +51,21 @@ class PairingWorkflowViewModel(
                         }
                         .collect { (cached, journal) ->
                             if (!isCurrent(context)) return@collect
-                            records = journal.filter { it.scope == context.scope && it.commandKind in KINDS }
-                            if (records.any { it.operationId == unresolved && !it.needsRecovery() }) unresolved = null
+                            val observed = journal.filter { it.scope == context.scope && it.commandKind in KINDS }
+                            val accepted = observed.filter { record ->
+                                val original = records.firstOrNull { it.operationId == record.operationId }
+                                val pending = unresolvedContext?.takeIf { it.operationId == record.operationId }
+                                (original == null && pending == null) ||
+                                    matchesRecovery(record.operationId, record, original, pending)
+                            }
+                            // An invalid, missing or downgraded observation cannot erase an original
+                            // command that still needs recovery. Resume uses the same identity checks.
+                            records = accepted + records.filter { original ->
+                                original.needsRecovery() && accepted.none { it.operationId == original.operationId }
+                            }
+                            if (accepted.any { it.operationId == unresolved && !it.needsRecovery() }) {
+                                unresolved = null; unresolvedContext = null
+                            }
                             val authorized = cached.access == AccessState.AUTHORIZED
                             mutableState.value = state.value.copy(
                                 ready = true,
@@ -109,10 +123,13 @@ class PairingWorkflowViewModel(
                             publishFailure(RepositoryError.Local(LocalFailureCode.SESSION_NOT_READY)); return@launch
                         }
                         operation = command.operationId
+                        unresolvedContext = command
                         val result = action(command)
                         if (!isCurrent(context)) return@launch
+                        check(result.operationId == command.operationId)
                         unresolved = result.operationId.takeIf { result is OnlineCommandResult.AwaitingConfirmation ||
                             result is OnlineCommandResult.Confirmed<*> && result.cacheState == CacheState.REFRESH_REQUIRED }
+                        if (unresolved == null) unresolvedContext = null
                         mutableState.value = state.value.copy(
                             code = if (kind == OnlineCommandKind.REQUEST_PAIRING && result is OnlineCommandResult.Confirmed<*>) "" else state.value.code,
                             needsRecovery = needsRecovery(), notice = when (result) {
@@ -147,16 +164,20 @@ class PairingWorkflowViewModel(
                 val ids = (records.filter { it.needsRecovery() }.map { it.operationId } + listOfNotNull(unresolved)).distinct()
                 for (id in ids) {
                     if (!isCurrent(context)) return@launch
+                    val original = records.firstOrNull { it.operationId == id }
+                    val pendingContext = unresolvedContext?.takeIf { it.operationId == id }
                     when (val result = commands.resume(id)) {
                         is Outcome.Failure -> failed = true
                         is Outcome.Success -> {
                             if (!isCurrent(context)) return@launch
-                            if (result.value.scope != context.scope) { failed = true; continue }
+                            if (!matchesRecovery(id, result.value, original, pendingContext)) { failed = true; continue }
                             records = records.filterNot { it.operationId == id } + result.value
                             if (result.value.state == OnlineCommandState.REJECTED || result.value.state == OnlineCommandState.NOT_SUBMITTED) {
                                 recoveredError = result.value.error ?: RepositoryError.Local(LocalFailureCode.SOURCE_UNAVAILABLE)
                             }
-                            if (id == unresolved && !result.value.needsRecovery()) unresolved = null
+                            if (id == unresolved && !result.value.needsRecovery()) {
+                                unresolved = null; unresolvedContext = null
+                            }
                             if (result.value.commandKind == OnlineCommandKind.REQUEST_PAIRING &&
                                 result.value.state == OnlineCommandState.CONFIRMED) {
                                 mutableState.value = state.value.copy(code = "")
@@ -185,6 +206,18 @@ class PairingWorkflowViewModel(
             is RepositoryError.Local -> PairingNotice.NotSubmitted(error.code)
             is RepositoryError.Remote -> PairingNotice.Rejected(error.error)
         })
+    }
+    private fun matchesRecovery(id: String, record: OnlineCommandRecord,
+                                original: OnlineCommandRecord?, pending: CommandContext?): Boolean {
+        val expectedScope = pending?.scope ?: original?.scope ?: return false
+        val expectedKind = pending?.commandKind ?: original?.commandKind ?: return false
+        val expectedTarget = if (pending != null) pending.targetId else original?.targetId
+        return record.operationId == id && record.scope == expectedScope &&
+            record.commandKind == expectedKind && record.targetId == expectedTarget &&
+            (record.resultRef == null || record.resultRef.kind == CommandResultKind.PAIRING_REQUEST &&
+                (expectedKind != OnlineCommandKind.CANCEL_PAIRING_REQUEST || record.resultRef.id == expectedTarget)) &&
+            (record.state != OnlineCommandState.CONFIRMED || record.cacheState != null) &&
+            (original?.state != OnlineCommandState.CONFIRMED || record.state == OnlineCommandState.CONFIRMED)
     }
     private fun needsRecovery() = unresolved != null || records.any { it.needsRecovery() }
     private fun OnlineCommandRecord.needsRecovery() = state == OnlineCommandState.AWAITING_CONFIRMATION ||
