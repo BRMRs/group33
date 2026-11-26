@@ -2,6 +2,8 @@ package com.group33.server.plan
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.group33.server.auth.AnonymousUser
+import com.group33.server.auth.BoundPhoneJwt
+import com.group33.server.pairing.PostgresPairingCodeStore
 import com.group33.server.pairing.CodeStoreBusy
 import com.group33.server.pairing.PairingCodeIssuanceService
 import com.group33.shared.contract.*
@@ -11,7 +13,7 @@ import java.time.ZoneId
 import java.util.UUID
 
 internal enum class PlanMutationRejection {
-    RESOURCE_NOT_ACCESSIBLE, ROLE_NOT_ALLOWED, IDEMPOTENCY_KEY_REUSED, PLAN_VERSION_CONFLICT,
+    UNAUTHENTICATED, RESOURCE_NOT_ACCESSIBLE, ROLE_NOT_ALLOWED, IDEMPOTENCY_KEY_REUSED, PLAN_VERSION_CONFLICT,
     VALIDATION_FAILED, OVERLAPPING_PLAN, OPERATION_IN_PROGRESS, SERVICE_UNAVAILABLE,
 }
 internal sealed interface PlanMutationResult {
@@ -19,12 +21,43 @@ internal sealed interface PlanMutationResult {
     data class Rejected(val reason: PlanMutationRejection, val violations: List<ConfirmationViolation> = emptyList()) : PlanMutationResult
 }
 
+internal class PlanPhoneUnauthenticated : RuntimeException("Phone session is not current")
+internal class PlanWriteActor(val id: String, val installationId: String, val role: UserRole) {
+    override fun toString() = "PlanWriteActor(redacted)"
+}
+
+private typealias PlanWrite = (PlanWriteActor, PlanMutationTransaction, (String) -> Boolean) -> PlanMutationResult
+
 /** Current authorization, original receipt, expected revision and prospective version share one guard. */
 internal class ReminderPlanMutationService(private val store: PlanMutationStore, private val clock: Clock = Clock.systemUTC()) {
-    fun update(actor: AnonymousUser, planId: String, operationId: UUID, request: UpdateReminderPlanRequest): PlanMutationResult {
+    fun update(actor: AnonymousUser, planId: String, operationId: UUID, request: UpdateReminderPlanRequest): PlanMutationResult =
+        edit(planId, operationId, request, anonymous(actor))
+
+    fun deactivate(actor: AnonymousUser, planId: String, operationId: UUID, request: DeactivateReminderPlanRequest): PlanMutationResult =
+        stop(planId, operationId, request, anonymous(actor))
+
+    fun updatePhone(postgres: PostgresPairingCodeStore, jwt: BoundPhoneJwt, bearer: String, planId: String,
+                    operationId: UUID, request: UpdateReminderPlanRequest): PlanMutationResult =
+        edit(planId, operationId, request, phone(postgres, jwt, bearer))
+
+    fun deactivatePhone(postgres: PostgresPairingCodeStore, jwt: BoundPhoneJwt, bearer: String, planId: String,
+                        operationId: UUID, request: DeactivateReminderPlanRequest): PlanMutationResult =
+        stop(planId, operationId, request, phone(postgres, jwt, bearer))
+
+    private fun anonymous(actor: AnonymousUser): (PlanWrite) -> PlanMutationResult = { work ->
+        store.mutationTransaction { tx -> work(PlanWriteActor(actor.id, actor.installationId, actor.role), tx) { true } }
+    }
+
+    private fun phone(postgres: PostgresPairingCodeStore, jwt: BoundPhoneJwt, bearer: String): (PlanWrite) -> PlanMutationResult = { work ->
+        val claims = jwt.validate(bearer) ?: throw PlanPhoneUnauthenticated()
+        postgres.phonePlanMutation(claims, { clock.instant().epochSecond }, jwt.allowance, work)
+    }
+
+    private fun edit(planId: String, operationId: UUID, request: UpdateReminderPlanRequest,
+                     authorize: (PlanWrite) -> PlanMutationResult): PlanMutationResult {
         val input = request.copy(plan = request.plan.copy(localTimes = request.plan.localTimes.toList()))
         val canonical = input.copy(plan = input.plan.copy(localTimes = input.plan.localTimes.sorted()))
-        return mutate(actor, planId, operationId, PlanMutationAction.UPDATE, input.expectedRevision, canonical) { tx, old, medication ->
+        return mutate(authorize, planId, operationId, PlanMutationAction.UPDATE, input.expectedRevision, canonical) { tx, old, medication ->
             val violations = validate(input)
             if (violations.isNotEmpty()) return@mutate PlanMutationResult.Rejected(PlanMutationRejection.VALIDATION_FAILED, violations)
             if (old.active && (PlanSelfOverlapValidator.hasCollision(input.plan) || tx.plans(old.elderId).any {
@@ -45,8 +78,9 @@ internal class ReminderPlanMutationService(private val store: PlanMutationStore,
         }
     }
 
-    fun deactivate(actor: AnonymousUser, planId: String, operationId: UUID, request: DeactivateReminderPlanRequest): PlanMutationResult =
-        mutate(actor, planId, operationId, PlanMutationAction.DEACTIVATE, request.expectedRevision, request) { tx, old, medication ->
+    private fun stop(planId: String, operationId: UUID, request: DeactivateReminderPlanRequest,
+                     authorize: (PlanWrite) -> PlanMutationResult): PlanMutationResult =
+        mutate(authorize, planId, operationId, PlanMutationAction.DEACTIVATE, request.expectedRevision, request) { tx, old, medication ->
             val now = clock.millis()
             val plan = old.copy(revision = old.revision + 1, active = false, effectiveFromEpochMillis = now, confirmedAtEpochMillis = now)
             tx.updatePlan(plan, old.revision)
@@ -54,22 +88,22 @@ internal class ReminderPlanMutationService(private val store: PlanMutationStore,
             PlanMutationResult.Accepted(UpdateReminderPlanResponse(medication, PlanConfirmationCopies.plan(plan)))
         }
 
-    private fun mutate(actor: AnonymousUser, planId: String, id: UUID, action: PlanMutationAction, expected: Long, payload: Any,
+    private fun mutate(authorize: (PlanWrite) -> PlanMutationResult, planId: String, id: UUID, action: PlanMutationAction, expected: Long, payload: Any,
         work: (PlanMutationTransaction, ReminderPlanView, MedicationView) -> PlanMutationResult): PlanMutationResult = try {
-        store.mutationTransaction { tx ->
+        authorize { actor, tx, currentElder ->
             val canonicalId = try { UUID.fromString(planId).toString().takeIf { it.equals(planId, ignoreCase = true) } } catch (_: IllegalArgumentException) { null }
-            val old = canonicalId?.let(tx::plan) ?: return@mutationTransaction reject(PlanMutationRejection.RESOURCE_NOT_ACCESSIBLE)
-            if (actor.role != UserRole.CAREGIVER) return@mutationTransaction reject(
+            val old = canonicalId?.let(tx::plan) ?: return@authorize reject(PlanMutationRejection.RESOURCE_NOT_ACCESSIBLE)
+            if (actor.role != UserRole.CAREGIVER) return@authorize reject(
                 if (actor.id == old.elderId) PlanMutationRejection.ROLE_NOT_ALLOWED else PlanMutationRejection.RESOURCE_NOT_ACCESSIBLE)
-            if (tx.activeRelationship(old.elderId)?.caregiverId != actor.id)
-                return@mutationTransaction reject(PlanMutationRejection.RESOURCE_NOT_ACCESSIBLE)
+            if (!currentElder(old.elderId) || tx.activeRelationship(old.elderId)?.caregiverId != actor.id)
+                return@authorize reject(PlanMutationRejection.RESOURCE_NOT_ACCESSIBLE)
             val fingerprint = PairingCodeIssuanceService.hash("${ContractProtocol.CANONICALIZATION_VERSION}:$action:${old.id}:" + mapper.writeValueAsString(payload))
             val key = PlanMutationKey(actor.id, action, id)
             val previous = tx.mutationOperation(key)
             if (previous != null && (previous.installationId != actor.installationId || previous.planId != old.id ||
                     previous.elderId != old.elderId || previous.fingerprint != fingerprint))
-                return@mutationTransaction reject(PlanMutationRejection.IDEMPOTENCY_KEY_REUSED)
-            previous?.receipt?.let { return@mutationTransaction PlanMutationResult.Accepted(it) }
+                return@authorize reject(PlanMutationRejection.IDEMPOTENCY_KEY_REUSED)
+            previous?.receipt?.let { return@authorize PlanMutationResult.Accepted(it) }
             val result = when {
                 expected <= 0 -> PlanMutationResult.Rejected(PlanMutationRejection.VALIDATION_FAILED,
                     listOf(ConfirmationViolation("expectedRevision", "POSITIVE_REVISION_REQUIRED")))
@@ -82,7 +116,8 @@ internal class ReminderPlanMutationService(private val store: PlanMutationStore,
                 (result as? PlanMutationResult.Accepted)?.view, result as? PlanMutationResult.Rejected))
             result
         }
-    } catch (_: CodeStoreBusy) { reject(PlanMutationRejection.OPERATION_IN_PROGRESS) }
+    } catch (_: PlanPhoneUnauthenticated) { reject(PlanMutationRejection.UNAUTHENTICATED) }
+      catch (_: CodeStoreBusy) { reject(PlanMutationRejection.OPERATION_IN_PROGRESS) }
       catch (failure: Exception) {
           if (failure is InterruptedException) Thread.currentThread().interrupt()
           reject(PlanMutationRejection.SERVICE_UNAVAILABLE)
