@@ -1,0 +1,21 @@
+# S1 current-main terminal event-read access
+
+Refs #15 / #17. Original #133 merged only into the `feature/15-c3-feedback-entry` branch at `8e881a0ea3f11343589a7d5fecad589ceee0eab1`, not main. Its S1 implementation came from `b164af4`; C3's page-level regressions remain in that historical source. This candidate ports exactly the original single-file Repository correction onto main `9e5621393c3d130bc65ec6754d0531c363c9cf9d` without importing the C3 Host or UI assembly.
+
+## Observable boundary
+
+When the existing Debug walking-skeleton Repository receives403/404 for an event range, replace that range's cached private event payload with an empty list and REVOKED in the same Room row write. The existing main history ViewModel already latches terminal access for the same scope/Elder, so a local date change cannot restore a pre-cached range or details. Keep session READY, relationship ACTIVE and unrelated target caches intact. A503 keeps authorized data stale/recoverable. Existing lease checks reject late old-session publication. No new wire, Room schema, Server mutation, production date source, Release registration or global relationship revocation is introduced.
+
+## Actual current-main before and after — 2026-11-26
+
+A direct six-case Android instrumentation suite uses actual main session, Room and history ViewModel code with only fictional scripted HTTP; it does not require the unmerged C3 Hosts. On exact unmodified main Repository bytes, four cases fail with expected REVOKED/actual UNKNOWN (403,404,cold-denial and target isolation);503 and old-session controls pass. That is one propagation defect covered by four failures, not four independent vulnerabilities or proof of real Server data disclosure.
+
+Applying the original #133 single-file hunk cleanly, with the identical test source SHA256 `380129a412d0c319a1bf6f735a1f84cb5ba26b9825ddbe5182e80db796c8d80a`, makes all6 pass. Fixed assertions verify empty payload+REVOKED in one actual SQLite row, detail clearing, local switching to a pre-cached date without another HTTP request or restored records, a denied cold cache,503 retention/recovery with unchanged last-success time, another Elder cache unchanged and a late old-session denial unable to change the replacement session/cache authority. These are emulator/main Repository and ViewModel assertions, not new C3 screen/device/cloud acceptance.
+
+Both runs used separately owned read-only API35 emulator instances, exact app/test APK hashes retained in the local audit, stopped afterward with persistent AVD config unchanged. No physical/user device, private account or external service was used. Historical #133 ten/twelve page-level device results remain attributed to that branch/revision and are not counted as fresh executions here.
+
+## Durable verification and review
+
+The dedicated CI builds exact-head app/test APKs and runs the same six cases on a new private API35 x86_64 AVD. Its verifier requires six unique zero-status completions plus the matching OK summary; failure/skip status cannot pass from a summary alone. It records source/APK hashes and removes its own AVD; only test logs/result metadata are uploaded, not AVD/session/database material. It requires GitHub Actions and writes evidence inside RUNNER_TEMP. It reuses the already verified #119 job-owned emulator pattern without that feature's unrelated Server/recovery dependencies.
+
+Current full checks, final hosted outcomes and non-author reviews are recorded after execution in the PR. BRMRs wrote the original S1 correction and this integration/tests and cannot self-approve. Required perspectives are a lead-recorded non-author Android session/cache backup, C1 trusted-context consumption, C3 history semantics and S2 existing403/404 signal semantics. The exact bounded backup assignment must be recorded in #15 before it substitutes for S1 approval; assignment is not approval. #15/#17 remain open; actual main landing and broader same-version normal-entry/phone acceptance remain separate.

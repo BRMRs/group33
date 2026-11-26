@@ -382,7 +382,19 @@ internal class DebugChainRepository(
                 "?fromDate=${range.fromDate}&throughDate=${range.throughDate}")
             if (reply.status !in 200..299) {
                 if (reply.status in setOf(403, 404)) publish(lease) {
-                    cache.documents().invalidateKind(scopeId(lease.scope), kind, elderId)
+                    // A denied read is terminal for this trusted page identity, not an
+                    // indeterminate/offline cache state. Replace any private payload before
+                    // publishing REVOKED so current details disappear in the same Room update.
+                    cache.documents().put(ChainDocument(
+                        id = rowId(lease.scope, kind, elderId),
+                        scopeId = scopeId(lease.scope),
+                        kind = kind,
+                        target = elderId,
+                        body = json.encodeToString(ListSerializer(DoseEventView.serializer()), emptyList()),
+                        syncedAt = System.currentTimeMillis(),
+                        access = AccessState.REVOKED.name,
+                        stale = true,
+                    ))
                 }
                 throw Failed(remote(reply))
             }
