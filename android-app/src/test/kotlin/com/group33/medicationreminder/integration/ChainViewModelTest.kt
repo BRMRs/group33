@@ -223,7 +223,7 @@ class ChainViewModelTest {
         val f = Fixture(); runCurrent()
         assertEquals(listOf("rel-a", "rel-b"),
             (f.model.state.value.context as CaregiverContextState.SelectElder).elders.map { it.relationshipId })
-        assertTrue(f.model.state.value.photos.isEmpty())
+        assertTrue(f.model.state.value.photo.photos.isEmpty())
         for ((id, elder) in listOf("rel-a" to elderA, "rel-b" to elderB, "rel-a" to elderA)) {
             f.model.select(id); runCurrent()
             val state = f.model.state.value
@@ -246,17 +246,17 @@ class ChainViewModelTest {
         f.relationships.value = cached(listOf(revoked, relation("rel-b", elderB))); runCurrent()
         assertEquals(listOf("rel-b"),
             (f.model.state.value.context as CaregiverContextState.SelectElder).elders.map { it.relationshipId })
-        assertTrue(f.model.state.value.photos.isEmpty())
+        assertTrue(f.model.state.value.photo.photos.isEmpty())
         assertFalse(f.model.state.value.photoDecodeFailed)
         f.model.select("rel-a"); runCurrent()
         assertFalse(f.model.state.value.context is CaregiverContextState.Active)
         f.relationships.value = cached(listOf(revoked, relation("rel-b", elderB), relation("new-a", elderA)))
         runCurrent()
         assertTrue(f.model.state.value.context is CaregiverContextState.SelectElder)
-        assertTrue(f.model.state.value.photos.isEmpty())
+        assertTrue(f.model.state.value.photo.photos.isEmpty())
         f.model.select("new-a"); runCurrent()
         assertEquals("new-a", (f.model.state.value.context as CaregiverContextState.Active).context.relationshipId)
-        assertEquals(listOf(photo(elderA)), f.model.state.value.photos)
+        assertEquals(listOf(photo(elderA)), f.model.state.value.photo.photos)
         assertNull(f.submitted)
     }
 
@@ -266,16 +266,16 @@ class ChainViewModelTest {
         val authorized = f.relationships.value
         f.relationships.value = authorized.copy(access = AccessState.UNKNOWN, isStale = true); runCurrent()
         assertEquals(CaregiverContextState.LoadingRelationships, f.model.state.value.context)
-        assertTrue(f.model.state.value.photos.isEmpty())
+        assertTrue(f.model.state.value.photo.photos.isEmpty())
         assertFalse(f.model.state.value.photoDecodeFailed)
         f.model.select("rel-b"); runCurrent()
         f.photos.getValue(elderB.id).value = cached(listOf(photo(elderB).copy(id = "unverified-b")))
         runCurrent()
         assertEquals(CaregiverContextState.LoadingRelationships, f.model.state.value.context)
-        assertTrue(f.model.state.value.photos.isEmpty())
+        assertTrue(f.model.state.value.photo.photos.isEmpty())
         f.relationships.value = authorized; runCurrent()
         assertEquals("rel-b", (f.model.state.value.context as CaregiverContextState.Active).context.relationshipId)
-        assertEquals(listOf("unverified-b"), f.model.state.value.photos.map { it.id })
+        assertEquals(listOf("unverified-b"), f.model.state.value.photo.photos.map { it.id })
         assertNull(f.submitted)
     }
 
