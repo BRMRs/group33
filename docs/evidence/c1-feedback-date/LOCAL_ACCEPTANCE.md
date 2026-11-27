@@ -115,3 +115,23 @@ is retained without calling these automated runs new human acceptance.
 
 This six-file evidence update awaits publication approval; #132 remains Draft
 and still needs S1/C3 final integration review and the production dependencies.
+
+## Current-main follow-through — 2026-11-27
+
+Agent-assisted C1 preparation; no human approval or signature.
+
+Integrated actual main `9ae5bbcd2baa11222f1fb2b7dc13634159b773a8` while preserving both contribution histories.
+
+Focused `CaregiverFeedbackRangeInputTest`: {"testDebugUnitTest": {"tests": 11, "failures": 0, "errors": 0, "skipped": 0}}. Command `gradlew :android-app:testDebugUnitTest --tests *CaregiverFeedbackRangeInputTest --offline --max-workers=1` passed.
+
+Original date resolver/test, frozen nine-file composition patch and screenshots are unchanged; no production registration.
+
+Keep Draft: #130 acceptance and a reviewed S1/S2 production date provider are absent. No guessed device/UTC/plan date is introduced.
+
+Next integration input must publish the complete authorized context plus current Elder execution date, invalidate at midnight/zone/context changes, and fail unavailable on missing input.
+
+No new device, Server, PG or cloud validation. Prior composition/device evidence remains tied to its original source.
+
+Raw build/device results and APK hashes are retained privately under `.git/c1-progress-20261127/`.
+
+Policy, whitespace and regenerated complete artifact manifest are checked before publication.
