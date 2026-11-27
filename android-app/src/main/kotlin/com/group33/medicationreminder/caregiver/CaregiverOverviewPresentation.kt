@@ -31,7 +31,7 @@ data class CaregiverOverviewPresentation(
         fun from(state: CaregiverFeedbackState): CaregiverOverviewPresentation {
             val hasSelection = state.elderId != null && state.range != null && state.scope != null
             val inaccessible = when (val error = state.refreshError) {
-                is RepositoryError.Remote -> error.error.code in setOf("RESOURCE_NOT_ACCESSIBLE", "UNAUTHENTICATED", "ROLE_NOT_ALLOWED")
+                is RepositoryError.Remote -> error.error.code in setOf("RESOURCE_NOT_ACCESSIBLE", "UNAUTHENTICATED")
                 is RepositoryError.Local -> error.code == LocalFailureCode.SESSION_NOT_READY
                 null -> false
             }
