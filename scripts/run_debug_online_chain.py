@@ -29,8 +29,11 @@ def main():
     parser.add_argument('--locale', help='Persist the shared language preference, e.g. zh-CN or en-US')
     parser.add_argument('--dose-upload', action='store_true', help='Also verify server-accepted dose records on the caregiver pages')
     parser.add_argument('--live-dose', action='store_true', help='Also exercise a real local reminder and durable Elder actions')
+    parser.add_argument('--offline-action-recovery', action='store_true',
+                        help='Record Taken with Elder connectivity disabled, then prove process/network recovery uploads the same action')
     parser.add_argument('--reset-test-apps', action='store_true', help='Clear only these two fictional emulator app installations')
     args = parser.parse_args()
+    args.dose_upload = args.dose_upload or args.offline_action_recovery
     args.live_dose = args.live_dose or args.dose_upload
     if not all(x.startswith('emulator-') for x in [args.elder, args.caregiver]) or args.elder == args.caregiver:
         parser.error('Use two distinct emulator installations; this harness does not wipe/run physical devices')
@@ -45,6 +48,10 @@ def main():
 
     devices = {'elder': args.elder, 'caregiver': args.caregiver}
     for serial in devices.values():
+        if args.offline_action_recovery:
+            run(serial, 'shell', 'cmd', 'connectivity', 'airplane-mode', 'disable')
+            run(serial, 'shell', 'svc', 'wifi', 'enable')
+            run(serial, 'shell', 'svc', 'data', 'enable')
         run(serial, 'install', '-r', str(ROOT / 'android-app/build/outputs/apk/debug/android-app-debug.apk'))
         run(serial, 'install', '-r', str(ROOT / 'android-app/build/outputs/apk/androidTest/debug/android-app-debug-androidTest.apk'))
         if args.reset_test_apps:
@@ -75,7 +82,15 @@ def main():
         if bridge is not None:
             run(serial, 'shell', f"run-as {PKG} sh -c 'cat > no_backup/chain-bridge.json'", data=bridge)
         output = run(serial, 'shell', 'am', 'instrument', '-w', '-r', '-e', 'class',
-                     PKG + '.integration.ChainOnlineFlowTest#realOnlinePhase', '-e', 'chainPhase', phase, '-e', 'doseUpload', str(args.dose_upload).lower(), TEST)
+                     PKG + '.integration.ChainOnlineFlowTest#realOnlinePhase', '-e', 'chainPhase', phase,
+                     '-e', 'doseUpload', str(args.dose_upload).lower(), '-e', 'offlineActionRecovery',
+                     str(args.offline_action_recovery).lower(), TEST)
+        if phase == 'elder-live-dose' and args.offline_action_recovery:
+            # Instrumentation remains reachable over adb while Android networking is disabled.
+            # Restore connectivity only after the local action and target process have finished.
+            run(serial, 'shell', 'cmd', 'connectivity', 'airplane-mode', 'disable')
+            run(serial, 'shell', 'svc', 'wifi', 'enable')
+            run(serial, 'shell', 'svc', 'data', 'enable')
         (args.output / (phase + '.log')).write_bytes(output)
         passed = b'OK (1 test)' in output and b'FAILURES' not in output
         results.append({'phase': phase, 'role': role, 'passed': passed})
