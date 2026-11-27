@@ -1,5 +1,7 @@
 # Contribution log
 
+2026-11-27 — Cle-cre / C3, Refs #15 / #17, PR #124: integrate S1 PR #152 `d563b80`, retaining S1 ownership of the Repository correction. The two 403/404 tests are adapted to the composed history's existing revoked-state date guard: applying another range returns false, retains the range, makes no new read and cannot restore records/details. Original API27 run: 4/6 passed, both failures at the incompatible range-return assertion. Adapted API27 Mi Pad4 Plus run: 6/6 passed. The Repository and cache remain identical to #152. Android Debug204/Release203 unit tests, lint (0 errors/30 warnings) and Debug/test/Release builds passed before this test-only adjustment; the adjusted test APK was rebuilt offline. Scripted HTTP with actual Room/session/ViewModel is not live-service or complete happy-path acceptance. Final commit CI and non-author review remain separate.
+
 2026-10-27 publication update: the earlier local-candidate entries below describe their preparation time. Those prepared slices are now visible as Draft PRs [#60–#73](https://github.com/BRMRs/group33/pull/60); required scope/reviewer/dependency confirmation and formal acceptance remain open.
 
 Update this file weekly. Use links to GitHub issues and pull requests after the repository has its first commit.
@@ -94,3 +96,5 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 ### 2026-11-17 — XinyanXue / S2 — #96 decision follow-up
 
 Sync actual main; record attributable S1/lead D1–D4 decisions and15-second call boundary, unknown-attempt closure,401/403/404 recovery and configuration truth. Independent non-author security approval and actual provider/service evidence remain pending. Documentation-only own delta.
+
+- 2026-11-26 BRMRs: port original #133 S1 event-read denial propagation to current main, reproduce four failing Room assertions/two controls and verify all six after correction; independently reproduce and repair denial-time/last-success metadata, preserving cold-null and epoch zero; add exact-head disposable API35 regression without importing C3 Hosts. Refs #15 / #17.
