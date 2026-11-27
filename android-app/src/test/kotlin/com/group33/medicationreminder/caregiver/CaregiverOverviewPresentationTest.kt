@@ -137,7 +137,7 @@ class CaregiverOverviewPresentationTest {
         assertTrue(checkNotNull(screen.content).isStale)
         assertTrue(screen.canOpenHistory)
         assertTrue(screen.canRefresh)
-        assertEquals(OverviewRefreshMessage.FAILED, screen.refreshMessage)
+        assertEquals(OverviewRefreshMessage.AUTHORIZATION_FAILED, screen.refreshMessage)
     }
 
     @Test fun `session not ready hides content while generic server failure retains stale data`() {

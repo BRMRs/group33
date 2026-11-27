@@ -9,6 +9,7 @@ enum class OverviewMessage { SELECT_ELDER, LOADING, ACCESS_UNKNOWN, REVOKED, UNA
 enum class OverviewRefreshMessage {
     NONE, REFRESHING, COMPLETE, FAILED, OFFLINE,
     STORAGE_UNAVAILABLE, INVALID_INPUT, RANGE_TOO_LARGE, SERVICE_UNAVAILABLE, RETRY_LATER,
+    AUTHORIZATION_FAILED,
 }
 
 data class OverviewContent(
@@ -67,6 +68,7 @@ data class CaregiverOverviewPresentation(
                         else -> OverviewRefreshMessage.FAILED
                     }
                     is RepositoryError.Remote -> when (error.error.code) {
+                        "ROLE_NOT_ALLOWED" -> OverviewRefreshMessage.AUTHORIZATION_FAILED
                         "SNAPSHOT_RANGE_TOO_LARGE" -> OverviewRefreshMessage.RANGE_TOO_LARGE
                         "VALIDATION_FAILED" -> OverviewRefreshMessage.INVALID_INPUT
                         "SERVICE_UNAVAILABLE" -> OverviewRefreshMessage.SERVICE_UNAVAILABLE

@@ -6,7 +6,6 @@ import android.view.LayoutInflater
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.annotation.MainThread
-import androidx.core.os.ConfigurationCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.Lifecycle
@@ -19,11 +18,6 @@ import com.group33.medicationreminder.core.data.contract.RepositoryScope
 import com.group33.medicationreminder.databinding.ItemCaregiverOverviewEventBinding
 import com.group33.medicationreminder.databinding.ViewCaregiverOverviewBinding
 import com.group33.shared.contract.DeliveryCondition
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
-import java.util.Locale
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
@@ -110,10 +104,11 @@ class CaregiverOverviewView @JvmOverloads constructor(
             OverviewRefreshMessage.RANGE_TOO_LARGE -> context.getString(R.string.c3_refresh_range_too_large)
             OverviewRefreshMessage.SERVICE_UNAVAILABLE -> context.getString(R.string.c3_refresh_service_unavailable)
             OverviewRefreshMessage.RETRY_LATER -> context.getString(R.string.c3_refresh_retry_later)
+            OverviewRefreshMessage.AUTHORIZATION_FAILED -> context.getString(R.string.c3_refresh_authorization_failed)
         })
         binding.freshness.showText(content?.takeIf { it.isStale }?.let { context.getString(R.string.c3_stale) })
         binding.lastSync.showText(content?.let {
-            it.lastSuccessfulSyncAtEpochMillis?.let { time -> context.getString(R.string.c3_last_sync, formatInstant(time)) }
+            it.lastSuccessfulSyncAtEpochMillis?.let { time -> context.getString(R.string.c3_last_sync, context.caregiverInstant(time)) }
                 ?: context.getString(R.string.c3_sync_time_unknown)
         })
         binding.capability.showText(content?.let {
@@ -126,7 +121,7 @@ class CaregiverOverviewView @JvmOverloads constructor(
                     DeliveryCondition.DEGRADED -> R.string.c3_capability_degraded
                     DeliveryCondition.UNAVAILABLE -> R.string.c3_capability_unavailable
                 }),
-                formatInstant(capability.observedAtEpochMillis),
+                context.caregiverInstant(capability.observedAtEpochMillis),
             )
         })
         binding.capabilityDetails.showText(content?.capability?.let { context.capabilityDetails(it) })
@@ -151,10 +146,4 @@ class CaregiverOverviewView @JvmOverloads constructor(
         text = value.orEmpty()
         isVisible = value != null
     }
-
-    private fun formatInstant(epochMillis: Long): String = DateTimeFormatter
-        .ofLocalizedDateTime(FormatStyle.MEDIUM)
-        .withLocale(ConfigurationCompat.getLocales(resources.configuration)[0] ?: Locale.getDefault())
-        .withZone(ZoneId.systemDefault())
-        .format(Instant.ofEpochMilli(epochMillis))
 }

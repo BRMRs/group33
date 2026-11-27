@@ -36,4 +36,5 @@
   <string name="c3_refresh_range_too_large">所选日期或记录数量超过下载上限，未显示截短结果。请尝试缩小日期范围；已有记录可能过期。</string>
   <string name="c3_refresh_service_unavailable">服务暂时不可用，已有记录可能过期，请稍后再次刷新。</string>
   <string name="c3_refresh_retry_later">服务要求稍后重试，已有记录可能过期，请等待后再刷新。</string>
+  <string name="c3_refresh_authorization_failed">你无权刷新这些记录。之前保存的记录将继续显示，但可能已经过期。</string>
 </resources>
