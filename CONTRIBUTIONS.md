@@ -1,5 +1,7 @@
 # Contribution log
 
+2026-11-07 — tianiridescent (C1), Refs #10 / PR #112: main-based caregiver pairing form integration using the existing authenticated repositories, journal recovery, session fencing and bilingual request history. Original #112 form work retained; older preview/login/navigation dependencies excluded. [Local scope and verification](docs/evidence/C1_PAIRING_MAIN_INTEGRATION.md). Unpublished candidate; CI, member device confirmation and non-author review pending.
+
 2026-10-27 publication update: the earlier local-candidate entries below describe their preparation time. Those prepared slices are now visible as Draft PRs [#60–#73](https://github.com/BRMRs/group33/pull/60); required scope/reviewer/dependency confirmation and formal acceptance remain open.
 
 Update this file weekly. Use links to GitHub issues and pull requests after the repository has its first commit.
@@ -24,6 +26,7 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 
 
 2026-10-22：负责人已确认的产品规则、初版参数及六人分工随文档PR #25统一；独立S1代码在[PR #37](https://github.com/BRMRs/group33/pull/37)，不计入本PR的代码贡献。各人正式review/同版签署仍待完成。
+| 2 | Iris-wly (C2), agent-assisted | [#52](https://github.com/BRMRs/group33/issues/52), read-only plan browser state | feature/52-c2-plan-list-state | [Local verification](docs/evidence/C2_PLAN_BROWSER.md), 9 JVM cases, Android lint/build | Partial delivery; real host, pages and device acceptance pending |
 
 2026-10-22 S1交付：负责人委托的agent辅助代码/测试，关联[#24](https://github.com/BRMRs/group33/issues/24)/[#12](https://github.com/BRMRs/group33/issues/12)，范围与验证见[S1交付](docs/S1_LOCAL_IMPLEMENTATION.md)。负责人已授权通过独立Draft PR提交本次改动；实际提交/PR由GitHub记录。成员正式review仍待完成，不记为已验收个人贡献。
 
@@ -77,6 +80,10 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 
 2026-11-05 — BRMRs, Refs #15 / PR #110: reused #59 shared entry and #92 navigation, removed the parallel Debug launcher and legacy role chooser, and retained anonymous login only in Debug. Merge-readiness audit reproduced and corrected obsolete-Elder cache publication, same-Elder relationship reattachment, false recovery success and Elder sync-management UI; nine new JVM regressions, bilingual 14-phase reruns and 67 device regressions passed. [Review routing and remaining merge conditions](docs/PR110_MERGE_READINESS.md). Automated audit is not member approval; no main merge, parent-issue completion or physical-device acceptance is implied.
 
+2026-11-06 — Iris-wly / C2, Refs #51: sectioned plan editor using shared colors, calendar selection with explicit confirmation/cancel/no-end actions, bilingual resources and Debug preview. Android 113 JVM tests, lint, Debug/Release builds pass; device calendar evidence and deferred accessibility/real-backend boundaries in [review record](docs/evidence/C2_EDITOR_VISUAL_REFRESH.md). Partial delivery; #51 remains open for API27, TalkBack, 200% font, small-screen and real-backend acceptance.
+
+2026-11-05 — BRMRs, Refs #50/#52/#15: independent `feature/52-photo-plan-formal-host` from frozen #110 `4db15b7`, reusing unchanged #55 photo state and latest #107 `1638f116` plan browser with original histories. Formal photo preview/explicit create and plan details now consume those components; duplicate collection/selection state removed. Added scoped decode retry, automatic Elder observation recovery and verified API33+ language cold restoration. [Scope](docs/PHOTO_PLAN_FORMAL_HOST.md) and [actual bilingual/device evidence](docs/evidence/PHOTO_PLAN_FORMAL_HOST.md). Source authors retain attribution; no parent-head update, member approval, full issue completion or physical acceptance claimed.
+
 2026-11-07 - tianiridescent / C1, Refs #19: shared-login keyboard viewport correction from current main, preserving existing authentication boundaries. Real API35 320/360dp 200% English/Chinese keyboard tests cover SMS/password/reset submission and return; the baseline password counterexamples fail before the correction. [Scope and evidence](docs/evidence/C1_LOGIN_KEYBOARD_INSETS.md). API27 physical-tablet bilingual compatibility also passed (24 total device cases). Local candidate; publication and non-author review remain separate.
 
 | 2026-11-16 | XinyanXue — S2 (agent-assisted) | #121 / #119 | [PR #121](https://github.com/BRMRs/group33/pull/121) | Follow E review: deadline-aware notification feedback, old notification action PendingIntent/receiver/Room regression cases and current-main checksum conflict resolution. Required API35 evidence recorded separately; no protocol/cloud changes. | Non-author and role reviews remain required; no formal approval/main merge. |
@@ -85,6 +92,12 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 2026-11-19 — XinyanXue / S2, Refs #17/#24/#119: reproduce claimed-action/phase recovery scan omissions on real Room (two original failures, one passing control), repair scan/retry/unique-work/cancellation behavior, add eight device cases and a two-process response-loss probe. [Scope and evidence](docs/evidence/S2_INTERRUPTED_DISPATCH_RECOVERY.md). Separate repair branch retains S1 authorship; same-head CI and S1/non-author review remain required. No V2/Server/schema change, approval or merge claimed.
 
 2026-11-20 — XinyanXue / S2, Refs #17/#24/#119/#135: extend [recovery evidence](docs/evidence/S2_INTERRUPTED_DISPATCH_RECOVERY.md#2026-11-20-additional-verification) to production bootstrap/real WorkManager with unchanged work UUID and actual lease expiry, plus packaged Server/TCP/PostgreSQL response loss, immutable receipt replay, current-state separation and JVM restart. Local automatic recovery and the 62-assertion backend flow pass; final CI/artifacts are recorded on the PR. Test/CI additions only; no production wire/schema or formal approval.
+2026-11-22 - tianiridescent / C1, Refs #10: prepared #112 compatibility with main b5acc05. Debug/Release 162/161, lint 0 errors/37 warnings, three APKs; current C1 navigation device checks passed. Retained separate main component API27 failures and routed Debug/test-only repair to #19. Shared reused; Server unchanged/not rerun. No phone integration or formal review claimed.
+
+- 2026-11-23 — XinyanXue (S2), agent-assisted: reproduced four foreign pairing receipt counterexamples on #112; preserve original command identity and validate immediate/recovery metadata, with nine regression cases. Refs #10. C1 ownership and S1 review remain.
+
+
+2026-11-25 — BRMRs / S1 (agent-assisted), Refs #10 / PR #141: reproduce five command-observation counterexamples against the exact original receipt-fix head, then reuse recovery identity validation before accepting journal updates and retain original recovery across invalid/missing snapshots. Add seven observation regressions without changing the original nine S2 probes or prior C1 tests. Full gate/test/lint/Debug+Release build passed; executed Server628, Shared18, Android178/177 reports have zero failures/errors/skips. See docs/evidence/S2_PAIRING_RECEIPT_IDENTITY_20261123.md. No new Server wire, permission, supplier/device acceptance or teammate approval is claimed.
 | 2026-11-13 | XinyanXue — S2 (agent-assisted) | #96 / #118 design review follow-through | Existing #96 | Preserve actual main6114071 code/layout; correct obsolete transport-work status to delivered #97 branch and add explicit D1–D4 decision/evidence/configuration checklist. Fictional structural examples remain unchanged. | Design decisions remain PENDING/Proposed; no production protocol, migration, deployment or human approval. |
 
 | 2026-11-16 | XinyanXue — S2 (agent-assisted) | #96 / #118 | [PR #96](https://github.com/BRMRs/group33/pull/96) | Follow C1 D1 review: same-attempt SDK refresh, immutable deadline, original capability/profile, serialized grant/verify work and cancellation/switch/late-response acceptance cases; proposal only, no accepted wire or production code. | Non-author and role reviews remain required; no formal approval/main merge. |
@@ -92,3 +105,5 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 ### 2026-11-17 — XinyanXue / S2 — #96 decision follow-up
 
 Sync actual main; record attributable S1/lead D1–D4 decisions and15-second call boundary, unknown-attempt closure,401/403/404 recovery and configuration truth. Independent non-author security approval and actual provider/service evidence remain pending. Documentation-only own delta.
+
+- 2026-11-26 BRMRs / S1: adopt C1-approved #134 into formal-host #111, integrate actual main855364eb, verify the final Room combination and correct current-versus-historical component provenance without changing runtime/tests. Refs #50 / #52 / #15.
