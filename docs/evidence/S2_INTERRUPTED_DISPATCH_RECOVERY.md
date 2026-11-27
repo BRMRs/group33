@@ -110,7 +110,7 @@ evidence stays attributable to its own run.
 ## 2026-11-27 current-main hardening
 
 The production lease remains 60 seconds. The opt-in disposable API35 test application now overrides
-only that lease to 5 seconds, while still using the production startup and WorkManager path, original
+only that lease to 20 seconds, while still using the production startup and WorkManager path, original
 work UUID and real automatic retry. This removes a real-minute test wait without changing production
 behavior. The runtime clock is now supplied by the application boundary so deadline, recovery,
 notification and Worker decisions can use an injected clock in tests. Historical 105-second evidence

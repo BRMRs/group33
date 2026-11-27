@@ -29,7 +29,7 @@ class AutomaticRecoveryRunner : AndroidJUnitRunner() {
 }
 
 class AutomaticRecoveryApplication : Group33Application() {
-    internal override val reminderDispatchClaimTimeoutMillis: Long get() = 5_000L
+    internal override val reminderDispatchClaimTimeoutMillis: Long get() = 20_000L
 
     internal override val reminderActionDispatcher: ReminderActionDispatcher?
         get() {
@@ -107,7 +107,7 @@ class AutomaticRecoveryProbeTest {
                 val originalRunCount = before.getInt("claimedRunAttemptCount")
                 val observations = JSONArray()
                 var lastObservation = ""
-                withTimeout(60_000) {
+                withTimeout(55_000) {
                     while (true) {
                         val infos = work.getWorkInfosForUniqueWork("reminder-action-$id").get(10, TimeUnit.SECONDS)
                         if (infos.isNotEmpty()) {

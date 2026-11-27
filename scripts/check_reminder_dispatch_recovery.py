@@ -116,7 +116,7 @@ def run_checks(adb, serial, output, env=None, skip_room=False, automatic=False):
             device('shell', 'am', 'force-stop', PACKAGE).check_returncode()
             preparing.wait(timeout=15)
             release.set()
-        check_run(instrument(probe, ('phase', 'verify'), ('s2RecoveryUrl', url), timeout=90), 1, 'verify-new-process.log')
+        check_run(instrument(probe, ('phase', 'verify'), ('s2RecoveryUrl', url), timeout=60), 1, 'verify-new-process.log')
         proof = device('exec-out', 'run-as', PACKAGE, 'cat', 'files/' + prefix + '-result.json')
         proof.check_returncode(); durable = json.loads(proof.stdout)
         with lock:
@@ -128,7 +128,7 @@ def run_checks(adb, serial, output, env=None, skip_room=False, automatic=False):
         if automatic:
             assert durable['manualRecoveryCalls'] == 0 and durable['observedRetry']
             assert durable['elapsedClaimMillis'] > durable['claimTimeoutMillis']
-            assert durable['claimTimeoutMillis'] == 5_000 and durable['workId'] == original['workId']
+            assert durable['claimTimeoutMillis'] == 20_000 and durable['workId'] == original['workId']
             assert durable['originalRunAttemptCount'] == original['claimedRunAttemptCount']
             assert any(x['state'] == 'ENQUEUED' and x['actionState'] == 'DISPATCHING'
                        and x['runAttemptCount'] > original['claimedRunAttemptCount']
