@@ -21,10 +21,40 @@ class EventReadDenialRoomTest {
     private val otherDates = LocalDateRange("2026-10-21", "2026-10-21")
     private val json = ContractProtocol.json
 
-    @Test fun denied403ClearsPayloadAndLatchesHistoryAcrossPrecachedDates() = runBlocking { denied(403) }
-    @Test fun denied404ClearsPayloadAndLatchesHistoryAcrossPrecachedDates() = runBlocking { denied(404) }
+    @Test fun wrongRole403PreservesAuthorizedStaleEvents() = runBlocking { fixture { f ->
+        f.seed(dates)
+        val original = f.raw(f.elder.id, dates)
+        val originalSync = f.repository.observeEvents(f.elder.id, dates).first().lastSuccessfulSyncAtEpochMillis
+        val history = f.history(dates)
+        await { history.state.value.authorized && history.state.value.events.isNotEmpty() }
+        onMain { history.selectEvent(history.state.value.events.first().occurrence) }
+        val selected = history.state.value.selectedOccurrence
+        val relationshipReads = f.http.relationshipReads.get()
 
-    private suspend fun denied(status: Int) = fixture { f ->
+        f.http.denial = 403
+        assertTrue(f.repository.refresh(f.elder.id, dates) is Outcome.Failure)
+
+        val observed = withTimeout(5_000) {
+            f.repository.observeEvents(f.elder.id, dates).first { it.isStale }
+        }
+        println("EVENT_DENIAL status=403 access=${observed.access} rows=${observed.value.size} stale=${observed.isStale}")
+        assertEquals(AccessState.AUTHORIZED, observed.access)
+        assertTrue(observed.value.isNotEmpty())
+        assertEquals(originalSync, observed.lastSuccessfulSyncAtEpochMillis)
+        assertEquals(original, f.raw(f.elder.id, dates))
+        await { history.state.value.isStale }
+        assertTrue(history.state.value.authorized)
+        assertTrue(history.state.value.events.isNotEmpty())
+        assertEquals(selected, history.state.value.selectedOccurrence)
+        assertNotNull(history.state.value.selectedEvent)
+        assertEquals(relationshipReads, f.http.relationshipReads.get())
+        assertEquals(AuthReadiness.READY, f.repository.observeSession().first().readiness)
+        assertEquals(CareRelationshipStatus.ACTIVE, f.repository.observeRelationships().first().value.single { it.elderId == f.elder.id }.status)
+    } }
+
+    @Test fun denied404ClearsPayloadAndLatchesHistoryAcrossPrecachedDates() = runBlocking { denied404() }
+
+    private suspend fun denied404() = fixture { f ->
         f.seed(dates); f.seed(otherDates)
         val originalSync = f.repository.observeEvents(f.elder.id, dates).first().lastSuccessfulSyncAtEpochMillis
         assertNotNull(originalSync)
@@ -33,11 +63,11 @@ class EventReadDenialRoomTest {
         onMain { history.selectEvent(history.state.value.events.first().occurrence) }
         assertNotNull(history.state.value.selectedEvent)
         val relationshipReads = f.http.relationshipReads.get()
-        f.http.denial = status
+        f.http.denial = 404
         assertTrue(f.repository.refresh(f.elder.id, dates) is Outcome.Failure)
         val observed = withTimeout(5_000) { f.repository.observeEvents(f.elder.id, dates).first { it.access != AccessState.AUTHORIZED } }
         val raw = f.raw(f.elder.id, dates)
-        println("EVENT_DENIAL status=$status access=${observed.access} rows=${observed.value.size} emptyPayload=${raw.first == "[]"}")
+        println("EVENT_DENIAL status=404 access=${observed.access} rows=${observed.value.size} emptyPayload=${raw.first == "[]"}")
         assertEquals(AccessState.REVOKED, observed.access)
         assertTrue(observed.value.isEmpty())
         assertEquals(originalSync, observed.lastSuccessfulSyncAtEpochMillis)
@@ -88,7 +118,7 @@ class EventReadDenialRoomTest {
         f.database.openHelper.writableDatabase.execSQL(
             "UPDATE chain_documents SET syncedAt=0 WHERE target=? AND kind=?",
             arrayOf(f.elder.id, "dose-events:${dates.fromDate}:${dates.throughDate}"))
-        f.http.denial = 403
+        f.http.denial = 404
         assertTrue(f.repository.refresh(f.elder.id, dates) is Outcome.Failure)
         val denied = f.repository.observeEvents(f.elder.id, dates).first()
         assertEquals(AccessState.REVOKED, denied.access)

@@ -448,7 +448,7 @@ internal class DebugChainRepository(
             val reply = doseHttp(lease, "GET", "/api/v1/elders/${segment(elderId)}/dose-events" +
                 "?fromDate=${range.fromDate}&throughDate=${range.throughDate}")
             if (reply.status !in 200..299) {
-                if (reply.status in setOf(403, 404)) publish(lease) { cache.withTransaction {
+                if (reply.status == 404) publish(lease) { cache.withTransaction {
                     // Publish the empty private payload and terminal access atomically, but a
                     // denied read must never advance the last successful synchronization time.
                     val id = rowId(lease.scope, kind, elderId)
