@@ -1,0 +1,4 @@
+<resources>
+    <string name="reminder_snooze_unavailable">剩余时间不足，无法再延后10分钟。原截止时间前仍可选择“已服用”。</string>
+    <string name="reminder_snooze_unavailable_details">%1$s · %2$s\n剩余时间不足，无法再延后10分钟。原截止时间前仍可选择“已服用”。</string>
+</resources>

@@ -192,11 +192,17 @@ class ChainOnlineFlowTest {
                 val session = ready()
                 val activity = foreground(CaregiverHomeActivity::class.java)
                 nav(activity, R.id.nav_settings)
-                instrumentation.runOnMainSync {
-                    descendants(activity.window.decorView).filterIsInstance<EditText>()
-                        .single { it.hint == activity.getString(R.string.chain_enter_code) }.setText(b.getString("code"))
+                waitUntil {
+                    var enabled = false
+                    instrumentation.runOnMainSync {
+                        enabled = activity.findViewById<View>(R.id.pairing_submit_button)?.isEnabled == true
+                    }
+                    enabled
                 }
-                click(activity, R.string.chain_pair)
+                instrumentation.runOnMainSync {
+                    activity.findViewById<EditText>(R.id.pairing_code_input).setText(b.getString("code"))
+                }
+                click(activity, R.string.pairing_submit)
                 val request = withTimeout(20_000) { s.pairing.observeRequests().first { row ->
                     row.access == AccessState.AUTHORIZED && row.value.any { it.status == PairingRequestStatus.PENDING }
                 } }.value.single { it.status == PairingRequestStatus.PENDING }
@@ -261,11 +267,12 @@ class ChainOnlineFlowTest {
                 waitUntil {
                     var exists = false
                     instrumentation.runOnMainSync { exists = descendants(activity.window.decorView).filterIsInstance<Button>()
-                        .any { it.text == activity.getString(R.string.chain_inspect_number, 1) } }
+                        .any { it.text == activity.getString(R.string.chain_view_photo_number, 1) } }
                     exists
                 }
                 instrumentation.runOnMainSync { descendants(activity.window.decorView).filterIsInstance<Button>()
-                    .single { it.text == activity.getString(R.string.chain_inspect_number, 1) }.performClick() }
+                    .single { it.text == activity.getString(R.string.chain_view_photo_number, 1) }.performClick() }
+                click(activity, R.string.browse_create_plan)
                 waitUntil {
                     var bound = false
                     instrumentation.runOnMainSync {
@@ -301,6 +308,46 @@ class ChainOnlineFlowTest {
                 assertEquals(OnlineCommandState.CONFIRMED, record.state)
                 launch()
                 success(s.pairing.refresh()); success(s.photos.refresh(b.getString("elderId")))
+            }
+            "caregiver-browser" -> {
+                val b = read(); ready()
+                var activity = launch()
+                var host: ChainViewModel? = null
+                waitUntil {
+                    instrumentation.runOnMainSync { host = featureModel(activity as CaregiverHomeActivity) }
+                    host!!.state.value.browser.items.any { it.id == b.getString("planId") }
+                }
+                instrumentation.runOnMainSync {
+                    descendants(activity.window.decorView).filterIsInstance<Button>()
+                        .single { it.text.contains("Fictional medicine") }.performClick()
+                }
+                waitUntil { host!!.state.value.browser.details?.plan?.id == b.getString("planId") }
+                instrumentation.runOnMainSync {
+                    assertEquals(activity.getString(R.string.browse_preview_unavailable),
+                        activity.findViewById<TextView>(R.id.plan_preview_status).text.toString())
+                    assertTrue(descendants(activity.window.decorView).filterIsInstance<PlanEditorView>().none { it.isShown })
+                    activity.recreate()
+                }
+                val previous = activity
+                waitUntil {
+                    activity = foreground(CaregiverHomeActivity::class.java)
+                    var selected = false
+                    instrumentation.runOnMainSync {
+                        host = featureModel(activity as CaregiverHomeActivity)
+                        selected = activity !== previous && host!!.state.value.browser.details?.plan?.id == b.getString("planId") &&
+                            activity.findViewById<TextView>(R.id.plan_details_heading)?.isShown == true
+                    }; selected
+                }
+                waitUntil { !host!!.state.value.busy && host!!.state.value.browser.plans?.isStale == false }
+                instrumentation.waitForIdleSync()
+                screenshot(activity, "caregiver-browser")
+                click(activity, R.string.browse_plan_photo)
+                waitUntil { host!!.state.value.viewed?.metadata?.id == b.getString("photoId") }
+                instrumentation.runOnMainSync {
+                    assertTrue(descendants(activity.window.decorView).filterIsInstance<ImageView>().any { it.isShown && it.drawable != null })
+                    assertTrue(descendants(activity.window.decorView).filterIsInstance<PlanEditorView>().none { it.isShown })
+                }
+                screenshot(activity, "caregiver-photo")
             }
             "caregiver-navigation" -> {
                 val b = read(); ready()
@@ -508,7 +555,20 @@ class ChainOnlineFlowTest {
                     app.elderDoses.state.first { state -> state.due?.keys?.any { it.planId == planId } == true }
                 }
                 val manager = app.getSystemService(android.app.NotificationManager::class.java)
-                waitUntil { manager.activeNotifications.any { it.id == 14001 } }
+                waitUntil { manager.activeNotifications.any {
+                    it.notification.channelId == com.group33.medicationreminder.core.reminder.ReminderNotifications.CHANNEL_ID
+                } }
+
+                val offlineRecovery = InstrumentationRegistry.getArguments()
+                    .getString("offlineActionRecovery") == "true"
+                if (offlineRecovery) {
+                    shell("cmd connectivity airplane-mode enable")
+                    shell("svc wifi disable")
+                    shell("svc data disable")
+                    waitUntil {
+                        app.getSystemService(android.net.ConnectivityManager::class.java).activeNetwork == null
+                    }
+                }
 
                 click(activity, R.string.elder_action_taken)
                 waitUntil {
@@ -523,9 +583,18 @@ class ChainOnlineFlowTest {
                 val recorded = taken.occurrences.single { it.key == frozen.key }
                 assertNotNull(recorded.takenAt)
                 assertNull(app.elderDoses.state.value.due)
-                waitUntil { manager.activeNotifications.none { it.id == 14001 } }
+                waitUntil { manager.activeNotifications.none {
+                    it.notification.channelId == com.group33.medicationreminder.core.reminder.ReminderNotifications.CHANNEL_ID
+                } }
 
-                if (b.optBoolean("verifyDoseUpload")) {
+                var localActionId: String? = null
+                if (offlineRecovery) {
+                    val runtime = com.group33.medicationreminder.core.reminder.ReminderDatabase.open(app).reminders()
+                    val action = runtime.pendingActions().single()
+                    assertEquals(com.group33.medicationreminder.core.reminder.ReminderDispatchState.PENDING.name,
+                        action.dispatchState)
+                    localActionId = action.actionId
+                } else if (b.optBoolean("verifyDoseUpload")) {
                     val scope = trusted.scope
                     val scopeId = ChainCache.digest(listOf(scope.environmentId, scope.installationId, scope.userId)
                         .joinToString("") { "${it.length}:$it" })
@@ -552,7 +621,8 @@ class ChainOnlineFlowTest {
                     assertFalse(success(repository.localElderDoses(trusted, clock,
                         futureGroup to DoseActionKind.REMIND_LATER)).actionRecorded)
                 }
-                write(b.put("localTakenAt", recorded.takenAt).put("localDosePid", android.os.Process.myPid()))
+                write(b.put("localTakenAt", recorded.takenAt).put("localDosePid", android.os.Process.myPid())
+                    .apply { if (localActionId != null) put("localDoseActionId", localActionId) })
             }
             "elder-live-dose-restart" -> {
                 val b = read()
@@ -563,6 +633,25 @@ class ChainOnlineFlowTest {
                 assertEquals(b.getLong("localTakenAt"), occurrences.single {
                     it.key.planId == b.getString("liveDosePlan") && it.plannedAt == b.getLong("liveDoseAt")
                 }.takenAt)
+                if (InstrumentationRegistry.getArguments().getString("offlineActionRecovery") == "true") {
+                    val actionId = b.getString("localDoseActionId")
+                    val dao = com.group33.medicationreminder.core.reminder.ReminderDatabase.open(app).reminders()
+                    com.group33.medicationreminder.core.reminder.ReminderCoordinator(app).recover()
+                    waitUntil {
+                        dao.action(actionId)?.dispatchState ==
+                            com.group33.medicationreminder.core.reminder.ReminderDispatchState.ACKNOWLEDGED.name
+                    }
+                    val scope = trusted.scope
+                    val scopeId = ChainCache.digest(listOf(scope.environmentId, scope.installationId, scope.userId)
+                        .joinToString("") { "${it.length}:$it" })
+                    val cache = ChainCache.open(app)
+                    try {
+                        assertTrue(cache.documents().readKind(scopeId, "elder-dose-action-needs-attention", 1).isEmpty())
+                        assertEquals(actionId, cache.documents().readKind(scopeId, "elder-dose-action-synced", 2)
+                            .single().let { ContractProtocol.json.decodeFromString(
+                                com.group33.medicationreminder.elder.LocalElderAction.serializer(), it.body).id })
+                    } finally { cache.close() }
+                }
             }
             "caregiver-sees-taken" -> {
                 val b = read()
@@ -632,6 +721,12 @@ class ChainOnlineFlowTest {
                 assertNull(s.trusted.value)
             }
             else -> error("Unknown integration phase")
+        }
+    }
+
+    private fun shell(command: String) {
+        instrumentation.uiAutomation.executeShellCommand(command).use { descriptor ->
+            java.io.FileInputStream(descriptor.fileDescriptor).use { it.readBytes() }
         }
     }
 }
