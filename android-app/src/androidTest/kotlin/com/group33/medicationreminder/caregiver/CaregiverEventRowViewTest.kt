@@ -3,7 +3,9 @@ package com.group33.medicationreminder.caregiver
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Rect
 import android.view.ContextThemeWrapper
 import android.view.LayoutInflater
 import android.view.View
@@ -94,7 +96,35 @@ class CaregiverEventRowViewTest {
         row.bindEvent(event.copy(localReports = listOf(report.copy(occurrence = occurrence.copy(planId = "other")))).toCaregiverEventRow())
         assertTrue(row.reportLinkError.text.isNotEmpty())
         row.bindEvent(event.toCaregiverEventRow())
-        listOf(row.syncedReports, row.reportLinkError, row.localSync).forEach(::assertCleared)
+        listOf(row.syncedReports, row.serverAcceptedTakenReport, row.reportLinkError, row.localSync)
+            .forEach(::assertCleared)
+    }
+
+    @Test fun serverAcceptedTakenTimeIsBilingualAndClearsWhenEvidenceIsUnavailable() {
+        for (language in listOf("en", "zh")) withRow(language) { row ->
+            val acceptedTakenAt = planned + 3_600_000L
+            row.bindEvent(event.copy(
+                lastAcceptedStatus = DoseStatus.TAKEN,
+                serverAcceptedTakenAtEpochMillis = acceptedTakenAt,
+                localReports = listOf(report),
+            ).toCaregiverEventRow())
+
+            val text = row.serverAcceptedTakenReport.text.toString()
+            assertEquals(View.VISIBLE, row.serverAcceptedTakenReport.visibility)
+            assertTrue(text, text.contains(if (language == "en") "Elder reported taking medication" else "长者报告已服药"))
+            assertTrue(text, text.contains(if (language == "en") "not independently verified" else "未经独立验证"))
+            assertTrue(text, text.contains(if (language == "en") "Recorded (device time zone)" else "记录时间（本机时区）"))
+            assertTrue(text, Regex("0?1:00:00").containsMatchIn(text))
+            assertFalse(text, Regex("0?2:00:01").containsMatchIn(text))
+
+            row.bindEvent(event.copy(lastAcceptedStatus = DoseStatus.TAKEN).toCaregiverEventRow())
+            assertCleared(row.serverAcceptedTakenReport)
+            row.bindEvent(event.copy(
+                lastAcceptedStatus = DoseStatus.MISSED,
+                serverAcceptedTakenAtEpochMillis = acceptedTakenAt,
+            ).toCaregiverEventRow())
+            assertCleared(row.serverAcceptedTakenReport)
+        }
     }
 
     @Test fun everyAcceptedOutcomeHasTextIncludingUnknown() = withRow { row ->
@@ -142,8 +172,10 @@ class CaregiverEventRowViewTest {
                     assertTrue(Color.alpha(text.currentTextColor) == 255)
                     assertTrue(ColorUtils.calculateContrast(text.currentTextColor, background) >= 4.5)
                 }
-                // A real window capture, not proof of actual system font settings or spoken TalkBack output.
-                val screenshot = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+                // Capture the attached rendered row without depending on OEM UiAutomation services.
+                // This is not proof of actual system font settings or spoken TalkBack output.
+                val screenshot = Bitmap.createBitmap(row.root.width, row.root.height, Bitmap.Config.ARGB_8888)
+                row.root.draw(Canvas(screenshot))
                 try {
                     val file = File(activity.cacheDir, "c3-row-$language-$scale-$width.png")
                     file.outputStream().use { assertTrue(screenshot.compress(Bitmap.CompressFormat.PNG, 100, it)) }
@@ -157,31 +189,93 @@ class CaregiverEventRowViewTest {
         }
     }
 
+    @Test fun serverAcceptedTakenEvidenceWrapsAt320DpAnd200PercentInBothLanguages() {
+        val acceptedTakenAt = planned + 3_600_000L
+        for (language in listOf("en", "zh")) withRow(
+            language,
+            scale = 2f,
+            widthDp = 320,
+            afterLayout = { _, row ->
+                val evidence = row.serverAcceptedTakenReport
+                assertEquals(View.VISIBLE, evidence.visibility)
+                val layout = checkNotNull(evidence.layout)
+                assertTrue("$language report must wrap at 320dp", layout.lineCount > 2)
+                for (line in 0 until layout.lineCount) {
+                    assertEquals("$language line $line", 0, layout.getEllipsisCount(line))
+                }
+                assertTrue(evidence.height >= layout.height + evidence.totalPaddingTop + evidence.totalPaddingBottom)
+                val text = evidence.text.toString()
+                assertTrue(text, text.contains(
+                    if (language == "en") "Server-accepted medication report" else "服务器已接受的服药报告",
+                ))
+                assertTrue(text, text.contains("1:00:00"))
+                val node = evidence.createAccessibilityNodeInfo()
+                try {
+                    val accessibleText = node.text.toString()
+                    assertTrue(accessibleText, accessibleText.contains(
+                        if (language == "en") "Recorded (device time zone)" else "记录时间（本机时区）",
+                    ))
+                    assertTrue(accessibleText, accessibleText.contains("1:00:00"))
+                } finally {
+                    @Suppress("DEPRECATION")
+                    node.recycle()
+                }
+            },
+        ) { row ->
+            row.bindEvent(event.copy(
+                lastAcceptedStatus = DoseStatus.TAKEN,
+                medicationSnapshot = MedicationText(
+                    "Fictional medication / 虚构药品 ".repeat(8),
+                    "Fictional dosage / 虚构剂量 ".repeat(6),
+                ),
+                serverAcceptedTakenAtEpochMillis = acceptedTakenAt,
+            ).toCaregiverEventRow())
+        }
+    }
+
     @Test fun debugHostKeepsScrolledReportAboveSystemBars() = withRow(scale = 2f, widthDp = 320,
+        viewportHeightDp = 600,
         afterLayout = { host, row ->
             val scroll = host.container
             val bars = checkNotNull(ViewCompat.getRootWindowInsets(scroll)).getInsets(
                 WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-            assertTrue("bottom padding=${scroll.paddingBottom}, system inset=${bars.bottom}",
-                scroll.paddingBottom >= bars.bottom)
-            assertTrue("top padding must avoid system UI", scroll.paddingTop >= bars.top)
-            assertTrue("fixture must exceed viewport", row.root.height > scroll.height)
-            scroll.isSmoothScrollingEnabled = false
-            scroll.fullScroll(View.FOCUS_DOWN)
             val scrollPosition = IntArray(2).also(scroll::getLocationOnScreen)
-            val reportPosition = IntArray(2).also(row.syncedReports::getLocationOnScreen)
-            val safeBottom = scrollPosition[1] + scroll.height - bars.bottom
-            assertTrue("last report must be above system bar",
-                reportPosition[1] + row.syncedReports.height <= safeBottom)
-            assertTrue("last report must be fully inside the visible viewport",
-                reportPosition[1] >= scrollPosition[1] + scroll.paddingTop)
+            val displayBottom = scroll.resources.displayMetrics.heightPixels - bars.bottom
+            assertTrue("top content must avoid system UI",
+                scrollPosition[1] + scroll.paddingTop >= bars.top)
+            assertTrue("bottom content must avoid system UI",
+                scrollPosition[1] + scroll.height - scroll.paddingBottom <= displayBottom)
+            assertTrue("fixture must exceed viewport", row.root.height > scroll.height)
+            row.syncedReports.requestRectangleOnScreen(Rect(0, 0,
+                row.syncedReports.width, row.syncedReports.height), true)
+            val requestedPosition = IntArray(2).also(row.syncedReports::getLocationOnScreen)
+            val requestedScrollPosition = IntArray(2).also(scroll::getLocationOnScreen)
+            val safeBottom = minOf(
+                requestedScrollPosition[1] + scroll.height - scroll.paddingBottom,
+                displayBottom,
+            )
+            val overflow = requestedPosition[1] + row.syncedReports.height - safeBottom
+            if (overflow > 0) scroll.scrollBy(0, overflow)
+            val scrolledPosition = IntArray(2).also(scroll::getLocationOnScreen)
+            val visibleReportPosition = IntArray(2).also(row.syncedReports::getLocationOnScreen)
+            val finalSafeBottom = minOf(
+                scrolledPosition[1] + scroll.height - scroll.paddingBottom,
+                displayBottom,
+            )
+            assertTrue("last report must be above system bar: reportBottom=${visibleReportPosition[1] + row.syncedReports.height}, safeBottom=$finalSafeBottom",
+                visibleReportPosition[1] + row.syncedReports.height <= finalSafeBottom)
+            val finalSafeTop = maxOf(scrolledPosition[1] + scroll.paddingTop, bars.top)
+            assertTrue("report must intersect the readable viewport: reportTop=${visibleReportPosition[1]}, reportBottom=${visibleReportPosition[1] + row.syncedReports.height}, safeTop=$finalSafeTop, safeBottom=$finalSafeBottom, scrollY=${scroll.scrollY}, childHeight=${scroll.getChildAt(0).height}",
+                visibleReportPosition[1] < finalSafeBottom &&
+                    visibleReportPosition[1] + row.syncedReports.height > finalSafeTop)
         }) { row ->
         row.bindEvent(event.copy(medicationSnapshot = MedicationText("Fictional medication ".repeat(40),
             "Fictional dosage ".repeat(40)), localReports = listOf(report)).toCaregiverEventRow())
     }
 
     private fun texts(row: ItemCaregiverOverviewEventBinding) = listOf(row.medication, row.dosage,
-        row.plannedTime, row.outcome, row.localSync, row.syncedReports, row.reportLinkError)
+        row.plannedTime, row.outcome, row.localSync, row.syncedReports,
+        row.serverAcceptedTakenReport, row.reportLinkError)
 
     private fun assertCleared(view: TextView) {
         assertEquals(View.GONE, view.visibility)
@@ -194,6 +288,7 @@ class CaregiverEventRowViewTest {
     }
 
     private fun withRow(language: String = "en", scale: Float = 1f, widthDp: Int = 360,
+        viewportHeightDp: Int? = null,
         afterLayout: ((CaregiverEventRowTestActivity, ItemCaregiverOverviewEventBinding) -> Unit)? = null,
         block: (ItemCaregiverOverviewEventBinding) -> Unit,
     ) {
@@ -213,6 +308,13 @@ class CaregiverEventRowViewTest {
                 }
                 val context = ContextThemeWrapper(host.createConfigurationContext(configuration), R.style.Theme_Group33)
                 row = ItemCaregiverOverviewEventBinding.inflate(LayoutInflater.from(context))
+                viewportHeightDp?.let { heightDp ->
+                    val density = context.resources.displayMetrics.density
+                    host.container.layoutParams = host.container.layoutParams.apply {
+                        width = (widthDp * density).toInt()
+                        height = (heightDp * density).toInt()
+                    }
+                }
                 host.container.addView(row.root, ViewGroup.LayoutParams(
                     (widthDp * context.resources.displayMetrics.density).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT))
                 block(row)

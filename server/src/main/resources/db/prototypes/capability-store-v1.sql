@@ -56,8 +56,7 @@ CREATE TABLE IF NOT EXISTS capability_operation (
     FOREIGN KEY (elder_id, installation_id, receipt_current_sequence)
         REFERENCES capability_observation(elder_id, installation_id, observation_sequence) DEFERRABLE INITIALLY DEFERRED,
     CHECK (((receipt_payload IS NULL AND accepted_report_id IS NULL AND acknowledged_sequence IS NULL
-            AND receipt_current_sequence IS NULL AND rejection_reason IN ('ROLE_NOT_ALLOWED','RESOURCE_NOT_ACCESSIBLE',
-                'INVALID_REPORT','IDEMPOTENCY_KEY_REUSED','CAPABILITY_SEQUENCE_CONFLICT'))
+            AND receipt_current_sequence IS NULL AND rejection_reason IN ('INVALID_REPORT','CAPABILITY_SEQUENCE_CONFLICT'))
         OR (receipt_payload IS NOT NULL AND accepted_report_id = operation_id AND acknowledged_sequence > 0
             AND receipt_current_sequence >= acknowledged_sequence AND rejection_reason IS NULL
             AND report_payload->>'reportId' = operation_id::text

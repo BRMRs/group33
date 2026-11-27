@@ -29,8 +29,15 @@ internal class CapabilityOperation(
     override fun toString() = "CapabilityOperation(REDACTED)"
 }
 
-internal fun ReminderCapabilityView.detached() = copy(reasons = reasons.toList())
+internal fun ReminderCapabilityReport.detached() = copy(reasons = ArrayList(reasons))
+internal fun ReminderCapabilityView.detached() = copy(reasons = ArrayList(reasons))
 internal fun ReminderCapabilityReceipt.detached() = copy(current = current.detached())
+internal fun CapabilityBinding.detached() = copy(report = report.detached())
+internal fun CapabilityOperation.detached() = CapabilityOperation(
+    binding = binding.detached(),
+    receipt = receipt?.detached(),
+    rejection = rejection,
+)
 
 /** One deployment supplies one shared instance; durable adapters must implement the same transaction. */
 internal interface CapabilityStore {
@@ -57,17 +64,22 @@ internal class InMemoryCapabilityStore(private val lockWaitMillis: Long = 1_000)
     override fun <T> transaction(work: (CapabilityTransaction) -> T): T {
         if (!lock.tryLock(lockWaitMillis, TimeUnit.MILLISECONDS)) throw CapabilityStoreBusy()
         try {
-            val nextOperations = operations.toMutableMap()
-            val nextCurrents = currents.toMutableMap()
-            val nextObservations = observations.toMutableMap()
+            val nextOperations = operations.mapValuesTo(mutableMapOf()) { it.value.detached() }
+            val nextCurrents = currents.mapValuesTo(mutableMapOf()) { it.value.detached() }
+            val nextObservations = observations.mapValuesTo(mutableMapOf()) { it.value.detached() }
             val result = work(object : CapabilityTransaction {
-                override fun operation(key: CapabilityOperationKey) = nextOperations[key]
-                override fun putOperation(key: CapabilityOperationKey, value: CapabilityOperation) { nextOperations[key] = value }
-                override fun current(owner: CapabilityOwner) = nextCurrents[owner]
-                override fun putCurrent(owner: CapabilityOwner, value: ReminderCapabilityView) { nextCurrents[owner] = value }
-                override fun observation(owner: CapabilityOwner, sequence: Long) = nextObservations[owner to sequence]
+                override fun operation(key: CapabilityOperationKey) = nextOperations[key]?.detached()
+                override fun putOperation(key: CapabilityOperationKey, value: CapabilityOperation) {
+                    nextOperations[key] = value.detached()
+                }
+                override fun current(owner: CapabilityOwner) = nextCurrents[owner]?.detached()
+                override fun putCurrent(owner: CapabilityOwner, value: ReminderCapabilityView) {
+                    nextCurrents[owner] = value.detached()
+                }
+                override fun observation(owner: CapabilityOwner, sequence: Long) =
+                    nextObservations[owner to sequence]?.detached()
                 override fun putObservation(owner: CapabilityOwner, report: ReminderCapabilityReport) {
-                    nextObservations[owner to report.observationSequence] = report
+                    nextObservations[owner to report.observationSequence] = report.detached()
                 }
             })
             operations = nextOperations
