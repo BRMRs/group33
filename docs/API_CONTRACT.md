@@ -279,3 +279,7 @@ For a valid `REMIND_LATER` action recorded inside that interval, compute the nom
 - Errors use a consistent JSON body containing `message`.
 
 T01–T07 choices are approved, but full contract-code/adapter PRs still await the six roles' contributions, named Android/Server sign-off on the same version and actual tests. Ordinary implementation Issues remain open. The scoped scaffold corrections described above do not complete those P0 requirements or imply formal sign-off.
+
+## Proposed V2 group/follow-up/probe/delivery contract review
+
+See [isolated review candidate](contracts/proposals/V2_GROUP_PROTOCOL.md). IN_REVIEW is not acceptance; existing routes/DTOs/baseline are unchanged and no production adapter consumes proposal types.

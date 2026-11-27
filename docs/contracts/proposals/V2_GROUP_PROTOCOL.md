@@ -1,0 +1,47 @@
+# V2 group, follow-up, probe and delivery contract — review candidate
+
+Status: **IN_REVIEW / PROPOSED**, not accepted/implemented. Refs #24/#14/#15/#17. Based on main bbe4997034ecb837d2093f4e73267cc530976f29 and [lead decision](https://github.com/BRMRs/group33/issues/24#issuecomment-6940259272). Owner S2; S1 BRMRs same-head contract review, E Katherine-Tang actions/reminders; C3 Cle-cre read/follow-up projection, C1 tianiridescent authorization/host, C2 Iris-wly retained plan inputs. Review requests are not signatures. S2 author self-check cannot substitute for non-author approval.
+
+## Isolation and scope
+
+Compiled DTOs reside in com.group33.shared.contract.proposal. They do not replace r1 DoseActionKind, DebugDoseGroupRequest, existing routes, baseline ID, database or Room. No endpoint is enabled, no migration reserved, and no old data is relabelled V2. This first contract PR must be accepted at the same revision before production fields/adapters freeze. Serialization tests do not prove live HTTP, transactions, provider identity, notification delivery or device behaviour.
+
+The DTOs preserve wire shape and ownership only; they are not business validators. `v2-vectors.json` separates payloads rejected by strict decoding from well-formed payloads that the future authorized service must reject for group/domain invariants.
+
+## Group identity and original receipts
+
+FrozenDoseGroup retains installation-generated canonical UUID doseGroupId, elder/scope, original plannedAt and ordered immutable generation evidence. A group contains1–100 unique OccurrenceKeys sharing plannedAt. Occurrence identity is still planId/localDate/localTime; revision and UTC offset remain evidence only. Order/member changes mean a new group ID, never rewriting an accepted group. Server persists the original vector and compares retries exactly; it cannot rebuild by arrival order. executionScopeId is captured client isolation data, not a credential; authenticated account/installation and current relationship still require same-primary-transaction verification.
+
+GroupIntent uses a distinct stable actionId/Idempotency-Key and TAKEN/REMIND_LATER/HELP enum. Whole-group effects, original receipt and outbox commit together or all roll back; Android event/outbox is one Room transaction. Same key/different frozen payload conflicts; unknown completion retries original identity. GroupIntentReceipt acknowledges only the original command, never current authorization/event state. A later read must return a fresh authorized projection, not overwrite newer facts with replayed receipts.
+
+Original T remains immutable: T+30min notification does not exit Elder flow; response interval is[T,T+2h), ten-minute Snooze must end strictly before deadline and never resets either threshold. HELP is an Elder fact. CaregiverTakeover is an independently authorized caregiver command, never a synthetic Elder Taken. A remote takeover remains pending until a matching `CaregiverTakeoverAcknowledgement` from the active Elder installation records the same action, group and execution scope. Taken/Help/acknowledged takeover may stop prompting while preserving audit and prior alerts. The contract intentionally does not invent a final current-state reducer or declare conflicting/late commands resolved by timestamp; final transition/conflict response vectors must be reviewed with E/S1 before their production implementation.
+
+## Follow-up and corrections
+
+`CaregiverContact` records outreach separately and never completes the follow-up. FollowUpCommand carries stable actionId, followUpId, doseGroupId, expectedRevision, one of TAKEN/NOT_TAKEN/UNABLE_TO_CONFIRM, required actualTime envelope (knowledge KNOWN/UNKNOWN; epochMillis required for KNOWN, omitted/null for UNKNOWN) and enteredAt. These are Caregiver reports, not Elder events. First create uses expectedRevision0; later changes require exact current server revision, increment it and retain every version. FollowUpFact adds authenticated actor, server receivedAt and assigned revision; none of these fields is accepted as trusted caller authority. Link to the frozen expected group even without canonical events; do not fabricate one. Concurrent changes and late Elder facts remain audit/conflict inputs, not destructive replacement.
+
+## Probe and delivery boundaries
+
+DispatchedProbe models actual durable dispatch, with stable round/attempt/group/phase/dispatchedAt. T−5 and T+5 are separate phases. A queued/not-scheduled operation, server error or platform-send acceptance is not device no-response. The response wait is60s from actual dispatchedAt, not original scheduling; at the exact timeout boundary the round is no longer timely. Authenticated current installation and matching round/attempt are checked by Server, not inferred from body. ProbeReply carries identity correlation only; Server stamps receipt time and atomically determines timeliness. Late responses are retained without reversing adjudication; timely valid response in either phase prevents the two-failure alert.
+
+DeliveryAcknowledgement correlates stable alert/delivery/attempt with fencingToken and stage. SENT, DEVICE_RECEIVED, VISIBLE and READ remain distinct; contacted/takeover are separate business commands, not delivery status. Lease holder/generation must be rechecked atomically before state changes; stale tokens cannot complete delivery. Cloud and LAN share logical identity semantics while using separate authenticated audience/key/database/environment and pending queues; cloud pending never migrates into LAN. Existing first-send-inclusive3 attempts,15/60-second parameters and2/5-minute prompts remain unchanged; exhausted attempts do not close follow-up. No SMS/additional contacts are introduced.
+
+## Same-head verification and remaining acceptance
+
+Shared and Android decode identical vectors with strict kotlinx; Server uses actual Boot ObjectMapper and verifies agreement. Original generation evidence/ordering survives round trip. Missing/null/fractional required fields and unknown actor/enum fail wire decoding; duplicate members and mismatched planned instants remain well-formed DTOs explicitly earmarked for future authorized-service rejection. Further vectors cover explicit-unknown actualAt, separate caregiver commands, round identity and fenced delivery stages. These are representation counterexamples only, not implemented domain validation or PG/Room race evidence.
+
+After same-head review: (1) authoritative wire/error/state-transition vectors accepted; (2) implement primary read-only Repeatable Read projection of current relationship, plans/retained revisions/events/capability/follow-ups with existing date/entity budgets; (3) group transaction and Room/outbox; (4) follow-up versions; (5) authenticated probe and cloud/LAN delivery; (6) two-device/restart/permission evidence. Receipt is never permanent current projection. Unresolved reducer/error shapes must be settled in contract review, not silently chosen by a production adapter.
+
+## Decoder counterexample retained
+
+Initial added tests exposed Boot Jackson accepting omitted nullable actualAt while kotlinx rejected it. The proposal now uses a required non-null ActualMedicationTime envelope with explicit KNOWN/UNKNOWN and consistent value constraints. Missing the envelope remains rejected by both; no invalid missing-field assertion was removed. Global Jackson/production DTOs were not changed. Original failure evidence is retained and the complete three-side contract suite rerun.
+
+## 2026-11-18 C2 ownership correction
+
+C2 review5939398335 reproduced caller-owned mutable members changing a frozen group without changing doseGroupId. Four new Shared regressions first failed on the original implementation; original failure/XML retained. FrozenDoseGroup now owns a defensive ordered copy behind an unmodifiable view; explicit copy and both kotlinx/actual Boot Jackson decoding use the same owning constructor. Getter, sublist and iterator cannot mutate backing storage. Elements themselves are immutable existing generation-evidence values. Value equality/hash/destructuring/copy and the original five-field wire are preserved; no r1 DTO, domain validator or production endpoint changed. Three-side tests cover constructor clear, copy reorder/replacement, returned-view mutation and decode. Not evidence of deployed persistence loss or complete V2 acceptance.
+
+## 2026-11-19 cross-client acceptance candidates
+
+[C3/E follow-up packet](V2_ACCEPTANCE_CANDIDATES.md) records no-event follow-up, correction versus late facts/replayed receipts, independent local/Server/delivery observations, and offline Snooze boundary/rejection cases using the existing DTOs. Its JSON envelope is test/review data, not a new response wire. New tests validate payload representation and candidate consistency, not a production reducer or transaction. Rejection recovery remains pending E/S1/non-author Server decisions; same-head review is required before the affected implementation freezes. Prior C2/C1 ownership approvals remain attributable to d50877e.
+
+The [consistent-read implementation plan](V2_CONSISTENT_READ_PLAN.md) maps existing source seams, the registration-versus-recorded-event gap, unmerged capability dependencies, one-primary-transaction boundaries, accepted date/entity budgets and CR01–CR20 future verification. It is preparation for the next implementation slice; no speculative wire, read adapter or passed production test is introduced.

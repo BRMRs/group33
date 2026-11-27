@@ -1,0 +1,85 @@
+{
+  "status": "PROPOSED_NOT_ACCEPTED",
+  "vectors": [
+    {
+      "type": "CaregiverTakeover",
+      "value": {
+        "actionId": "00000000-0000-4000-8000-000000000001",
+        "doseGroupId": "00000000-0000-4000-8000-000000000002",
+        "executionScopeId": "fictional-env/install/elder",
+        "recordedAtEpochMillis": 1
+      }
+    },
+    {
+      "type": "CaregiverTakeoverAcknowledgement",
+      "value": {
+        "actionId": "00000000-0000-4000-8000-000000000001",
+        "doseGroupId": "00000000-0000-4000-8000-000000000002",
+        "executionScopeId": "fictional-env/install/elder",
+        "elderInstallationId": "fictional-elder-installation",
+        "acknowledgedAtEpochMillis": 2,
+        "receivedAtEpochMillis": 3
+      }
+    },
+    {
+      "type": "CaregiverContact",
+      "value": {
+        "actionId": "00000000-0000-4000-8000-000000000004",
+        "followUpId": "00000000-0000-4000-8000-000000000003",
+        "doseGroupId": "00000000-0000-4000-8000-000000000002",
+        "contactedAtEpochMillis": 1
+      }
+    },
+    {
+      "type": "FollowUpCommand",
+      "value": {
+        "actionId": "00000000-0000-4000-8000-000000000001",
+        "followUpId": "00000000-0000-4000-8000-000000000003",
+        "doseGroupId": "00000000-0000-4000-8000-000000000002",
+        "expectedRevision": 0,
+        "outcome": "UNABLE_TO_CONFIRM",
+        "enteredAtEpochMillis": 1,
+        "actualTime": {
+          "knowledge": "UNKNOWN",
+          "epochMillis": null
+        }
+      }
+    },
+    {
+      "type": "DispatchedProbe",
+      "value": {
+        "roundId": "00000000-0000-4000-8000-000000000001",
+        "attemptId": "00000000-0000-4000-8000-000000000002",
+        "doseGroupId": "00000000-0000-4000-8000-000000000003",
+        "phase": "AFTER_FIVE_MINUTES",
+        "dispatchedAtEpochMillis": 1
+      }
+    },
+    {
+      "type": "ProbeReply",
+      "value": {
+        "roundId": "00000000-0000-4000-8000-000000000001",
+        "attemptId": "00000000-0000-4000-8000-000000000002"
+      }
+    },
+    {
+      "type": "DeliveryAcknowledgement",
+      "value": {
+        "alertId": "00000000-0000-4000-8000-000000000001",
+        "deliveryId": "00000000-0000-4000-8000-000000000002",
+        "attemptId": "00000000-0000-4000-8000-000000000003",
+        "fencingToken": 1,
+        "stage": "DEVICE_RECEIVED",
+        "recordedAtEpochMillis": 1
+      }
+    },
+    {
+      "type": "GroupIntentReceipt",
+      "value": {
+        "actionId": "00000000-0000-4000-8000-000000000001",
+        "doseGroupId": "00000000-0000-4000-8000-000000000002",
+        "receivedAtEpochMillis": 2
+      }
+    }
+  ]
+}

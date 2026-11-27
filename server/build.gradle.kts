@@ -106,3 +106,10 @@ tasks.register<Test>("postgresIntegrationTest") {
         systemProperty("s2.postgres.test.classpath", sourceSets.test.get().runtimeClasspath.asPath)
     }
 }
+
+// Proposal vectors are consumed unchanged by all three runtime suites.
+tasks.processTestResources {
+    from(rootProject.file("docs/contracts/proposals/v2-vectors.json")) { into("contracts/proposals") }
+    from(rootProject.file("docs/contracts/proposals/v2-additional-vectors.json")) { into("contracts/proposals") }
+    from(rootProject.file("docs/contracts/proposals/v2-acceptance-candidates.json")) { into("contracts/proposals") }
+}

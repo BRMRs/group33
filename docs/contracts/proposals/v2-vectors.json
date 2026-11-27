@@ -1,0 +1,244 @@
+{
+  "status": "PROPOSED_NOT_ACCEPTED",
+  "valid": {
+    "actionId": "00000000-0000-4000-8000-000000000025",
+    "group": {
+      "doseGroupId": "00000000-0000-4000-8000-000000000024",
+      "elderId": "fictional-elder",
+      "executionScopeId": "fictional-env/install/elder",
+      "plannedAtEpochMillis": 1792454400000,
+      "members": [
+        {
+          "generationId": "00000000-0000-4000-8000-000000000100",
+          "occurrence": {
+            "planId": "plan-1",
+            "localDate": "2026-10-20",
+            "localTime": "08:00"
+          },
+          "planRevision": 1,
+          "generatedAtEpochMillis": 1792450800000,
+          "executionTimeZoneId": "Asia/Shanghai",
+          "plannedAtEpochMillis": 1792454400000,
+          "resolvedOffsetSeconds": 28800,
+          "resolutionPolicyVersion": "P0_TIME_V1",
+          "sourceSnapshotVersion": "confirmed-before-generation",
+          "sourceSnapshotServerAtEpochMillis": 1792368000000
+        }
+      ]
+    },
+    "kind": "HELP",
+    "recordedAtEpochMillis": 1792454401000
+  },
+  "invalid": [
+    {
+      "actionId": "00000000-0000-4000-8000-000000000025",
+      "group": {
+        "doseGroupId": "00000000-0000-4000-8000-000000000024",
+        "elderId": "fictional-elder",
+        "executionScopeId": "fictional-env/install/elder",
+        "plannedAtEpochMillis": 1792454400000,
+        "members": [
+          {
+            "generationId": "00000000-0000-4000-8000-000000000100",
+            "occurrence": {
+              "planId": "plan-1",
+              "localDate": "2026-10-20",
+              "localTime": "08:00"
+            },
+            "planRevision": 1,
+            "generatedAtEpochMillis": 1792450800000,
+            "executionTimeZoneId": "Asia/Shanghai",
+            "plannedAtEpochMillis": 1792454400000,
+            "resolvedOffsetSeconds": 28800,
+            "resolutionPolicyVersion": "P0_TIME_V1",
+            "sourceSnapshotVersion": "confirmed-before-generation",
+            "sourceSnapshotServerAtEpochMillis": 1792368000000
+          }
+        ]
+      },
+      "kind": "CAREGIVER_TAKEN_OVER",
+      "recordedAtEpochMillis": 1792454401000
+    },
+    {
+      "actionId": "00000000-0000-4000-8000-000000000025",
+      "group": {
+        "doseGroupId": "00000000-0000-4000-8000-000000000024",
+        "elderId": "fictional-elder",
+        "executionScopeId": "fictional-env/install/elder",
+        "plannedAtEpochMillis": 1792454400000,
+        "members": []
+      },
+      "kind": "HELP",
+      "recordedAtEpochMillis": 1792454401000
+    },
+    {
+      "actionId": "00000000-0000-4000-8000-000000000025",
+      "group": {
+        "doseGroupId": "00000000-0000-4000-8000-000000000024",
+        "elderId": "fictional-elder",
+        "executionScopeId": "fictional-env/install/elder",
+        "plannedAtEpochMillis": 1792454400000,
+        "members": [
+          {
+            "generationId": "00000000-0000-4000-8000-000000000100",
+            "occurrence": {
+              "planId": "plan-1",
+              "localDate": "2026-10-20",
+              "localTime": "08:00"
+            },
+            "planRevision": 1,
+            "generatedAtEpochMillis": 1792450800000,
+            "executionTimeZoneId": "Asia/Shanghai",
+            "plannedAtEpochMillis": 1792454400000,
+            "resolvedOffsetSeconds": 28800,
+            "resolutionPolicyVersion": "P0_TIME_V1",
+            "sourceSnapshotVersion": "confirmed-before-generation",
+            "sourceSnapshotServerAtEpochMillis": 1792368000000
+          },
+          {
+            "generationId": "00000000-0000-4000-8000-000000000100",
+            "occurrence": {
+              "planId": "plan-1",
+              "localDate": "2026-10-20",
+              "localTime": "08:00"
+            },
+            "planRevision": 1,
+            "generatedAtEpochMillis": 1792450800000,
+            "executionTimeZoneId": "Asia/Shanghai",
+            "plannedAtEpochMillis": 1792454400000,
+            "resolvedOffsetSeconds": 28800,
+            "resolutionPolicyVersion": "P0_TIME_V1",
+            "sourceSnapshotVersion": "confirmed-before-generation",
+            "sourceSnapshotServerAtEpochMillis": 1792368000000
+          }
+        ]
+      },
+      "kind": "HELP",
+      "recordedAtEpochMillis": 1792454401000
+    },
+    {
+      "actionId": "00000000-0000-4000-8000-000000000025",
+      "group": {
+        "doseGroupId": "00000000-0000-4000-8000-000000000024",
+        "elderId": "fictional-elder",
+        "executionScopeId": "fictional-env/install/elder",
+        "plannedAtEpochMillis": 1792454400001,
+        "members": [
+          {
+            "generationId": "00000000-0000-4000-8000-000000000100",
+            "occurrence": {
+              "planId": "plan-1",
+              "localDate": "2026-10-20",
+              "localTime": "08:00"
+            },
+            "planRevision": 1,
+            "generatedAtEpochMillis": 1792450800000,
+            "executionTimeZoneId": "Asia/Shanghai",
+            "plannedAtEpochMillis": 1792454400000,
+            "resolvedOffsetSeconds": 28800,
+            "resolutionPolicyVersion": "P0_TIME_V1",
+            "sourceSnapshotVersion": "confirmed-before-generation",
+            "sourceSnapshotServerAtEpochMillis": 1792368000000
+          }
+        ]
+      },
+      "kind": "HELP",
+      "recordedAtEpochMillis": 1792454401000
+    },
+    {
+      "actionId": "00000000-0000-4000-8000-000000000025",
+      "group": {
+        "doseGroupId": "00000000-0000-4000-8000-000000000024",
+        "elderId": "fictional-elder",
+        "executionScopeId": "fictional-env/install/elder",
+        "plannedAtEpochMillis": 1792454400000,
+        "members": [
+          {
+            "generationId": "00000000-0000-4000-8000-000000000100",
+            "occurrence": {
+              "planId": "plan-1",
+              "localDate": "2026-10-20",
+              "localTime": "08:00"
+            },
+            "planRevision": 1,
+            "generatedAtEpochMillis": 1792450800000,
+            "executionTimeZoneId": "Asia/Shanghai",
+            "plannedAtEpochMillis": 1792454400000,
+            "resolvedOffsetSeconds": 28800,
+            "resolutionPolicyVersion": "P0_TIME_V1",
+            "sourceSnapshotVersion": "confirmed-before-generation",
+            "sourceSnapshotServerAtEpochMillis": 1792368000000
+          }
+        ]
+      },
+      "kind": "HELP",
+      "recordedAtEpochMillis": 1792454401000,
+      "actorId": "forged"
+    },
+    {
+      "group": {
+        "doseGroupId": "00000000-0000-4000-8000-000000000024",
+        "elderId": "fictional-elder",
+        "executionScopeId": "fictional-env/install/elder",
+        "plannedAtEpochMillis": 1792454400000,
+        "members": [
+          {
+            "generationId": "00000000-0000-4000-8000-000000000100",
+            "occurrence": {
+              "planId": "plan-1",
+              "localDate": "2026-10-20",
+              "localTime": "08:00"
+            },
+            "planRevision": 1,
+            "generatedAtEpochMillis": 1792450800000,
+            "executionTimeZoneId": "Asia/Shanghai",
+            "plannedAtEpochMillis": 1792454400000,
+            "resolvedOffsetSeconds": 28800,
+            "resolutionPolicyVersion": "P0_TIME_V1",
+            "sourceSnapshotVersion": "confirmed-before-generation",
+            "sourceSnapshotServerAtEpochMillis": 1792368000000
+          }
+        ]
+      },
+      "kind": "HELP",
+      "recordedAtEpochMillis": 1792454401000
+    },
+    {
+      "actionId": "00000000-0000-4000-8000-000000000025",
+      "group": {
+        "doseGroupId": "00000000-0000-4000-8000-000000000024",
+        "elderId": "fictional-elder",
+        "executionScopeId": "fictional-env/install/elder",
+        "plannedAtEpochMillis": 1792454400000,
+        "members": [
+          {
+            "generationId": "00000000-0000-4000-8000-000000000100",
+            "occurrence": {
+              "planId": "plan-1",
+              "localDate": "2026-10-20",
+              "localTime": "08:00"
+            },
+            "planRevision": 1,
+            "generatedAtEpochMillis": 1792450800000,
+            "executionTimeZoneId": "Asia/Shanghai",
+            "plannedAtEpochMillis": 1792454400000,
+            "resolvedOffsetSeconds": 28800,
+            "resolutionPolicyVersion": "P0_TIME_V1",
+            "sourceSnapshotVersion": "confirmed-before-generation",
+            "sourceSnapshotServerAtEpochMillis": 1792368000000
+          }
+        ]
+      },
+      "kind": "HELP",
+      "recordedAtEpochMillis": 1.5
+    },
+    {
+      "actionId": "00000000-0000-4000-8000-000000000025",
+      "group": null,
+      "kind": "HELP",
+      "recordedAtEpochMillis": 1792454401000
+    }
+  ],
+  "wireRejectedIndexes": [0, 4, 5, 6, 7],
+  "domainRejectedIndexes": [1, 2, 3]
+}

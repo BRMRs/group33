@@ -89,6 +89,25 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 
 2026-11-07 - tianiridescent / C1, Refs #19: shared-login keyboard viewport correction from current main, preserving existing authentication boundaries. Real API35 320/360dp 200% English/Chinese keyboard tests cover SMS/password/reset submission and return; the baseline password counterexamples fail before the correction. [Scope and evidence](docs/evidence/C1_LOGIN_KEYBOARD_INSETS.md). API27 physical-tablet bilingual compatibility also passed (24 total device cases). Local candidate; publication and non-author review remain separate.
 
+### 2026-11-17 — XinyanXue / S2 — V2 group/follow-up/probe/delivery contract
+
+Proposed isolated Shared DTOs, reviewed-design notes and identical Android/Shared/Boot-Jackson vectors. No production endpoint, DB/Room, signature or delivery acceptance claimed; same-head S1 review requested.
+
+### 2026-11-18 — XinyanXue / S2 — #131 frozen member ownership
+
+Address C2 P2 with owned immutable ordered members across construction/copy/kotlinx/Boot Jackson; retain original wire/value semantics and add caller-mutation/view/decode regressions. Four Shared cases first fail unchanged on old head; final verification recorded on PR.
+
+### 2026-11-19 — XinyanXue / S2 — #131 acceptance candidates
+
+Add the [C3/E acceptance packet](docs/contracts/proposals/V2_ACCEPTANCE_CANDIDATES.md), one cross-runtime fixture and existing-DTO round trips plus review-fixture invariants. Retain caregiver source/revision, original receipts, independent delivery evidence and original Snooze cutoff. Rejection recovery is explicitly pending joint decisions; no production reducer, HTTP, Room/SQL or device acceptance claimed. Final commands/results are recorded in the PR and local evidence packet.
+
+### 2026-11-19 — XinyanXue / S2 — consistent-read implementation preparation
+
+Map the current primary plan-read transaction, registration/action-read distinction, retained plan/photo context and capability dependencies in the [implementation plan](docs/contracts/proposals/V2_CONSISTENT_READ_PLAN.md). Specify authorization/snapshot boundaries, accepted 90-date/10,000-entity budgets, 20 deterministic future verification cases and review exits. Documentation only; these planned checks are not newly executed tests or a production snapshot implementation. Final repository checks are recorded on the PR.
+
+### 2026-11-28 — BRMRs / integration review correction for #131
+
+Reconcile the proposal with the accepted V2 product boundary: contact is separate from the three Caregiver outcomes, remote takeover remains pending until the active Elder installation acknowledges the same action/group/scope, and all three runtimes consume the published base/additional vectors. DTO construction now preserves representation only; future authorized services own domain rejection. This correction does not implement production routes, persistence, delivery or device behavior and requires affected-role re-review.
 | 2026-11-16 | XinyanXue — S2 (agent-assisted) | #121 / #119 | [PR #121](https://github.com/BRMRs/group33/pull/121) | Follow E review: deadline-aware notification feedback, old notification action PendingIntent/receiver/Room regression cases and current-main checksum conflict resolution. Required API35 evidence recorded separately; no protocol/cloud changes. | Non-author and role reviews remain required; no formal approval/main merge. |
 | 2026-11-17 | BRMRs — S1 | #18 / #24 / #119 / #121 | [PR #119](https://github.com/BRMRs/group33/pull/119) | Incorporated #121 boundary fixes; added Android 15 media-playback foreground ringing service, looping `USAGE_ALARM` audio, single notification/player identity, immediate terminal/Snooze/takeover/expiry stop, and `RINGING`-only cold-process recovery. API35 and Xiaomi API27 targeted suites each passed 5/5 plus process-death probes; S1 owner heard both ten-second manual gates. | PR119 still requires current-head CI and non-author Android/E/S2 review before merge; #18/#24 remain open. |
 
