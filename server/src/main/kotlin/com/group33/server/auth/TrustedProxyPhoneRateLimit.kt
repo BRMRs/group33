@@ -44,6 +44,9 @@ internal class TrustedProxyPhoneRateLimit(
         return null
     }
 
+    fun resolveClientInetAddress(request: HttpServletRequest): InetAddress =
+        InetAddress.getByAddress(clientAddress(request).bytes.copyOf())
+
     private fun clientAddress(request: HttpServletRequest): LiteralAddress {
         var current = LiteralAddress.parse(request.remoteAddr) ?: malformedTransport()
         if (proxies.none { it.contains(current) }) malformedTransport()

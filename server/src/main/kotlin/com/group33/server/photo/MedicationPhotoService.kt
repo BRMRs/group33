@@ -1,9 +1,12 @@
 package com.group33.server.photo
 
 import com.group33.server.auth.AnonymousUser
+import com.group33.server.auth.BoundPhoneJwt
 import com.group33.server.pairing.CodeStoreBusy
 import com.group33.server.pairing.PairingCodeIssuanceService
+import com.group33.server.pairing.PostgresPairingCodeStore
 import com.group33.server.photo.storage.*
+import com.group33.server.plan.PlanPhoneUnauthenticated
 import com.group33.shared.contract.*
 import com.group33.shared.model.UserRole
 import org.springframework.http.MediaType
@@ -11,7 +14,7 @@ import java.time.Clock
 import java.util.UUID
 
 internal enum class PhotoBusinessRejection {
-    RESOURCE_NOT_ACCESSIBLE, ROLE_NOT_ALLOWED, IDEMPOTENCY_KEY_REUSED, OPERATION_IN_PROGRESS, SERVICE_UNAVAILABLE,
+    UNAUTHENTICATED, RESOURCE_NOT_ACCESSIBLE, ROLE_NOT_ALLOWED, IDEMPOTENCY_KEY_REUSED, OPERATION_IN_PROGRESS, SERVICE_UNAVAILABLE,
     PHOTO_TOO_LARGE, PHOTO_TYPE_UNSUPPORTED, VALIDATION_FAILED,
 }
 internal sealed interface PhotoBusinessResult {
@@ -92,10 +95,87 @@ internal class MedicationPhotoService(private val metadata: PhotoMetadataStore, 
         }
     } ?: error("Content must produce a result")
 
+    fun uploadPhone(postgres: PostgresPairingCodeStore, jwt: BoundPhoneJwt, bearer: String, elderId: String,
+                    operationId: UUID, bytes: ByteArray, declaredType: String): PhotoBusinessResult {
+        val claims = jwt.validate(bearer) ?: return rejected(PhotoBusinessRejection.UNAUTHENTICATED)
+        val source = bytes.copyOf()
+        val mime = canonicalMime(declaredType)
+        val digest = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(source))
+        val fingerprint = PairingCodeIssuanceService.hash("${ContractProtocol.CANONICALIZATION_VERSION}:SUBMIT_PHOTO:$elderId:${source.size}:$digest:$mime")
+        var staged: PhotoUploadOperation? = null
+        var key: PhotoUploadKey? = null
+        val prepared = safely {
+            postgres.phoneBusinessWrite(claims, { clock.instant().epochSecond }, jwt.allowance) { actor, tx, _ ->
+                if (actor.id != elderId) return@phoneBusinessWrite rejected(PhotoBusinessRejection.RESOURCE_NOT_ACCESSIBLE)
+                if (actor.role != UserRole.ELDER) return@phoneBusinessWrite rejected(PhotoBusinessRejection.ROLE_NOT_ALLOWED)
+                val uploadKey = PhotoUploadKey(actor.id, operationId)
+                key = uploadKey
+                val old = tx.photoOperation(uploadKey)
+                if (old != null && (old.installationId != actor.installationId || old.elderId != elderId || old.fingerprint != fingerprint))
+                    return@phoneBusinessWrite rejected(PhotoBusinessRejection.IDEMPOTENCY_KEY_REUSED)
+                old?.receipt?.let { return@phoneBusinessWrite PhotoBusinessResult.Uploaded(it) }
+                val validation = PhotoInputValidator().validate(source, declaredType)
+                if (validation is PhotoInputValidation.Rejected) {
+                    tx.putPhotoOperation(uploadKey, PhotoUploadOperation(actor.installationId, elderId, fingerprint,
+                        old?.photoId ?: UUID.randomUUID(), PhotoUploadState.REJECTED, rejection = validation.reason))
+                    return@phoneBusinessWrite inputRejected(validation.reason)
+                }
+                val value = PhotoUploadOperation(actor.installationId, elderId, fingerprint, old?.photoId ?: UUID.randomUUID(), PhotoUploadState.STAGING)
+                tx.putPhotoOperation(uploadKey, value)
+                staged = value
+                null
+            }
+        }
+        if (prepared != null) return prepared
+        val intent = checkNotNull(staged)
+        val resolvedKey = checkNotNull(key)
+        val objectKey = PhotoObjectKey(intent.photoId, source.size.toLong(), digest)
+        try {
+            source.inputStream().use { objects.putIfAbsent(objectKey, it) }
+            objects.read(objectKey)
+        } catch (failure: Exception) {
+            if (failure is InterruptedException) Thread.currentThread().interrupt()
+            return rejected(PhotoBusinessRejection.SERVICE_UNAVAILABLE)
+        }
+        return safely {
+            postgres.phoneBusinessWrite(claims, { clock.instant().epochSecond }, jwt.allowance) { actor, tx, _ ->
+                if (actor.id != elderId) return@phoneBusinessWrite rejected(PhotoBusinessRejection.RESOURCE_NOT_ACCESSIBLE)
+                if (actor.role != UserRole.ELDER) return@phoneBusinessWrite rejected(PhotoBusinessRejection.ROLE_NOT_ALLOWED)
+                val current = checkNotNull(tx.photoOperation(resolvedKey))
+                check(current.fingerprint == fingerprint && current.photoId == intent.photoId)
+                current.receipt?.let { return@phoneBusinessWrite PhotoBusinessResult.Uploaded(it) }
+                val view = MedicationPhotoView(intent.photoId.toString(), elderId, mime, clock.millis())
+                tx.publishPhoto(ReadyMedicationPhoto(view, objectKey))
+                tx.putPhotoOperation(resolvedKey, PhotoUploadOperation(actor.installationId, elderId, fingerprint, intent.photoId,
+                    PhotoUploadState.READY, receipt = view))
+                PhotoBusinessResult.Uploaded(view)
+            }
+        } ?: error("Publication must produce a result")
+    }
+
+    fun listPhone(postgres: PostgresPairingCodeStore, jwt: BoundPhoneJwt, bearer: String, elderId: String): PhotoBusinessResult = safely {
+        val claims = jwt.validate(bearer) ?: throw PlanPhoneUnauthenticated()
+        postgres.phoneBusinessRead(claims, { clock.instant().epochSecond }, jwt.allowance) { actor, tx, currentElder ->
+            if (!currentElder(elderId) || !authorized(tx, actor, elderId)) rejected(PhotoBusinessRejection.RESOURCE_NOT_ACCESSIBLE)
+            else PhotoBusinessResult.Listed(tx.readyPhotos(elderId))
+        }
+    } ?: error("Listing must produce a result")
+
+    fun contentPhone(postgres: PostgresPairingCodeStore, jwt: BoundPhoneJwt, bearer: String, photoId: String): PhotoBusinessResult = safely {
+        val claims = jwt.validate(bearer) ?: throw PlanPhoneUnauthenticated()
+        postgres.phoneBusinessWrite(claims, { clock.instant().epochSecond }, jwt.allowance) { actor, tx, currentElder ->
+            val photo = tx.readyPhoto(photoId)
+            if (photo == null || !currentElder(photo.view.elderId) || !authorized(tx, actor, photo.view.elderId))
+                return@phoneBusinessWrite rejected(PhotoBusinessRejection.RESOURCE_NOT_ACCESSIBLE)
+            PhotoBusinessResult.Content(objects.read(photo.objectKey), photo.view.contentType)
+        }
+    } ?: error("Content must produce a result")
+
     private fun authorized(tx: PhotoMetadataTransaction, actor: AnonymousUser, elderId: String) =
         (actor.role == UserRole.ELDER && actor.id == elderId) ||
             (actor.role == UserRole.CAREGIVER && tx.activeRelationship(elderId)?.caregiverId == actor.id)
     private fun safely(work: () -> PhotoBusinessResult?): PhotoBusinessResult? = try { work() }
+        catch (_: PlanPhoneUnauthenticated) { rejected(PhotoBusinessRejection.UNAUTHENTICATED) }
         catch (_: CodeStoreBusy) { rejected(PhotoBusinessRejection.OPERATION_IN_PROGRESS) }
         catch (failure: Exception) {
             if (failure is InterruptedException) Thread.currentThread().interrupt()

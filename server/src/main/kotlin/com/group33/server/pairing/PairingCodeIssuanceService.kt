@@ -1,6 +1,8 @@
 package com.group33.server.pairing
 
 import com.group33.server.auth.AnonymousUser
+import com.group33.server.auth.BoundPhoneJwt
+import com.group33.server.plan.PlanPhoneUnauthenticated
 import com.group33.shared.contract.ContractProtocol
 import com.group33.shared.contract.PairingCodeView
 import com.group33.shared.model.UserRole
@@ -17,7 +19,7 @@ internal class SecurePairingCodeGenerator : PairingCodeGenerator {
 }
 
 internal enum class CodeIssueRejection {
-    ROLE_FORBIDDEN, IDEMPOTENCY_KEY_REUSED, RATE_LIMITED, OPERATION_IN_PROGRESS, CODE_GENERATION_UNAVAILABLE,
+    UNAUTHENTICATED, ROLE_FORBIDDEN, IDEMPOTENCY_KEY_REUSED, RATE_LIMITED, OPERATION_IN_PROGRESS, CODE_GENERATION_UNAVAILABLE,
 }
 
 internal sealed interface CodeIssuanceResult {
@@ -80,6 +82,59 @@ internal class PairingCodeIssuanceService(
                 tx.putOperation(key, CodeIssueOperation(binding, receipt = CodeIssueReceipt(view)))
                 CodeIssuanceResult.Issued(view)
             }
+        } catch (_: CodeStoreBusy) {
+            CodeIssuanceResult.Rejected(CodeIssueRejection.OPERATION_IN_PROGRESS, 1)
+        }
+    }
+
+    fun issuePhone(postgres: PostgresPairingCodeStore, jwt: BoundPhoneJwt, bearer: String, operationId: UUID): CodeIssuanceResult {
+        val claims = jwt.validate(bearer) ?: return CodeIssuanceResult.Rejected(CodeIssueRejection.UNAUTHENTICATED)
+        return try {
+            postgres.phoneBusinessWrite(claims, { clock.instant().epochSecond }, jwt.allowance) { actor, tx, _ ->
+                if (actor.role != UserRole.ELDER) return@phoneBusinessWrite CodeIssuanceResult.Rejected(CodeIssueRejection.ROLE_FORBIDDEN)
+                val key = CodeIssueKey(actor.id, operationId)
+                val binding = CodeIssueBinding(actor.installationId, actor.id,
+                    hash("${ContractProtocol.CANONICALIZATION_VERSION}:ISSUE_PAIRING_CODE:{}"))
+                val previous = tx.operation(key)
+                if (previous != null && previous.binding != binding) {
+                    return@phoneBusinessWrite CodeIssuanceResult.Rejected(CodeIssueRejection.IDEMPOTENCY_KEY_REUSED)
+                }
+                previous?.receipt?.let { return@phoneBusinessWrite CodeIssuanceResult.Issued(it.replay()) }
+                fun reject(reason: CodeIssueRejection, retryAfter: Long? = null): CodeIssuanceResult.Rejected {
+                    val rejected = CodeIssuanceResult.Rejected(reason, retryAfter)
+                    tx.putOperation(key, CodeIssueOperation(binding, rejection = rejected))
+                    return rejected
+                }
+                val now = clock.millis()
+                val cutoff = Math.subtractExact(now, RATE_WINDOW_MILLIS)
+                val recent = tx.issuanceTimes(actor.id).filter { it > cutoff }
+                if (recent.size >= ISSUANCE_LIMIT) {
+                    val wait = Math.subtractExact(Math.addExact(recent.min(), RATE_WINDOW_MILLIS), now)
+                    return@phoneBusinessWrite reject(CodeIssueRejection.RATE_LIMITED, 1 + (wait - 1) / 1_000)
+                }
+                var raw: String? = null
+                var codeHash: String? = null
+                for (attempt in 1..MAX_GENERATION_ATTEMPTS) {
+                    val candidate = generator.nextCode()
+                    if (!candidate.matches(Regex("[0-9]{8}"))) {
+                        return@phoneBusinessWrite reject(CodeIssueRejection.CODE_GENERATION_UNAVAILABLE)
+                    }
+                    val candidateHash = hash(candidate)
+                    if (!tx.hasEffectiveHash(candidateHash, now)) {
+                        raw = candidate
+                        codeHash = candidateHash
+                        break
+                    }
+                }
+                if (raw == null) return@phoneBusinessWrite reject(CodeIssueRejection.CODE_GENERATION_UNAVAILABLE)
+                val view = PairingCodeView(UUID.randomUUID().toString(), raw, Math.addExact(now, VALIDITY_MILLIS))
+                tx.replaceActiveCode(StoredPairingCode(view.id, actor.id, checkNotNull(codeHash), view.expiresAtEpochMillis), now)
+                tx.putIssuanceTimes(actor.id, recent + now)
+                tx.putOperation(key, CodeIssueOperation(binding, receipt = CodeIssueReceipt(view)))
+                CodeIssuanceResult.Issued(view)
+            }
+        } catch (_: PlanPhoneUnauthenticated) {
+            CodeIssuanceResult.Rejected(CodeIssueRejection.UNAUTHENTICATED)
         } catch (_: CodeStoreBusy) {
             CodeIssuanceResult.Rejected(CodeIssueRejection.OPERATION_IN_PROGRESS, 1)
         }

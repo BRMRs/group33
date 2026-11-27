@@ -27,6 +27,7 @@ import java.util.UUID
 /** Adapts the existing registration DTO; it does not generate events or add V2 action fields. */
 @RestController
 @ConditionalOnProperty(name = ["app.occurrence.enabled"], havingValue = "true")
+@ConditionalOnProperty(name = ["app.bound-phone.enabled"], havingValue = "false", matchIfMissing = true)
 internal class OccurrenceRegistrationController(
     private val actors: VerifiedPairingActorResolver,
     private val pairing: PairingDirectoryStore,
@@ -52,6 +53,7 @@ internal class OccurrenceRegistrationController(
             when (val result = service.register(actor, elderId, UUID.fromString(key), decode(body))) {
                 is RegistrationResult.Accepted -> ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(result.response)
                 is RegistrationResult.Rejected -> when (result.reason) {
+                    RegistrationRejection.UNAUTHENTICATED -> failure(HttpStatus.UNAUTHORIZED, result.reason.name)
                     RegistrationRejection.RESOURCE_NOT_ACCESSIBLE -> failure(HttpStatus.NOT_FOUND, result.reason.name)
                     RegistrationRejection.ROLE_NOT_ALLOWED -> failure(HttpStatus.FORBIDDEN, result.reason.name)
                     RegistrationRejection.VALIDATION_FAILED -> failure(HttpStatus.UNPROCESSABLE_ENTITY, result.reason.name,

@@ -1,6 +1,8 @@
 package com.group33.server.pairing
 
 import com.group33.server.auth.AnonymousUser
+import com.group33.server.auth.BoundPhoneJwt
+import com.group33.server.plan.PlanPhoneUnauthenticated
 import com.group33.shared.contract.*
 import com.group33.shared.model.UserRole
 import java.time.Clock
@@ -20,7 +22,7 @@ internal interface PairingDirectoryTransaction : PairingDecisionTransaction {
     fun putCodeDeletion(key: CodeDeletionKey, value: CodeDeletionReceipt)
     fun invalidateCode(elderId: String, codeId: String, now: Long): Boolean
 }
-internal enum class CodeDeletionRejection { ROLE_NOT_ALLOWED, RESOURCE_NOT_ACCESSIBLE, IDEMPOTENCY_KEY_REUSED, OPERATION_IN_PROGRESS }
+internal enum class CodeDeletionRejection { UNAUTHENTICATED, ROLE_NOT_ALLOWED, RESOURCE_NOT_ACCESSIBLE, IDEMPOTENCY_KEY_REUSED, OPERATION_IN_PROGRESS }
 internal sealed interface CodeDeletionResult {
     data object Deleted : CodeDeletionResult
     data class Rejected(val reason: CodeDeletionRejection) : CodeDeletionResult
@@ -34,28 +36,52 @@ internal class PairingDirectoryService(private val store: PairingDirectoryStore,
     fun relationships(actor: AnonymousUser) = store.directoryTransaction {
         ItemsResponse(it.participantRelationships(actor.id, actor.role))
     }
+    fun requestsPhone(postgres: PostgresPairingCodeStore, jwt: BoundPhoneJwt, bearer: String,
+                      status: PairingRequestStatus? = null): ItemsResponse<PairingRequestView> {
+        val claims = jwt.validate(bearer) ?: throw PlanPhoneUnauthenticated()
+        return postgres.phoneBusinessWrite(claims, { clock.instant().epochSecond }, jwt.allowance) { actor, tx, _ ->
+            ItemsResponse(tx.participantRequests(actor.id, actor.role, clock.millis(), status))
+        }
+    }
+    fun relationshipsPhone(postgres: PostgresPairingCodeStore, jwt: BoundPhoneJwt, bearer: String): ItemsResponse<CareRelationshipView> {
+        val claims = jwt.validate(bearer) ?: throw PlanPhoneUnauthenticated()
+        return postgres.phoneBusinessRead(claims, { clock.instant().epochSecond }, jwt.allowance) { actor, tx, _ ->
+            ItemsResponse(tx.participantRelationships(actor.id, actor.role))
+        }
+    }
     fun deleteCode(actor: AnonymousUser, codeId: String, operationId: UUID): CodeDeletionResult {
         if (actor.role != UserRole.ELDER) return CodeDeletionResult.Rejected(CodeDeletionRejection.ROLE_NOT_ALLOWED)
         return try {
-            store.directoryTransaction { tx ->
-                val key = CodeDeletionKey(actor.id, operationId)
-                val fingerprint = PairingCodeIssuanceService.hash("${ContractProtocol.CANONICALIZATION_VERSION}:DELETE_PAIRING_CODE:$codeId:{}")
-                val previous = tx.codeDeletion(key)
-                val current = tx.activeCode(actor.id)
-                // A matching private receipt retains ownership evidence for its removed code.
-                // A changed target must still be currently owned before a binding conflict is exposed.
-                val known = current?.id == codeId || previous?.codeId == codeId
-                if (!known) return@directoryTransaction CodeDeletionResult.Rejected(CodeDeletionRejection.RESOURCE_NOT_ACCESSIBLE)
-                if (previous != null) {
-                    if (previous.installationId != actor.installationId || previous.fingerprint != fingerprint) {
-                        return@directoryTransaction CodeDeletionResult.Rejected(CodeDeletionRejection.IDEMPOTENCY_KEY_REUSED)
-                    }
-                    return@directoryTransaction CodeDeletionResult.Deleted
-                }
-                check(tx.invalidateCode(actor.id, codeId, clock.millis()))
-                tx.putCodeDeletion(key, CodeDeletionReceipt(actor.installationId, fingerprint, codeId))
-                CodeDeletionResult.Deleted
-            }
+            store.directoryTransaction { tx -> deleteCodeInTransaction(actor, tx, codeId, operationId) }
         } catch (_: CodeStoreBusy) { CodeDeletionResult.Rejected(CodeDeletionRejection.OPERATION_IN_PROGRESS) }
+    }
+    fun deleteCodePhone(postgres: PostgresPairingCodeStore, jwt: BoundPhoneJwt, bearer: String,
+                        codeId: String, operationId: UUID): CodeDeletionResult {
+        val claims = jwt.validate(bearer) ?: return CodeDeletionResult.Rejected(CodeDeletionRejection.UNAUTHENTICATED)
+        return try {
+            postgres.phoneBusinessWrite(claims, { clock.instant().epochSecond }, jwt.allowance) { actor, tx, _ ->
+                if (actor.role != UserRole.ELDER) return@phoneBusinessWrite CodeDeletionResult.Rejected(CodeDeletionRejection.ROLE_NOT_ALLOWED)
+                deleteCodeInTransaction(actor, tx, codeId, operationId)
+            }
+        } catch (_: PlanPhoneUnauthenticated) { CodeDeletionResult.Rejected(CodeDeletionRejection.UNAUTHENTICATED) }
+          catch (_: CodeStoreBusy) { CodeDeletionResult.Rejected(CodeDeletionRejection.OPERATION_IN_PROGRESS) }
+    }
+    private fun deleteCodeInTransaction(actor: AnonymousUser, tx: PairingDirectoryTransaction,
+                                        codeId: String, operationId: UUID): CodeDeletionResult {
+        val key = CodeDeletionKey(actor.id, operationId)
+        val fingerprint = PairingCodeIssuanceService.hash("${ContractProtocol.CANONICALIZATION_VERSION}:DELETE_PAIRING_CODE:$codeId:{}")
+        val previous = tx.codeDeletion(key)
+        val current = tx.activeCode(actor.id)
+        val known = current?.id == codeId || previous?.codeId == codeId
+        if (!known) return CodeDeletionResult.Rejected(CodeDeletionRejection.RESOURCE_NOT_ACCESSIBLE)
+        if (previous != null) {
+            if (previous.installationId != actor.installationId || previous.fingerprint != fingerprint) {
+                return CodeDeletionResult.Rejected(CodeDeletionRejection.IDEMPOTENCY_KEY_REUSED)
+            }
+            return CodeDeletionResult.Deleted
+        }
+        check(tx.invalidateCode(actor.id, codeId, clock.millis()))
+        tx.putCodeDeletion(key, CodeDeletionReceipt(actor.installationId, fingerprint, codeId))
+        return CodeDeletionResult.Deleted
     }
 }

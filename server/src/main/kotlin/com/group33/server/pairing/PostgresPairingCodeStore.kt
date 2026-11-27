@@ -2,6 +2,7 @@ package com.group33.server.pairing
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.group33.server.plan.*
+import com.group33.server.auth.AnonymousUser
 import com.group33.server.auth.BoundPhoneIdentityTransaction
 import com.group33.server.auth.BoundPhoneSessionClaims
 import com.group33.server.auth.PrimaryPrincipalDirectory
@@ -127,6 +128,37 @@ internal class PostgresPairingCodeStore(
         if (user == null || directory.find(user.id)?.kind != PrincipalKind.PHONE) throw PlanPhoneUnauthenticated()
         val actor = PlanWriteActor(user.id, claims.installationId.toString(), user.role)
         work(actor, tx) { id -> directory.find(id)?.user?.role == UserRole.ELDER }
+    }
+
+    fun <T> phoneBusinessWrite(
+        claims: BoundPhoneSessionClaims,
+        nowSeconds: () -> Long,
+        allowance: Long,
+        work: (AnonymousUser, OccurrenceRegistrationTransaction, (String) -> Boolean) -> T,
+    ): T = guardedWrite({ connection ->
+        val user = BoundPhoneIdentityTransaction(connection).lockCurrentSession(claims, nowSeconds(), allowance)
+        val directory = PrimaryPrincipalDirectory(connection)
+        if (user == null || directory.find(user.id)?.kind != PrincipalKind.PHONE) throw PlanPhoneUnauthenticated()
+        AnonymousUser(user.id, claims.installationId.toString(), user.displayName, user.role)
+    }) { actor, tx, connection ->
+        if (claims.expiresAtSeconds <= nowSeconds() - allowance) throw PlanPhoneUnauthenticated()
+        val directory = PrimaryPrincipalDirectory(connection)
+        work(actor, tx) { id -> directory.find(id)?.user?.role == UserRole.ELDER }
+    }
+
+    fun <T> phoneBusinessRead(
+        claims: BoundPhoneSessionClaims,
+        nowSeconds: () -> Long,
+        allowance: Long,
+        work: (AnonymousUser, OccurrenceRegistrationTransaction, (String) -> Boolean) -> T,
+    ): T = planReadTransaction { tx ->
+        val internal = tx as Transaction
+        val connection = internal.connection()
+        val user = BoundPhoneIdentityTransaction(connection).readCurrentSession(claims, nowSeconds(), allowance)
+        val directory = PrimaryPrincipalDirectory(connection)
+        if (user == null || directory.find(user.id)?.kind != PrincipalKind.PHONE) throw PlanPhoneUnauthenticated()
+        val actor = AnonymousUser(user.id, claims.installationId.toString(), user.displayName, user.role)
+        work(actor, internal) { id -> directory.find(id)?.user?.role == UserRole.ELDER }
     }
 
     private fun <C, T> guardedWrite(

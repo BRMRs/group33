@@ -14,6 +14,7 @@ import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import java.net.InetAddress
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.ZoneId
 import java.sql.SQLException
 import java.util.concurrent.CountDownLatch
@@ -114,6 +115,7 @@ internal class BoundPhoneRuntimePostgresTest {
     }
     private fun grants() {
         execute("GRANT USAGE ON SCHEMA $schema TO $runtime; GRANT SELECT,INSERT,UPDATE ON ALL TABLES IN SCHEMA $schema TO $runtime")
+        execute("GRANT DELETE ON pairing_active_code, pairing_issuance_time, pairing_request_attempt TO $runtime")
         if (scalar("SELECT count(*) FROM pg_class WHERE relnamespace='$schema'::regnamespace AND relname='phone_bound_registration_tickets'") == "1")
             execute("GRANT DELETE ON phone_bound_registration_tickets TO $runtime")
         if (scalar("SELECT count(*) FROM pg_class WHERE relnamespace='$schema'::regnamespace AND relname='server_principal'") == "1")
@@ -185,7 +187,7 @@ internal class BoundPhoneRuntimePostgresTest {
         assertEquals(401, post("anonymous", mapOf("installationId" to install, "role" to "ELDER")).statusCode())
         assertEquals(0, second.getBeansOfType(AuthController::class.java).size)
         val protectedRequest = HttpRequest.newBuilder(URI("http://127.0.0.1:${second.webServer.port}/api/v1/elders/${claims.userId}/medication-photos"))
-            .header("Authorization", "Bearer $token").GET().build()
+            .header("Authorization", "Bearer invalid").GET().build()
         assertEquals(401, http.send(protectedRequest, HttpResponse.BodyHandlers.ofString()).statusCode())
         val health = http.send(HttpRequest.newBuilder(URI("http://127.0.0.1:${second.webServer.port}/health")).GET().build(), HttpResponse.BodyHandlers.ofString())
         assertEquals(200, health.statusCode())
@@ -582,5 +584,142 @@ internal class BoundPhoneRuntimePostgresTest {
         infra.identity.transaction { it.revokeSession(fixture.elderClaims.userId, fixture.elderClaims.installationId, fixture.elderClaims.sessionId, infra.clock.millis()) }
         problem(readHttp(elderId, "medications", fixture.elderToken), 401, "UNAUTHENTICATED")
         problem(readHttp(elderId, "reminder-plans", fixture.elderToken), 401, "UNAUTHENTICATED")
+    }
+    @Test fun `full phone pairing photo plan occurrence and dose group HTTP journey works end to end without anonymous rows`() {
+        migrate(); grants()
+        val values = planProperties().apply {
+            put("app.occurrence.enabled", "true")
+            put("app.dose-group.enabled", "true")
+        }
+        start(values)
+        val port = checkNotNull(app).webServer.port
+        val infra = checkNotNull(app).getBean(BoundPhoneInfrastructure::class.java)
+        val caregiverInstall = UUID.randomUUID().toString()
+        val caregiverToken = phoneLogin(caregiverInstall, UserRole.CAREGIVER)["accessToken"].asText()
+        val caregiverClaims = assertNotNullClaims(infra.jwt.validate(caregiverToken))
+        val elderSession = infra.identity.transaction { tx ->
+            val user = tx.registerVerifiedPhone("9".repeat(64), UserRole.ELDER, null)
+            val now = infra.clock.instant().epochSecond
+            tx.openSession(UUID.fromString(user.id), UUID.randomUUID(), infra.jwt.audience, now, now + 86400)
+        }
+        val elderId = elderSession.user.id
+        val elderToken = infra.jwt.issue(elderSession.claims)
+
+        fun httpCall(method: String, path: String, token: String, key: UUID? = null, body: String? = null,
+                     forwarded: String? = "203.0.113.9"): HttpResponse<String> {
+            val builder = HttpRequest.newBuilder(URI("http://127.0.0.1:$port$path"))
+                .timeout(Duration.ofSeconds(10)).header("Authorization", "Bearer $token")
+            if (key != null) builder.header(ContractProtocol.IDEMPOTENCY_HEADER, key.toString())
+            if (forwarded != null) builder.header("X-Forwarded-For", forwarded)
+            if (body != null) {
+                builder.header("Content-Type", "application/json")
+                builder.method(method, HttpRequest.BodyPublishers.ofString(body))
+            } else {
+                builder.method(method, HttpRequest.BodyPublishers.noBody())
+            }
+            return http.send(builder.build(), HttpResponse.BodyHandlers.ofString())
+        }
+
+        // 1. Pairing code issuance & deletion
+        val firstCodeKey = UUID.randomUUID()
+        val firstCode = created(httpCall("POST", "/api/v1/pairing-codes", elderToken, firstCodeKey, "{}"))
+        assertEquals(firstCode, created(httpCall("POST", "/api/v1/pairing-codes", elderToken, firstCodeKey, "{}")))
+        problem(httpCall("POST", "/api/v1/pairing-codes", caregiverToken, UUID.randomUUID(), "{}"), 403, "ROLE_NOT_ALLOWED")
+        val deleteCodeKey = UUID.randomUUID()
+        assertEquals(204, httpCall("DELETE", "/api/v1/pairing-codes/${firstCode["id"].asText()}", elderToken, deleteCodeKey).statusCode())
+        assertEquals(204, httpCall("DELETE", "/api/v1/pairing-codes/${firstCode["id"].asText()}", elderToken, deleteCodeKey).statusCode())
+
+        // 2. Issue second pairing code, request pairing, inspect directory, accept relationship
+        val secondCode = created(httpCall("POST", "/api/v1/pairing-codes", elderToken, UUID.randomUUID(), "{}"))
+        val reqKey = UUID.randomUUID()
+        val reqBody = mapper.writeValueAsString(mapOf("code" to secondCode["code"].asText()))
+        val pendingReq = created(httpCall("POST", "/api/v1/pairing-requests", caregiverToken, reqKey, reqBody))
+        assertEquals(pendingReq, created(httpCall("POST", "/api/v1/pairing-requests", caregiverToken, reqKey, reqBody)))
+        assertEquals(pendingReq["id"].asText(), ok(httpCall("GET", "/api/v1/pairing-requests/${pendingReq["id"].asText()}", elderToken))["id"].asText())
+        assertEquals(1, ok(httpCall("GET", "/api/v1/pairing-requests?status=PENDING", elderToken))["items"].size())
+        val acceptKey = UUID.randomUUID()
+        val relationship = ok(httpCall("POST", "/api/v1/pairing-requests/${pendingReq["id"].asText()}/accept", elderToken, acceptKey, "{}"))
+        assertEquals(relationship, ok(httpCall("POST", "/api/v1/pairing-requests/${pendingReq["id"].asText()}/accept", elderToken, acceptKey, "{}")))
+        assertEquals(1, ok(httpCall("GET", "/api/v1/care-relationships", caregiverToken))["items"].size())
+
+        // 3. Upload medication photo via multipart HTTP, list photos & read photo content
+        val pngBytes = ByteArrayOutputStream().use { out -> ImageIO.write(BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB), "png", out); out.toByteArray() }
+        val boundary = "phone-multipart-boundary"
+        val multipartBody = ByteArrayOutputStream().apply {
+            write("--$boundary\r\nContent-Disposition: form-data; name=\"file\"; filename=\"med.png\"\r\nContent-Type: image/png\r\n\r\n".toByteArray())
+            write(pngBytes)
+            write("\r\n--$boundary--\r\n".toByteArray())
+        }.toByteArray()
+        fun uploadPhoto(token: String, targetElder: String, key: UUID): HttpResponse<String> {
+            val req = HttpRequest.newBuilder(URI("http://127.0.0.1:$port/api/v1/elders/$targetElder/medication-photos"))
+                .timeout(Duration.ofSeconds(10)).header("Authorization", "Bearer $token")
+                .header(ContractProtocol.IDEMPOTENCY_HEADER, key.toString())
+                .header("Content-Type", "multipart/form-data; boundary=$boundary")
+                .POST(HttpRequest.BodyPublishers.ofByteArray(multipartBody)).build()
+            return http.send(req, HttpResponse.BodyHandlers.ofString())
+        }
+        val photoKey = UUID.randomUUID()
+        val uploadedPhoto = created(uploadPhoto(elderToken, elderId, photoKey))
+        assertEquals(uploadedPhoto, created(uploadPhoto(elderToken, elderId, photoKey)))
+        problem(uploadPhoto(caregiverToken, caregiverClaims.userId.toString(), UUID.randomUUID()), 403, "ROLE_NOT_ALLOWED")
+        val photoId = uploadedPhoto["id"].asText()
+        assertEquals(1, ok(httpCall("GET", "/api/v1/elders/$elderId/medication-photos", caregiverToken))["items"].size())
+        val contentReq = HttpRequest.newBuilder(URI("http://127.0.0.1:$port/api/v1/medication-photos/$photoId/content"))
+            .timeout(Duration.ofSeconds(10)).header("Authorization", "Bearer $caregiverToken").GET().build()
+        val contentRes = http.send(contentReq, HttpResponse.BodyHandlers.ofByteArray())
+        assertEquals(200, contentRes.statusCode())
+        assertArrayEquals(pngBytes, contentRes.body())
+
+        // 4. Confirm reminder plan via phone Caregiver
+        val zone = "Asia/Shanghai"
+        val localDate = LocalDate.ofInstant(infra.clock.instant(), ZoneId.of(zone)).toString()
+        val draft = ReminderPlanDraft(listOf("08:00"), localDate, zone)
+        val ack = TimeZoneAcknowledgement(zone, false, zone, zone)
+        val confirmBody = mapper.writeValueAsString(ConfirmReminderPlanRequest(photoId, MedicationText("Phone Med", "1 pill"), draft, ack))
+        val confirmed = created(confirmHttp(elderId, caregiverToken, UUID.randomUUID(), confirmBody))
+        val planId = confirmed["plan"]["id"].asText()
+
+        // 5. Register occurrence via phone Elder
+        val plannedInstant = infra.clock.instant().minusSeconds(60)
+        val plannedTime = LocalDateTime.ofInstant(plannedInstant, ZoneId.of(zone))
+        val exactTime = "%02d:%02d".format(plannedTime.hour, plannedTime.minute)
+        val exactDate = plannedTime.toLocalDate().toString()
+        val editKey = UUID.randomUUID()
+        val updatedPlan = ok(httpCall("PATCH", "/api/v1/reminder-plans/$planId", caregiverToken, editKey,
+            mapper.writeValueAsString(UpdateReminderPlanRequest(1, ReminderPlanDraft(listOf(exactTime), exactDate, zone), ack))))
+        assertEquals(2, updatedPlan["plan"]["revision"].asInt())
+        val resolvedInstant = PlanSelfOverlapValidator.resolve(LocalDateTime.parse("${exactDate}T$exactTime"), ZoneId.of(zone))
+        val evidence = OccurrenceGenerationEvidence(UUID.randomUUID().toString(),
+            OccurrenceKey(planId, exactDate, exactTime), 2,
+            resolvedInstant.minusSeconds(300).toEpochMilli(), zone, resolvedInstant.toEpochMilli(),
+            resolvedInstant.atZone(ZoneId.of(zone)).offset.totalSeconds, TimeResolutionPolicy.P0_TIME_V1,
+            "phone-e2e-v1", resolvedInstant.minusSeconds(600).toEpochMilli())
+        val regKey = UUID.randomUUID()
+        val regBody = mapper.writeValueAsString(OccurrenceRegistrationRequest(listOf(evidence)))
+        val registered = ok(httpCall("POST", "/api/v1/elders/$elderId/occurrence-registrations", elderToken, regKey, regBody))
+        assertEquals(registered, ok(httpCall("POST", "/api/v1/elders/$elderId/occurrence-registrations", elderToken, regKey, regBody)))
+        problem(httpCall("POST", "/api/v1/elders/$elderId/occurrence-registrations", caregiverToken, UUID.randomUUID(), regBody), 403, "ROLE_NOT_ALLOWED")
+
+        // 6. Record dose action group via phone Elder & read dose events via phone Caregiver and phone Elder
+        val doseKey = UUID.randomUUID()
+        val doseReq = DebugDoseGroupRequest(doseKey.toString(), listOf(evidence.occurrence), DoseActionKind.TAKEN, resolvedInstant.toEpochMilli() + 1000)
+        val doseBody = mapper.writeValueAsString(doseReq)
+        val doseReceipt = ok(httpCall("POST", "/api/v1/elders/$elderId/dose-action-groups", elderToken, doseKey, doseBody))
+        assertEquals(doseReceipt, ok(httpCall("POST", "/api/v1/elders/$elderId/dose-action-groups", elderToken, doseKey, doseBody)))
+        assertEquals("TAKEN", doseReceipt["events"][0]["status"].asText())
+        for (readerToken in listOf(elderToken, caregiverToken)) {
+            val events = ok(httpCall("GET", "/api/v1/elders/$elderId/dose-events?fromDate=$exactDate&throughDate=$exactDate", readerToken))["items"]
+            assertEquals(1, events.size())
+            assertEquals("TAKEN", events[0]["status"].asText())
+        }
+
+        // 7. Revoke relationship via phone HTTP route and verify immediate Caregiver cutoff across photo, plan and dose-events
+        val revokeRes = ok(httpCall("POST", "/api/v1/care-relationships/${relationship["id"].asText()}/revoke", elderToken, UUID.randomUUID(), "{}"))
+        assertEquals("REVOKED", revokeRes["status"].asText())
+        problem(httpCall("GET", "/api/v1/elders/$elderId/medication-photos", caregiverToken), 404, "RESOURCE_NOT_ACCESSIBLE")
+        problem(httpCall("GET", "/api/v1/elders/$elderId/medications", caregiverToken), 404, "RESOURCE_NOT_ACCESSIBLE")
+        problem(httpCall("GET", "/api/v1/elders/$elderId/dose-events?fromDate=$exactDate&throughDate=$exactDate", caregiverToken), 404, "RESOURCE_NOT_ACCESSIBLE")
+        assertEquals("0", scalar("SELECT count(*) FROM anonymous_identity"))
+        assertEquals("2", scalar("SELECT count(*) FROM server_principal WHERE kind='PHONE'"))
     }
 }

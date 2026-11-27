@@ -1,6 +1,8 @@
 package com.group33.server.pairing
 
 import com.group33.server.auth.AnonymousUser
+import com.group33.server.auth.BoundPhoneJwt
+import com.group33.server.plan.PlanPhoneUnauthenticated
 import com.group33.shared.contract.ContractProtocol
 import com.group33.shared.contract.PairingRequestStatus
 import com.group33.shared.contract.PairingRequestView
@@ -13,7 +15,7 @@ import java.util.HexFormat
 import java.util.UUID
 
 internal enum class PairingRequestRejection {
-    ROLE_FORBIDDEN, IDEMPOTENCY_KEY_REUSED, PAIRING_CODE_UNAVAILABLE, RESOURCE_NOT_ACCESSIBLE,
+    UNAUTHENTICATED, ROLE_FORBIDDEN, IDEMPOTENCY_KEY_REUSED, PAIRING_CODE_UNAVAILABLE, RESOURCE_NOT_ACCESSIBLE,
     RATE_LIMITED, OPERATION_IN_PROGRESS,
 }
 
@@ -76,6 +78,69 @@ internal class PairingRequestService(private val store: PairingRequestStore, pri
         val participant = (actor.role == UserRole.ELDER && actor.id == view.elderId) ||
             (actor.role == UserRole.CAREGIVER && actor.id == view.caregiver.id)
         if (participant) PairingRequestResult.Success(view) else rejected(PairingRequestRejection.RESOURCE_NOT_ACCESSIBLE)
+    }
+
+    fun requestPhone(postgres: PostgresPairingCodeStore, jwt: BoundPhoneJwt, bearer: String, operationId: UUID,
+                     input: RequestPairingRequest, sourceAddress: InetAddress): PairingRequestResult {
+        val claims = jwt.validate(bearer) ?: return rejected(PairingRequestRejection.UNAUTHENTICATED)
+        val fingerprint = hash("${ContractProtocol.CANONICALIZATION_VERSION}:REQUEST_PAIRING:${input.code}")
+        val addressHash = hash(HexFormat.of().formatHex(sourceAddress.address))
+        return try {
+            postgres.phoneBusinessWrite(claims, { clock.instant().epochSecond }, jwt.allowance) { actor, tx, currentElder ->
+                if (actor.role != UserRole.CAREGIVER) return@phoneBusinessWrite rejected(PairingRequestRejection.ROLE_FORBIDDEN)
+                val key = PairingRequestKey(actor.id, operationId)
+                val previous = tx.requestOperation(key)
+                if (previous != null && (previous.installationId != actor.installationId || previous.fingerprint != fingerprint)) {
+                    return@phoneBusinessWrite rejected(PairingRequestRejection.IDEMPOTENCY_KEY_REUSED)
+                }
+                previous?.receipt?.let { return@phoneBusinessWrite PairingRequestResult.Success(it) }
+                fun reject(reason: PairingRequestRejection, retryAfter: Long? = null): PairingRequestResult.Rejected {
+                    val result = rejected(reason, retryAfter)
+                    tx.putRequestOperation(key, PairingRequestOperation(actor.installationId, fingerprint, rejection = result))
+                    return result
+                }
+                val now = clock.millis()
+                val cutoff = Math.subtractExact(now, WINDOW_MILLIS)
+                val byInstallation = tx.installationAttempts(actor.installationId).filter { it > cutoff }
+                val byAddress = tx.addressAttempts(addressHash).filter { it > cutoff }
+                val waits = listOf(byInstallation to 5, byAddress to 20).mapNotNull { (times, limit) ->
+                    if (times.size < limit) null else Math.subtractExact(Math.addExact(times.min(), WINDOW_MILLIS), now)
+                }
+                if (waits.isNotEmpty()) return@phoneBusinessWrite reject(PairingRequestRejection.RATE_LIMITED, 1 + (waits.max() - 1) / 1_000)
+                tx.putInstallationAttempts(actor.installationId, byInstallation + now)
+                tx.putAddressAttempts(addressHash, byAddress + now)
+                if (!input.code.matches(Regex("[0-9]{8}"))) return@phoneBusinessWrite reject(PairingRequestRejection.PAIRING_CODE_UNAVAILABLE)
+                val code = tx.unconsumedCode(hash(input.code), now)
+                    ?: return@phoneBusinessWrite reject(PairingRequestRejection.PAIRING_CODE_UNAVAILABLE)
+                if (!currentElder(code.elderId)) return@phoneBusinessWrite reject(PairingRequestRejection.PAIRING_CODE_UNAVAILABLE)
+                val view = PairingRequestView(UUID.randomUUID().toString(), code.elderId,
+                    User(actor.id, actor.displayName, actor.role), PairingRequestStatus.PENDING, code.expiresAtEpochMillis)
+                tx.consume(code, view)
+                tx.putRequestOperation(key, PairingRequestOperation(actor.installationId, fingerprint, receipt = view))
+                PairingRequestResult.Success(view)
+            }
+        } catch (_: PlanPhoneUnauthenticated) {
+            rejected(PairingRequestRejection.UNAUTHENTICATED)
+        } catch (_: CodeStoreBusy) {
+            rejected(PairingRequestRejection.OPERATION_IN_PROGRESS, 1)
+        }
+    }
+
+    fun detailPhone(postgres: PostgresPairingCodeStore, jwt: BoundPhoneJwt, bearer: String, requestId: String): PairingRequestResult {
+        val claims = jwt.validate(bearer) ?: return rejected(PairingRequestRejection.UNAUTHENTICATED)
+        return try {
+            postgres.phoneBusinessWrite(claims, { clock.instant().epochSecond }, jwt.allowance) { actor, tx, _ ->
+                val view = tx.request(requestId, clock.millis())
+                    ?: return@phoneBusinessWrite rejected(PairingRequestRejection.RESOURCE_NOT_ACCESSIBLE)
+                val participant = (actor.role == UserRole.ELDER && actor.id == view.elderId) ||
+                    (actor.role == UserRole.CAREGIVER && actor.id == view.caregiver.id)
+                if (participant) PairingRequestResult.Success(view) else rejected(PairingRequestRejection.RESOURCE_NOT_ACCESSIBLE)
+            }
+        } catch (_: PlanPhoneUnauthenticated) {
+            rejected(PairingRequestRejection.UNAUTHENTICATED)
+        } catch (_: CodeStoreBusy) {
+            rejected(PairingRequestRejection.OPERATION_IN_PROGRESS, 1)
+        }
     }
 
     private fun transaction(work: (PairingRequestTransaction) -> PairingRequestResult): PairingRequestResult = try {

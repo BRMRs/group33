@@ -23,6 +23,7 @@ import java.util.UUID
 
 @RestController
 @ConditionalOnProperty(name = ["app.photo.enabled"], havingValue = "true")
+@ConditionalOnProperty(name = ["app.bound-phone.enabled"], havingValue = "false", matchIfMissing = true)
 internal class MedicationPhotoController(private val actors: VerifiedPairingActorResolver, private val service: MedicationPhotoService) {
     @PostMapping("/api/v1/elders/{elderId}/medication-photos", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     fun upload(@AuthenticationPrincipal jwt: Jwt, @PathVariable elderId: String, request: MultipartHttpServletRequest): ResponseEntity<*> {
@@ -52,6 +53,7 @@ internal class MedicationPhotoController(private val actors: VerifiedPairingActo
         is PhotoBusinessResult.Content -> ResponseEntity.ok().cacheControl(CacheControl.noStore())
             .contentType(MediaType.parseMediaType(value.contentType)).header("X-Content-Type-Options", "nosniff").body(value.bytes)
         is PhotoBusinessResult.Rejected -> when (value.reason) {
+            PhotoBusinessRejection.UNAUTHENTICATED -> error(HttpStatus.UNAUTHORIZED, value.reason.name)
             PhotoBusinessRejection.RESOURCE_NOT_ACCESSIBLE -> error(HttpStatus.NOT_FOUND, value.reason.name)
             PhotoBusinessRejection.ROLE_NOT_ALLOWED -> error(HttpStatus.FORBIDDEN, value.reason.name)
             PhotoBusinessRejection.IDEMPOTENCY_KEY_REUSED -> error(HttpStatus.CONFLICT, value.reason.name)

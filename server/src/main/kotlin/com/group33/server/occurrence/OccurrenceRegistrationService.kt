@@ -1,7 +1,10 @@
 package com.group33.server.occurrence
 
 import com.group33.server.auth.AnonymousUser
+import com.group33.server.auth.BoundPhoneJwt
 import com.group33.server.pairing.CodeStoreBusy
+import com.group33.server.pairing.PostgresPairingCodeStore
+import com.group33.server.plan.PlanPhoneUnauthenticated
 import com.group33.server.plan.PlanSelfOverlapValidator
 import com.group33.shared.contract.*
 import com.group33.shared.model.DoseStatus
@@ -10,7 +13,7 @@ import java.time.*
 import java.util.UUID
 
 internal enum class RegistrationRejection {
-    RESOURCE_NOT_ACCESSIBLE, ROLE_NOT_ALLOWED, IDEMPOTENCY_KEY_REUSED, VALIDATION_FAILED, OPERATION_IN_PROGRESS, SERVICE_UNAVAILABLE,
+    UNAUTHENTICATED, RESOURCE_NOT_ACCESSIBLE, ROLE_NOT_ALLOWED, IDEMPOTENCY_KEY_REUSED, VALIDATION_FAILED, OPERATION_IN_PROGRESS, SERVICE_UNAVAILABLE,
 }
 internal data class RegistrationViolation(val field: String, val reason: String)
 internal sealed interface RegistrationResult {
@@ -28,80 +31,104 @@ internal class OccurrenceRegistrationService(private val store: OccurrenceRegist
         if (actor.id != elderId) return rejected(RegistrationRejection.RESOURCE_NOT_ACCESSIBLE)
         if (actor.role != UserRole.ELDER) return rejected(RegistrationRejection.ROLE_NOT_ALLOWED)
         val request = RegistrationCopies.request(input)
-        val binding = RegistrationBinding(actor.installationId, elderId, request)
-        val key = RegistrationKey(actor.id, operationId)
         return try {
-            store.registrationTransaction { tx ->
-                val previous = tx.registrationOperation(key)
-                if (previous != null && !previous.binding.matches(binding))
-                    return@registrationTransaction rejected(RegistrationRejection.IDEMPOTENCY_KEY_REUSED)
-                previous?.response?.let { return@registrationTransaction RegistrationResult.Accepted(RegistrationCopies.response(it)) }
-                // Check every plan's owner before exposing validation details or storing a rejected binding.
-                val plans = request.items.map { evidence ->
-                    val id = uuid(evidence.occurrence.planId)?.toString()
-                    val plan = id?.let(tx::plan)
-                    if (plan == null || plan.elderId != elderId || plan.id != evidence.occurrence.planId)
-                        return@registrationTransaction rejected(RegistrationRejection.RESOURCE_NOT_ACCESSIBLE)
-                    plan
-                }
-                fun reject(violations: List<RegistrationViolation>): RegistrationResult.Rejected {
-                    val result = RegistrationResult.Rejected(RegistrationRejection.VALIDATION_FAILED, violations)
-                    tx.putRegistrationOperation(key, RegistrationOperation(binding, rejection = result))
-                    return result
-                }
-                val violations = mutableListOf<RegistrationViolation>()
-                if (request.items.isEmpty()) violations += RegistrationViolation("items", "REQUIRED")
-                if (request.items.map { it.generationId }.distinct().size != request.items.size)
-                    violations += RegistrationViolation("items", "DUPLICATE_GENERATION_ID")
-                if (request.items.map { it.occurrence }.distinct().size != request.items.size)
-                    violations += RegistrationViolation("items", "DUPLICATE_OCCURRENCE")
-                val revisions = tx.revisions(elderId)
-                val registered = request.items.map { evidence ->
-                    uuid(evidence.generationId)?.let { tx.generation(actor.id, it) } ?: tx.occurrence(evidence.occurrence)
-                }
-                request.items.forEachIndexed { index, evidence ->
-                    val existing = registered[index]
-                    if (existing != null) {
-                        if (existing.installationId != actor.installationId || existing.receipt.event.elderId != elderId ||
-                            existing.receipt.event.generationEvidence != evidence)
-                            violations += RegistrationViolation("items[$index].generationEvidence", "CONTRADICTORY_GENERATION_EVIDENCE")
-                        // An accepted generation's frozen instant is not reinterpreted under a later TZDB.
-                    } else {
-                        val revision = revisions.singleOrNull { it.id == plans[index].id && it.revision == evidence.planRevision }
-                        violations += validate(evidence, revision).map { RegistrationViolation("items[$index]." + it.field, it.reason) }
-                    }
-                }
-                if (violations.isNotEmpty()) return@registrationTransaction reject(violations)
-                val receivedAt = clock.millis()
-                val pending = mutableListOf<RegisteredOccurrence>()
-                val receipts = request.items.mapIndexed { index, evidence ->
-                    val existing = registered[index]
-                    if (existing != null) {
-                        RegistrationCopies.receipt(existing.receipt)
-                    } else {
-                        val revision = revisions.single { it.id == evidence.occurrence.planId && it.revision == evidence.planRevision }
-                        val deadline = Math.addExact(evidence.plannedAtEpochMillis, RESPONSE_WINDOW)
-                        val status = when { receivedAt < evidence.plannedAtEpochMillis -> DoseStatus.SCHEDULED
-                            receivedAt < deadline -> DoseStatus.DUE; else -> DoseStatus.MISSED }
-                        val event = DoseEventView(newId().toString(), elderId, evidence.occurrence, evidence.planRevision,
-                            revision.medicationId, revision.medicationSnapshot, evidence.executionTimeZoneId, evidence.plannedAtEpochMillis,
-                            deadline, evidence, status, emptyList(), receivedAt)
-                        val receipt = OccurrenceRegistrationReceipt(evidence.generationId, receivedAt, event)
-                        pending += RegisteredOccurrence(actor.installationId, key, receipt)
-                        receipt
-                    }
-                }
-                // No business writes until the complete batch has validated, including contradictions.
-                pending.forEach(tx::insertOccurrence)
-                val response = OccurrenceRegistrationResponse(receipts)
-                tx.putRegistrationOperation(key, RegistrationOperation(binding, response = response))
-                RegistrationResult.Accepted(RegistrationCopies.response(response))
-            }
+            store.registrationTransaction { tx -> registerInTransaction(actor, elderId, operationId, request, tx) }
         } catch (_: CodeStoreBusy) { rejected(RegistrationRejection.OPERATION_IN_PROGRESS) }
           catch (failure: Exception) {
               if (failure is InterruptedException) Thread.currentThread().interrupt()
               rejected(RegistrationRejection.SERVICE_UNAVAILABLE)
           }
+    }
+
+    fun registerPhone(postgres: PostgresPairingCodeStore, jwt: BoundPhoneJwt, bearer: String, elderId: String,
+                      operationId: UUID, input: OccurrenceRegistrationRequest): RegistrationResult {
+        val claims = jwt.validate(bearer) ?: return rejected(RegistrationRejection.UNAUTHENTICATED)
+        val request = RegistrationCopies.request(input)
+        return try {
+            postgres.phoneBusinessWrite(claims, { clock.instant().epochSecond }, jwt.allowance) { actor, tx, _ ->
+                if (actor.role != UserRole.ELDER) {
+                    val known = actor.id == elderId || tx.activeRelationship(elderId)?.caregiverId == actor.id
+                    return@phoneBusinessWrite rejected(if (known) RegistrationRejection.ROLE_NOT_ALLOWED else RegistrationRejection.RESOURCE_NOT_ACCESSIBLE)
+                }
+                if (actor.id != elderId) return@phoneBusinessWrite rejected(RegistrationRejection.RESOURCE_NOT_ACCESSIBLE)
+                registerInTransaction(actor, elderId, operationId, request, tx)
+            }
+        } catch (_: PlanPhoneUnauthenticated) { rejected(RegistrationRejection.UNAUTHENTICATED) }
+          catch (_: CodeStoreBusy) { rejected(RegistrationRejection.OPERATION_IN_PROGRESS) }
+          catch (failure: Exception) {
+              if (failure is InterruptedException) Thread.currentThread().interrupt()
+              rejected(RegistrationRejection.SERVICE_UNAVAILABLE)
+          }
+    }
+
+    private fun registerInTransaction(actor: AnonymousUser, elderId: String, operationId: UUID,
+                                      request: OccurrenceRegistrationRequest, tx: OccurrenceRegistrationTransaction): RegistrationResult {
+        val binding = RegistrationBinding(actor.installationId, elderId, request)
+        val key = RegistrationKey(actor.id, operationId)
+        val previous = tx.registrationOperation(key)
+        if (previous != null && !previous.binding.matches(binding))
+            return rejected(RegistrationRejection.IDEMPOTENCY_KEY_REUSED)
+        previous?.response?.let { return RegistrationResult.Accepted(RegistrationCopies.response(it)) }
+        // Check every plan's owner before exposing validation details or storing a rejected binding.
+        val plans = request.items.map { evidence ->
+            val id = uuid(evidence.occurrence.planId)?.toString()
+            val plan = id?.let(tx::plan)
+            if (plan == null || plan.elderId != elderId || plan.id != evidence.occurrence.planId)
+                return rejected(RegistrationRejection.RESOURCE_NOT_ACCESSIBLE)
+            plan
+        }
+        fun reject(violations: List<RegistrationViolation>): RegistrationResult.Rejected {
+            val result = RegistrationResult.Rejected(RegistrationRejection.VALIDATION_FAILED, violations)
+            tx.putRegistrationOperation(key, RegistrationOperation(binding, rejection = result))
+            return result
+        }
+        val violations = mutableListOf<RegistrationViolation>()
+        if (request.items.isEmpty()) violations += RegistrationViolation("items", "REQUIRED")
+        if (request.items.map { it.generationId }.distinct().size != request.items.size)
+            violations += RegistrationViolation("items", "DUPLICATE_GENERATION_ID")
+        if (request.items.map { it.occurrence }.distinct().size != request.items.size)
+            violations += RegistrationViolation("items", "DUPLICATE_OCCURRENCE")
+        val revisions = tx.revisions(elderId)
+        val registered = request.items.map { evidence ->
+            uuid(evidence.generationId)?.let { tx.generation(actor.id, it) } ?: tx.occurrence(evidence.occurrence)
+        }
+        request.items.forEachIndexed { index, evidence ->
+            val existing = registered[index]
+            if (existing != null) {
+                if (existing.installationId != actor.installationId || existing.receipt.event.elderId != elderId ||
+                    existing.receipt.event.generationEvidence != evidence)
+                    violations += RegistrationViolation("items[$index].generationEvidence", "CONTRADICTORY_GENERATION_EVIDENCE")
+                // An accepted generation's frozen instant is not reinterpreted under a later TZDB.
+            } else {
+                val revision = revisions.singleOrNull { it.id == plans[index].id && it.revision == evidence.planRevision }
+                violations += validate(evidence, revision).map { RegistrationViolation("items[$index]." + it.field, it.reason) }
+            }
+        }
+        if (violations.isNotEmpty()) return reject(violations)
+        val receivedAt = clock.millis()
+        val pending = mutableListOf<RegisteredOccurrence>()
+        val receipts = request.items.mapIndexed { index, evidence ->
+            val existing = registered[index]
+            if (existing != null) {
+                RegistrationCopies.receipt(existing.receipt)
+            } else {
+                val revision = revisions.single { it.id == evidence.occurrence.planId && it.revision == evidence.planRevision }
+                val deadline = Math.addExact(evidence.plannedAtEpochMillis, RESPONSE_WINDOW)
+                val status = when { receivedAt < evidence.plannedAtEpochMillis -> DoseStatus.SCHEDULED
+                    receivedAt < deadline -> DoseStatus.DUE; else -> DoseStatus.MISSED }
+                val event = DoseEventView(newId().toString(), elderId, evidence.occurrence, evidence.planRevision,
+                    revision.medicationId, revision.medicationSnapshot, evidence.executionTimeZoneId, evidence.plannedAtEpochMillis,
+                    deadline, evidence, status, emptyList(), receivedAt)
+                val receipt = OccurrenceRegistrationReceipt(evidence.generationId, receivedAt, event)
+                pending += RegisteredOccurrence(actor.installationId, key, receipt)
+                receipt
+            }
+        }
+        // No business writes until the complete batch has validated, including contradictions.
+        pending.forEach(tx::insertOccurrence)
+        val response = OccurrenceRegistrationResponse(receipts)
+        tx.putRegistrationOperation(key, RegistrationOperation(binding, response = response))
+        return RegistrationResult.Accepted(RegistrationCopies.response(response))
     }
 
     private fun validate(e: OccurrenceGenerationEvidence, revision: PlanRevisionView?): List<RegistrationViolation> = buildList {

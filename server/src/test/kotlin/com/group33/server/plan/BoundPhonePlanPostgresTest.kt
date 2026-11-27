@@ -1,6 +1,7 @@
 package com.group33.server.plan
 
 import com.group33.server.auth.*
+import com.group33.server.occurrence.*
 import com.group33.server.pairing.*
 import com.group33.server.photo.*
 import com.group33.server.photo.storage.LocalFilePhotoObjectStore
@@ -19,6 +20,9 @@ import java.nio.file.Path
 import java.sql.Connection
 import java.time.Clock
 import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.ZoneOffset
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
@@ -53,7 +57,8 @@ internal class BoundPhonePlanPostgresTest {
         source.connection.use { connection ->
             val files = listOf("pairing-code-store-v1.sql", "pairing-request-store-v2.sql", "pairing-decision-store-v3.sql",
                 "pairing-directory-store-v4.sql", "anonymous-identity-store-v5.sql", "medication-photo-store-v6.sql",
-                "plan-confirmation-store-v7.sql", "plan-mutation-store-v8.sql", "bound-phone-identity.sql")
+                "plan-confirmation-store-v7.sql", "plan-mutation-store-v8.sql", "occurrence-registration-store-v9.sql",
+                "bound-phone-identity.sql")
             connection.createStatement().use { statement -> files.forEach { name ->
                 statement.execute(checkNotNull(javaClass.getResource("/db/prototypes/$name")).readText())
             } }
@@ -202,6 +207,91 @@ internal class BoundPhonePlanPostgresTest {
         identity().transaction { it.revokeSession(phoneElder.claims.userId, phoneElder.claims.installationId, phoneElder.claims.sessionId, now * 1000) }
         confirmRejected(confirmations().plansPhone(postgres, jwt, jwt.issue(phoneElder.claims), phoneElder.user.id),
             PlanConfirmationRejection.UNAUTHENTICATED)
+    }
+
+    @Test fun `phone pairing photo and occurrence registration execute end to end without anonymous rows`() {
+        val elderInstall = UUID.randomUUID()
+        val phoneElder = identity().transaction {
+            val user = it.registerVerifiedPhone("3".repeat(64), UserRole.ELDER, null)
+            it.openSession(UUID.fromString(user.id), elderInstall, jwt.audience, now, now + 3600)
+        }
+        val elderToken = jwt.issue(phoneElder.claims)
+        val caregiverToken = jwt.issue(phone.claims)
+        val issuance = PairingCodeIssuanceService(postgres, clock)
+        val requests = PairingRequestService(postgres, clock)
+        val decisions = PairingDecisionService(postgres, clock)
+        val directory = PairingDirectoryService(postgres, clock)
+        val photos = MedicationPhotoService(postgres, objects, clock)
+        val occurrences = OccurrenceRegistrationService(postgres, clock)
+
+        val issueOp = key()
+        val codeView = assertInstanceOf(CodeIssuanceResult.Issued::class.java,
+            issuance.issuePhone(postgres, jwt, elderToken, issueOp)).view
+        assertEquals(codeView, assertInstanceOf(CodeIssuanceResult.Issued::class.java,
+            issuance.issuePhone(postgres, jwt, elderToken, issueOp)).view)
+        assertEquals(CodeIssueRejection.ROLE_FORBIDDEN, assertInstanceOf(CodeIssuanceResult.Rejected::class.java,
+            issuance.issuePhone(postgres, jwt, caregiverToken, key())).reason)
+
+        val delCodeView = assertInstanceOf(CodeIssuanceResult.Issued::class.java,
+            issuance.issuePhone(postgres, jwt, elderToken, key())).view
+        val delOp = key()
+        assertEquals(CodeDeletionResult.Deleted, directory.deleteCodePhone(postgres, jwt, elderToken, delCodeView.id, delOp))
+        assertEquals(CodeDeletionResult.Deleted, directory.deleteCodePhone(postgres, jwt, elderToken, delCodeView.id, delOp))
+
+        val activeCode = assertInstanceOf(CodeIssuanceResult.Issued::class.java,
+            issuance.issuePhone(postgres, jwt, elderToken, key())).view
+        val reqOp = key()
+        val pending = assertInstanceOf(PairingRequestResult.Success::class.java,
+            requests.requestPhone(postgres, jwt, caregiverToken, reqOp, RequestPairingRequest(activeCode.code), InetAddress.getByName("192.0.2.50"))).view
+        assertEquals(pending, assertInstanceOf(PairingRequestResult.Success::class.java,
+            requests.requestPhone(postgres, jwt, caregiverToken, reqOp, RequestPairingRequest(activeCode.code), InetAddress.getByName("192.0.2.50"))).view)
+        assertEquals(pending.id, assertInstanceOf(PairingRequestResult.Success::class.java,
+            requests.detailPhone(postgres, jwt, elderToken, pending.id)).view.id)
+        assertTrue(directory.requestsPhone(postgres, jwt, elderToken, PairingRequestStatus.PENDING).items.any { it.id == pending.id })
+
+        val acceptOp = key()
+        val paired = assertInstanceOf(PairingDecisionResult.Relationship::class.java,
+            decisions.acceptPhone(postgres, jwt, elderToken, pending.id, acceptOp)).view
+        assertEquals(paired, assertInstanceOf(PairingDecisionResult.Relationship::class.java,
+            decisions.acceptPhone(postgres, jwt, elderToken, pending.id, acceptOp)).view)
+        assertTrue(directory.relationshipsPhone(postgres, jwt, caregiverToken).items.any { it.id == paired.id })
+
+        val bytes = ByteArrayOutputStream().use { ImageIO.write(BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB), "png", it); it.toByteArray() }
+        val photoOp = key()
+        val uploaded = assertInstanceOf(PhotoBusinessResult.Uploaded::class.java,
+            photos.uploadPhone(postgres, jwt, elderToken, phoneElder.user.id, photoOp, bytes, "image/png")).view
+        assertEquals(uploaded, assertInstanceOf(PhotoBusinessResult.Uploaded::class.java,
+            photos.uploadPhone(postgres, jwt, elderToken, phoneElder.user.id, photoOp, bytes, "image/png")).view)
+        assertEquals(PhotoBusinessRejection.ROLE_NOT_ALLOWED, assertInstanceOf(PhotoBusinessResult.Rejected::class.java,
+            photos.uploadPhone(postgres, jwt, caregiverToken, phone.user.id, key(), bytes, "image/png")).reason)
+        assertEquals(listOf(uploaded), assertInstanceOf(PhotoBusinessResult.Listed::class.java,
+            photos.listPhone(postgres, jwt, caregiverToken, phoneElder.user.id)).items)
+        assertArrayEquals(bytes, assertInstanceOf(PhotoBusinessResult.Content::class.java,
+            photos.contentPhone(postgres, jwt, caregiverToken, uploaded.id)).bytes)
+
+        val confirmedPlan = confirmed(confirmations().confirmPhone(postgres, jwt, caregiverToken, phoneElder.user.id, key(),
+            confirmInput.copy(photoId = uploaded.id)))
+        val zone = ZoneId.of("Asia/Shanghai")
+        val instant = PlanSelfOverlapValidator.resolve(LocalDateTime.of(2026, 10, 27, 8, 0), zone)
+        val evidence = OccurrenceGenerationEvidence(key().toString(),
+            OccurrenceKey(confirmedPlan.plan.id, "2026-10-27", "08:00"), 1,
+            instant.minusSeconds(3600).toEpochMilli(), zone.id, instant.toEpochMilli(),
+            instant.atZone(zone).offset.totalSeconds, TimeResolutionPolicy.P0_TIME_V1,
+            "phone-snapshot-v1", instant.minusSeconds(7200).toEpochMilli())
+        val regOp = key()
+        val regResult = assertInstanceOf(RegistrationResult.Accepted::class.java,
+            occurrences.registerPhone(postgres, jwt, elderToken, phoneElder.user.id, regOp, OccurrenceRegistrationRequest(listOf(evidence)))).response
+        assertEquals(regResult, assertInstanceOf(RegistrationResult.Accepted::class.java,
+            occurrences.registerPhone(postgres, jwt, elderToken, phoneElder.user.id, regOp, OccurrenceRegistrationRequest(listOf(evidence)))).response)
+        assertEquals(RegistrationRejection.ROLE_NOT_ALLOWED, assertInstanceOf(RegistrationResult.Rejected::class.java,
+            occurrences.registerPhone(postgres, jwt, caregiverToken, phoneElder.user.id, key(), OccurrenceRegistrationRequest(listOf(evidence)))).reason)
+
+        assertInstanceOf(PairingDecisionResult.Relationship::class.java,
+            decisions.revokePhone(postgres, jwt, elderToken, paired.id, key()))
+        assertEquals(PhotoBusinessRejection.RESOURCE_NOT_ACCESSIBLE, assertInstanceOf(PhotoBusinessResult.Rejected::class.java,
+            photos.listPhone(postgres, jwt, caregiverToken, phoneElder.user.id)).reason)
+        assertEquals(PhotoBusinessRejection.RESOURCE_NOT_ACCESSIBLE, assertInstanceOf(PhotoBusinessResult.Rejected::class.java,
+            photos.contentPhone(postgres, jwt, caregiverToken, uploaded.id)).reason)
     }
 
     private fun identity() = BoundPhoneIdentityStore(BoundPhoneFlowPostgresTest.source(schema))

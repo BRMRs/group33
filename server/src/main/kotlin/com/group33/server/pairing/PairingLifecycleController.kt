@@ -11,6 +11,7 @@ import com.group33.shared.contract.RequestPairingRequest
 import com.group33.shared.model.ApiError
 import com.group33.shared.model.UserRole
 import jakarta.servlet.http.HttpServletRequest
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.http.CacheControl
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -24,6 +25,7 @@ import java.util.UUID
 
 /** Existing routes/DTOs only. Real authentication precedes actor lookup; no public access adapter is enabled. */
 @RestController
+@ConditionalOnProperty(name = ["app.bound-phone.enabled"], havingValue = "false", matchIfMissing = true)
 internal class PairingLifecycleController(
     private val actors: VerifiedPairingActorResolver,
     private val requests: PairingRequestService,
@@ -93,6 +95,7 @@ internal class PairingLifecycleController(
     private fun requestResult(result: PairingRequestResult, success: HttpStatus): ResponseEntity<*> = when (result) {
         is PairingRequestResult.Success -> ResponseEntity.status(success).cacheControl(CacheControl.noStore()).body(result.view)
         is PairingRequestResult.Rejected -> when (result.reason) {
+            PairingRequestRejection.UNAUTHENTICATED -> error(HttpStatus.UNAUTHORIZED, "UNAUTHENTICATED")
             PairingRequestRejection.ROLE_FORBIDDEN -> error(HttpStatus.FORBIDDEN, "ROLE_NOT_ALLOWED")
             PairingRequestRejection.RESOURCE_NOT_ACCESSIBLE -> error(HttpStatus.NOT_FOUND, "RESOURCE_NOT_ACCESSIBLE")
             PairingRequestRejection.PAIRING_CODE_UNAVAILABLE -> error(HttpStatus.UNPROCESSABLE_ENTITY, "PAIRING_CODE_UNAVAILABLE")
@@ -107,6 +110,7 @@ internal class PairingLifecycleController(
         is PairingDecisionResult.Request -> ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(result.view)
         PairingDecisionResult.Cancelled -> ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build<Void>()
         is PairingDecisionResult.Rejected -> when (result.reason) {
+            PairingDecisionRejection.UNAUTHENTICATED -> error(HttpStatus.UNAUTHORIZED, result.reason.name)
             PairingDecisionRejection.RESOURCE_NOT_ACCESSIBLE -> error(HttpStatus.NOT_FOUND, result.reason.name)
             PairingDecisionRejection.ROLE_NOT_ALLOWED -> error(HttpStatus.FORBIDDEN, result.reason.name)
             PairingDecisionRejection.OPERATION_IN_PROGRESS -> error(HttpStatus.CONFLICT, result.reason.name, true, 1)
