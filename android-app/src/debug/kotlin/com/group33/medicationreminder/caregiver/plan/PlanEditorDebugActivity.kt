@@ -20,6 +20,10 @@ class PlanEditorDebugActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = true
+            isAppearanceLightNavigationBars = true
+        }
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             val safe = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() or
@@ -27,16 +31,31 @@ class PlanEditorDebugActivity : AppCompatActivity() {
             view.setPadding(safe.left, safe.top, safe.right, safe.bottom)
             insets
         }
-        root.addView(TextView(this).apply { setText(R.string.c2_debug_notice); textSize = 16f })
+        val spacing = (12 * resources.displayMetrics.density).toInt()
+        root.setBackgroundColor(androidx.core.content.ContextCompat.getColor(this, R.color.group33_background))
+        root.addView(TextView(this).apply {
+            setText(R.string.c2_debug_notice); textSize = 14f
+            setTextColor(androidx.core.content.ContextCompat.getColor(context, R.color.group33_text_secondary))
+            setPadding(spacing, spacing, spacing, 0)
+        })
+        val toolbar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(spacing, 0, spacing, 0)
+        }
         val scenarios = Spinner(this).apply {
             adapter = ArrayAdapter(this@PlanEditorDebugActivity, android.R.layout.simple_spinner_dropdown_item,
                 resources.getStringArray(R.array.c2_debug_scenarios))
             contentDescription = getString(R.string.c2_debug_scenario)
             minimumHeight = (48 * resources.displayMetrics.density).toInt()
         }
-        root.addView(scenarios)
-        val reset = Button(this).apply { setText(R.string.c2_debug_reset) }
-        root.addView(reset)
+        toolbar.addView(scenarios, LinearLayout.LayoutParams(0, -2, 1f))
+        val reset = Button(this).apply {
+            setText(R.string.c2_debug_reset); isAllCaps = false; textSize = 14f
+            minHeight = (48 * resources.displayMetrics.density).toInt()
+        }
+        toolbar.addView(reset)
+        root.addView(toolbar)
         editor = PlanEditorView(this)
         root.addView(editor, LinearLayout.LayoutParams(-1, 0, 1f))
         setContentView(root)
