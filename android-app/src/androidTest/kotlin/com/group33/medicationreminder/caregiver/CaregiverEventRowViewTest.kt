@@ -3,7 +3,9 @@ package com.group33.medicationreminder.caregiver
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Rect
 import android.view.ContextThemeWrapper
 import android.view.LayoutInflater
 import android.view.View
@@ -153,6 +155,7 @@ class CaregiverEventRowViewTest {
     }
 
     @Test fun debugHostKeepsScrolledReportAboveSystemBars() = withRow(scale = 2f, widthDp = 320,
+        viewportHeightDp = 600,
         afterLayout = { host, row ->
             val scroll = host.container
             val bars = checkNotNull(ViewCompat.getRootWindowInsets(scroll)).getInsets(
@@ -197,6 +200,7 @@ class CaregiverEventRowViewTest {
     }
 
     private fun withRow(language: String = "en", scale: Float = 1f, widthDp: Int = 360,
+        viewportHeightDp: Int? = null,
         afterLayout: ((CaregiverEventRowTestActivity, ItemCaregiverOverviewEventBinding) -> Unit)? = null,
         screenshotName: String? = null,
         block: (ItemCaregiverOverviewEventBinding) -> Unit,
@@ -217,6 +221,13 @@ class CaregiverEventRowViewTest {
                 }
                 val context = ContextThemeWrapper(host.createConfigurationContext(configuration), R.style.Theme_Group33)
                 row = ItemCaregiverOverviewEventBinding.inflate(LayoutInflater.from(context))
+                viewportHeightDp?.let { heightDp ->
+                    val density = context.resources.displayMetrics.density
+                    host.container.layoutParams = host.container.layoutParams.apply {
+                        width = (widthDp * density).toInt()
+                        height = (heightDp * density).toInt()
+                    }
+                }
                 host.container.addView(row.root, ViewGroup.LayoutParams(
                     (widthDp * context.resources.displayMetrics.density).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT))
                 block(row)

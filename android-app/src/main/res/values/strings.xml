@@ -35,6 +35,7 @@
     <string name="caregiver_navigation_preview_action">Preview Caregiver navigation (sample data)</string>
     <string name="caregiver_current_elder">Current Elder</string>
     <string name="caregiver_no_current_elder">No Elder selected</string>
+    <string name="caregiver_choose_elder_above">Choose an Elder from the dropdown above.</string>
     <string name="caregiver_context_unavailable">Sign in and pair with an Elder to view their plans or records.</string>
     <string name="caregiver_no_active_relationship">No active care relationship is available.</string>
     <string name="caregiver_active_relationship">Active care relationship</string>
@@ -76,4 +77,12 @@
         <item quantity="one">%d reminder plan today</item>
         <item quantity="other">%d reminder plans today</item>
     </plurals>
+    <string name="reminder_channel_name">Medication reminders</string>
+    <string name="reminder_channel_description">Audible medication reminders for the Elder</string>
+    <string name="reminder_notification_title">Medication reminder</string>
+    <string name="reminder_ringing_starting">Starting alarm…</string>
+    <string name="reminder_notification_text">%1$s · %2$s</string>
+    <string name="reminder_action_taken">Taken</string>
+    <string name="reminder_action_snooze">Remind me in 10 minutes</string>
+    <string name="reminder_action_help">Need help</string>
 </resources>

@@ -284,3 +284,31 @@ The isolated c1dev88 package alone was exercised, no original app data cleared,
 no global orientation/font/IME setting changed. Repository policy/diff checks and
 393 raw-Git-blob manifest hashes passed. No additional human acceptance is needed
 for test-only changes; C3/S1/E and a non-author still review the published candidate.
+
+## Current-main follow-through — 2026-11-27
+
+Agent-assisted C1 preparation; no human approval or signature.
+
+Integrated actual main `9ae5bbcd2baa11222f1fb2b7dc13634159b773a8` while preserving both contribution histories.
+
+Android Debug/Release JVM results (actual reports): `{"testDebugUnitTest": {"tests": 275, "failures": 0, "errors": 0, "skipped": 0}, "testReleaseUnitTest": {"tests": 274, "failures": 0, "errors": 0, "skipped": 0}}`.
+
+Debug lint: `{"Warning": 59}`. Debug/Release/AndroidTest APK builds passed.
+
+Physical MI PAD 4 PLUS / API27: **13/13**, all unique test completions status0.
+
+System settings retained: font1.0,1200x1920,density320. Tests use fictional fixtures; no supplier/cloud acceptance.
+
+Temporary application package: `com.group33.medicationreminder.c1review140`; existing tablet applications/data preserved.
+
+APK SHA256: `{"android-app-debug.apk": "6de30944887314400166251b2692a162e27146946bb18a9176d3620c67f1a7ad", "android-app-debug-androidTest.apk": "d66d37a6cef77bf64ac285d8af83081cb5e525b3f19dc82516f8a2b7a424164a"}`.
+
+Preserved off-main screenshot capture, real-IME/focus/click assertions and oversized paragraph beginning/end reachability.
+
+Kept main’s600dp viewport fixture; did not restore main-thread screenshot capture or whole-paragraph visibility assumptions.
+
+Device checks cover this combination, not system200%/TalkBack or full feature acceptance. Current-head independent reviewers remain required.
+
+Raw build/device results and APK hashes are retained privately under `.git/c1-progress-20261127/`.
+
+Policy, whitespace and regenerated complete artifact manifest are checked before publication.

@@ -43,13 +43,16 @@ class CaregiverPhotoViewModel : ViewModel() {
     private var observation: Job? = null
     private var load: Job? = null
     private val revoked = mutableSetOf<Pair<RepositoryScope, String>>()
+    private var mayRecoverInitialRevocation = false
 
     @MainThread
-    fun selectContext(repository: MedicationPhotoRepository, scope: RepositoryScope, elderId: String) {
+    fun selectContext(repository: MedicationPhotoRepository, scope: RepositoryScope, elderId: String,
+                      recoverInitialRevocation: Boolean = false) {
         require(elderId.isNotBlank())
         clearContext()
         selection = Selection(repository, scope, elderId)
         val denied = (scope to elderId) in revoked
+        mayRecoverInitialRevocation = recoverInitialRevocation && !denied
         mutableState.value = CaregiverPhotoState(scope, elderId,
             access = if (denied) AccessState.REVOKED else AccessState.UNKNOWN, loading = !denied)
         if (!denied) observe()
@@ -61,6 +64,7 @@ class CaregiverPhotoViewModel : ViewModel() {
         observation?.cancel()
         invalidateContent()
         selection = null
+        mayRecoverInitialRevocation = false
         mutableState.value = CaregiverPhotoState()
     }
 
@@ -68,8 +72,8 @@ class CaregiverPhotoViewModel : ViewModel() {
     @MainThread
     fun retryObservation() {
         val current = selection ?: return
-        if ((current.scope to current.elderId) in revoked ||
-            state.value.observationError == null || state.value.access == AccessState.REVOKED) return
+        if ((current.scope to current.elderId) in revoked || state.value.observationError == null ||
+            state.value.access == AccessState.REVOKED && !mayRecoverInitialRevocation) return
         generation = Any()
         observation?.cancel()
         mutableState.value = state.value.copy(loading = true, observationError = null)
@@ -83,7 +87,9 @@ class CaregiverPhotoViewModel : ViewModel() {
             try {
                 current.repository.observePhotos(current.elderId).collect { cached ->
                     if (token !== generation) return@collect
-                    if (cached.access == AccessState.REVOKED) revoked += current.scope to current.elderId
+                    if (cached.access == AccessState.REVOKED && !mayRecoverInitialRevocation)
+                        revoked += current.scope to current.elderId
+                    if (cached.access == AccessState.AUTHORIZED) mayRecoverInitialRevocation = false
                     val access = if ((current.scope to current.elderId) in revoked) AccessState.REVOKED else cached.access
                     val invalid = cached.value.any { it.elderId != current.elderId || it.id.isBlank() } ||
                         cached.value.map { it.id }.distinct().size != cached.value.size
