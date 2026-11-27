@@ -6,7 +6,6 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import com.group33.shared.contract.DeliveryCondition
 import com.group33.shared.contract.ExactAlarmAccess
@@ -41,16 +40,6 @@ internal object ReminderCapability {
         return ReminderCapabilitySnapshot(condition, notifications, channel, exact)
     }
 
-    fun openNotificationSettings(context: Context): Intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-
-    fun openExactAlarmSettings(context: Context): Intent = if (Build.VERSION.SDK_INT >= 31) {
-        Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
-            .setData(android.net.Uri.parse("package:${context.packageName}"))
-    } else {
-        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-            .setData(android.net.Uri.parse("package:${context.packageName}"))
-    }
 }
 
 internal class ReminderAlarmScheduler(

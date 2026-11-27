@@ -145,8 +145,8 @@ internal class DebugDoseReminders(
         mutableState.value = ElderDoseScreen(
             trusted,
             due,
-            capability.notificationsUsable,
             update != null && (update.hasPlanSnapshot || update.occurrences.isNotEmpty()),
+            capability,
         )
     }
 
@@ -168,8 +168,9 @@ internal class DebugDoseReminders(
         val due = dueElderDose(update.occurrences, clock)
         val capability = ReminderCapability.snapshot(app)
         mutableState.value = ElderDoseScreen(
-            trusted, due, capability.notificationsUsable,
+            trusted, due,
             update.hasPlanSnapshot || update.occurrences.isNotEmpty(),
+            capability,
         )
         return update.actionRecorded
     }
