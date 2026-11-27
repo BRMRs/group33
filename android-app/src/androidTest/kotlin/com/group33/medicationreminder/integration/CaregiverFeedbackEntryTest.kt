@@ -34,7 +34,8 @@ class CaregiverFeedbackEntryTest {
         h.await { find(h.root, CaregiverOverviewHost::class.java) != null }
         h.act {
             assertTrue(h.providerCalls >= 1)
-            assertNotNull(findText(h.root, it.getString(R.string.chain_no_plans)))
+            assertEquals(it.getString(R.string.browse_plans_empty),
+                h.root.findViewById<TextView>(R.id.plan_browser_status).text.toString())
             h.root.findViewById<View>(R.id.refresh_button).performClick()
         }
         h.await { h.fixture.refreshes.size == 1 }
@@ -48,9 +49,7 @@ class CaregiverFeedbackEntryTest {
         }
         h.await { find(h.root, CaregiverHistoryHost::class.java) == null }
         h.act { activity ->
-            assertTrue(allViews(h.root).filterIsInstance<EditText>().any {
-                it.hint?.toString() == activity.getString(R.string.chain_enter_code) && it.isShown
-            })
+            assertTrue(h.root.findViewById<EditText>(R.id.pairing_code_input).isShown)
             assertEquals(listOf("elder" to dates, "elder" to dates), h.fixture.refreshes)
         }
     }
@@ -148,9 +147,10 @@ class CaregiverFeedbackEntryTest {
         repeat(36) {
             if (!reached) {
                 h.act { activity ->
-                    val footer = findText(h.root, activity.getString(R.string.chain_no_plans))
+                    val footer = h.root.findViewById<TextView>(R.id.plan_browser_status)
                     val bounds = android.graphics.Rect()
-                    reached = footer != null && footer.getGlobalVisibleRect(bounds) && bounds.height() == footer.height
+                    reached = footer != null && footer.text.toString() == activity.getString(R.string.browse_plans_empty) &&
+                        footer.getGlobalVisibleRect(bounds) && bounds.height() == footer.height
                 }
                 if (!reached) swipeVisible(h, h.root, up = true, horizontalFraction = .98f, pageContent = true)
             }
@@ -825,6 +825,7 @@ class CaregiverFeedbackEntryTest {
             plans = strict { method, _ -> when (method) {
                 "observePlans" -> flowOf(cached(emptyList<ReminderPlanView>()))
                 "observeMedications" -> flowOf(cached(emptyList<MedicationView>()))
+                "observePreview" -> flowOf(cached(emptyList<PlanPreview>()))
                 else -> error("Unexpected plan operation: $method")
             } },
             commands = strict { method, _ -> when (method) {

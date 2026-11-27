@@ -104,8 +104,8 @@ class CaregiverOverviewRoomRefreshTest {
             assertEquals("GET", firstRequest.method)
             assertEquals("/api/v1/elders/${elder.id}/dose-events?fromDate=${range.fromDate}&throughDate=${range.throughDate}", firstRequest.path)
 
-            ActivityScenario.launch<CaregiverHistoryTestActivity>(
-                Intent(instrumentation.targetContext, CaregiverHistoryTestActivity::class.java),
+            ActivityScenario.launch<CaregiverOverviewHostTestActivity>(
+                Intent(instrumentation.targetContext, CaregiverOverviewHostTestActivity::class.java),
             ).use { scenario ->
                 lateinit var host: CaregiverOverviewHost
                 scenario.onActivity { activity ->
@@ -172,7 +172,7 @@ class CaregiverOverviewRoomRefreshTest {
     }
 
     @Test
-    fun forbiddenEventReadClearsOverviewWithoutASeparateRelationshipRefresh() =
+    fun wrongRoleEventReadPreservesStaleOverviewWithoutASeparateRelationshipRefresh() =
         assertDeniedEventReadClearsOverview(403)
 
     @Test
@@ -180,7 +180,7 @@ class CaregiverOverviewRoomRefreshTest {
         assertDeniedEventReadClearsOverview(404)
 
     @Test
-    fun forbiddenEventReadCannotBeRetriedByRebindingTheSameTrustedIdentity() =
+    fun wrongRoleEventReadPreservesRecordsAfterDisplayOnlyRebind() =
         assertDeniedEventReadClearsOverview(403, checkTerminalAccess = true)
 
     @Test
@@ -207,8 +207,8 @@ class CaregiverOverviewRoomRefreshTest {
                 as CaregiverContextState.Active
             assertTrue(repository.refresh(elder.id, range) is Outcome.Success)
 
-            ActivityScenario.launch<CaregiverHistoryTestActivity>(
-                Intent(instrumentation.targetContext, CaregiverHistoryTestActivity::class.java),
+            ActivityScenario.launch<CaregiverOverviewHostTestActivity>(
+                Intent(instrumentation.targetContext, CaregiverOverviewHostTestActivity::class.java),
             ).use { scenario ->
                 lateinit var host: CaregiverOverviewHost
                 lateinit var oldRow: View
@@ -229,6 +229,29 @@ class CaregiverOverviewRoomRefreshTest {
                     host.findViewById<View>(R.id.refresh_button).performClick()
                 }
                 transport.awaitDoseRequest(2)
+                if (status == 403) {
+                    val retained = withTimeout(5_000) { repository.observeEvents(elder.id, range)
+                        .first { it.isStale && it.access == AccessState.AUTHORIZED } }
+                    assertTrue(retained.value.isNotEmpty())
+                    awaitUi(host) { host.findViewById<TextView>(R.id.refresh_message).text.toString() ==
+                        activityString(host, R.string.c3_refresh_authorization_failed) }
+                    scenario.onActivity {
+                        assertEquals(it.getString(R.string.c3_outcome_taken), outcome(host).text.toString())
+                        assertTrue(host.findViewById<View>(R.id.history_button).isEnabled)
+                        assertTrue(host.findViewById<View>(R.id.refresh_button).isEnabled)
+                        assertTrue(oldRow.isAttachedToWindow)
+                        assertFalse(visibleText(host).contains("DENIED-RAW-SERVER-DETAIL"))
+                        if (checkTerminalAccess) host.bind(it, repository,
+                            active.context.copy(elderDisplayName = "Renamed fixture elder"), range) { _, _ ->
+                            historyOpens.incrementAndGet()
+                        }
+                    }
+                    if (checkTerminalAccess) awaitUi(host) { takenReportText(host) == expectedTakenReportText(host) }
+                    assertEquals(2, transport.doseRequests.size)
+                    assertEquals(relationshipReads, transport.relationshipReads.get())
+                    assertEquals(AuthReadiness.READY, repository.observeSession().first().readiness)
+                    return@use
+                }
                 // The event response itself invalidates the real Room projection. The relationship
                 // cache remains authorized: no pairing refresh/revocation drives this regression.
                 val denied = withTimeout(5_000) { repository.observeEvents(elder.id, range)

@@ -113,8 +113,8 @@ class CaregiverOverviewPresentationTest {
         assertFalse(display(state().copy(access = AccessState.REVOKED)).canRefresh)
     }
 
-    @Test fun `access errors hide data without inventing permanent revocation or revealing existence`() {
-        for (code in listOf("RESOURCE_NOT_ACCESSIBLE", "UNAUTHENTICATED", "ROLE_NOT_ALLOWED")) {
+    @Test fun `terminal access errors hide data without inventing permanent revocation or revealing existence`() {
+        for (code in listOf("RESOURCE_NOT_ACCESSIBLE", "UNAUTHENTICATED")) {
             val input = state().copy(refreshResult = Outcome.Failure(RepositoryError.Remote(ApiError(code, "not for display", false, "test"))))
             val screen = display(input)
             assertEquals(OverviewMessage.UNAVAILABLE, screen.message)
@@ -123,6 +123,21 @@ class CaregiverOverviewPresentationTest {
             assertFalse(screen.canRefresh)
             assertEquals(AccessState.AUTHORIZED, input.access)
         }
+    }
+
+    @Test fun `wrong role preserves authorized stale report and shows failed refresh`() {
+        val input = state().copy(
+            refreshResult = Outcome.Failure(
+                RepositoryError.Remote(ApiError("ROLE_NOT_ALLOWED", "not for display", false, "test")),
+            ),
+        )
+        val screen = display(input)
+        assertEquals(OverviewMessage.RESULTS, screen.message)
+        assertNotNull(screen.content)
+        assertTrue(checkNotNull(screen.content).isStale)
+        assertTrue(screen.canOpenHistory)
+        assertTrue(screen.canRefresh)
+        assertEquals(OverviewRefreshMessage.AUTHORIZATION_FAILED, screen.refreshMessage)
     }
 
     @Test fun `session not ready hides content while generic server failure retains stale data`() {

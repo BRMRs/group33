@@ -26,4 +26,5 @@
   <string name="c3_refresh_range_too_large">The requested dates or number of records exceed the download limit. No shortened result is shown. Try a smaller date range; last known records may be out of date.</string>
   <string name="c3_refresh_service_unavailable">The service is temporarily unavailable. Last known records may be out of date. Try refreshing again later.</string>
   <string name="c3_refresh_retry_later">The service has asked you to retry later. Last known records may be out of date. Wait before refreshing again.</string>
+  <string name="c3_refresh_authorization_failed">You are not allowed to refresh these records. Previously saved records remain visible and may be out of date.</string>
 </resources>

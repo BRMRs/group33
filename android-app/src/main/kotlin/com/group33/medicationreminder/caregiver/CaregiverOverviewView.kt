@@ -121,6 +121,7 @@ class CaregiverOverviewView @JvmOverloads constructor(
             OverviewRefreshMessage.RANGE_TOO_LARGE -> context.getString(R.string.c3_refresh_range_too_large)
             OverviewRefreshMessage.SERVICE_UNAVAILABLE -> context.getString(R.string.c3_refresh_service_unavailable)
             OverviewRefreshMessage.RETRY_LATER -> context.getString(R.string.c3_refresh_retry_later)
+            OverviewRefreshMessage.AUTHORIZATION_FAILED -> context.getString(R.string.c3_refresh_authorization_failed)
         })
         binding.freshness.showText(content?.takeIf { it.isStale }?.let { context.getString(R.string.c3_stale) })
         binding.lastSync.showText(content?.let {

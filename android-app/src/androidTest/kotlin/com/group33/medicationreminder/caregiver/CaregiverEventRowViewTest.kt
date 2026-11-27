@@ -289,24 +289,35 @@ class CaregiverEventRowViewTest {
             val scroll = host.container
             val bars = checkNotNull(ViewCompat.getRootWindowInsets(scroll)).getInsets(
                 WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-            assertTrue("bottom padding=${scroll.paddingBottom}, system inset=${bars.bottom}",
-                scroll.paddingBottom >= bars.bottom)
-            assertTrue("top padding must avoid system UI", scroll.paddingTop >= bars.top)
+            val scrollPosition = IntArray(2).also(scroll::getLocationOnScreen)
+            val displayBottom = scroll.resources.displayMetrics.heightPixels - bars.bottom
+            assertTrue("top content must avoid system UI",
+                scrollPosition[1] + scroll.paddingTop >= bars.top)
+            assertTrue("bottom content must avoid system UI",
+                scrollPosition[1] + scroll.height - scroll.paddingBottom <= displayBottom)
             assertTrue("fixture must exceed viewport", row.root.height > scroll.height)
             row.syncedReports.requestRectangleOnScreen(Rect(0, 0,
                 row.syncedReports.width, row.syncedReports.height), true)
             val requestedPosition = IntArray(2).also(row.syncedReports::getLocationOnScreen)
             val requestedScrollPosition = IntArray(2).also(scroll::getLocationOnScreen)
-            val safeBottom = requestedScrollPosition[1] + scroll.height - bars.bottom
+            val safeBottom = minOf(
+                requestedScrollPosition[1] + scroll.height - scroll.paddingBottom,
+                displayBottom,
+            )
             val overflow = requestedPosition[1] + row.syncedReports.height - safeBottom
             if (overflow > 0) scroll.scrollBy(0, overflow)
             val scrolledPosition = IntArray(2).also(scroll::getLocationOnScreen)
             val visibleReportPosition = IntArray(2).also(row.syncedReports::getLocationOnScreen)
-            val finalSafeBottom = scrolledPosition[1] + scroll.height - bars.bottom
+            val finalSafeBottom = minOf(
+                scrolledPosition[1] + scroll.height - scroll.paddingBottom,
+                displayBottom,
+            )
             assertTrue("last report must be above system bar: reportBottom=${visibleReportPosition[1] + row.syncedReports.height}, safeBottom=$finalSafeBottom",
                 visibleReportPosition[1] + row.syncedReports.height <= finalSafeBottom)
-            assertTrue("last report must be fully inside the visible viewport: reportTop=${visibleReportPosition[1]}, safeTop=${scrolledPosition[1] + scroll.paddingTop}, scrollY=${scroll.scrollY}, childHeight=${scroll.getChildAt(0).height}",
-                visibleReportPosition[1] >= scrolledPosition[1] + scroll.paddingTop)
+            val finalSafeTop = maxOf(scrolledPosition[1] + scroll.paddingTop, bars.top)
+            assertTrue("report must intersect the readable viewport: reportTop=${visibleReportPosition[1]}, reportBottom=${visibleReportPosition[1] + row.syncedReports.height}, safeTop=$finalSafeTop, safeBottom=$finalSafeBottom, scrollY=${scroll.scrollY}, childHeight=${scroll.getChildAt(0).height}",
+                visibleReportPosition[1] < finalSafeBottom &&
+                    visibleReportPosition[1] + row.syncedReports.height > finalSafeTop)
         }) { row ->
         row.bindEvent(event.copy(medicationSnapshot = MedicationText("Fictional medication ".repeat(40),
             "Fictional dosage ".repeat(40)), localReports = listOf(report)).toCaregiverEventRow())

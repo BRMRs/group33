@@ -43,7 +43,7 @@
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
+                android:layout_marginTop="8dp"
                 app:cardBackgroundColor="@color/group33_surface"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="0dp"
@@ -61,13 +61,23 @@
                         android:text="@string/caregiver_current_elder"
                         android:textAppearance="@style/TextAppearance.Group33.Supporting" />
 
-                    <TextView
-                        android:id="@+id/current_elder_value"
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/current_elder_input"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="@string/caregiver_no_current_elder"
-                        android:textAppearance="@style/TextAppearance.Group33.Title" />
+                        app:hintEnabled="false">
+                        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                            android:id="@+id/current_elder_value"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:minHeight="56dp"
+                            android:inputType="none"
+                            android:importantForAutofill="no"
+                            android:text="@string/caregiver_no_current_elder"
+                            android:textAppearance="@style/TextAppearance.Group33.Body" />
+                    </com.google.android.material.textfield.TextInputLayout>
 
                     <TextView
                         android:id="@+id/current_elder_hint"

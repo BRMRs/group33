@@ -61,6 +61,11 @@ class CaregiverNavigationUiTest {
             awaitCaregiverLanguage("en")
             onView(withId(R.id.bottom_navigation)).check(matches(isDisplayed()))
             onView(withId(R.id.current_elder_value)).check(matches(withText(R.string.caregiver_no_current_elder)))
+            scenario.onActivity { activity ->
+                val selector = activity.findViewById<com.google.android.material.textfield.MaterialAutoCompleteTextView>(R.id.current_elder_value)
+                org.junit.Assert.assertFalse(selector.isEnabled)
+                org.junit.Assert.assertNull("Selection must not open a text keyboard", selector.keyListener)
+            }
             onView(withId(R.id.page_message)).check(matches(withText(R.string.caregiver_context_unavailable)))
 
             onView(withId(R.id.nav_records)).perform(click())

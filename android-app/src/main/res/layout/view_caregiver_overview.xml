@@ -8,87 +8,86 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="@dimen/group33_screen_padding">
 
     <TextView
       android:id="@+id/overview_title"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
       android:text="@string/c3_overview_title"
-      android:textAppearance="?attr/textAppearanceHeadlineSmall" />
+      android:textAppearance="@style/TextAppearance.Group33.Title" />
 
     <TextView
       android:id="@+id/elder_name"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
-      android:layout_marginTop="12dp"
-      android:textSize="18sp" />
+      android:layout_marginTop="@dimen/group33_spacing_medium"
+      android:textAppearance="@style/TextAppearance.Group33.Body" />
 
     <TextView
       android:id="@+id/date_range"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
-      android:layout_marginTop="8dp"
-      android:textSize="14sp" />
+      android:layout_marginTop="@dimen/group33_spacing_small"
+      android:textAppearance="@style/TextAppearance.Group33.Supporting" />
 
     <TextView
       android:id="@+id/state_message"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
-      android:layout_marginTop="12dp"
+      android:layout_marginTop="@dimen/group33_spacing_medium"
       android:accessibilityLiveRegion="polite"
-      android:textSize="16sp" />
+      android:textAppearance="@style/TextAppearance.Group33.Supporting" />
 
     <TextView
       android:id="@+id/refresh_message"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
-      android:layout_marginTop="8dp"
+      android:layout_marginTop="@dimen/group33_spacing_small"
       android:accessibilityLiveRegion="polite"
-      android:textSize="16sp" />
+      android:textAppearance="@style/TextAppearance.Group33.Supporting" />
 
     <TextView
       android:id="@+id/freshness"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
-      android:layout_marginTop="8dp"
-      android:textSize="14sp" />
+      android:layout_marginTop="@dimen/group33_spacing_small"
+      android:textAppearance="@style/TextAppearance.Group33.Supporting" />
 
     <TextView
       android:id="@+id/last_sync"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
-      android:layout_marginTop="8dp"
-      android:textSize="14sp" />
+      android:layout_marginTop="@dimen/group33_spacing_small"
+      android:textAppearance="@style/TextAppearance.Group33.Supporting" />
 
     <TextView
       android:id="@+id/capability"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
-      android:layout_marginTop="8dp"
-      android:textSize="16sp" />
+      android:layout_marginTop="@dimen/group33_spacing_small"
+      android:textAppearance="@style/TextAppearance.Group33.Supporting" />
 
     <TextView
       android:id="@+id/capability_details"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
-      android:layout_marginTop="8dp"
-      android:textSize="14sp" />
+      android:layout_marginTop="@dimen/group33_spacing_small"
+      android:textAppearance="@style/TextAppearance.Group33.Supporting" />
 
     <com.google.android.material.button.MaterialButton
       android:id="@+id/refresh_button"
+      style="@style/Widget.Group33.PrimaryAction"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
-      android:layout_marginTop="16dp"
-      android:minHeight="48dp"
+      android:layout_marginTop="@dimen/group33_spacing_medium"
       android:text="@string/c3_refresh" />
 
     <com.google.android.material.button.MaterialButton
       android:id="@+id/history_button"
-      style="?attr/materialButtonOutlinedStyle"
+      style="@style/Widget.Group33.SecondaryAction"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
-      android:minHeight="48dp"
       android:text="@string/c3_history" />
 
     <LinearLayout
