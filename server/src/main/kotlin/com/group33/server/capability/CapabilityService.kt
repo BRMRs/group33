@@ -78,15 +78,23 @@ internal class CapabilityService(
 
     /** Authorized snapshot building seam, not a new public API or a caller-selected installation. */
     fun lastKnown(actor: AnonymousUser, target: AnonymousUser): CapabilityRead {
+        val caregiverRead = actor.role == UserRole.CAREGIVER
         val allowed = target.role == UserRole.ELDER && when (actor.role) {
             UserRole.ELDER -> actor.id == target.id && actor.installationId == target.installationId
             UserRole.CAREGIVER -> relationships.isActive(actor.id, target.id)
         }
         if (!allowed) return CapabilityRead.NotAccessible
-        return try {
+        val read = try {
             store.transaction { tx ->
                 CapabilityRead.Current(tx.current(CapabilityOwner(target.id, target.installationId))?.detached())
             }
         } catch (_: CapabilityStoreBusy) { CapabilityRead.InProgress }
+        // The process-local slice cannot join the pairing and capability stores in one database
+        // transaction. Recheck after reading so a revocation concurrent with this read discards
+        // the private value. The persistent snapshot adapter still owns one-primary-transaction
+        // authorization and data reads.
+        return if (caregiverRead && read is CapabilityRead.Current &&
+            !relationships.isActive(actor.id, target.id)
+        ) CapabilityRead.NotAccessible else read
     }
 }
