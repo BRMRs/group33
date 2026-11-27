@@ -45,11 +45,21 @@ internal class CapabilityRuntimePostgresTest {
         assertInstanceOf(PostgresCapabilityStore::class.java, runtime.capability)
         assertEquals("PersistenceRuntime(REDACTED)", runtime.toString())
     }
-    @ParameterizedTest @ValueSource(strings = ["capability_guard", "capability_observation", "capability_current", "capability_operation", "guard-row", "column"])
+    @ParameterizedTest @ValueSource(strings = ["capability_guard", "capability_observation", "capability_current", "capability_operation",
+        "guard-row", "receipt-payload", "observation-report-id", "current-report-id", "operation-elder-id", "operation-installation-id",
+        "canonicalization-version", "accepted-report-id", "acknowledged-sequence", "receipt-current-sequence"])
     fun `missing required capability schema fails closed without fallback or sensitive cause`(missing: String) {
         when (missing) {
             "guard-row" -> sql("DELETE FROM capability_guard")
-            "column" -> sql("ALTER TABLE capability_operation RENAME COLUMN receipt_payload TO missing_payload")
+            "receipt-payload" -> sql("ALTER TABLE capability_operation RENAME COLUMN receipt_payload TO missing_payload")
+            "observation-report-id" -> sql("ALTER TABLE capability_observation RENAME COLUMN report_id TO missing_report_id")
+            "current-report-id" -> sql("ALTER TABLE capability_current RENAME COLUMN report_id TO missing_report_id")
+            "operation-elder-id" -> sql("ALTER TABLE capability_operation RENAME COLUMN elder_id TO missing_elder_id")
+            "operation-installation-id" -> sql("ALTER TABLE capability_operation RENAME COLUMN installation_id TO missing_installation_id")
+            "canonicalization-version" -> sql("ALTER TABLE capability_operation RENAME COLUMN canonicalization_version TO missing_version")
+            "accepted-report-id" -> sql("ALTER TABLE capability_operation RENAME COLUMN accepted_report_id TO missing_accepted_id")
+            "acknowledged-sequence" -> sql("ALTER TABLE capability_operation RENAME COLUMN acknowledged_sequence TO missing_acknowledged")
+            "receipt-current-sequence" -> sql("ALTER TABLE capability_operation RENAME COLUMN receipt_current_sequence TO missing_current")
             else -> sql("ALTER TABLE $missing RENAME TO temporarily_missing_capability")
         }
         val failure = assertThrows(IllegalStateException::class.java) { PersistenceRuntimeConfiguration().create(environment()) }

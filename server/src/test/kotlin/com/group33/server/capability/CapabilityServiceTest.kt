@@ -139,6 +139,9 @@ class CapabilityServiceTest {
         val value = report()
         accepted(submit(value))
         rejected(submit(value, actor = elder.copy(role = UserRole.CAREGIVER)), CapabilityRejection.ROLE_NOT_ALLOWED)
+        active = true
+        rejected(submit(value, actor = caregiver, target = elder.id), CapabilityRejection.ROLE_NOT_ALLOWED)
+        active = false
         rejected(submit(value, actor = other, target = elder.id), CapabilityRejection.RESOURCE_NOT_ACCESSIBLE)
         rejected(submit(value, target = other.id), CapabilityRejection.RESOURCE_NOT_ACCESSIBLE)
     }
@@ -167,10 +170,24 @@ class CapabilityServiceTest {
         assertEquals(current(), current(caregiver, elder))
         active = false
         assertEquals(CapabilityRead.NotAccessible, service.lastKnown(caregiver, elder))
-        assertEquals(2, accessChecks.get())
+        assertEquals(3, accessChecks.get())
         assertEquals(CapabilityRead.NotAccessible, service.lastKnown(elder, caregiver))
         active = true
         rejected(submit(report(), actor = caregiver), CapabilityRejection.ROLE_NOT_ALLOWED)
+    }
+
+    @Test fun `caregiver revocation during a read discards the capability value`() {
+        accepted(submit(report()))
+        val checks = AtomicInteger()
+        val revokeDuringRead = CareRelationshipAccess { actor, target ->
+            assertEquals(caregiver.id, actor)
+            assertEquals(elder.id, target)
+            checks.incrementAndGet() == 1
+        }
+        val guarded = CapabilityService(store, revokeDuringRead, clock)
+
+        assertEquals(CapabilityRead.NotAccessible, guarded.lastKnown(caregiver, elder))
+        assertEquals(2, checks.get())
     }
 
     @Test fun `input and output list mutation cannot alter a receipt or current report`() {
@@ -207,6 +224,31 @@ class CapabilityServiceTest {
             assertNull(it.operation(CapabilityOperationKey(elder.id, UUID.fromString(input.reportId))))
         }
         assertTrue(accepted(submit(input)).applied)
+    }
+
+    @Test fun `transaction rollback isolates nested report and receipt lists`() {
+        val input = report().copy(reasons = listOf("original"))
+        accepted(submit(input))
+        val key = CapabilityOperationKey(elder.id, UUID.fromString(input.reportId))
+
+        assertThrows(IllegalStateException::class.java) {
+            store.transaction { tx ->
+                (tx.current(owner())!!.reasons as MutableList<String>).clear()
+                val operation = tx.operation(key)!!
+                (operation.binding.report.reasons as MutableList<String>).clear()
+                (operation.receipt!!.current.reasons as MutableList<String>).clear()
+                (tx.observation(owner(), input.observationSequence)!!.reasons as MutableList<String>).clear()
+                error("fictional rollback")
+            }
+        }
+
+        assertEquals(listOf("original"), current()!!.reasons)
+        store.transaction { tx ->
+            val operation = tx.operation(key)!!
+            assertEquals(listOf("original"), operation.binding.report.reasons)
+            assertEquals(listOf("original"), operation.receipt!!.current.reasons)
+            assertEquals(listOf("original"), tx.observation(owner(), input.observationSequence)!!.reasons)
+        }
     }
 
     @Test fun `concurrent retries of one operation return one accepted effect`() {

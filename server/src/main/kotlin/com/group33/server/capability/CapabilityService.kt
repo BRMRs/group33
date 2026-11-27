@@ -34,9 +34,16 @@ internal class CapabilityService(
     private val relationships: CareRelationshipAccess,
     private val clock: Clock = Clock.systemUTC(),
 ) {
+    fun authorizeReport(actor: AnonymousUser, elderId: String): CapabilityRejection? {
+        if (actor.role == UserRole.ELDER) {
+            return if (actor.id == elderId) null else CapabilityRejection.RESOURCE_NOT_ACCESSIBLE
+        }
+        val known = actor.id == elderId || relationships.isActive(actor.id, elderId)
+        return if (known) CapabilityRejection.ROLE_NOT_ALLOWED else CapabilityRejection.RESOURCE_NOT_ACCESSIBLE
+    }
+
     fun report(actor: AnonymousUser, elderId: String, operationId: UUID, input: ReminderCapabilityReport): CapabilityAcceptance {
-        if (actor.role != UserRole.ELDER) return CapabilityAcceptance.Rejected(CapabilityRejection.ROLE_NOT_ALLOWED)
-        if (actor.id != elderId) return CapabilityAcceptance.Rejected(CapabilityRejection.RESOURCE_NOT_ACCESSIBLE)
+        authorizeReport(actor, elderId)?.let { return CapabilityAcceptance.Rejected(it) }
         val owner = CapabilityOwner(actor.id, actor.installationId)
         val payload = input.copy(reasons = input.reasons.toList())
         val binding = CapabilityBinding(owner, payload)
@@ -78,15 +85,23 @@ internal class CapabilityService(
 
     /** Authorized snapshot building seam, not a new public API or a caller-selected installation. */
     fun lastKnown(actor: AnonymousUser, target: AnonymousUser): CapabilityRead {
+        val caregiverRead = actor.role == UserRole.CAREGIVER
         val allowed = target.role == UserRole.ELDER && when (actor.role) {
             UserRole.ELDER -> actor.id == target.id && actor.installationId == target.installationId
             UserRole.CAREGIVER -> relationships.isActive(actor.id, target.id)
         }
         if (!allowed) return CapabilityRead.NotAccessible
-        return try {
+        val read = try {
             store.transaction { tx ->
                 CapabilityRead.Current(tx.current(CapabilityOwner(target.id, target.installationId))?.detached())
             }
         } catch (_: CapabilityStoreBusy) { CapabilityRead.InProgress }
+        // The process-local slice cannot join the pairing and capability stores in one database
+        // transaction. Recheck after reading so a revocation concurrent with this read discards
+        // the private value. The persistent snapshot adapter still owns one-primary-transaction
+        // authorization and data reads.
+        return if (caregiverRead && read is CapabilityRead.Current &&
+            !relationships.isActive(actor.id, target.id)
+        ) CapabilityRead.NotAccessible else read
     }
 }

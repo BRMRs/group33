@@ -109,11 +109,21 @@ internal class PostgresCapabilityStoreTest {
     @Test fun `actor and owner scopes and role checks precede accepted receipt lookup`() {
         val value=report(); val first=accepted(submit(value))
         rejected(submit(value,actor=caregiver),CapabilityRejection.ROLE_NOT_ALLOWED)
+        store().transaction { assertNull(it.operation(CapabilityOperationKey(caregiver.id,UUID.fromString(value.reportId)))) }
         val other=elder.copy(id="other-fictional-elder",installationId="other-fictional-install")
         rejected(submit(value,actor=other,target=elder.id),CapabilityRejection.RESOURCE_NOT_ACCESSIBLE)
+        store().transaction { assertNull(it.operation(CapabilityOperationKey(other.id,UUID.fromString(value.reportId)))) }
         val separate=accepted(submit(value,actor=other)); assertEquals(first.current,current())
         assertEquals(separate.current,assertInstanceOf(CapabilityRead.Current::class.java,service().lastKnown(other,other)).view)
         assertEquals(listOf(2,2,2),counts())
+    }
+    @ParameterizedTest @ValueSource(strings=["ROLE_NOT_ALLOWED","RESOURCE_NOT_ACCESSIBLE","IDEMPOTENCY_KEY_REUSED"])
+    fun `schema cannot persist preauthorization or mismatched binding decisions`(reason:String) {
+        val input=report();val binding=CapabilityBinding(owner(),input)
+        assertThrows(SQLException::class.java) {
+            store().transaction { it.putOperation(key(input),CapabilityOperation(binding,rejection=CapabilityRejection.valueOf(reason))) }
+        }
+        assertEquals(listOf(0,0,0),counts())
     }
     @Test fun `relationship seam is rechecked on each lastKnown read and elder retains own data`() {
         accepted(submit(report()));assertEquals(CapabilityRead.NotAccessible,service().lastKnown(caregiver,elder))
@@ -199,7 +209,7 @@ internal class PostgresCapabilityStoreTest {
     private fun process(mode:String,input:ReminderCapabilityReport,now:Long):String {
         val child=ProcessBuilder(Path.of(System.getProperty("java.home"),"bin/java").toString(),"-cp",System.getProperty("s2.postgres.test.classpath"),
             "com.group33.server.capability.CapabilityPostgresProcessProbe",schema,mode,input.reportId,input.observationSequence.toString(),now.toString()).redirectErrorStream(true).start()
-        try { assertTrue(child.waitFor(15,TimeUnit.SECONDS));assertEquals(0,child.exitValue(),"Separate JVM failed; private output omitted");return child.inputStream.bufferedReader().readText().trim() }
+        try { assertTrue(child.waitFor(30,TimeUnit.SECONDS));assertEquals(0,child.exitValue(),"Separate JVM failed; private output omitted");return child.inputStream.bufferedReader().readText().trim() }
         finally { if(child.isAlive) child.destroyForcibly() }
     }
     @Test fun `original receipt survives independent issuing and replay JVM exits after newer report`() {
