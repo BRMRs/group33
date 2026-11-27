@@ -102,3 +102,11 @@ Resource integration additionally found duplicate group33_content_max_width
 (680dp current-main plan UI versus 520dp phone entry). The phone-specific 520dp
 resource is now login_content_max_width, referenced only by the shared login
 layout; the existing 680dp shared resource remains. Resource merging passes.
+
+## Additional main update
+
+While publishing the prepared candidate, main advanced to9ae5bbcd (#152/#151).
+The original remote head was updated without force to469beb8a, retaining Draft.
+Integrate both new main changes and both contribution histories; regenerate
+the manifest. Further combined checks are pending; the590 passing results above
+remain bound to the f4ef396 integration.
