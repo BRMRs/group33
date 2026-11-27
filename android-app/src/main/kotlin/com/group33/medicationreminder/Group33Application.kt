@@ -20,6 +20,9 @@ open class Group33Application : Application() {
     internal open val reminderPhaseDispatcher: com.group33.medicationreminder.core.reminder.ReminderPhaseDispatcher? get() = null
     internal open val reminderActionDispatcher: com.group33.medicationreminder.core.reminder.ReminderActionDispatcher? get() = null
     internal open val reminderStateListener: com.group33.medicationreminder.core.reminder.ReminderStateListener? get() = null
+    internal open val reminderClock: com.group33.medicationreminder.core.reminder.ReminderClock
+        get() = com.group33.medicationreminder.core.reminder.SystemReminderClock
+    internal open val reminderDispatchClaimTimeoutMillis: Long get() = 60_000L
     lateinit var languageSettings: LocalLanguageSettingsRepository
         private set
 

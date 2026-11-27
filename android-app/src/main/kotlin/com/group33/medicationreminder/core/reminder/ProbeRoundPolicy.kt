@@ -46,4 +46,3 @@ class ProbeRoundPolicy(private val clock: Clock) {
         return if (now >= waitsEnd) ProbeDecision.CREATE_ALERT else ProbeDecision.WAITING
     }
 }
-

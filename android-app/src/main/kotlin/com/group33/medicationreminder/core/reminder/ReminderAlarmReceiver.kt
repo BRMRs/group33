@@ -63,7 +63,7 @@ internal class ReminderAlarmReceiver : BroadcastReceiver() {
             ReminderAlarmKind.EXPIRE -> row.deadlineAtEpochMillis
             ReminderAlarmKind.RECOVERY -> row.lastAlarmAtEpochMillis ?: row.plannedAtEpochMillis
         }
-        val now = System.currentTimeMillis()
+        val now = context.reminderClock().nowEpochMillis()
         val event = ReminderAlarmEventRow(
                 "$groupId:${kind.name}:$scheduledAt",
                 groupId,
@@ -101,4 +101,3 @@ internal class ReminderAlarmReceiver : BroadcastReceiver() {
 internal fun interface ReminderStateListener {
     suspend fun onChanged(groupId: String)
 }
-

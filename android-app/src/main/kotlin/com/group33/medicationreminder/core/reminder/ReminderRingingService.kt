@@ -29,6 +29,7 @@ import kotlinx.coroutines.withContext
 internal class ReminderRingingService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val audioManager by lazy { getSystemService(AudioManager::class.java) }
+    private val clock by lazy { reminderClock() }
     private var currentGroupId: String? = null
     private var player: MediaPlayer? = null
     private var fallbackTone: ToneGenerator? = null
@@ -61,7 +62,7 @@ internal class ReminderRingingService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private suspend fun reconcile(preferredGroupId: String?) {
-        val now = System.currentTimeMillis()
+        val now = clock.nowEpochMillis()
         val dao = ReminderDatabase.open(this).reminders()
         val rows = withContext(Dispatchers.IO) { dao.ringing(now) }
         val row = rows.firstOrNull { it.groupId == preferredGroupId } ?: rows.firstOrNull()
@@ -75,7 +76,7 @@ internal class ReminderRingingService : Service() {
         startForegroundCompat(ReminderNotifications.build(this, row))
         deadlineJob?.cancel()
         deadlineJob = scope.launch {
-            delay((row.deadlineAtEpochMillis - System.currentTimeMillis()).coerceAtLeast(0L))
+            delay((row.deadlineAtEpochMillis - clock.nowEpochMillis()).coerceAtLeast(0L))
             ReminderCoordinator(this@ReminderRingingService).cancel(row.groupId)
             reconcile(null)
         }

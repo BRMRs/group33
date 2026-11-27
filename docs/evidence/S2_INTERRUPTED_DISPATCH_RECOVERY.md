@@ -61,7 +61,7 @@ Two earlier limits are tested separately without changing production App/Worker/
 accepted wire/schema. These are complementary traces, not one Android-to-production-Server trace
 and not a V2 or real-provider acceptance claim.
 
-### Real startup and WorkManager, with the real clock
+### Real startup and WorkManager
 
 An opt-in test APK (`-PautomaticRecoveryRunner=true`) installs a test Application inheriting the
 unchanged production `Group33Application` bootstrap. It uses the ordinary reminders DB, actual
@@ -71,10 +71,10 @@ builds retain AndroidJUnitRunner and the existing Debug application.
 After the receiver accepts and holds the first response, the host force-stops the app. Startup in
 a different process discovers the claimed record. Verification never calls enqueue, claim or a
 dispatch helper: it observes the original work UUID, an actual busy-claim retry and automatic retry
-after the original 60-second claim expires. The saved trace distinguishes pre-kill attempt 1 from
+after the claim expires. The saved trace distinguishes pre-kill attempt 1 from
 new-process ENQUEUED attempts 2/3 and successful attempt 4. Local Android37 evidence observed 105,271ms between
 successful claims, the same work/action/payload, two requests/one test-receiver effect and durable
-ACK with the original deadline. Neither clock injection nor manual recovery is used.
+ACK with the original deadline. No manual recovery call is used.
 
 CI runs this after the original 13 cases, eight Room/Worker cases and deterministic process probe.
 It clears only its explicitly disposable installation before preparation so earlier pending fixtures
@@ -106,3 +106,12 @@ Exact-head API35 CI adds automatic process verification (23 device report instan
 real PostgreSQL flow. Raw UUIDs/logs, real elapsed time, original receipts, row counts, process IDs and
 cleanup results must be verified before declaring that head successful. Earlier Android37/API35
 evidence stays attributable to its own run.
+
+## 2026-11-27 current-main hardening
+
+The production lease remains 60 seconds. The opt-in disposable API35 test application now overrides
+only that lease to 5 seconds, while still using the production startup and WorkManager path, original
+work UUID and real automatic retry. This removes a real-minute test wait without changing production
+behavior. The runtime clock is now supplied by the application boundary so deadline, recovery,
+notification and Worker decisions can use an injected clock in tests. Historical 105-second evidence
+above remains attributed to its original head and is not relabelled as a new run.

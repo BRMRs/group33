@@ -1,8 +1,8 @@
 # S1 durable alarm runtime — scope and API 35 evidence
 
 Date: 2026-11-17
-Owner: BRMRs (S1)  
-Branch: `feature/24-s1-alarm-runtime`  
+Owner: BRMRs (S1)
+Branch: `feature/24-s1-alarm-runtime`
 Issues: [#18](https://github.com/BRMRs/group33/issues/18), [#24](https://github.com/BRMRs/group33/issues/24)
 Implementation: [PR #119](https://github.com/BRMRs/group33/pull/119), incorporating the reviewed boundary corrections from [PR #121](https://github.com/BRMRs/group33/pull/121) and stacked on [PR #116](https://github.com/BRMRs/group33/pull/116)
 

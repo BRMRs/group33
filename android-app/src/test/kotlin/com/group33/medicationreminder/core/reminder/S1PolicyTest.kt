@@ -266,4 +266,3 @@ class S1PolicyTest {
         assertFalse(result.requiresVerification)
     }
 }
-

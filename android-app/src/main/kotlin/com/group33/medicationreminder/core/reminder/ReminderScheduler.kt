@@ -53,7 +53,10 @@ internal object ReminderCapability {
     }
 }
 
-internal class ReminderAlarmScheduler(private val context: Context) {
+internal class ReminderAlarmScheduler(
+    private val context: Context,
+    private val clock: ReminderClock = context.reminderClock(),
+) {
     private val alarms = context.getSystemService(AlarmManager::class.java)
 
     fun scheduleInitial(row: ReminderGroupRow): ScheduleAccuracy {
@@ -78,7 +81,7 @@ internal class ReminderAlarmScheduler(private val context: Context) {
 
     /** Routes recovery through an exact-alarm broadcast, which may start media playback on Android 15. */
     fun scheduleRingingRecovery(groupId: String) {
-        schedule(groupId, ReminderAlarmKind.RECOVERY, System.currentTimeMillis() + RECOVERY_DELAY_MILLIS)
+        schedule(groupId, ReminderAlarmKind.RECOVERY, clock.nowEpochMillis() + RECOVERY_DELAY_MILLIS)
     }
 
     fun cancel(groupId: String) = ReminderAlarmKind.entries.forEach { cancel(groupId, it) }
@@ -88,7 +91,7 @@ internal class ReminderAlarmScheduler(private val context: Context) {
     }
 
     private fun schedule(groupId: String, kind: ReminderAlarmKind, atEpochMillis: Long) {
-        if (atEpochMillis <= System.currentTimeMillis()) return
+        if (atEpochMillis <= clock.nowEpochMillis()) return
         val operation = pending(groupId, kind)
         try {
             if (accuracy() == ScheduleAccuracy.EXACT) {
@@ -133,4 +136,3 @@ internal class ReminderAlarmScheduler(private val context: Context) {
         const val RECOVERY_DELAY_MILLIS = 250L
     }
 }
-

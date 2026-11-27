@@ -41,7 +41,7 @@ internal object ReminderNotifications {
     }
 
     fun show(context: Context, row: ReminderGroupRow): Boolean {
-        val now = System.currentTimeMillis()
+        val now = context.reminderClock().nowEpochMillis()
         if (row.state != ReminderState.RINGING.name || row.deadlineAtEpochMillis <= now) {
             cancel(context, row.groupId)
             return false
@@ -51,7 +51,7 @@ internal object ReminderNotifications {
     }
 
     fun build(context: Context, row: ReminderGroupRow): Notification {
-        val now = System.currentTimeMillis()
+        val now = context.reminderClock().nowEpochMillis()
         val canSnooze = row.deadlineAtEpochMillis - now > InitialTiming.snooze.toMillis()
         ensureChannel(context)
         val open = PendingIntent.getActivity(
@@ -142,4 +142,3 @@ internal object ReminderNotifications {
 
     const val EXTRA_GROUP_ID = "reminderForegroundGroupId"
 }
-

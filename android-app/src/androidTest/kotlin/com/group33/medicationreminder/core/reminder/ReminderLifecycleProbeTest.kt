@@ -22,7 +22,7 @@ class ReminderLifecycleProbeTest {
     @Test fun probe() = runBlocking {
         when (InstrumentationRegistry.getArguments().getString("phase")) {
             "prepare-process" -> prepare(15_000L, false)
-            "prepare-reboot" -> prepare(90_000L, false)
+            "prepare-reboot" -> prepare(20_000L, false)
             "prepare-reboot-snoozed" -> prepare(0L, true)
             "verify" -> verify()
             "human-audible" -> humanAudible()
@@ -75,7 +75,7 @@ class ReminderLifecycleProbeTest {
 
         var takenId = "-"
         var expiredId = "-"
-        if (delayMillis >= 90_000L || snoozeBeforeReboot) {
+        if (delayMillis >= 20_000L || snoozeBeforeReboot) {
             val taken = testGroup("lifecycle-taken-${UUID.randomUUID()}", now - 1_000L)
             ReminderCoordinator(context).register(taken)
             assertTrue(ReminderCoordinator(context).recordAction(
@@ -107,7 +107,7 @@ class ReminderLifecycleProbeTest {
         val resumeAt = values[4].toLong()
         val takenId = values[5]
         val expiredId = values[6]
-        val waitUntil = minOf(deadline, System.currentTimeMillis() + 120_000L)
+        val waitUntil = minOf(deadline, System.currentTimeMillis() + 30_000L)
         while (System.currentTimeMillis() < waitUntil) {
             val row = ReminderDatabase.open(context).reminders().find(id)
             val visible = context.getSystemService(NotificationManager::class.java)
@@ -152,4 +152,3 @@ class ReminderLifecycleProbeTest {
         }
     }
 }
-

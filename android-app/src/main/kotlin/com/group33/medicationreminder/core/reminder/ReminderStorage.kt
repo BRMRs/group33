@@ -305,4 +305,3 @@ internal abstract class ReminderDatabase : RoomDatabase() {
         }
     }
 }
-

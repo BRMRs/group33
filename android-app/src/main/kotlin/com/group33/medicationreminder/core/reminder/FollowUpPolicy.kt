@@ -97,4 +97,3 @@ class AlertTimingPolicy(private val clock: Clock) {
         }
     }
 }
-

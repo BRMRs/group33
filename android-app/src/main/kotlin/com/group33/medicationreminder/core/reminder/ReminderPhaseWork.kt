@@ -28,7 +28,10 @@ internal class ReminderPhaseWorker(
     override suspend fun doWork(): Result {
         val eventId = inputData.getString(KEY_EVENT_ID) ?: return Result.failure()
         return dispatchReminderPhase(ReminderDatabase.open(applicationContext).reminders(), eventId,
-            (applicationContext as? Group33Application)?.reminderPhaseDispatcher, System.currentTimeMillis())
+            (applicationContext as? Group33Application)?.reminderPhaseDispatcher,
+            applicationContext.reminderClock().nowEpochMillis(),
+            (applicationContext as? Group33Application)?.reminderDispatchClaimTimeoutMillis
+                ?: DISPATCH_CLAIM_TIMEOUT_MILLIS)
     }
 
     companion object {
@@ -68,7 +71,10 @@ internal class ReminderActionWorker(
     override suspend fun doWork(): Result {
         val actionId = inputData.getString(KEY_ACTION_ID) ?: return Result.failure()
         return dispatchReminderAction(ReminderDatabase.open(applicationContext).reminders(), actionId,
-            (applicationContext as? Group33Application)?.reminderActionDispatcher, System.currentTimeMillis())
+            (applicationContext as? Group33Application)?.reminderActionDispatcher,
+            applicationContext.reminderClock().nowEpochMillis(),
+            (applicationContext as? Group33Application)?.reminderDispatchClaimTimeoutMillis
+                ?: DISPATCH_CLAIM_TIMEOUT_MILLIS)
     }
 
     companion object {
@@ -101,12 +107,17 @@ private val terminalDispatchStates = setOf(
 
 /** The WorkManager path itself; a live claim must retain retry work after process restoration. */
 internal suspend fun dispatchReminderAction(
-    dao: ReminderDao, actionId: String, dispatcher: ReminderActionDispatcher?, now: Long,
+    dao: ReminderDao,
+    actionId: String,
+    dispatcher: ReminderActionDispatcher?,
+    now: Long,
+    claimTimeoutMillis: Long = DISPATCH_CLAIM_TIMEOUT_MILLIS,
 ): Result {
+    require(claimTimeoutMillis > 0L)
     val action = dao.action(actionId) ?: return Result.success()
     if (action.dispatchState in terminalDispatchStates || dispatcher == null) return Result.success()
     val registration = dao.registration(action.groupId) ?: return Result.failure()
-    if (dao.claimActionDispatch(actionId, now, now - DISPATCH_CLAIM_TIMEOUT_MILLIS) != 1) return Result.retry()
+    if (dao.claimActionDispatch(actionId, now, now - claimTimeoutMillis) != 1) return Result.retry()
     val reply = try { dispatcher.dispatch(checkNotNull(dao.action(actionId)), registration) }
     catch (cancelled: CancellationException) { throw cancelled } // The durable claim remains recoverable.
     catch (_: Exception) { null }
@@ -124,11 +135,16 @@ internal suspend fun dispatchReminderAction(
 }
 
 internal suspend fun dispatchReminderPhase(
-    dao: ReminderDao, eventId: String, dispatcher: ReminderPhaseDispatcher?, now: Long,
+    dao: ReminderDao,
+    eventId: String,
+    dispatcher: ReminderPhaseDispatcher?,
+    now: Long,
+    claimTimeoutMillis: Long = DISPATCH_CLAIM_TIMEOUT_MILLIS,
 ): Result {
+    require(claimTimeoutMillis > 0L)
     val event = dao.alarmEvent(eventId) ?: return Result.success()
     if (event.dispatchState in terminalDispatchStates || dispatcher == null) return Result.success()
-    if (dao.claimAlarmDispatch(eventId, now, now - DISPATCH_CLAIM_TIMEOUT_MILLIS) != 1) return Result.retry()
+    if (dao.claimAlarmDispatch(eventId, now, now - claimTimeoutMillis) != 1) return Result.retry()
     val reply = try { dispatcher.dispatch(checkNotNull(dao.alarmEvent(eventId))) }
     catch (cancelled: CancellationException) { throw cancelled }
     catch (_: Exception) { null }

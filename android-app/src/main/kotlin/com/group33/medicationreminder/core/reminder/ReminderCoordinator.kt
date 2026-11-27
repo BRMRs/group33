@@ -13,9 +13,12 @@ internal data class ReminderRegistrationResult(
     val groupId: String,
 )
 
-internal class ReminderCoordinator(private val context: Context) {
+internal class ReminderCoordinator(
+    private val context: Context,
+    private val clock: ReminderClock = context.reminderClock(),
+) {
     private val dao = ReminderDatabase.open(context).reminders()
-    private val scheduler = ReminderAlarmScheduler(context)
+    private val scheduler = ReminderAlarmScheduler(context, clock)
 
     fun observeActive(): Flow<List<ReminderGroupRow>> = dao.observeActive()
     suspend fun alarmEvents(groupId: String): List<ReminderAlarmEventRow> = dao.alarmEvents(groupId)
@@ -32,7 +35,7 @@ internal class ReminderCoordinator(private val context: Context) {
         if (stored.group.state !in activeStates) {
             return result(ReminderRegistrationStatus.TERMINAL, capability, null, group.groupId)
         }
-        val now = System.currentTimeMillis()
+        val now = clock.nowEpochMillis()
         if (stored.group.deadlineAtEpochMillis <= now) {
             dao.expire(now)
             return result(ReminderRegistrationStatus.EXPIRED, capability, null, group.groupId)
@@ -49,7 +52,7 @@ internal class ReminderCoordinator(private val context: Context) {
     }
 
     suspend fun recover() {
-        val now = System.currentTimeMillis()
+        val now = clock.nowEpochMillis()
         dao.expire(now)
         ReminderRingingService.reconcile()
         dao.active().forEach { row ->
@@ -90,13 +93,13 @@ internal class ReminderCoordinator(private val context: Context) {
      * merely scheduled row. The exact-alarm hop is required because Android 15 forbids a
      * BOOT_COMPLETED receiver from directly starting a media-playback foreground service.
      */
-    suspend fun scheduleRingingRecovery(now: Long = System.currentTimeMillis()) {
+    suspend fun scheduleRingingRecovery(now: Long = clock.nowEpochMillis()) {
         dao.ringing(now).forEach { scheduler.scheduleRingingRecovery(it.groupId) }
     }
 
     suspend fun resumeRinging(
         groupId: String,
-        now: Long = System.currentTimeMillis(),
+        now: Long = clock.nowEpochMillis(),
         boot: Int = bootCount(),
     ): Boolean {
         val row = dao.find(groupId) ?: return false
@@ -111,7 +114,7 @@ internal class ReminderCoordinator(private val context: Context) {
         }
     }
 
-    suspend fun triggerDue(groupId: String, now: Long = System.currentTimeMillis(), boot: Int = bootCount()): Boolean {
+    suspend fun triggerDue(groupId: String, now: Long = clock.nowEpochMillis(), boot: Int = bootCount()): Boolean {
         val row = dao.find(groupId) ?: return false
         if (row.deadlineAtEpochMillis <= now) {
             dao.expire(now)
@@ -126,7 +129,7 @@ internal class ReminderCoordinator(private val context: Context) {
         groupId: String,
         actionId: String,
         kind: ReminderActionKind,
-        now: Long = System.currentTimeMillis(),
+        now: Long = clock.nowEpochMillis(),
     ): Boolean {
         require(actionId.isNotBlank())
         dao.action(actionId)?.let { existing ->
@@ -161,11 +164,11 @@ internal class ReminderCoordinator(private val context: Context) {
         }
     }
 
-    suspend fun caregiverTakeover(groupId: String, now: Long = System.currentTimeMillis()): Boolean =
+    suspend fun caregiverTakeover(groupId: String, now: Long = clock.nowEpochMillis()): Boolean =
         finish(groupId, ReminderState.CAREGIVER_TAKEN_OVER, now)
 
     /** One-time bridge for a previously persisted feature snooze; it does not create a new action. */
-    suspend fun restoreSnooze(groupId: String, until: Long, now: Long = System.currentTimeMillis()): Boolean {
+    suspend fun restoreSnooze(groupId: String, until: Long, now: Long = clock.nowEpochMillis()): Boolean {
         val original = dao.find(groupId) ?: return false
         if (original.deadlineAtEpochMillis <= now) return false
         if (original.state == ReminderState.SNOOZED.name) return original.snoozedUntilEpochMillis == until
@@ -179,7 +182,7 @@ internal class ReminderCoordinator(private val context: Context) {
         return true
     }
 
-    suspend fun finish(groupId: String, terminal: ReminderState, now: Long = System.currentTimeMillis()): Boolean {
+    suspend fun finish(groupId: String, terminal: ReminderState, now: Long = clock.nowEpochMillis()): Boolean {
         require(terminal in setOf(ReminderState.TAKEN, ReminderState.HELP, ReminderState.CAREGIVER_TAKEN_OVER))
         if (dao.finish(groupId, terminal.name, now) != 1) return false
         scheduler.cancel(groupId)
@@ -260,4 +263,3 @@ internal class ReminderCoordinator(private val context: Context) {
         val activeStates = setOf(ReminderState.SCHEDULED.name, ReminderState.RINGING.name, ReminderState.SNOOZED.name)
     }
 }
-

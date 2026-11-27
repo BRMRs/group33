@@ -3,8 +3,8 @@
 
 Uses an injected loopback HTTP receiver with a durable test ledger, not the production Server.
 The first receiver commits before the host kills the uploading app process. The original
-probe injects lease expiry; optional automatic mode uses production bootstrap, WorkManager
-and the real clock, waiting for the original claim to expire without a manual recovery call.
+probe injects lease expiry; optional automatic mode uses production bootstrap and WorkManager
+with a test-application lease override, without a manual recovery call or real-minute wait.
 Automatic mode resets the explicitly disposable app before preparation; never use personal data.
 """
 import argparse
@@ -30,7 +30,7 @@ def run_checks(adb, serial, output, env=None, skip_room=False, automatic=False):
     out = Path(output); out.mkdir(parents=True, exist_ok=True)
     result = dict(passed=False, serial=serial, physical_device=False, production_server=False,
                   automatic_startup_end_to_end=automatic,
-                  lease_clock='real clock' if automatic else 'injected after real process restart')
+                  lease_clock='test application lease override' if automatic else 'injected after real process restart')
     runner = (PACKAGE + '.test/' + PACKAGE + '.core.reminder.AutomaticRecoveryRunner') if automatic else RUNNER
     probe = PACKAGE + '.core.reminder.AutomaticRecoveryProbeTest' if automatic else PROBE
     prefix = 'automatic-recovery' if automatic else 'dispatch-recovery-probe'
@@ -116,7 +116,7 @@ def run_checks(adb, serial, output, env=None, skip_room=False, automatic=False):
             device('shell', 'am', 'force-stop', PACKAGE).check_returncode()
             preparing.wait(timeout=15)
             release.set()
-        check_run(instrument(probe, ('phase', 'verify'), ('s2RecoveryUrl', url), timeout=210 if automatic else 90), 1, 'verify-new-process.log')
+        check_run(instrument(probe, ('phase', 'verify'), ('s2RecoveryUrl', url), timeout=90), 1, 'verify-new-process.log')
         proof = device('exec-out', 'run-as', PACKAGE, 'cat', 'files/' + prefix + '-result.json')
         proof.check_returncode(); durable = json.loads(proof.stdout)
         with lock:
@@ -127,7 +127,8 @@ def run_checks(adb, serial, output, env=None, skip_room=False, automatic=False):
         assert durable['state'] == 'ACKNOWLEDGED' and durable['originalDeadlinePreserved']
         if automatic:
             assert durable['manualRecoveryCalls'] == 0 and durable['observedRetry']
-            assert durable['elapsedClaimMillis'] > 60_000 and durable['workId'] == original['workId']
+            assert durable['elapsedClaimMillis'] > durable['claimTimeoutMillis']
+            assert durable['claimTimeoutMillis'] == 5_000 and durable['workId'] == original['workId']
             assert durable['originalRunAttemptCount'] == original['claimedRunAttemptCount']
             assert any(x['state'] == 'ENQUEUED' and x['actionState'] == 'DISPATCHING'
                        and x['runAttemptCount'] > original['claimedRunAttemptCount']

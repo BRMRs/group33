@@ -126,4 +126,3 @@ class ReminderAlarmDeviceTest {
         fail("Condition did not become true within ${timeoutMillis}ms")
     }
 }
-

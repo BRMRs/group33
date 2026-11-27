@@ -29,6 +29,8 @@ class AutomaticRecoveryRunner : AndroidJUnitRunner() {
 }
 
 class AutomaticRecoveryApplication : Group33Application() {
+    internal override val reminderDispatchClaimTimeoutMillis: Long get() = 5_000L
+
     internal override val reminderActionDispatcher: ReminderActionDispatcher?
         get() {
             val endpoint = getSharedPreferences("automatic-recovery", Context.MODE_PRIVATE)
@@ -90,20 +92,22 @@ class AutomaticRecoveryProbeTest {
                     }
                 }
                 // Host kills this process only after the receiver has committed the first upload.
-                withTimeout(120_000) { while (true) delay(100) }
+                withTimeout(30_000) { while (true) delay(100) }
             }
             "verify" -> {
                 val before = JSONObject(expected.readText()); val id = before.getString("actionId")
+                val claimTimeoutMillis = (context.applicationContext as AutomaticRecoveryApplication)
+                    .reminderDispatchClaimTimeoutMillis
                 assertNotEquals(before.getInt("pid"), Process.myPid())
                 val initial = checkNotNull(dao.action(id)); val claimedAt = checkNotNull(initial.lastDispatchAtEpochMillis)
                 assertEquals(ReminderDispatchState.DISPATCHING.name, initial.dispatchState)
-                assertTrue(System.currentTimeMillis() - claimedAt < 60_000)
+                assertTrue(System.currentTimeMillis() - claimedAt < claimTimeoutMillis * 4)
                 var observedRetry = false
                 val originalWorkId = UUID.fromString(before.getString("workId"))
                 val originalRunCount = before.getInt("claimedRunAttemptCount")
                 val observations = JSONArray()
                 var lastObservation = ""
-                withTimeout(180_000) {
+                withTimeout(60_000) {
                     while (true) {
                         val infos = work.getWorkInfosForUniqueWork("reminder-action-$id").get(10, TimeUnit.SECONDS)
                         if (infos.isNotEmpty()) {
@@ -127,7 +131,7 @@ class AutomaticRecoveryProbeTest {
                 }
                 val accepted = checkNotNull(dao.action(id)); val group = checkNotNull(dao.find(accepted.groupId))
                 assertTrue("Actual busy-claim retry must be observed", observedRetry)
-                assertTrue(checkNotNull(accepted.lastDispatchAtEpochMillis) - claimedAt > 60_000)
+                assertTrue(checkNotNull(accepted.lastDispatchAtEpochMillis) - claimedAt > claimTimeoutMillis)
                 assertEquals(2, accepted.dispatchAttempts)
                 assertEquals(before.getString("groupId"), accepted.groupId)
                 assertEquals(before.getLong("recordedAt"), accepted.recordedAtEpochMillis)
@@ -138,6 +142,7 @@ class AutomaticRecoveryProbeTest {
                     .put("workId", originalWorkId).put("observedRetry", observedRetry)
                     .put("originalRunAttemptCount", originalRunCount).put("workObservations", observations)
                     .put("elapsedClaimMillis", checkNotNull(accepted.lastDispatchAtEpochMillis) - claimedAt)
+                    .put("claimTimeoutMillis", claimTimeoutMillis)
                     .put("attempts", accepted.dispatchAttempts).put("state", accepted.dispatchState)
                     .put("originalDeadlinePreserved", true).put("manualRecoveryCalls", 0).toString())
             }

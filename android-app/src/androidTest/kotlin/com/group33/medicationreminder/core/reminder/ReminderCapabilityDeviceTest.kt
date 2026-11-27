@@ -23,6 +23,19 @@ class ReminderCapabilityDeviceTest {
     private val notifications get() = context.getSystemService(NotificationManager::class.java)
     private val phase get() = InstrumentationRegistry.getArguments().getString("capabilityPhase")
 
+    @Test fun injectedClockControlsRegistrationExpiry() = runBlocking {
+        ReminderDatabase.open(context).clearAllTables()
+        val planned = 1_000_000L
+        val group = testGroup("clock-${UUID.randomUUID()}", planned)
+        val afterDeadline = group.deadlineAtEpochMillis + 1L
+
+        val result = ReminderCoordinator(context, ReminderClock { afterDeadline }).register(group)
+
+        assertEquals(ReminderRegistrationStatus.EXPIRED, result.status)
+        assertEquals(ReminderState.EXPIRED.name,
+            ReminderDatabase.open(context).reminders().find(group.groupId)?.state)
+    }
+
     @Test fun notificationDeniedLeavesTheSameOccurrenceRecoverable() = runBlocking {
         assumeTrue(Build.VERSION.SDK_INT >= 33 && phase == "notification-denied")
         notifications.cancelAll()
