@@ -40,6 +40,43 @@ class CommonPhoneSessionIntegrationTest {
             return response?.await() ?: Reply(401, byteArrayOf(), null, null, null)
         }
     }
+    @Test fun common_store_replacement_revokes_synchronous_sdk_token_without_phone_logout() = runBlocking {
+        for (replacement in listOf("clear", "new-attempt", "completed-login")) {
+            val f = Fixture(context)
+            try {
+                val attempt = f.phone.begin()
+                assertTrue(f.phone.isCurrentSnapshot(attempt))
+                var calls = 0
+                val client = object : PhoneServerClient {
+                    override fun grant(installationId: String, authenticationAttemptToken: String?): FusionSdkGrant {
+                        calls++; return FusionSdkGrant("fixture-scheme", "fixture-sdk-token", "A".repeat(43), 900)
+                    }
+                    override fun verify(installationId: String, authenticationAttemptToken: String, token: String,
+                                        expectedPhone: String?): VerifiedPhone = error("No SDK proof")
+                    override fun register(installationId: String, ticket: String, role: UserRole,
+                                          displayName: String?): VerifiedPhone = error("No registration")
+                }
+                val exchange = BoundPhoneExchange.start(client, attempt.installationId, { 0 },
+                    { f.phone.isCurrentSnapshot(attempt) }) { f.phone.isCurrent(attempt) }
+                assertEquals("fixture-sdk-token", exchange.sdkToken())
+                // A second store instance shares the exact private environment/namespace.
+                val external = PrivateSessionStore(context, f.environment, f.namespace)
+                when (replacement) {
+                    "clear" -> assertTrue(external.clear() is Outcome.Success)
+                    "new-attempt" -> assertTrue(external.beginAuthentication() is Outcome.Success)
+                    else -> assertTrue(f.phone.complete(attempt, AppSession(
+                        PhoneAccount("fixture-account", UserRole.CAREGIVER, "Fixture"), "fixture.token", 900)))
+                }
+                assertFalse(f.phone.isCurrentSnapshot(attempt))
+                var callbackToken: String? = "not-called"
+                InstrumentationRegistry.getInstrumentation().runOnMainSync { callbackToken = exchange.sdkToken() }
+                assertNull(callbackToken); assertEquals(1, calls)
+                try { exchange.refresh(); fail("Old scene refreshed") } catch (_: Exception) { }
+                assertEquals(1, calls)
+            } finally { f.phone.clear(); f.business.close() }
+        }
+    }
+
     @Test fun phone_and_business_observe_the_same_real_private_session() = runBlocking {
         val f = Fixture(context)
         try {

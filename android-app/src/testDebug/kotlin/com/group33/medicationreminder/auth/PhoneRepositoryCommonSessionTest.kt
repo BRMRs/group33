@@ -27,6 +27,7 @@ class PhoneRepositoryCommonSessionTest {
             afterCurrentCheck?.invoke()
             return result
         }
+        override fun isCurrentSnapshot(attempt: PhoneSignInAttempt) = !failStorage && current === attempt
         override suspend fun complete(attempt: PhoneSignInAttempt, session: AppSession): Boolean {
             if (!isCurrent(attempt)) return false
             current = null; account = session.account; writes++; return true
