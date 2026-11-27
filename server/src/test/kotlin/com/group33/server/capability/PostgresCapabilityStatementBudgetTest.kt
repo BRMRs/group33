@@ -9,7 +9,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.ValueSource
+import org.junit.jupiter.params.provider.EnumSource
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.autoconfigure.web.servlet.MockMvcPrint
@@ -18,9 +18,13 @@ import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
 import org.springframework.context.annotation.Primary
+import java.lang.reflect.InvocationTargetException
+import java.lang.reflect.Proxy
+import java.sql.Connection
 import java.sql.SQLException
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import javax.sql.DataSource
 
 /** Real JDBC capability writes behind Boot/JWT/MVC; identity/pairing stay in memory in this fixture. */
 @Tag("postgres")
@@ -60,27 +64,20 @@ internal class PostgresCapabilityStatementBudgetTest(
         support.admin("DROP SCHEMA IF EXISTS $schema CASCADE")
     }
 
-    @ParameterizedTest @ValueSource(strings = ["insert", "update", "receipt", "deferred", "delayed"])
-    fun `cancelled capability writes preserve all evidence and recover with the original operation`(kind: String) {
+    @ParameterizedTest @EnumSource(CancellationScenario::class)
+    fun `cancelled capability writes preserve all evidence and recover with the original operation`(scenario: CancellationScenario) {
         val elder = http.login(UserRole.ELDER)
         val originalId = UUID.randomUUID().toString()
-        val originalSequence = if (kind == "delayed") 9L else 1L
-        val original = if (kind == "insert") null else receipt(put(elder, originalId, originalSequence))
+        val original = if (scenario.seedCurrent) receipt(put(elder, originalId, scenario.originalSequence)) else null
         val before = contents()
         val id = UUID.randomUUID().toString()
-        val sequence = if (kind in setOf("insert", "delayed")) 1L else 2L
-        val table = when (kind) {
-            "insert" -> "capability_observation"
-            "update" -> "capability_current"
-            else -> "capability_operation"
-        }
         sql("CREATE FUNCTION slow_capability() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(8); RETURN NEW; END $$")
-        val trigger = if (kind == "deferred")
-            "CREATE CONSTRAINT TRIGGER slow_capability AFTER INSERT ON $table DEFERRABLE INITIALLY DEFERRED"
-        else "CREATE TRIGGER slow_capability BEFORE ${if (kind == "update") "UPDATE" else "INSERT"} ON $table"
+        val trigger = if (scenario.deferred)
+            "CREATE CONSTRAINT TRIGGER slow_capability AFTER INSERT ON ${scenario.table} DEFERRABLE INITIALLY DEFERRED"
+        else "CREATE TRIGGER slow_capability BEFORE ${scenario.event} ON ${scenario.table}"
         sql("$trigger FOR EACH ROW EXECUTE FUNCTION slow_capability()")
         val started = System.nanoTime()
-        val failed = put(elder, id, sequence)
+        val failed = put(elder, id, scenario.sequence)
         val elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)
         http.failure(failed, 503, "SERVICE_UNAVAILABLE", true)
         assertTrue(elapsed in 3_500..7_500, "Expected database statement cancellation before the eight-second fault completes")
@@ -88,15 +85,35 @@ internal class PostgresCapabilityStatementBudgetTest(
         for (privateText in listOf(schema, "slow_capability", "pg_sleep", "statement timeout"))
             assertFalse(failed.contentAsString.contains(privateText))
         assertEquals(before, contents(), "Cancelled write must retain original rows without partial evidence or receipt")
-        sql("DROP TRIGGER slow_capability ON $table; DROP FUNCTION slow_capability()")
-        val recovered = receipt(put(elder, id, sequence))
+        sql("DROP TRIGGER slow_capability ON ${scenario.table}; DROP FUNCTION slow_capability()")
+        val recovered = receipt(put(elder, id, scenario.sequence))
         assertEquals(id, recovered.reportId)
-        assertEquals(if (kind == "delayed") originalSequence else sequence, recovered.current.observationSequence)
-        assertEquals(kind != "delayed", recovered.applied)
-        if (kind == "delayed") assertEquals(original!!.current, recovered.current)
-        assertEquals(recovered, receipt(put(elder, id, sequence)))
-        if (original != null) assertEquals(original, receipt(put(elder, originalId, originalSequence)))
-        http.failure(put(elder, id, sequence + 100), 409, "IDEMPOTENCY_KEY_REUSED")
+        assertEquals(scenario.expectedCurrentSequence, recovered.current.observationSequence)
+        assertEquals(scenario.expectedApplied, recovered.applied)
+        if (!scenario.expectedApplied) assertEquals(original!!.current, recovered.current)
+        assertEquals(recovered, receipt(put(elder, id, scenario.sequence)))
+        if (original != null) assertEquals(original, receipt(put(elder, originalId, scenario.originalSequence)))
+        http.failure(put(elder, id, scenario.sequence + 100), 409, "IDEMPOTENCY_KEY_REUSED")
+    }
+
+    @Test fun `lost final commit acknowledgement reconciles with the original operation`() {
+        val elder = http.login(UserRole.ELDER)
+        val id = UUID.randomUUID().toString()
+        controlled.backing = PostgresCapabilityStore(commitAcknowledgementLoss(support.source(schema)))
+
+        val unknown = put(elder, id, 1)
+        http.failure(unknown, 503, "SERVICE_UNAVAILABLE", true)
+        assertNull(unknown.getHeader("WWW-Authenticate"))
+
+        controlled.backing = store()
+        val reconciled = receipt(put(elder, id, 1))
+        assertEquals(id, reconciled.reportId)
+        assertEquals(1, reconciled.current.observationSequence)
+        assertTrue(reconciled.applied)
+        assertEquals(reconciled, receipt(put(elder, id, 1)))
+        http.failure(put(elder, id, 2), 409, "IDEMPOTENCY_KEY_REUSED")
+        assertEquals(listOf(1L, 1L, 1L), listOf(
+            sqlCount("capability_observation"), sqlCount("capability_current"), sqlCount("capability_operation")))
     }
 
     @Test fun `slow current read is cancelled by PostgreSQL and does not damage accepted evidence`() {
@@ -130,5 +147,51 @@ internal class PostgresCapabilityStatementBudgetTest(
     class ControlledStore : CapabilityStore {
         @Volatile var backing: CapabilityStore = InMemoryCapabilityStore()
         override fun <T> transaction(work: (CapabilityTransaction) -> T): T = backing.transaction(work)
+    }
+
+    private fun sqlCount(table: String) = support.source(schema).connection.use { connection ->
+        connection.createStatement().use { statement ->
+            statement.executeQuery("SELECT COUNT(*) FROM $table").use { rows -> assertTrue(rows.next()); rows.getLong(1) }
+        }
+    }
+
+    private fun commitAcknowledgementLoss(source: DataSource) = object : DataSource by source {
+        override fun getConnection(): Connection = loseFirstCommitAcknowledgement(source.connection)
+        override fun getConnection(username: String?, password: String?): Connection =
+            loseFirstCommitAcknowledgement(source.getConnection(username, password))
+    }
+
+    private fun loseFirstCommitAcknowledgement(delegate: Connection): Connection {
+        var loseAcknowledgement = true
+        return Proxy.newProxyInstance(javaClass.classLoader, arrayOf(Connection::class.java)) { _, method, arguments ->
+            val args = arguments ?: emptyArray()
+            if (method.name == "commit" && loseAcknowledgement) {
+                invoke(delegate, method, args)
+                loseAcknowledgement = false
+                throw SQLException("fictional final commit acknowledgement loss", "08006")
+            }
+            invoke(delegate, method, args)
+        } as Connection
+    }
+
+    private fun invoke(delegate: Connection, method: java.lang.reflect.Method, arguments: Array<out Any?>): Any? =
+        try { method.invoke(delegate, *arguments) } catch (failure: InvocationTargetException) { throw failure.targetException }
+
+    internal enum class CancellationScenario(
+        val table: String,
+        val event: String = "INSERT",
+        val deferred: Boolean = false,
+        val seedCurrent: Boolean = true,
+        val originalSequence: Long = 1,
+        val sequence: Long = 2,
+        val expectedApplied: Boolean = true,
+        val expectedCurrentSequence: Long = sequence,
+    ) {
+        INSERT("capability_observation", seedCurrent = false, sequence = 1),
+        UPDATE("capability_current", event = "UPDATE"),
+        RECEIPT("capability_operation"),
+        DEFERRED_RECEIPT("capability_operation", deferred = true),
+        DELAYED_ACKNOWLEDGEMENT("capability_operation", originalSequence = 9, sequence = 1,
+            expectedApplied = false, expectedCurrentSequence = 9),
     }
 }

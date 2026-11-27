@@ -50,8 +50,10 @@ internal class PostgresCapabilityStore(private val dataSource: DataSource, priva
             }
             val result = work(Transaction(connection))
             // Validate all pending business/receipt constraints under the SQL budget before COMMIT.
-            // A lost final COMMIT acknowledgement still needs original-operation reconciliation.
             connection.createStatement().use { it.execute("SET CONSTRAINTS ALL IMMEDIATE") }
+            // COMMIT has unknown-outcome semantics if its acknowledgement is lost. Do not turn the
+            // per-statement/check budget into a claim that final durability is bounded to five seconds.
+            connection.createStatement().use { it.execute("SET LOCAL statement_timeout = 0") }
             connection.commit()
             result
         } catch (failure: Throwable) {
