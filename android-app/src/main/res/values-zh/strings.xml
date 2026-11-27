@@ -35,6 +35,7 @@
     <string name="caregiver_navigation_preview_action">预览小辈导航（示例数据）</string>
     <string name="caregiver_current_elder">当前长者</string>
     <string name="caregiver_no_current_elder">尚未选择长者</string>
+    <string name="caregiver_choose_elder_above">请在上方下拉框中选择长者。</string>
     <string name="caregiver_context_unavailable">请先登录并与长者配对，再查看计划或记录。</string>
     <string name="caregiver_no_active_relationship">目前没有有效的照护关系。</string>
     <string name="caregiver_active_relationship">有效的照护关系</string>

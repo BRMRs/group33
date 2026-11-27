@@ -31,6 +31,7 @@ internal class DebugChainRepository(
     baseUrl: String,
     namespace: String = "debug-online",
     private val http: ChainHttp = ChainHttp(baseUrl),
+    private val waitBeforeRetry: suspend (Long) -> Unit = { delay(it) },
 ) : AuthRepository, PairingRepository, MedicationPhotoRepository, ReminderPlanRepository, OnlineCommandRepository, DoseEventRepository, CaregiverDashboardRepository {
     private val environment = "debug-anonymous:${http.baseUrl}"
     private val sessionStore = PrivateSessionStore(context, environment, namespace)
@@ -142,9 +143,10 @@ internal class DebugChainRepository(
     override fun observePlans(elderId: String) = collection("plans", elderId, ReminderPlanCollection.serializer(),
         ReminderPlanCollection(emptyList(), emptyList())).map { it.copyValue(it.value.items) }
     override fun observeMedications(elderId: String) = collection("medications", elderId, ListSerializer(MedicationView.serializer()), emptyList())
-    // This create/read slice has no occurrence cache to overlay. Do not fabricate a complete preview.
+    // Authorized confirmed-plan reads establish the target's access, not preview availability.
+    // No occurrence cache exists: keep hasLocalData=false, never claim an empty schedule.
     override fun observePreview(elderId: String, range: LocalDateRange): Flow<Cached<List<PlanPreview>>> =
-        flowOf(Cached(emptyList(), false, null, true, AccessState.UNKNOWN))
+        observePlans(elderId).map { plans -> Cached(emptyList(), false, null, true, plans.access) }
     private fun <A, B> Cached<A>.copyValue(value: B) = Cached(value, hasLocalData, lastSuccessfulSyncAtEpochMillis, isStale, access)
 
     private suspend fun put(lease: SessionLease, kind: String, target: String, body: String) =
@@ -189,7 +191,13 @@ internal class DebugChainRepository(
                 authorityEpoch++
                 put(l, "requests", "", json.encodeToString(ListSerializer(PairingRequestView.serializer()), requests))
                 put(l, "relationships", "", json.encodeToString(ListSerializer(CareRelationshipView.serializer()), relationships))
-                relationships.filter { it.status == CareRelationshipStatus.REVOKED }.forEach {
+                // The cache is keyed by Elder, but the response retains individual relationship histories.
+                // An old revoked relationship must not poison the cache for a currently active pair.
+                val activeElders = relationships.filter { it.status == CareRelationshipStatus.ACTIVE }
+                    .mapTo(mutableSetOf()) { it.elderId }
+                relationships.filter {
+                    it.status == CareRelationshipStatus.REVOKED && it.elderId !in activeElders
+                }.forEach {
                     cache.documents().revoke(scopeId(l.scope), it.elderId)
                 }
             } }
@@ -570,7 +578,7 @@ internal class DebugChainRepository(
         if (response.status == 409 && runCatching { remote(response).error.code }.getOrNull() == "OPERATION_IN_PROGRESS")
             return RecoveryReply.InProgress to null
         if (response.status == 429 || response.status >= 500) {
-            delay((response.retryAfter?.toLongOrNull()?.coerceIn(1, 120) ?: 1) * 1_000)
+            waitBeforeRetry((response.retryAfter?.toLongOrNull()?.coerceIn(1, 120) ?: 1) * 1_000)
             return RecoveryReply.Unknown to null
         }
         if (response.status !in 200..299) return RecoveryReply.Rejected(remote(response)) to null
