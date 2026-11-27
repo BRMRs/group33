@@ -17,6 +17,7 @@ androidxJunit = "1.2.1"
 espresso = "3.6.1"
 desugar = "2.1.5"
 room = "2.7.2"
+work = "2.11.2"
 
 [libraries]
 flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
@@ -38,6 +39,7 @@ androidx-espresso-core = { module = "androidx.test.espresso:espresso-core", vers
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
