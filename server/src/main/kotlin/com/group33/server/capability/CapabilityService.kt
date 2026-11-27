@@ -34,9 +34,16 @@ internal class CapabilityService(
     private val relationships: CareRelationshipAccess,
     private val clock: Clock = Clock.systemUTC(),
 ) {
+    fun authorizeReport(actor: AnonymousUser, elderId: String): CapabilityRejection? {
+        if (actor.role == UserRole.ELDER) {
+            return if (actor.id == elderId) null else CapabilityRejection.RESOURCE_NOT_ACCESSIBLE
+        }
+        val known = actor.id == elderId || relationships.isActive(actor.id, elderId)
+        return if (known) CapabilityRejection.ROLE_NOT_ALLOWED else CapabilityRejection.RESOURCE_NOT_ACCESSIBLE
+    }
+
     fun report(actor: AnonymousUser, elderId: String, operationId: UUID, input: ReminderCapabilityReport): CapabilityAcceptance {
-        if (actor.role != UserRole.ELDER) return CapabilityAcceptance.Rejected(CapabilityRejection.ROLE_NOT_ALLOWED)
-        if (actor.id != elderId) return CapabilityAcceptance.Rejected(CapabilityRejection.RESOURCE_NOT_ACCESSIBLE)
+        authorizeReport(actor, elderId)?.let { return CapabilityAcceptance.Rejected(it) }
         val owner = CapabilityOwner(actor.id, actor.installationId)
         val payload = input.copy(reasons = input.reasons.toList())
         val binding = CapabilityBinding(owner, payload)

@@ -139,6 +139,9 @@ class CapabilityServiceTest {
         val value = report()
         accepted(submit(value))
         rejected(submit(value, actor = elder.copy(role = UserRole.CAREGIVER)), CapabilityRejection.ROLE_NOT_ALLOWED)
+        active = true
+        rejected(submit(value, actor = caregiver, target = elder.id), CapabilityRejection.ROLE_NOT_ALLOWED)
+        active = false
         rejected(submit(value, actor = other, target = elder.id), CapabilityRejection.RESOURCE_NOT_ACCESSIBLE)
         rejected(submit(value, target = other.id), CapabilityRejection.RESOURCE_NOT_ACCESSIBLE)
     }

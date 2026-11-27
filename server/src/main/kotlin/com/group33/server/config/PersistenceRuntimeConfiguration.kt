@@ -3,6 +3,7 @@ package com.group33.server.config
 import com.group33.server.auth.*
 import com.group33.server.pairing.*
 import com.group33.server.plan.PlanMutationStore
+import com.group33.server.capability.*
 import org.postgresql.ds.PGSimpleDataSource
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -14,7 +15,8 @@ import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermission
 
-internal class PersistenceRuntime(val identities: AnonymousIdentityStore, val pairing: PlanMutationStore) {
+internal class PersistenceRuntime(val identities: AnonymousIdentityStore, val pairing: PlanMutationStore,
+    val capability: CapabilityStore? = null) {
     override fun toString() = "PersistenceRuntime(REDACTED)"
 }
 
@@ -34,11 +36,13 @@ internal class PersistenceRuntimeConfiguration {
         val mode = env.getProperty("app.persistence.mode", "memory")
         val requireVersioned = env.getProperty("app.persistence.require-versioned-schema", Boolean::class.java, false)
         require(!requireVersioned || mode == "postgres-local") { "Versioned schema startup validation requires postgres-local persistence" }
+        val capabilityEnabled = env.getProperty("app.capability.enabled", Boolean::class.java, false)
         val doseGroupsEnabled = env.getProperty("app.dose-group.enabled", Boolean::class.java, false)
         require(!doseGroupsEnabled || occurrencesEnabled) {
             "Dose groups require the occurrence registration runtime"
         }
-        if (mode == "memory") return PersistenceRuntime(InMemoryAnonymousIdentityStore(), InMemoryPairingCodeStore())
+        if (mode == "memory") return PersistenceRuntime(InMemoryAnonymousIdentityStore(), InMemoryPairingCodeStore(),
+            if (capabilityEnabled) InMemoryCapabilityStore() else null)
         require(mode == "postgres-local") { "app.persistence.mode must be memory or postgres-local" }
         fun setting(name: String) = env.getProperty(name)?.takeIf { it.isNotBlank() }
             ?: throw IllegalStateException("Required local persistence setting is missing: $name")
@@ -105,7 +109,9 @@ internal class PersistenceRuntimeConfiguration {
                         rows.getString("receipt_id"), rows.getLong("receipt_expiry"), rows.getBytes("receipt_cipher"))
                 }
             } }
-            return PersistenceRuntime(PostgresAnonymousIdentityStore(source), PostgresPairingCodeStore(source, cipher))
+            if (capabilityEnabled) PostgresCapabilityStore.verifySchema(source)
+            return PersistenceRuntime(PostgresAnonymousIdentityStore(source), PostgresPairingCodeStore(source, cipher),
+                if (capabilityEnabled) PostgresCapabilityStore(source) else null)
         } catch (_: Exception) {
             // Connection/property/key failures can contain credentials. Deliberately omit values and the private cause.
             throw IllegalStateException("Local PostgreSQL persistence initialization failed; verify private settings and initialized schema")

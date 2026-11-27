@@ -17,6 +17,24 @@ internal class PostgresCapabilityStore(private val dataSource: DataSource, priva
     init { require(lockWaitMillis in 0..30_000) }
     override fun toString() = "PostgresCapabilityStore(REDACTED)"
 
+    companion object {
+        fun verifySchema(dataSource: DataSource) = dataSource.connection.use { connection ->
+            connection.createStatement().use { statement ->
+                listOf("SELECT id FROM capability_guard WHERE id = 1",
+                    "SELECT elder_id, installation_id, observation_sequence, report_id, report_payload FROM capability_observation LIMIT 0",
+                    "SELECT elder_id, installation_id, observation_sequence, report_id, view_payload FROM capability_current LIMIT 0",
+                    "SELECT actor_id, operation_id, elder_id, installation_id, canonicalization_version, report_payload, " +
+                        "accepted_report_id, acknowledged_sequence, receipt_current_sequence, receipt_payload, rejection_reason " +
+                        "FROM capability_operation LIMIT 0")
+                    .forEach { sql ->
+                        statement.executeQuery(sql).use { rows ->
+                            if (sql.contains("WHERE id = 1")) check(rows.next())
+                        }
+                    }
+            }
+        }
+    }
+
     override fun <T> transaction(work: (CapabilityTransaction) -> T): T = dataSource.connection.use { connection ->
         connection.transactionIsolation = Connection.TRANSACTION_READ_COMMITTED
         connection.autoCommit = false
