@@ -1,0 +1,4 @@
+<resources>
+    <string name="reminder_snooze_unavailable">There is not enough time for another 10-minute reminder. You can still choose Taken before the original deadline.</string>
+    <string name="reminder_snooze_unavailable_details">%1$s · %2$s\nThere is not enough time for another 10-minute reminder. You can still choose Taken before the original deadline.</string>
+</resources>
