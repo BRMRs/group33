@@ -109,13 +109,7 @@ internal class PersistenceRuntimeConfiguration {
                         rows.getString("receipt_id"), rows.getLong("receipt_expiry"), rows.getBytes("receipt_cipher"))
                 }
             } }
-            if (capabilityEnabled) source.connection.use { c -> c.createStatement().use { statement ->
-                listOf("SELECT id FROM capability_guard WHERE id = 1",
-                    "SELECT elder_id, installation_id, observation_sequence, report_payload FROM capability_observation LIMIT 0",
-                    "SELECT elder_id, installation_id, observation_sequence, view_payload FROM capability_current LIMIT 0",
-                    "SELECT actor_id, operation_id, report_payload, receipt_payload, rejection_reason FROM capability_operation LIMIT 0")
-                    .forEach { sql -> statement.executeQuery(sql).use { rows -> if (sql.contains("WHERE id = 1")) check(rows.next()) } }
-            } }
+            if (capabilityEnabled) PostgresCapabilityStore.verifySchema(source)
             return PersistenceRuntime(PostgresAnonymousIdentityStore(source), PostgresPairingCodeStore(source, cipher),
                 if (capabilityEnabled) PostgresCapabilityStore(source) else null)
         } catch (_: Exception) {

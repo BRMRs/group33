@@ -4,13 +4,11 @@ import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.group33.server.pairing.PairingDirectoryStore
 import com.group33.server.pairing.VerifiedPairingActorResolver
 import com.group33.server.web.ApiErrors
 import com.group33.server.web.ApiException
 import com.group33.shared.contract.*
 import com.group33.shared.model.ApiError
-import com.group33.shared.model.UserRole
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.http.CacheControl
@@ -28,7 +26,6 @@ import java.util.UUID
 @ConditionalOnProperty(name = ["app.capability.enabled"], havingValue = "true")
 internal class CapabilityController(
     private val actors: VerifiedPairingActorResolver,
-    private val pairing: PairingDirectoryStore,
     private val service: CapabilityService,
     mapper: ObjectMapper,
 ) {
@@ -40,24 +37,15 @@ internal class CapabilityController(
     fun report(@AuthenticationPrincipal jwt: Jwt, @PathVariable elderId: String,
         @RequestBody body: String, request: HttpServletRequest): ResponseEntity<*> = try {
         val actor = actors.resolve(jwt)
-        if (actor.role != UserRole.ELDER) {
-            val known = actor.id == elderId || pairing.directoryTransaction { it.activeRelationship(elderId)?.caregiverId == actor.id }
-            failure(if (known) HttpStatus.FORBIDDEN else HttpStatus.NOT_FOUND,
-                if (known) "ROLE_NOT_ALLOWED" else "RESOURCE_NOT_ACCESSIBLE")
-        } else if (actor.id != elderId) failure(HttpStatus.NOT_FOUND, "RESOURCE_NOT_ACCESSIBLE")
-        else {
+        val denied = service.authorizeReport(actor, elderId)
+        if (denied != null) rejection(denied) else {
             if (request.parameterMap.isNotEmpty()) malformed()
             val text = Collections.list(request.getHeaders(ContractProtocol.IDEMPOTENCY_HEADER)).singleOrNull()
                 ?.takeIf { UUID_PATTERN.matches(it) } ?: malformed()
             when (val result = service.report(actor, elderId, UUID.fromString(text), decode(body))) {
                 is CapabilityAcceptance.Accepted -> ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(result.receipt)
                 CapabilityAcceptance.InProgress -> failure(HttpStatus.CONFLICT, "OPERATION_IN_PROGRESS", true, "1")
-                is CapabilityAcceptance.Rejected -> when (result.reason) {
-                    CapabilityRejection.INVALID_REPORT -> failure(HttpStatus.UNPROCESSABLE_ENTITY, "VALIDATION_FAILED")
-                    CapabilityRejection.RESOURCE_NOT_ACCESSIBLE -> failure(HttpStatus.NOT_FOUND, result.reason.name)
-                    CapabilityRejection.ROLE_NOT_ALLOWED -> failure(HttpStatus.FORBIDDEN, result.reason.name)
-                    else -> failure(HttpStatus.CONFLICT, result.reason.name)
-                }
+                is CapabilityAcceptance.Rejected -> rejection(result.reason)
             }
         }
     } catch (exception: ApiException) {
@@ -78,6 +66,13 @@ internal class CapabilityController(
         val reasons = node["reasons"].takeIf { it.isArray && it.all(JsonNode::isTextual) } ?: malformed()
         return ReminderCapabilityReport(text("reportId"), long("observationSequence"), long("observedAtEpochMillis"),
             delivery, boolean("notificationPermissionGranted"), boolean("channelEnabled"), exact, reasons.map(JsonNode::textValue))
+    }
+
+    private fun rejection(reason: CapabilityRejection) = when (reason) {
+        CapabilityRejection.INVALID_REPORT -> failure(HttpStatus.UNPROCESSABLE_ENTITY, "VALIDATION_FAILED")
+        CapabilityRejection.RESOURCE_NOT_ACCESSIBLE -> failure(HttpStatus.NOT_FOUND, reason.name)
+        CapabilityRejection.ROLE_NOT_ALLOWED -> failure(HttpStatus.FORBIDDEN, reason.name)
+        else -> failure(HttpStatus.CONFLICT, reason.name)
     }
 
     private fun failure(status: HttpStatus, code: String, retryable: Boolean = false, retryAfter: String? = null): ResponseEntity<ApiError> {
