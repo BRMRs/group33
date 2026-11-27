@@ -312,3 +312,22 @@ Device checks cover this combination, not system200%/TalkBack or full feature ac
 Raw build/device results and APK hashes are retained privately under `.git/c1-progress-20261127/`.
 
 Policy, whitespace and regenerated complete artifact manifest are checked before publication.
+
+## Follow-through after main #122 — 2026-11-27
+
+Integrated main `08f901ac4e44393dc850459caf3924e463f3f5c9` after it advanced during publication. Agent-assisted evidence, no human signature.
+
+Current Debug JVM results: `{"tests": 277, "failures": 0, "errors": 0, "skipped": 0}`.
+
+Physical API27 repeated: **15/15**, unique status0 completions.
+
+Current Debug lint: `{"Warning": 59}`; Debug/test APK build passed.
+Command: `gradlew -I <private-isolation-init> :android-app:testDebugUnitTest :android-app:lintDebug :android-app:assembleDebug :android-app:assembleDebugAndroidTest --offline --max-workers=1`.
+The earlier Release274 tests and Release APK belong to main9ae5bbcd; they are not newly executed Release acceptance on main08f901ac. Full final-head CI remains required.
+
+Current APK SHA256: `{"android-app-debug.apk": "e13c416d92bc3fee456dac97c58b719e3ebfee7d467ca755f855fa7fa89bdf6c", "android-app-debug-androidTest.apk": "77dbefefad6d50175cda24e01e39d536b551593f6a709b917302d1f19917bdd8"}`.
+
+Inspection of the first global-window captures found unrelated background content during transitions. Those captures were rejected and not committed/uploaded.
+The Debug-only host now uses an opaque shared-token background. Captures draw only the attached test decor on main; PNG encoding/writing remain off main. This is not compositor/system-font/TalkBack acceptance. All15 checks pass, including the two additional main#122 cases.
+
+System settings and existing tablet apps/data were retained. No new real-provider or production feature acceptance is asserted.
