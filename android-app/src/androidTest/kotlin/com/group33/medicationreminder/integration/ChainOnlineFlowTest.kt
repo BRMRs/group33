@@ -285,7 +285,9 @@ class ChainOnlineFlowTest {
                     val fields = descendants(editor).filterIsInstance<EditText>()
                     fields[0].setText("Fictional medicine"); fields[1].setText("One demo unit")
                     descendants(editor).filterIsInstance<CheckBox>().filter { it.visibility == View.VISIBLE }.forEach { it.isChecked = true }
-                    descendants(editor).filterIsInstance<Button>().filterNot { it is CheckBox }.single().performClick()
+                    val save = descendants(editor).filterIsInstance<Button>()
+                        .single { it.text.toString() == activity.getString(R.string.c2_plan_save) }
+                    assertTrue(save.performClick())
                 }
                 val plans = withTimeout(20_000) { s.plans.observePlans(b.getString("elderId")).first { it.access == AccessState.AUTHORIZED && it.value.isNotEmpty() } }
                 assertEquals(1, plans.value.size)
@@ -711,7 +713,7 @@ class ChainOnlineFlowTest {
                 waitUntil { var cleared = false
                     instrumentation.runOnMainSync { cleared = descendants(activity.window.decorView).filterIsInstance<PlanEditorView>().none { it.isShown } &&
                         descendants(activity.window.decorView).filterIsInstance<TextView>().none { it.text.contains("Fictional medicine") } &&
-                        activity.findViewById<TextView>(R.id.current_elder_value).text == activity.getString(R.string.caregiver_no_current_elder) }
+                        activity.findViewById<TextView>(R.id.current_elder_value).text.toString() == activity.getString(R.string.caregiver_no_current_elder) }
                     cleared
                 }
                 nav(activity, R.id.nav_settings)
