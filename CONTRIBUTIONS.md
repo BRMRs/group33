@@ -29,6 +29,7 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 
 
 2026-10-22：负责人已确认的产品规则、初版参数及六人分工随文档PR #25统一；独立S1代码在[PR #37](https://github.com/BRMRs/group33/pull/37)，不计入本PR的代码贡献。各人正式review/同版签署仍待完成。
+| 2 | Iris-wly (C2), agent-assisted | [#53](https://github.com/BRMRs/group33/issues/53), edit conflict and command consumer | feature/53-c2-edit-conflict | [Evidence](docs/evidence/C2_EDIT_CONFLICT.md), 17 JVM cases, lint/build | Partial; production integration and device acceptance pending |
 | 2 | Iris-wly (C2), agent-assisted | [#52](https://github.com/BRMRs/group33/issues/52), read-only plan browser state | feature/52-c2-plan-list-state | [Local verification](docs/evidence/C2_PLAN_BROWSER.md), 9 JVM cases, Android lint/build | Partial delivery; real host, pages and device acceptance pending |
 
 2026-10-22 S1交付：负责人委托的agent辅助代码/测试，关联[#24](https://github.com/BRMRs/group33/issues/24)/[#12](https://github.com/BRMRs/group33/issues/12)，范围与验证见[S1交付](docs/S1_LOCAL_IMPLEMENTATION.md)。负责人已授权通过独立Draft PR提交本次改动；实际提交/PR由GitHub记录。成员正式review仍待完成，不记为已验收个人贡献。
