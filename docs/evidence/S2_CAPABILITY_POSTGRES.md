@@ -68,7 +68,7 @@ arrival, #24 probe response, or notification delivery.
 
 Use JDK17/SDK35. Standard regression: `./gradlew :server:test --tests
 '*CapabilityServiceTest' :server:bootJar`, followed by `./gradlew gate1Check test`.
-The 21 existing capability cases must remain byte-for-byte unchanged and pass.
+The 23 current-parent capability cases must remain unchanged and pass.
 The real-database suite is separate: `./gradlew :server:postgresIntegrationTest`.
 It fails closed when explicit settings are absent and disables up-to-date/cache
 for the database task. Ordinary CI does not claim real-database execution.
