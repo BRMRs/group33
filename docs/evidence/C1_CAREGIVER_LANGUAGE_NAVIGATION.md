@@ -335,3 +335,19 @@ Device checks cover this combination, not system200%/TalkBack or full feature ac
 Raw build/device results and APK hashes are retained privately under `.git/c1-progress-20261127/`.
 
 Policy, whitespace and regenerated complete artifact manifest are checked before publication.
+
+## Follow-through after main #122 — 2026-11-27
+
+Integrated main `08f901ac4e44393dc850459caf3924e463f3f5c9` after it advanced during publication. Agent-assisted evidence, no human signature.
+
+Current Debug JVM results: `{"tests": 277, "failures": 0, "errors": 0, "skipped": 0}`.
+
+Physical API27 repeated: **6/6**, unique status0 completions.
+
+Current Debug lint: `{"Warning": 59}`; Debug/test APK build passed.
+Command: `gradlew -I <private-isolation-init> :android-app:testDebugUnitTest :android-app:lintDebug :android-app:assembleDebug :android-app:assembleDebugAndroidTest --offline --max-workers=1`.
+The earlier Release274 tests and Release APK belong to main9ae5bbcd; they are not newly executed Release acceptance on main08f901ac. Full final-head CI remains required.
+
+Current APK SHA256: `{"android-app-debug.apk": "e521ae6edcb55e9f19c069e848744285b96e33211e3033dbd3b7815a2980c962", "android-app-debug-androidTest.apk": "8d237b5e82d257ded9f127164dadb74fc0ddebe9f1441796a089e3dbdab913e0"}`.
+
+System settings and existing tablet apps/data were retained. No new real-provider or production feature acceptance is asserted.
