@@ -148,7 +148,7 @@ class PairingMultiElderOnlineTest {
         }
         waitFor("revoked A no longer current") { model.state.value.context is CaregiverContextState.SelectElder }
         waitFor("revocation result") { !model.state.value.busy && model.state.value.message == R.string.chain_revoked }
-        assertTrue(model.state.value.photos.isEmpty())
+        assertTrue(model.state.value.photo.photos.isEmpty())
         assertNull(model.state.value.viewed)
         waitFor("visible revocation feedback") {
             var visible = false
@@ -206,7 +206,8 @@ class PairingMultiElderOnlineTest {
             chooseElder(activity, model, relationship)
             waitFor("selected populated Elder") {
                 (model.state.value.context as? CaregiverContextState.Active)?.context?.relationshipId == relationship.id &&
-                    model.state.value.photos.isNotEmpty() && model.state.value.photos.all { it.elderId == relationship.elderId }
+                    model.state.value.photo.photos.isNotEmpty() &&
+                    model.state.value.photo.photos.all { it.elderId == relationship.elderId }
             }
             nav(R.id.nav_plans)
             instrumentation.waitForIdleSync()
@@ -222,15 +223,19 @@ class PairingMultiElderOnlineTest {
                 var found = false
                 instrumentation.runOnMainSync {
                     found = descendants(activity.window.decorView).filterIsInstance<Button>().any {
-                        it.text.toString() == activity.getString(R.string.chain_inspect_number, 1) }
+                        it.text.toString() == activity.getString(R.string.chain_view_photo_number, 1) }
                 }
                 found
             }
             instrumentation.runOnMainSync {
                 assertTrue(descendants(activity.window.decorView).filterIsInstance<Button>().single {
-                    it.text.toString() == activity.getString(R.string.chain_inspect_number, 1) }.performClick())
+                    it.text.toString() == activity.getString(R.string.chain_view_photo_number, 1) }.performClick())
             }
             waitFor("decoded photo for chosen Elder") { model.state.value.viewed?.elderId == relationship.elderId }
+            instrumentation.runOnMainSync {
+                assertTrue(descendants(activity.window.decorView).filterIsInstance<Button>().single {
+                    it.text.toString() == activity.getString(R.string.browse_create_plan) }.performClick())
+            }
             instrumentation.waitForIdleSync()
             instrumentation.runOnMainSync {
                 assertTrue(editor().isShown)
@@ -282,8 +287,8 @@ class PairingMultiElderOnlineTest {
         waitFor("revoke clears populated context") { !model.state.value.busy &&
             model.state.value.context is CaregiverContextState.SelectElder }
         assertNull(model.state.value.viewed)
-        assertTrue(model.state.value.photos.isEmpty())
-        assertTrue(model.state.value.plans.isEmpty())
+        assertTrue(model.state.value.photo.photos.isEmpty())
+        assertTrue(model.state.value.browser.items.isEmpty())
         nav(R.id.nav_plans)
         instrumentation.waitForIdleSync()
         instrumentation.runOnMainSync {

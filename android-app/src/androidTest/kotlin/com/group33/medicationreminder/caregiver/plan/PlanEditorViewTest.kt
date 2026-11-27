@@ -11,6 +11,9 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.group33.medicationreminder.R
 import org.junit.Assert.*
 import org.junit.Test
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
 
 class PlanEditorViewTest {
     @androidx.test.filters.SdkSuppress(minSdkVersion = 29)
@@ -74,6 +77,43 @@ class PlanEditorViewTest {
         }
         onUi { dialogControls().single { it.id == android.R.id.button3 }.performClick() }
         onUi { assertEquals("", edits(editor)[5].text.toString()) }
+    }
+
+    @androidx.test.filters.SdkSuppress(minSdkVersion = 29)
+    @Test fun calendarFallbackUsesInjectedClock() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val host = instrumentation.startActivitySync(android.content.Intent(instrumentation.targetContext,
+            PlanEditorDebugActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) as PlanEditorDebugActivity
+        val bitmap = android.graphics.Bitmap.createBitmap(20, 20, android.graphics.Bitmap.Config.ARGB_8888)
+        lateinit var editor: PlanEditorView
+        try {
+            onUi {
+                editor = PlanEditorView(host, null,
+                    Clock.fixed(Instant.parse("2030-05-06T00:00:00Z"), ZoneOffset.UTC))
+                host.setContentView(editor)
+                val form = PlanFormViewModel().apply { updateInput(PlanFormInput("Test name", "Test dose",
+                    localTimes = listOf("08:00"), startDate = "", executionTimeZoneId = "Asia/Shanghai")) }
+                editor.bind(host, "Test Elder",
+                    com.group33.shared.contract.MedicationPhotoView("test-photo", "elder", "image/png", 1),
+                    bitmap, "Asia/Shanghai", "Asia/Shanghai", form, PlanEditorFixture().model)
+                edits(editor)[4].performClick()
+            }
+            onUi {
+                val picker = android.view.inspector.WindowInspector.getGlobalWindowViews()
+                    .flatMap { descendants(it) }.filterIsInstance<android.widget.DatePicker>().single()
+                assertEquals(2030, picker.year)
+                assertEquals(4, picker.month)
+                assertEquals(6, picker.dayOfMonth)
+            }
+        } finally {
+            onUi {
+                android.view.inspector.WindowInspector.getGlobalWindowViews().flatMap { descendants(it) }
+                    .firstOrNull { it.id == android.R.id.button2 }?.performClick()
+                editor.clear()
+                host.finish()
+            }
+            bitmap.recycle()
+        }
     }
     @Test fun explicitDebugFixtureCanBindAndSave() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()

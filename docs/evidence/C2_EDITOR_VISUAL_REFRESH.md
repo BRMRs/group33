@@ -55,4 +55,10 @@ Implements the two non-blocking #51 suggestions: photo confirmation immediately 
 
 Final local Android JVM: 119 passed, zero failures/errors/skips. lintDebug, assembleDebug, assembleRelease and assembleDebugAndroidTest pass. Emulator API37 PlanEditorViewTest: 10/10 passed, including add/edit/remove, duplicate rejection, cancel, confirmation placement and dialog cleanup; existing date and save/recovery regressions remain green. Chinese actual layout inspected in the explicit synthetic Debug fixture. No API27/TalkBack/cloud/two-device result claimed; no real plan was saved. This follow-up is submitted for renewed review; prior approvals do not establish acceptance of these new UI changes. Final-head remote CI is tracked in PR Checks.
 
+## 2026-11-27 current-main self-check
+
+Merged current `main` after PRs #111 and #112, preserving all unrelated contribution records and regenerating the review manifest. The calendar fallback now consumes an injected `Clock`; an instrumentation regression fixes the fallback date at 2030-05-06 instead of depending on the device date. Local `gate1Check test :android-app:assembleRelease --offline` passed before this correction and is rerun on the corrected head before publication.
+
+This remains a scoped editor/calendar delivery. Issue #51 stays open: API27, TalkBack, complete English/Chinese 200% font and 320/360dp interaction matrices, and real backend/two-device acceptance are still NOT RUN on this revision. Existing screenshots are synthetic/debug evidence and must not be described as production acceptance.
+
 Chinese time-list layout: [actual Debug fixture](c2-editor-refresh/zh-times.png). The fixture data and save are simulated.

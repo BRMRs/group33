@@ -21,6 +21,7 @@ import com.group33.medicationreminder.core.data.contract.OnlineCommandState
 import com.group33.shared.contract.MedicationPhotoView
 import com.group33.shared.contract.TimeZoneAcknowledgement
 import kotlinx.coroutines.*
+import java.time.Clock
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -29,7 +30,11 @@ import java.time.ZoneId
  * Bind a new pair of ViewModels for each account/Elder editor; call clear on access loss.
  * A bitmap is actual decoded content, not a PhotoContent handle or authorization evidence.
  */
-class PlanEditorView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) :
+class PlanEditorView @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    private val clock: Clock = Clock.systemDefaultZone(),
+) :
     ScrollView(context, attrs) {
     private val column = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
@@ -225,7 +230,7 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
             dateDialog?.dismiss()
             val requestedGeneration = generation
             val selected = runCatching { LocalDate.parse(edit.text) }.getOrElse {
-                runCatching { LocalDate.parse(start.text) }.getOrElse { LocalDate.now() }
+                runCatching { LocalDate.parse(start.text) }.getOrElse { LocalDate.now(clock) }
             }
             fun stillCurrent() = generation == requestedGeneration && edit.isEnabled && form != null
             val dialog = DatePickerDialog(context, R.style.C2CalendarDialog,
@@ -387,17 +392,17 @@ class PlanEditorView @JvmOverloads constructor(context: Context, attrs: Attribut
     }
 
     private fun renderSave(state: PlanSaveState) {
-        val p = presentation(state)
-        status.text = context.getString(p.title) + "\n" + context.getString(p.description)
+        val savePresentation = presentation(state)
+        status.text = context.getString(savePresentation.title) + "\n" + context.getString(savePresentation.description)
         action.text = if (state.status == PlanSaveStatus.REJECTED && rejectionReviewed) context.getString(R.string.c2_plan_save)
-            else p.actionLabel?.let(context::getString) ?: context.getString(p.title)
+            else savePresentation.actionLabel?.let(context::getString) ?: context.getString(savePresentation.title)
         if (state.inputError != null) status.append("\n" + context.getString(when (state.inputError) {
             PlanSaveInputError.PHOTO_REQUIRED -> R.string.c2_plan_photo_required
             PlanSaveInputError.TIME_ZONE_CONFIRMATION_REQUIRED -> R.string.c2_editor_zone_required
             PlanSaveInputError.WRONG_ELDER -> R.string.c2_editor_no_context
             PlanSaveInputError.INVALID_FIELDS -> R.string.c2_plan_required_error
         }))
-        action.isEnabled = p.action != PlanDisplayAction.NONE
+        action.isEnabled = savePresentation.action != PlanDisplayAction.NONE
         val editable = state.status in setOf(PlanSaveStatus.IDLE, PlanSaveStatus.NOT_SUBMITTED, PlanSaveStatus.REJECTED)
         (fields.values + instructions).forEach { it.isEnabled = editable }
         renderTimes()
