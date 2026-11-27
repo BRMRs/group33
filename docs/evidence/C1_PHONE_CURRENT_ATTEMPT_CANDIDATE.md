@@ -108,5 +108,8 @@ layout; the existing 680dp shared resource remains. Resource merging passes.
 While publishing the prepared candidate, main advanced to9ae5bbcd (#152/#151).
 The original remote head was updated without force to469beb8a, retaining Draft.
 Integrate both new main changes and both contribution histories; regenerate
-the manifest. Further combined checks are pending; the590 passing results above
+the manifest. Further combined checks passed: Debug332/Release290,0 failures/errors/skips;
+lint0 errors/74 warnings; Debug/Release/test APKs built, exit0 in4m2s,
+152 tasks:68 executed/84 up-to-date. No new device/provider or Server/Shared run.
+The590 passing results above
 remain bound to the f4ef396 integration.
