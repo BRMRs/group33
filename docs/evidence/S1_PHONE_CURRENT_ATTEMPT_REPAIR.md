@@ -1,0 +1,21 @@
+# S1 current-attempt guards for the bound-phone client
+
+2026-11-26. Refs #10 / #15 / #118. Parent #88 `ec06f8d788bb3d4a4348f9493c054142f91c1199` contains accepted main `9e562139`. This is a corrective child candidate, not adoption into #88/main or actual provider acceptance.
+
+## Two observed defects and the correction
+
+Independent Standards/Spec review found that initial Start validated the S1 attempt before IO dispatch but did not recheck before sending, and that the synchronous SDK-token callback ignored public-store invalidation outside the phone Repository. Original source with two added regressions executes17 JVM cases:15 pass,2 fail (one old initialization request despite replacement; old `sdk-only` token returned after current=false). These failures do not mean a new session was written: later response/completion fences already deny that.
+
+Start now repeats authoritative current-attempt validation in its IO block and checks the current snapshot immediately before the request. `BoundPhoneExchange` requires both the authoritative suspending guard and a nonblocking snapshot guard. The latter guards each SDK token retrieval and closes a stale scene; private-store reads remain outside the synchronous SDK callback.
+
+`PrivateSessionStore.isCurrentAuthenticationSnapshot` reads only its same-process published private observation: signed-out authentication generation, environment, epoch and non-backwards time. It does not read disk, restore a session, expose credentials or authorize HTTP/completion. Normal authoritative checks remain mandatory. Clear, replacement begin, successful login and storage failure already invalidate that observation through the existing publication/epoch machinery, including another store instance with the exact same environment/namespace. After process recreation no old in-memory exchange is restored. This does not introduce a cross-process session protocol.
+
+Original exchange assertions remain; fixture calls explicitly supply the new required snapshot guard. The regression captures a preflight result that becomes stale while its suspending validation is held, then demands zero initialization calls. It does not claim to saturate the global IO pool. A real Android Keystore/private-store regression checks external clear, replacement begin and completed login, then invokes the synchronous token retrieval on the main thread; no phone-Repository logout or SDK/provider is used. Original common-session and actual loopback HTTP tests remain enabled.
+
+## Verification and review
+
+The corrected17-case JVM exchange suite passes. The local owned read-only API35 run passes all16 actual common-session/transport cases, with emulator stopped and original AVD configuration unchanged. Exact commands, full-build counts and source/APK hashes are recorded in the PR; hosted CI remains a separate gate. The dedicated job uses a new private API35/x86_64 emulator and requires16 unique actual zero-status cases (10 common-session,6 transport), no skipped cases, exact-head source/APK hashes and owned-emulator/AVD cleanup. Artifacts contain logs and metadata only; no AVD, account database or SDK proof is uploaded. HTTP tests use fictional loopback responses; no supplier/SMS, live service, phone UI or cloud deployment is executed.
+
+Required actual reviewers: C1 for SDK/client consumption and its original code; the lead-recorded bounded non-author S1 session/cache backup for the new private-store method; S2 for accepted attempt/credential boundaries. BRMRs wrote the correction and cannot self-approve. Independent technical agents do not provide member approval. #88 stays Draft until its existing complete-protocol, configuration and real same-version acceptance prerequisites are met; this child does not dismiss the old whole-PR changes request.
+
+No Shared/wire/schema/permission/supplier-version or deployment changes. The only new main-source behavior is an internal read-only snapshot query; Debug phone composition consumes it. Release includes that unused helper but no enabled phone provider. Reverting this scoped child requires regenerating checksums and restores the two defects; no migration or credential rollback is needed. #10/#15/#118 remain open.

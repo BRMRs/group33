@@ -14,6 +14,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 open class Group33Application : Application() {
+    internal open val phoneAuth: com.group33.medicationreminder.auth.PhoneAuthRepository? get() = null
     private val infrastructureScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     internal open val featureServices: com.group33.medicationreminder.integration.ChainServices? get() = null
     internal open val elderDoses: com.group33.medicationreminder.elder.LiveElderDoses? get() = null

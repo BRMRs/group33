@@ -21,14 +21,20 @@ class JwtService(
     @Value("\${app.jwt.expires-in-seconds}") private val expiresInSeconds: Long,
 ) {
     fun issueFor(user: AnonymousUser): IssuedToken {
+        return issue(user.id, user.role.name, "anonymous")
+    }
+
+    fun issueForPhone(userId: String, role: String): IssuedToken = issue(userId, role, "phone")
+
+    private fun issue(userId: String, role: String, type: String): IssuedToken {
         val issuedAt = Instant.now()
         val claims = JwtClaimsSet.builder()
             .issuer(issuer)
             .issuedAt(issuedAt)
             .expiresAt(issuedAt.plusSeconds(expiresInSeconds))
-            .subject(user.id)
-            .claim("role", user.role.name)
-            .claim("type", "anonymous")
+            .subject(userId)
+            .claim("role", role)
+            .claim("type", type)
             .build()
         val header = JwsHeader.with(MacAlgorithm.HS256).build()
         val token = jwtEncoder.encode(JwtEncoderParameters.from(header, claims))

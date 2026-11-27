@@ -110,6 +110,25 @@ internal class PrivateSessionStore(
         }.flatten()
     }
 
+    /** Adapter guard before using an in-memory registration ticket from this attempt. */
+    suspend fun isCurrentAuthentication(attempt: AuthenticationAttempt): Outcome<Boolean> = access {
+        val record = current()
+        publish(record)
+        record.user == null && attempt.environmentId == environmentId &&
+            attempt.installationId == record.installationId && attempt.generation == record.generation &&
+            attempt.epoch == file.epoch && !file.clearRequested && clock.millis() >= attempt.startedAtMillis
+    }
+
+    /** Nonblocking same-process revocation guard for synchronous SDK callbacks.
+     * Uses only the published private generation; never restores or reads credentials from disk.
+     * HTTP and completion must still use the authoritative suspending checks. */
+    fun isCurrentAuthenticationSnapshot(attempt: AuthenticationAttempt): Boolean {
+        val observation = file.state.value
+        return observation.view.readiness == AuthReadiness.SIGNED_OUT &&
+            attempt.environmentId == environmentId && attempt.generation == observation.generation &&
+            attempt.epoch == observation.epoch && clock.millis() >= attempt.startedAtMillis
+    }
+
     /** Clearing credentials leaves installation identity and all business/journal files intact. */
     suspend fun clear(): Outcome<Unit> {
         file.requestClear()

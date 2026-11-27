@@ -32,10 +32,13 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
+    implementation(libs.aliyun.dypns)
+    runtimeOnly("com.h2database:h2")
     implementation(libs.postgresql)
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
+    testImplementation("com.h2database:h2")
     testImplementation(libs.kotlinx.serialization.json)
     testImplementation(libs.postgresql)
     add(schemaMigration.implementationConfigurationName, libs.flyway.core)
