@@ -107,7 +107,9 @@ tasks.register<Test>("postgresIntegrationTest") {
     }
 }
 
-// One review fixture is consumed unchanged by all three runtime suites.
+// Proposal vectors are consumed unchanged by all three runtime suites.
 tasks.processTestResources {
+    from(rootProject.file("docs/contracts/proposals/v2-vectors.json")) { into("contracts/proposals") }
+    from(rootProject.file("docs/contracts/proposals/v2-additional-vectors.json")) { into("contracts/proposals") }
     from(rootProject.file("docs/contracts/proposals/v2-acceptance-candidates.json")) { into("contracts/proposals") }
 }

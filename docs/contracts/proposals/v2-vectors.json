@@ -238,5 +238,7 @@
       "kind": "HELP",
       "recordedAtEpochMillis": 1792454401000
     }
-  ]
+  ],
+  "wireRejectedIndexes": [0, 4, 5, 6, 7],
+  "domainRejectedIndexes": [1, 2, 3]
 }

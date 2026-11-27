@@ -6,7 +6,28 @@
       "value": {
         "actionId": "00000000-0000-4000-8000-000000000001",
         "doseGroupId": "00000000-0000-4000-8000-000000000002",
+        "executionScopeId": "fictional-env/install/elder",
         "recordedAtEpochMillis": 1
+      }
+    },
+    {
+      "type": "CaregiverTakeoverAcknowledgement",
+      "value": {
+        "actionId": "00000000-0000-4000-8000-000000000001",
+        "doseGroupId": "00000000-0000-4000-8000-000000000002",
+        "executionScopeId": "fictional-env/install/elder",
+        "elderInstallationId": "fictional-elder-installation",
+        "acknowledgedAtEpochMillis": 2,
+        "receivedAtEpochMillis": 3
+      }
+    },
+    {
+      "type": "CaregiverContact",
+      "value": {
+        "actionId": "00000000-0000-4000-8000-000000000004",
+        "followUpId": "00000000-0000-4000-8000-000000000003",
+        "doseGroupId": "00000000-0000-4000-8000-000000000002",
+        "contactedAtEpochMillis": 1
       }
     },
     {
@@ -16,7 +37,7 @@
         "followUpId": "00000000-0000-4000-8000-000000000003",
         "doseGroupId": "00000000-0000-4000-8000-000000000002",
         "expectedRevision": 0,
-        "outcome": "UNKNOWN",
+        "outcome": "UNABLE_TO_CONFIRM",
         "enteredAtEpochMillis": 1,
         "actualTime": {
           "knowledge": "UNKNOWN",

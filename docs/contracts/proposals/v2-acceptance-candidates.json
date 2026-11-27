@@ -39,7 +39,7 @@
           "followUpId": "00000000-0000-4000-8000-000000000210",
           "doseGroupId": "00000000-0000-4000-8000-000000000024",
           "expectedRevision": 0,
-          "outcome": "UNKNOWN",
+          "outcome": "UNABLE_TO_CONFIRM",
           "actualTime": {
             "knowledge": "UNKNOWN",
             "epochMillis": null
@@ -456,7 +456,7 @@
       "followUp": "followUpUnknown",
       "expected": {
         "currentRevision": 1,
-        "effectiveOutcome": "UNKNOWN",
+        "effectiveOutcome": "UNABLE_TO_CONFIRM",
         "source": "CAREGIVER",
         "fabricateElderEvent": false
       }
