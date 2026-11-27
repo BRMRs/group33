@@ -11,6 +11,7 @@
     <string name="chain_revoke">解除照护关系</string>
     <string name="chain_choose_elder">选择当前长辈</string>
     <string name="chain_select_name">选择%1$s</string>
+    <string name="chain_selected_name">当前选择：%1$s</string>
     <string name="chain_inspect">查看照片并建立计划</string>
     <string name="chain_inspect_number">查看照片%1$d并建立计划</string>
     <string name="chain_elder_identity">长辈：%1$s</string>

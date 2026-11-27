@@ -11,6 +11,7 @@
     <string name="chain_revoke">Revoke relationship</string>
     <string name="chain_choose_elder">Choose an Elder</string>
     <string name="chain_select_name">Choose %1$s</string>
+    <string name="chain_selected_name">Current selection: %1$s</string>
     <string name="chain_inspect">View photo and create plan</string>
     <string name="chain_inspect_number">View photo %1$d and create plan</string>
     <string name="chain_elder_identity">Elder: %1$s</string>

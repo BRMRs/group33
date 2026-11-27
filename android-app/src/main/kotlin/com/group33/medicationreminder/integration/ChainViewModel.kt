@@ -128,7 +128,10 @@ internal class ChainViewModel(private val services: ChainServices) : ViewModel()
             mutable.update { it.copy(signOut = status) }
         }
     }
-    fun select(relationshipId: String) { selected.value = relationshipId }
+    fun select(relationshipId: String) {
+        mutable.update { it.copy(message = R.string.chain_ready) }
+        selected.value = relationshipId
+    }
     fun refresh(reportStatus: Boolean = true) = action {
         val result = services.pairing.refresh()
         if (result is Outcome.Failure) {
