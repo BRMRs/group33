@@ -307,3 +307,31 @@ Exact commands, source inventory, APKs, window samples and raw local reports are
 retained under `.git/c1-local-recovery-20261117/pr127-sync/`; they are not committed.
 This check does not approve C3 #124, complete #15, validate a phone service or
 replace final-head CI and the maintainer's renewed review.
+
+## Current-main follow-through — 2026-11-27
+
+Agent-assisted C1 preparation; no human approval or signature.
+
+Integrated actual main `9ae5bbcd2baa11222f1fb2b7dc13634159b773a8` while preserving both contribution histories.
+
+Android Debug/Release JVM results (actual reports): `{"testDebugUnitTest": {"tests": 275, "failures": 0, "errors": 0, "skipped": 0}, "testReleaseUnitTest": {"tests": 274, "failures": 0, "errors": 0, "skipped": 0}}`.
+
+Debug lint: `{"Warning": 59}`. Debug/Release/AndroidTest APK builds passed.
+
+Physical MI PAD 4 PLUS / API27: **6/6**, all unique test completions status0.
+
+System settings retained: font1.0,1200x1920,density320. Tests use fictional fixtures; no supplier/cloud acceptance.
+
+Temporary application package: `com.group33.medicationreminder.c1verify127n27`; existing tablet applications/data preserved.
+
+APK SHA256: `{"android-app-debug.apk": "0733242355e3bc41d50870f09df74e1441776ab29f9dbb044690f02caacdaa09", "android-app-debug-androidTest.apk": "8e686cb93c2120996e978a31f1ff42a1bc3043745590ba9e9b679eedc58ff0fa"}`.
+
+Preserved locale initialization/restoration and translated/recreation assertions; incorporated main selector disabled/keyListener checks.
+
+The first proposed isolated package already existed, so installation was refused before mutation. A fresh package was rebuilt and tested.
+
+Device checks cover this combination, not system200%/TalkBack or full feature acceptance. Current-head independent reviewers remain required.
+
+Raw build/device results and APK hashes are retained privately under `.git/c1-progress-20261127/`.
+
+Policy, whitespace and regenerated complete artifact manifest are checked before publication.
