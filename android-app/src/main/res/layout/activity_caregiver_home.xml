@@ -49,6 +49,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="@string/caregiver_current_elder"
+                        android:labelFor="@id/current_elder_value"
                         android:textAppearance="@style/TextAppearance.Group33.Supporting" />
 
                     <com.google.android.material.textfield.TextInputLayout
