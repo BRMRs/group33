@@ -8,6 +8,11 @@ import androidx.appcompat.app.AppCompatActivity
 class CaregiverNavigationPreviewActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (intent.getBooleanExtra("C2_FORM_PREVIEW", false)) {
+            startActivity(Intent(this, com.group33.medicationreminder.caregiver.plan.PlanEditorDebugActivity::class.java))
+            finish()
+            return
+        }
         startActivity(Intent(this, CaregiverHomeActivity::class.java).apply {
             if (!this@CaregiverNavigationPreviewActivity.intent.getBooleanExtra("NO_ELDER_PREVIEW", false)) {
                 putExtra("com.group33.medicationreminder.LOCAL_NAV_DEMO", true)
