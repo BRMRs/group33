@@ -233,7 +233,7 @@ class ChainViewModelTest {
             assertFalse(state.photoDecodeFailed)
             assertNull(state.viewed)
             f.model.viewPhoto(photo(elder).id); advanceUntilIdle()
-            assertTrue(f.model.state.value.photoDecodeFailed)
+            assertEquals(PhotoContentStatus.FAILED, f.model.state.value.photo.contentStatus)
         }
         assertNull("Choosing an Elder must not submit a business command", f.submitted)
         assertTrue(f.records.value.isEmpty())
