@@ -1,0 +1,6 @@
+<resources>
+    <item name="photo_browser_status" type="id" />
+    <item name="plan_browser_status" type="id" />
+    <item name="plan_details_heading" type="id" />
+    <item name="plan_preview_status" type="id" />
+</resources>
