@@ -3,6 +3,7 @@ package com.group33.medicationreminder.integration
 import androidx.lifecycle.ViewModelStore
 import com.group33.medicationreminder.R
 import com.group33.medicationreminder.core.data.contract.*
+import com.group33.medicationreminder.caregiver.photo.PhotoContentStatus
 import com.group33.shared.contract.*
 import com.group33.shared.model.User
 import com.group33.shared.model.UserRole
