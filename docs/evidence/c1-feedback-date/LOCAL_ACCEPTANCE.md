@@ -135,3 +135,14 @@ No new device, Server, PG or cloud validation. Prior composition/device evidence
 Raw build/device results and APK hashes are retained privately under `.git/c1-progress-20261127/`.
 
 Policy, whitespace and regenerated complete artifact manifest are checked before publication.
+
+## Follow-through after main #122 — 2026-11-27
+
+Integrated main `08f901ac4e44393dc850459caf3924e463f3f5c9` after it advanced during publication. Agent-assisted evidence, no human signature.
+
+Current Debug JVM results: `{"tests": 11, "failures": 0, "errors": 0, "skipped": 0}`.
+
+Focused date parser command passed again; original resolver, tests and frozen patch remain unchanged.
+Keep Draft for the production date source/accepted contract/final Host prerequisites described above. No new device/Server/PG/cloud claim.
+
+System settings and existing tablet apps/data were retained. No new real-provider or production feature acceptance is asserted.
