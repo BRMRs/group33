@@ -85,6 +85,10 @@ ANDROID_HOME=/path/to/sdk python3 scripts/run_debug_online_chain.py \
 ANDROID_HOME=/path/to/sdk python3 scripts/run_debug_online_chain.py \
   --elder emulator-5560 --caregiver emulator-5562 \
   --locale zh-CN --output /tmp/group33-chain-zh --reset-test-apps
+ANDROID_HOME=/path/to/sdk python3 scripts/run_debug_online_chain.py \
+  --elder emulator-5560 --caregiver emulator-5562 \
+  --locale zh-CN --output /tmp/group33-chain-offline \
+  --offline-action-recovery --reset-test-apps
 ```
 
 The harness refuses physical-device serials. `--reset-test-apps` explicitly clears only these designated fictional emulator installations. The `--locale` option persists the existing shared language preference before launch; it does not fight the Application startup preference. Pairing codes and bridge IDs travel through process memory and app-private `no_backup` files, never command-line values or printed logs; no credentials enter the bridge.
@@ -106,13 +110,13 @@ Fault responses exist only in instrumentation transport subclasses around real H
 
 ## Debug Elder local reminder and dose actions
 
-The live-dose integration reuses the due-card controls and bilingual labels from #35 and the timing policy from #37. After a confirmed Elder plan is read through the existing authenticated HTTP and Room path, the Elder installation freezes occurrences for the next 24 hours, using the plan execution time zone and the nominal occurrence key. Android schedules a local alarm and posts a generic notification when the corresponding group is due. Delivery is inexact and depends on Android background policy and notification permission. A normal process restart can reload persisted rows for the same authenticated Elder.
+The live-dose integration reuses the due-card controls and bilingual labels from #35 and the timing policy from #37. After a confirmed Elder plan is read through the existing authenticated HTTP and Room path, the Elder installation freezes occurrences for the next 24 hours, using the plan execution time zone and the nominal occurrence key. The S1 Room/AlarmManager runtime groups same-instant occurrences, uses an exact alarm when access is granted, and posts the high-importance alarm notification when the group is due; denied exact access is an explicit inexact degraded fallback, while denied notification access is unavailable rather than Missed. Process death, reboot/first unlock and a production ten-minute Snooze reload the same persisted group without moving its original deadline.
 
 The due page applies Taken or Remind later to the whole displayed group. An atomic Room transaction rechecks the active account, membership and exclusive response deadline, updates the occurrences, and persists one local action ID. Snooze schedules the next prompt ten minutes later within the original response window. The UI acknowledges local recording. Unseen remote plan changes arrive through the existing refresh path.
 
 The dose-action slice is opt-in with `OCCURRENCE_ENABLED=true DOSE_GROUP_ENABLED=true`. Android registers the group's frozen occurrences and submits with the original action ID. A transport failure retains the Android queue and a retry sends the same action. The paired Caregiver overview and history consume the same cache and display the accepted Taken time. In `postgres-local` mode, apply and validate the matching Flyway release before starting the service. The event projection and original receipt commit in one transaction, and a restarted Server can replay the receipt. The memory runtime remains available for development fixtures and loses its records on restart. The full V2 protocol, Help, and Caregiver follow-up remain separate.
 
-Run the two-emulator harness with `--dose-upload` to create a timed plan through real HTTP, verify the OS notification, record Taken from the Elder screen, and check that the Caregiver sees the accepted event in both overview and history. The `--live-dose` variant additionally exercises a time-controlled local snooze without uploading the artificial clock fixture. Both variants use fictional data.
+Run the two-emulator harness with `--dose-upload` to create a timed plan through real HTTP, verify the OS notification, record Taken from the Elder screen, and check that the Caregiver sees the accepted event in both overview and history. The `--live-dose` variant additionally exercises a time-controlled local snooze without uploading the artificial clock fixture. `--offline-action-recovery` implies both options and uses Android airplane/data/Wi-Fi controls after the real alarm but before Taken: it proves the UI reports only the local commit, the original S1 action remains pending, the target process ends, and a new process automatically uploads the same action after host-restored connectivity before the Caregiver check. The harness restores networking immediately after the offline Elder phase, including before evaluating its result. All variants use fictional data.
 
 ## Persistence and concurrency boundaries
 

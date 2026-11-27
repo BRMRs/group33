@@ -3,7 +3,7 @@
 2026-11-27 (Asia/Shanghai). Refs #10 / #118; local preparation for PR #88.
 Agent-assisted inspection and verification; no human approval or signature.
 
-## Exact inputs and provenance
+## Initial reconstruction (before main synchronization)
 
 - Parent #88: `ec06f8d788bb3d4a4348f9493c054142f91c1199`.
 - S1 correction #153: `c863be09087cf07e678be73bf23b2e02c13344ec`.
@@ -80,3 +80,25 @@ pairing. Keep missing service/policy/credentials and human review explicit.
 
 Rollback: discard this isolated candidate's adoption delta; the original worktrees,
 remote branches, deployed environments and user data have not been changed.
+
+## Main synchronization on 2026-11-27
+
+Local adoption commit e6ba87c3 is integrated with actual main
+f4ef3963a1ab0c07e18ea40a37c0b5604f0e5739, including #112/#113/#119.
+Preserve both phone configuration and the conditional automatic-recovery runner,
+common phone-session injection plus retry-delay injection, both Application
+capabilities and bilingual resources, and both contribution histories.
+An initial conflict-resolution script truncated files; the build failed at script
+parsing before tests. The files were reconstructed from all three Git inputs
+using line-based conflict handling; this failed attempt is not acceptance.
+Combined Android unit tests pass: Debug316/Release274, zero failures/errors/skips.
+Debug lint passes with zero errors and73 warnings. Debug, Release and instrumentation APKs built successfully. Command exit0,
+BUILD SUCCESSFUL in9m11s;152 tasks:140 executed/8 cached/4 up-to-date.
+Instrumentation tests were compiled but not run on devices in this integration.
+Earlier 192/150 results describe only
+the pre-main candidate. No device, provider, cloud or human approval is added.
+
+Resource integration additionally found duplicate group33_content_max_width
+(680dp current-main plan UI versus 520dp phone entry). The phone-specific 520dp
+resource is now login_content_max_width, referenced only by the shared login
+layout; the existing 680dp shared resource remains. Resource merging passes.

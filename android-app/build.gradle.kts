@@ -31,6 +31,9 @@ android {
         buildConfigField("String", "PHONE_AUTH_BASE_URL", "\"\"")
         buildConfigField("String", "PHONE_AUTH_PRIVACY_POLICY_URL", "\"\"")
         buildConfigField("boolean", "PHONE_AUTH_LOCAL_TRIAL", "false")
+        testInstrumentationRunner = if (providers.gradleProperty("automaticRecoveryRunner").orNull == "true")
+            "com.group33.medicationreminder.core.reminder.AutomaticRecoveryRunner"
+        else "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -110,6 +113,7 @@ dependencies {
     debugImplementation(files("libs/umeng-asms-v1.8.0.aar"))
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.work.runtime.ktx)
     kapt(libs.androidx.room.compiler)
 
     testImplementation(libs.junit4)

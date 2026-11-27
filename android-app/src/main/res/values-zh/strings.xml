@@ -35,6 +35,7 @@
     <string name="caregiver_navigation_preview_action">预览小辈导航（示例数据）</string>
     <string name="caregiver_current_elder">当前长者</string>
     <string name="caregiver_no_current_elder">尚未选择长者</string>
+    <string name="caregiver_choose_elder_above">请在上方下拉框中选择长者。</string>
     <string name="caregiver_context_unavailable">请先登录并与长者配对，再查看计划或记录。</string>
     <string name="caregiver_no_active_relationship">目前没有有效的照护关系。</string>
     <string name="caregiver_active_relationship">有效的照护关系</string>
@@ -134,5 +135,13 @@
     <string name="login_signout_storage_error">退出未能保存，请重试。</string>
     <string name="caregiver_home_title">用药提醒计划</string>
 
+    <string name="reminder_channel_name">用药提醒</string>
+    <string name="reminder_channel_description">长辈用药时的声音提醒</string>
+    <string name="reminder_notification_title">用药提醒</string>
+    <string name="reminder_ringing_starting">正在启动响铃…</string>
+    <string name="reminder_notification_text">%1$s · %2$s</string>
+    <string name="reminder_action_taken">我已服用</string>
+    <string name="reminder_action_snooze">十分钟后提醒</string>
+    <string name="reminder_action_help">需要帮助</string>
 </resources>
 
