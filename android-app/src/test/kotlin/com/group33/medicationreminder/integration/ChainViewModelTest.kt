@@ -229,11 +229,11 @@ class ChainViewModelTest {
             val state = f.model.state.value
             assertEquals(id, (state.context as CaregiverContextState.Active).context.relationshipId)
             assertEquals(elder.id, state.context.context.elderId)
-            assertEquals(listOf(photo(elder)), state.photos)
-            assertNull(state.failedPhotoId)
+            assertEquals(listOf(photo(elder)), state.photo.photos)
+            assertFalse(state.photoDecodeFailed)
             assertNull(state.viewed)
             f.model.viewPhoto(photo(elder).id); runCurrent()
-            assertEquals(photo(elder).id, f.model.state.value.failedPhotoId)
+            assertTrue(f.model.state.value.photoDecodeFailed)
         }
         assertNull("Choosing an Elder must not submit a business command", f.submitted)
         assertTrue(f.records.value.isEmpty())
@@ -247,7 +247,7 @@ class ChainViewModelTest {
         assertEquals(listOf("rel-b"),
             (f.model.state.value.context as CaregiverContextState.SelectElder).elders.map { it.relationshipId })
         assertTrue(f.model.state.value.photos.isEmpty())
-        assertNull(f.model.state.value.failedPhotoId)
+        assertFalse(f.model.state.value.photoDecodeFailed)
         f.model.select("rel-a"); runCurrent()
         assertFalse(f.model.state.value.context is CaregiverContextState.Active)
         f.relationships.value = cached(listOf(revoked, relation("rel-b", elderB), relation("new-a", elderA)))
@@ -267,7 +267,7 @@ class ChainViewModelTest {
         f.relationships.value = authorized.copy(access = AccessState.UNKNOWN, isStale = true); runCurrent()
         assertEquals(CaregiverContextState.LoadingRelationships, f.model.state.value.context)
         assertTrue(f.model.state.value.photos.isEmpty())
-        assertNull(f.model.state.value.failedPhotoId)
+        assertFalse(f.model.state.value.photoDecodeFailed)
         f.model.select("rel-b"); runCurrent()
         f.photos.getValue(elderB.id).value = cached(listOf(photo(elderB).copy(id = "unverified-b")))
         runCurrent()
