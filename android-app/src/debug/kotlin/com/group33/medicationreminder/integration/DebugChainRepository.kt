@@ -5,11 +5,18 @@ import androidx.room.withTransaction
 import com.group33.medicationreminder.core.data.contract.*
 import com.group33.medicationreminder.core.data.journal.*
 import com.group33.medicationreminder.core.session.*
+import com.group33.medicationreminder.core.reminder.InitialTiming
+import com.group33.medicationreminder.core.reminder.ReminderDispatchResult
+import com.group33.medicationreminder.caregiver.data.toDoseEventState
+import com.group33.medicationreminder.elder.*
 import com.group33.shared.contract.*
 import com.group33.shared.model.*
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.security.MessageDigest
+import java.time.Clock
+import java.time.ZoneOffset
+import java.util.UUID
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
@@ -18,6 +25,9 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 import org.json.JSONObject
 
+// Schema-v1 private tombstones need a non-time marker: epoch zero remains a valid successful sync.
+private const val NO_SUCCESSFUL_EVENT_SYNC = Long.MIN_VALUE
+
 /** Debug-only composition of existing contracts, private session, journal and actual HTTP adapters. */
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class DebugChainRepository(
@@ -25,12 +35,14 @@ internal class DebugChainRepository(
     baseUrl: String,
     namespace: String = "debug-online",
     private val http: ChainHttp = ChainHttp(baseUrl),
-) : AuthRepository, PairingRepository, MedicationPhotoRepository, ReminderPlanRepository, OnlineCommandRepository {
+    private val waitBeforeRetry: suspend (Long) -> Unit = { delay(it) },
+) : AuthRepository, PairingRepository, MedicationPhotoRepository, ReminderPlanRepository, OnlineCommandRepository, DoseEventRepository, CaregiverDashboardRepository {
     private val environment = "debug-anonymous:${http.baseUrl}"
     private val sessionStore = PrivateSessionStore(context, environment, namespace)
     private val cache = ChainCache.open(context)
     private val gate = Mutex()
     private val refreshGate = Mutex()
+    private val doseSyncGate = Mutex()
     private val uploadGate = Mutex()
     private var authorityEpoch = 0L
     private val jobs = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -44,7 +56,7 @@ internal class DebugChainRepository(
     private val json = ContractProtocol.json
     private val uploads = File(context.noBackupFilesDir, "debug-online-uploads").apply { mkdirs() }
     val services = ChainServices(this, this, this, this, this, mutableScope.asStateFlow(),
-        mutableTrusted.asStateFlow(), ::resumePairingCode, ::signOut)
+        mutableTrusted.asStateFlow(), ::resumePairingCode, this, this, ::signOut)
 
     init {
         jobs.launch {
@@ -123,7 +135,8 @@ internal class DebugChainRepository(
             if (scope == null || !root && scope != bound) flowOf(Cached(empty, false, null, true, AccessState.UNKNOWN))
             else cache.documents().observe(rowId(scope, kind, target)).map { row ->
                 if (row == null) Cached(empty, false, null, true, AccessState.UNKNOWN)
-                else Cached(json.decodeFromString(serializer, row.body), true, row.syncedAt, row.stale,
+                else Cached(json.decodeFromString(serializer, row.body), true,
+                    row.syncedAt.takeUnless { it == NO_SUCCESSFUL_EVENT_SYNC }, row.stale,
                     AccessState.valueOf(row.access))
             }
         }.catch { emit(Cached(empty, false, null, true, AccessState.UNKNOWN)) }
@@ -135,9 +148,10 @@ internal class DebugChainRepository(
     override fun observePlans(elderId: String) = collection("plans", elderId, ReminderPlanCollection.serializer(),
         ReminderPlanCollection(emptyList(), emptyList())).map { it.copyValue(it.value.items) }
     override fun observeMedications(elderId: String) = collection("medications", elderId, ListSerializer(MedicationView.serializer()), emptyList())
-    // This create/read slice has no occurrence cache to overlay. Do not fabricate a complete preview.
+    // Authorized confirmed-plan reads establish the target's access, not preview availability.
+    // No occurrence cache exists: keep hasLocalData=false, never claim an empty schedule.
     override fun observePreview(elderId: String, range: LocalDateRange): Flow<Cached<List<PlanPreview>>> =
-        flowOf(Cached(emptyList(), false, null, true, AccessState.UNKNOWN))
+        observePlans(elderId).map { plans -> Cached(emptyList(), false, null, true, plans.access) }
     private fun <A, B> Cached<A>.copyValue(value: B) = Cached(value, hasLocalData, lastSuccessfulSyncAtEpochMillis, isStale, access)
 
     private suspend fun put(lease: SessionLease, kind: String, target: String, body: String) =
@@ -182,7 +196,13 @@ internal class DebugChainRepository(
                 authorityEpoch++
                 put(l, "requests", "", json.encodeToString(ListSerializer(PairingRequestView.serializer()), requests))
                 put(l, "relationships", "", json.encodeToString(ListSerializer(CareRelationshipView.serializer()), relationships))
-                relationships.filter { it.status == CareRelationshipStatus.REVOKED }.forEach {
+                // The cache is keyed by Elder, but the response retains individual relationship histories.
+                // An old revoked relationship must not poison the cache for a currently active pair.
+                val activeElders = relationships.filter { it.status == CareRelationshipStatus.ACTIVE }
+                    .mapTo(mutableSetOf()) { it.elderId }
+                relationships.filter {
+                    it.status == CareRelationshipStatus.REVOKED && it.elderId !in activeElders
+                }.forEach {
                     cache.documents().revoke(scopeId(l.scope), it.elderId)
                 }
             } }
@@ -221,6 +241,253 @@ internal class DebugChainRepository(
             put(l, "plans", elderId, json.encodeToString(ReminderPlanCollection.serializer(), plans))
             put(l, "medications", elderId, json.encodeToString(ListSerializer(MedicationView.serializer()), medications))
         } }
+    }
+
+    internal suspend fun localElderDoses(
+        expected: TrustedSessionContext,
+        time: Clock,
+        action: Pair<ElderDoseGroup, DoseActionKind>? = null,
+        actionId: String? = null,
+        recordedAtEpochMillis: Long? = null,
+    ): Outcome<LocalDoseUpdate> = safely {
+        val lease = lease()
+        if (lease.scope != expected.scope) throw Failed(local(LocalFailureCode.SESSION_NOT_READY))
+        publish(lease) {
+            if (mutableTrusted.value != expected || mutableSession.value.user?.role != UserRole.ELDER)
+                throw Failed(local(LocalFailureCode.SESSION_NOT_READY))
+            val elderId = lease.scope.userId
+            cache.withTransaction {
+                val now = time.instant()
+                val dao = cache.documents()
+                val planRow = dao.read(rowId(lease.scope, "plans", elderId))
+                val medicationRow = dao.read(rowId(lease.scope, "medications", elderId))
+                val hasPlanSnapshot = planRow?.access == AccessState.AUTHORIZED.name &&
+                    medicationRow?.access == AccessState.AUTHORIZED.name
+                if (hasPlanSnapshot) {
+                    val plans = json.decodeFromString(ReminderPlanCollection.serializer(), planRow.body).items
+                        .filter { it.elderId == elderId }
+                    val medications = json.decodeFromString(ListSerializer(MedicationView.serializer()), medicationRow.body)
+                    nextElderOccurrences(plans, medications, now, planRow.syncedAt).forEach { occurrence ->
+                        val id = rowId(lease.scope, "elder-dose", doseTarget(occurrence.key))
+                        if (dao.read(id) == null) storeElderOccurrence(lease, occurrence)
+                    }
+                }
+                val occurrences = dao.readSince(scopeId(lease.scope), "elder-dose",
+                    now.minus(InitialTiming.responseWindow).toEpochMilli()).map {
+                    json.decodeFromString(LocalElderOccurrence.serializer(), it.body)
+                }
+                if (action == null) return@withTransaction LocalDoseUpdate(occurrences, hasPlanSnapshot, false)
+                val (requested, kind) = action
+                val timestamp = recordedAtEpochMillis ?: now.toEpochMilli()
+                if (actionId != null) {
+                    val existing = dao.read(rowId(lease.scope, "elder-dose-action", actionId))
+                    if (existing != null) {
+                        val saved = json.decodeFromString(LocalElderAction.serializer(), existing.body)
+                        return@withTransaction LocalDoseUpdate(
+                            occurrences,
+                            hasPlanSnapshot,
+                            saved.occurrences == requested.keys && saved.kind == kind && saved.recordedAt == timestamp,
+                        )
+                    }
+                }
+                val actionClock = Clock.fixed(java.time.Instant.ofEpochMilli(timestamp), ZoneOffset.UTC)
+                val due = dueElderDose(occurrences, actionClock)
+                if (due == null || due.plannedAt != requested.plannedAt || due.keys.toSet() != requested.keys.toSet() ||
+                    (kind == DoseActionKind.REMIND_LATER && !due.canSnooze)) {
+                    return@withTransaction LocalDoseUpdate(occurrences, hasPlanSnapshot, false)
+                }
+                val keys = due.keys.toSet()
+                val updated = occurrences.map { occurrence ->
+                    if (occurrence.key !in keys) occurrence
+                    else when (kind) {
+                        DoseActionKind.TAKEN -> occurrence.copy(takenAt = timestamp, snoozedUntil = null)
+                        DoseActionKind.REMIND_LATER -> occurrence.copy(
+                            snoozedUntil = timestamp + InitialTiming.snooze.toMillis())
+                    }.also { storeElderOccurrence(lease, it) }
+                }
+                val receipt = LocalElderAction(actionId ?: UUID.randomUUID().toString(), due.keys, kind, timestamp)
+                put(lease, "elder-dose-action", receipt.id, json.encodeToString(LocalElderAction.serializer(), receipt))
+                LocalDoseUpdate(updated, hasPlanSnapshot, true)
+            }
+        }
+    }
+
+    internal fun executionScopeId(expected: TrustedSessionContext): String? =
+        expected.takeIf { it == mutableTrusted.value }?.let { scopeId(it.scope) }
+
+    internal fun generationEvidence(
+        expected: TrustedSessionContext,
+        occurrence: LocalElderOccurrence,
+    ): OccurrenceGenerationEvidence? {
+        val scope = expected.takeIf { it == mutableTrusted.value }?.scope ?: return null
+        return OccurrenceGenerationEvidence(
+            stableDoseId(scopeId(scope) + "/generation/" + doseTarget(occurrence.key)),
+            occurrence.key,
+            occurrence.planRevision,
+            occurrence.generatedAt,
+            occurrence.executionZone,
+            occurrence.plannedAt,
+            occurrence.offsetSeconds,
+            TimeResolutionPolicy.P0_TIME_V1,
+            "${occurrence.key.planId}:${occurrence.planRevision}",
+            occurrence.planSnapshotAt,
+        )
+    }
+
+    /** Inspect the original action after synchronization, under the current credential fence. */
+    internal suspend fun localElderActionDispatchResult(
+        expected: TrustedSessionContext,
+        actionId: String,
+    ): Outcome<ReminderDispatchResult> = safely {
+        val lease = lease()
+        publish(lease) {
+            if (lease.scope != expected.scope || mutableTrusted.value != expected ||
+                mutableSession.value.user?.role != UserRole.ELDER)
+                throw Failed(local(LocalFailureCode.SESSION_NOT_READY))
+            val row = cache.documents().read(rowId(lease.scope, "elder-dose-action", actionId))
+            when (row?.kind) {
+                "elder-dose-action-synced" -> ReminderDispatchResult.ACKNOWLEDGED
+                "elder-dose-action-needs-attention" -> ReminderDispatchResult.PERMANENT_FAILURE
+                else -> ReminderDispatchResult.RETRY
+            }
+        }
+    }
+
+    internal suspend fun syncLocalElderActions(expected: TrustedSessionContext): Outcome<Unit> = safely {
+        doseSyncGate.withLock {
+            val lease = lease()
+            drainDoseActionBatches(readBatch = {
+                publish(lease) {
+                    if (lease.scope != expected.scope || mutableTrusted.value != expected ||
+                        mutableSession.value.user?.role != UserRole.ELDER)
+                        throw Failed(local(LocalFailureCode.SESSION_NOT_READY))
+                    cache.documents().readKind(scopeId(lease.scope), "elder-dose-action", 25)
+                }
+            }) { row ->
+                val action = json.decodeFromString(LocalElderAction.serializer(), row.body)
+                val occurrences = publish(lease) {
+                    action.occurrences.map { key ->
+                        val stored = checkNotNull(cache.documents().read(rowId(lease.scope, "elder-dose", doseTarget(key))))
+                        json.decodeFromString(LocalElderOccurrence.serializer(), stored.body)
+                    }
+                }
+                val registration = OccurrenceRegistrationRequest(occurrences.map { item ->
+                    OccurrenceGenerationEvidence(
+                        stableDoseId(scopeId(lease.scope) + "/generation/" + doseTarget(item.key)),
+                        item.key, item.planRevision, item.generatedAt, item.executionZone,
+                        item.plannedAt, item.offsetSeconds, TimeResolutionPolicy.P0_TIME_V1,
+                        "${item.key.planId}:${item.planRevision}", item.planSnapshotAt,
+                    )
+                })
+                val path = "/api/v1/elders/${segment(lease.scope.userId)}"
+                val registered = doseHttp(lease, "POST", "$path/occurrence-registrations",
+                    stableDoseId("dose-registration/" + action.id),
+                    json.encodeToString(OccurrenceRegistrationRequest.serializer(), registration))
+                if (registered.status !in 200..299) {
+                    if (registered.status in setOf(400, 422)) {
+                        publish(lease) { cache.documents().put(row.copy(kind = "elder-dose-action-needs-attention")) }
+                        return@drainDoseActionBatches
+                    }
+                    throw Failed(remote(registered))
+                }
+                val receipt = doseHttp(lease, "POST", "$path/dose-action-groups", action.id,
+                    json.encodeToString(DebugDoseGroupRequest.serializer(),
+                        DebugDoseGroupRequest(action.id, action.occurrences, action.kind, action.recordedAt)))
+                if (receipt.status !in 200..299) {
+                    if (receipt.status in setOf(400, 422)) {
+                        publish(lease) { cache.documents().put(row.copy(kind = "elder-dose-action-needs-attention")) }
+                        return@drainDoseActionBatches
+                    }
+                    throw Failed(remote(receipt))
+                }
+                val accepted = json.decodeFromString(DebugDoseGroupReceipt.serializer(), receipt.text())
+                check(accepted.actionId == action.id && accepted.events.map { it.occurrence } == action.occurrences &&
+                    accepted.events.all { it.elderId == lease.scope.userId })
+                publish(lease) { cache.documents().put(row.copy(kind = "elder-dose-action-synced")) }
+            }
+        }
+    }
+
+    private fun stableDoseId(value: String) = UUID.nameUUIDFromBytes(value.toByteArray(Charsets.UTF_8)).toString()
+
+    // These routes are optional in the local test runtime. A missing endpoint must not erase pairing.
+    private suspend fun doseHttp(lease: SessionLease, method: String, path: String, operation: String? = null,
+                                 body: String? = null): ChainHttp.Reply {
+        val reply = http.call(method, path, value(sessionStore.credential(lease)).value, operation, body)
+        if (reply.status == 401) handleAuthentication(lease, reply)
+        if (!isCurrent(lease)) throw Failed(local(LocalFailureCode.SESSION_NOT_READY))
+        return reply
+    }
+
+    private fun doseCollectionKind(range: LocalDateRange) = "dose-events:${range.fromDate}:${range.throughDate}"
+
+    override fun observeEvents(elderId: String, range: LocalDateRange) =
+        collection(doseCollectionKind(range), elderId, ListSerializer(DoseEventView.serializer()), emptyList())
+            .map { rows -> rows.copyValue(rows.value.map { event ->
+                event.toDoseEventState().copy(serverAcceptedTakenAtEpochMillis = event.takenRecordedAtEpochMillis)
+            }) }
+
+    override fun observeOverview(elderId: String, range: LocalDateRange): Flow<Cached<ElderOverview>> =
+        observeRelationships().flatMapLatest { relationships ->
+            val scope = mutableScope.value
+            val elder = relationships.value.firstOrNull {
+                it.elderId == elderId && it.caregiverId == scope?.userId && it.status == CareRelationshipStatus.ACTIVE
+            }?.elder
+            if (relationships.access != AccessState.AUTHORIZED || elder == null) emptyFlow()
+            else combine(observeEvents(elderId, range), observeMedications(elderId)) { rows, medications ->
+                rows.copyValue(ElderOverview(elder,
+                    medications.value.takeIf { medications.access == AccessState.AUTHORIZED }.orEmpty(), rows.value, null))
+            }
+        }
+
+    override suspend fun refresh(elderId: String, range: LocalDateRange): Outcome<SyncSummary> = safely {
+        refreshGate.withLock {
+            val lease = lease()
+            val kind = doseCollectionKind(range)
+            publish(lease) { cache.documents().markStale(scopeId(lease.scope), kind, elderId) }
+            val reply = doseHttp(lease, "GET", "/api/v1/elders/${segment(elderId)}/dose-events" +
+                "?fromDate=${range.fromDate}&throughDate=${range.throughDate}")
+            if (reply.status !in 200..299) {
+                if (reply.status == 404) publish(lease) { cache.withTransaction {
+                    // Publish the empty private payload and terminal access atomically, but a
+                    // denied read must never advance the last successful synchronization time.
+                    val id = rowId(lease.scope, kind, elderId)
+                    val successfulSync = cache.documents().read(id)?.syncedAt ?: NO_SUCCESSFUL_EVENT_SYNC
+                    cache.documents().put(ChainDocument(
+                        id = id,
+                        scopeId = scopeId(lease.scope),
+                        kind = kind,
+                        target = elderId,
+                        body = json.encodeToString(ListSerializer(DoseEventView.serializer()), emptyList()),
+                        syncedAt = successfulSync,
+                        access = AccessState.REVOKED.name,
+                        stale = true,
+                    ))
+                } }
+                throw Failed(remote(reply))
+            }
+            val rows = json.decodeFromString(ItemsResponse.serializer(DoseEventView.serializer()), reply.text()).items
+            check(rows.all { it.elderId == elderId && it.occurrence.localDate in range.fromDate..range.throughDate })
+            publish(lease) {
+                put(lease, kind, elderId, json.encodeToString(ListSerializer(DoseEventView.serializer()), rows))
+            }
+            SyncSummary(lease.scope, elderId, SyncCompletion.COMPLETE, System.currentTimeMillis(), null)
+        }
+    }
+
+    // Elder writes use the atomic group action entry, never the legacy single-occurrence action.
+    override fun observeLocalAction(actionId: String): Flow<LocalActionReceipt?> = flowOf(null)
+    override suspend fun recordAction(occurrence: OccurrenceKey, kind: DoseActionKind): Outcome<LocalActionReceipt> =
+        Outcome.Failure(local(LocalFailureCode.INVALID_INPUT))
+    override suspend fun retryAction(actionId: String): Outcome<RetryQueued> =
+        Outcome.Failure(local(LocalFailureCode.INVALID_INPUT))
+
+    private fun doseTarget(key: OccurrenceKey) = "${key.planId}/${key.localDate}/${key.localTime}"
+
+    private suspend fun storeElderOccurrence(lease: SessionLease, occurrence: LocalElderOccurrence) {
+        val target = doseTarget(occurrence.key)
+        cache.documents().put(ChainDocument(rowId(lease.scope, "elder-dose", target), scopeId(lease.scope),
+            "elder-dose", target, json.encodeToString(LocalElderOccurrence.serializer(), occurrence), occurrence.plannedAt))
     }
 
     override suspend fun loadContent(photoId: String): Outcome<PhotoContent> = safely {
@@ -383,7 +650,7 @@ internal class DebugChainRepository(
         if (response.status == 409 && runCatching { remote(response).error.code }.getOrNull() == "OPERATION_IN_PROGRESS")
             return RecoveryReply.InProgress to null
         if (response.status == 429 || response.status >= 500) {
-            delay((response.retryAfter?.toLongOrNull()?.coerceIn(1, 120) ?: 1) * 1_000)
+            waitBeforeRetry((response.retryAfter?.toLongOrNull()?.coerceIn(1, 120) ?: 1) * 1_000)
             return RecoveryReply.Unknown to null
         }
         if (response.status !in 200..299) return RecoveryReply.Rejected(remote(response)) to null

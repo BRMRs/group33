@@ -15,7 +15,7 @@ PKG = 'com.group33.medicationreminder'
 TEST = PKG + '.test/androidx.test.runner.AndroidJUnitRunner'
 PHASES = [('elder-login', 'elder'), ('elder-recover-code', 'elder'), ('caregiver-request', 'caregiver'), ('elder-accept', 'elder'),
           ('elder-photo', 'elder'), ('caregiver-plan-ui', 'caregiver'), ('caregiver-restart', 'caregiver'),
-          ('elder-sees-plan', 'elder'), ('caregiver-navigation', 'caregiver'), ('caregiver-lost-reply', 'caregiver'),
+          ('elder-sees-plan', 'elder'), ('caregiver-browser', 'caregiver'), ('caregiver-navigation', 'caregiver'), ('caregiver-lost-reply', 'caregiver'),
           ('caregiver-recover', 'caregiver'), ('caregiver-stale-401', 'caregiver'),
           ('caregiver-read-failure', 'caregiver'),
           ('elder-revoke', 'elder'), ('caregiver-denied', 'caregiver')]
@@ -27,25 +27,37 @@ def main():
     parser.add_argument('--caregiver', default='emulator-5562')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--locale', help='Persist the shared language preference, e.g. zh-CN or en-US')
+    parser.add_argument('--dose-upload', action='store_true', help='Also verify server-accepted dose records on the caregiver pages')
+    parser.add_argument('--live-dose', action='store_true', help='Also exercise a real local reminder and durable Elder actions')
+    parser.add_argument('--offline-action-recovery', action='store_true',
+                        help='Record Taken with Elder connectivity disabled, then prove process/network recovery uploads the same action')
     parser.add_argument('--reset-test-apps', action='store_true', help='Clear only these two fictional emulator app installations')
     args = parser.parse_args()
+    args.dose_upload = args.dose_upload or args.offline_action_recovery
+    args.live_dose = args.live_dose or args.dose_upload
     if not all(x.startswith('emulator-') for x in [args.elder, args.caregiver]) or args.elder == args.caregiver:
         parser.error('Use two distinct emulator installations; this harness does not wipe/run physical devices')
     adb = str(Path(os.environ.get('ANDROID_HOME', str(Path.home() / 'Android/sdk'))) / 'platform-tools/adb')
     args.output.mkdir(parents=True, exist_ok=True)
 
     def run(serial, *command, data=None):
-        p = subprocess.run([adb, '-s', serial, *command], input=data, capture_output=True, timeout=120)
+        p = subprocess.run([adb, '-s', serial, *command], input=data, capture_output=True, timeout=220 if args.live_dose else 120)
         if p.returncode:
             raise RuntimeError('Emulator command failed (no private bridge values printed)')
         return p.stdout
 
     devices = {'elder': args.elder, 'caregiver': args.caregiver}
     for serial in devices.values():
+        if args.offline_action_recovery:
+            run(serial, 'shell', 'cmd', 'connectivity', 'airplane-mode', 'disable')
+            run(serial, 'shell', 'svc', 'wifi', 'enable')
+            run(serial, 'shell', 'svc', 'data', 'enable')
         run(serial, 'install', '-r', str(ROOT / 'android-app/build/outputs/apk/debug/android-app-debug.apk'))
         run(serial, 'install', '-r', str(ROOT / 'android-app/build/outputs/apk/androidTest/debug/android-app-debug-androidTest.apk'))
         if args.reset_test_apps:
             run(serial, 'shell', 'pm', 'clear', PKG)
+        if args.live_dose and int(run(serial, 'shell', 'getprop', 'ro.build.version.sdk').strip()) >= 33:
+            run(serial, 'shell', 'pm', 'grant', PKG, 'android.permission.POST_NOTIFICATIONS')
         if args.locale:
             setup = run(serial, 'shell', 'am', 'instrument', '-w', '-r', '-e', 'class',
                         PKG + '.integration.ChainOnlineFlowTest#configureLanguage', '-e', 'chainLanguage', args.locale, TEST)
@@ -59,14 +71,26 @@ def main():
 
     bridge = None
     results = []
-    for phase, role in PHASES:
+    phases = PHASES[:-2] + [
+        ('caregiver-live-dose-plan', 'caregiver'), ('elder-live-dose', 'elder'),
+        ('elder-live-dose-restart', 'elder'),
+    ] + ([('caregiver-sees-taken', 'caregiver')] if args.dose_upload else []) + PHASES[-2:] if args.live_dose else PHASES
+    for phase, role in phases:
         serial = devices[role]
-        if phase in ['elder-recover-code', 'caregiver-restart', 'elder-sees-plan', 'caregiver-recover']:
+        if phase in ['elder-live-dose-restart', 'elder-recover-code', 'caregiver-restart', 'elder-sees-plan', 'caregiver-recover']:
             run(serial, 'shell', 'am', 'force-stop', PKG)
         if bridge is not None:
             run(serial, 'shell', f"run-as {PKG} sh -c 'cat > no_backup/chain-bridge.json'", data=bridge)
         output = run(serial, 'shell', 'am', 'instrument', '-w', '-r', '-e', 'class',
-                     PKG + '.integration.ChainOnlineFlowTest#realOnlinePhase', '-e', 'chainPhase', phase, TEST)
+                     PKG + '.integration.ChainOnlineFlowTest#realOnlinePhase', '-e', 'chainPhase', phase,
+                     '-e', 'doseUpload', str(args.dose_upload).lower(), '-e', 'offlineActionRecovery',
+                     str(args.offline_action_recovery).lower(), TEST)
+        if phase == 'elder-live-dose' and args.offline_action_recovery:
+            # Instrumentation remains reachable over adb while Android networking is disabled.
+            # Restore connectivity only after the local action and target process have finished.
+            run(serial, 'shell', 'cmd', 'connectivity', 'airplane-mode', 'disable')
+            run(serial, 'shell', 'svc', 'wifi', 'enable')
+            run(serial, 'shell', 'svc', 'data', 'enable')
         (args.output / (phase + '.log')).write_bytes(output)
         passed = b'OK (1 test)' in output and b'FAILURES' not in output
         results.append({'phase': phase, 'role': role, 'passed': passed})
@@ -78,7 +102,11 @@ def main():
             image = 'caregiver-plan' if role == 'caregiver' else 'elder-plan'
             (args.output / (image + '.png')).write_bytes(run(serial, 'exec-out', 'run-as', PKG,
                 'cat', f'no_backup/chain-{image}.png'))
-        if phase in ['elder-login', 'elder-recover-code', 'caregiver-request', 'elder-accept', 'elder-photo', 'caregiver-plan-ui', 'caregiver-lost-reply']:
+        if phase == 'caregiver-browser':
+            for image in ['caregiver-browser', 'caregiver-photo']:
+                (args.output / (image + '.png')).write_bytes(run(serial, 'exec-out', 'run-as', PKG,
+                    'cat', f'no_backup/chain-{image}.png'))
+        if phase in ['caregiver-live-dose-plan', 'elder-live-dose', 'elder-login', 'elder-recover-code', 'caregiver-request', 'elder-accept', 'elder-photo', 'caregiver-plan-ui', 'caregiver-lost-reply']:
             bridge = run(serial, 'exec-out', 'run-as', PKG, 'cat', 'no_backup/chain-bridge.json')
             json.loads(bridge)
     print('All two-emulator local HTTP phases passed. Physical-device and production-login acceptance remain separate.')

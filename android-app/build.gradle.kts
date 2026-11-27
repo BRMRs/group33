@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.kapt)
 }
 
@@ -15,7 +16,9 @@ android {
         versionCode = 1
         versionName = "0.1.0"
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = if (providers.gradleProperty("automaticRecoveryRunner").orNull == "true")
+            "com.group33.medicationreminder.core.reminder.AutomaticRecoveryRunner"
+        else "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -71,6 +74,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.work.runtime.ktx)
     kapt(libs.androidx.room.compiler)
 
     testImplementation(libs.junit4)

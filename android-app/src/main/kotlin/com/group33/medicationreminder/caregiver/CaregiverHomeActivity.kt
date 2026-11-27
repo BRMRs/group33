@@ -5,6 +5,7 @@ import android.content.res.ColorStateList
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
+import android.widget.ArrayAdapter
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -23,6 +24,14 @@ import com.group33.medicationreminder.core.data.contract.Outcome
 import com.group33.medicationreminder.databinding.ActivityCaregiverHomeBinding
 import com.group33.medicationreminder.nextLanguageChoice
 import com.group33.medicationreminder.integration.OnlineFeatureContent
+import com.group33.medicationreminder.integration.ChainUi
+import com.group33.medicationreminder.integration.SignOutStatus
+import com.group33.medicationreminder.integration.featureModel
+import com.group33.medicationreminder.core.data.contract.CaregiverContextState
+import com.group33.medicationreminder.core.data.contract.TrustedSessionContext
+import com.group33.shared.contract.CareRelationshipStatus
+import com.group33.shared.contract.CareRelationshipView
+import com.google.android.material.snackbar.Snackbar
 import com.group33.shared.model.UserRole
 import kotlinx.coroutines.launch
 
@@ -37,6 +46,9 @@ class CaregiverHomeActivity : AppCompatActivity() {
         CaregiverNavigationViewModel.Factory(createCaregiverNavigationContextSource(this, localDemo))
     }
     private var content: OnlineFeatureContent? = null
+    private var selectorState: ChainUi? = null
+    private var elderOptions: List<CareRelationshipView> = emptyList()
+    private var selectorLease: TrustedSessionContext? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -77,6 +89,17 @@ class CaregiverHomeActivity : AppCompatActivity() {
             }
         }
         binding.languageButton.setOnClickListener { switchLanguage() }
+        binding.currentElderValue.keyListener = null
+        if (!localDemo) featureModel(this)?.let { model ->
+            lifecycleScope.launch {
+                repeatOnLifecycle(Lifecycle.State.STARTED) {
+                    model.state.collect { state ->
+                        selectorState = state
+                        renderElderSelector(viewModel.state.value.context)
+                    }
+                }
+            }
+        }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (viewModel.state.value.destination == CaregiverDestination.PLANS) finish()
@@ -98,16 +121,7 @@ class CaregiverHomeActivity : AppCompatActivity() {
         }
         binding.bottomNavigation.menu.findItem(selectedItem).isChecked = true
         val elder = state.context as? CaregiverNavigationContext.ActiveElder
-        binding.currentElderValue.text = elder?.displayName ?: getString(R.string.caregiver_no_current_elder)
-        binding.currentElderHint.visibility = if (localDemo && elder != null) View.GONE else View.VISIBLE
-        binding.currentElderHint.setText(
-            when (state.context) {
-                CaregiverNavigationContext.Unavailable -> R.string.caregiver_context_unavailable
-                CaregiverNavigationContext.NoActiveElder -> R.string.caregiver_no_active_relationship
-                is CaregiverNavigationContext.ActiveElder ->
-                    if (localDemo) R.string.caregiver_preview_relationship else R.string.caregiver_active_relationship
-            },
-        )
+        renderElderSelector(state.context)
         binding.pageTitle.setText(
             when (state.destination) {
                 CaregiverDestination.PLANS -> R.string.caregiver_plans_title
@@ -127,13 +141,54 @@ class CaregiverHomeActivity : AppCompatActivity() {
         )
         binding.pageMessage.visibility = if (content != null &&
             (state.destination == CaregiverDestination.SETTINGS ||
-                state.destination == CaregiverDestination.PLANS && elder != null)) View.GONE else View.VISIBLE
+                (state.destination == CaregiverDestination.PLANS || state.destination == CaregiverDestination.RECORDS) && elder != null)) View.GONE else View.VISIBLE
         content?.show(state.destination)
         binding.languageButton.visibility = if (state.destination == CaregiverDestination.SETTINGS) View.VISIBLE else View.GONE
         val language = ConfigurationCompat.getLocales(resources.configuration)[0]?.language.orEmpty()
         binding.languageButton.setText(if (language == "zh") R.string.language_chinese else R.string.language_english)
         binding.languageButton.contentDescription = getString(R.string.language_switch_action)
     }
+
+    private fun renderElderSelector(navigation: CaregiverNavigationContext) {
+        val state = selectorState
+        val services = (application as Group33Application).featureServices
+        val lease = services?.trusted?.value
+        val options = state?.relationships.orEmpty().filter {
+            state?.signOut == SignOutStatus.IDLE && lease != null &&
+                it.status == CareRelationshipStatus.ACTIVE && it.caregiverId == lease.scope.userId
+        }.sortedByDescending { it.createdAtEpochMillis }
+        if (options != elderOptions || lease != selectorLease) {
+            binding.currentElderValue.dismissDropDown()
+            elderOptions = options
+            selectorLease = lease
+            binding.currentElderValue.setAdapter(ArrayAdapter(this,
+                R.layout.caregiver_elder_dropdown_item, options.map { it.elder.displayName }))
+            binding.currentElderValue.setOnItemClickListener { _, _, position, _ ->
+                val relationship = options.getOrNull(position) ?: return@setOnItemClickListener
+                val current = featureModel(this)?.state?.value ?: return@setOnItemClickListener
+                if (lease == null || services?.trusted?.value != lease || current.busy ||
+                    current.signOut != SignOutStatus.IDLE || relationship !in current.relationships) return@setOnItemClickListener
+                featureModel(this)?.select(relationship.id)
+                Snackbar.make(binding.root, getString(R.string.chain_selected_name,
+                    relationship.elder.displayName), Snackbar.LENGTH_SHORT).show()
+            }
+        }
+        val active = (state?.context as? CaregiverContextState.Active)?.context
+        val label = if (localDemo) (navigation as? CaregiverNavigationContext.ActiveElder)?.displayName
+            else active?.elderDisplayName
+        binding.currentElderValue.setText(label ?: getString(R.string.caregiver_no_current_elder), false)
+        binding.currentElderInput.isEnabled = options.isNotEmpty() && state?.busy != true
+        binding.currentElderHint.visibility = if (localDemo && label != null) View.GONE else View.VISIBLE
+        binding.currentElderHint.setText(when {
+            localDemo && label != null -> R.string.caregiver_preview_relationship
+            active != null -> R.string.caregiver_active_relationship
+            state?.context is CaregiverContextState.SelectElder -> R.string.caregiver_choose_elder_above
+            state?.context is CaregiverContextState.NoActiveElder -> R.string.caregiver_no_active_relationship
+            else -> R.string.caregiver_context_unavailable
+        })
+    }
+
+    override fun onStop() { binding.currentElderValue.dismissDropDown(); super.onStop() }
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString(DESTINATION_KEY, viewModel.state.value.destination.name)

@@ -30,7 +30,7 @@ class PhotoTextSuggestionsTest {
    ui {
     name=all(editor).filterIsInstance<EditText>().first()
     assertEquals("",name.text.toString())
-    val check=all(editor).filterIsInstance<CheckBox>().first()
+    val check=all(editor).filterIsInstance<CheckBox>().single { it.text.toString() == host.getString(com.group33.medicationreminder.R.string.c2_editor_photo_viewed) }
     check.isChecked=true
     if(type) name.setText("My manual name")
     if(cancel) check.isChecked=false
