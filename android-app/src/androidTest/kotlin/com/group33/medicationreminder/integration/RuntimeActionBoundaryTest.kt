@@ -139,9 +139,9 @@ class RuntimeActionBoundaryTest {
         assertEquals(ReminderDispatchResult.ACKNOWLEDGED, f.adapter.dispatchRuntimeAction(f.action, original))
     }
 
-    @Test fun unsupportedHelpRemainsExplicitlyUnacknowledged() = runBlocking {
+    @Test fun helpWithoutAnAcceptedServerRouteKeepsTheOriginalActionRetryable() = runBlocking {
         val f = fixture()
-        assertEquals(ReminderDispatchResult.PERMANENT_FAILURE, f.adapter.dispatchRuntimeAction(
+        assertEquals(ReminderDispatchResult.RETRY, f.adapter.dispatchRuntimeAction(
             f.action.copy(kind = ReminderActionKind.HELP.name), f.registration))
         assertEquals(0, f.transport.calls)
     }
