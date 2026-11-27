@@ -61,6 +61,7 @@ kotlin {
 }
 
 dependencies {
+    implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
     coreLibraryDesugaring(libs.desugar.jdk.libs)
     implementation(project(":shared"))
     implementation(libs.androidx.appcompat)

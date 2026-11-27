@@ -111,6 +111,12 @@ class PlanEditorView @JvmOverloads constructor(
     private val instructions = field(medicationSection, null, R.string.c2_plan_instructions).apply {
         inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
     }
+    private val ocr = PhotoTextSuggestions(context) { candidate ->
+        if (viewed.isChecked && name.isEnabled && name.text.isBlank()) {
+            name.setText(candidate)
+            true
+        } else false
+    }.also { medicationSection.addView(it) }
     private val scheduleSection = section(R.string.c2_editor_section_schedule)
     private val times = field(scheduleSection, PlanFormField.TIMES, R.string.c2_plan_times, R.string.c2_editor_times_hint).apply {
         keyListener = null; showSoftInputOnFocus = false; isCursorVisible = false
@@ -281,6 +287,9 @@ class PlanEditorView @JvmOverloads constructor(
                 if (edit === times) renderTimes()
             }
         } }
+        viewed.setOnCheckedChangeListener { _, checked ->
+            if (checked && name.text.isBlank()) ocr.recognize() else if (!checked) ocr.cancel()
+        }
         clear()
         column.requestFocus()
     }
@@ -298,6 +307,7 @@ class PlanEditorView @JvmOverloads constructor(
         val usablePhoto = metadata != null && decodedPhoto != null && !decodedPhoto.isRecycled
         photoMetadata = metadata.takeIf { usablePhoto }
         if (usablePhoto) photo.setImageBitmap(decodedPhoto) else photo.setImageDrawable(null)
+        ocr.bind(decodedPhoto.takeIf { usablePhoto })
         viewed.isEnabled = usablePhoto
         val initial = formModel.state.value.input
         updating = true
@@ -351,6 +361,7 @@ class PlanEditorView @JvmOverloads constructor(
 
     fun clear() {
         generation++
+        ocr.clear()
         dateDialog?.dismiss(); dateDialog = null
         timeDialog?.dismiss(); timeDialog = null
         rejectionReviewed = false
@@ -405,6 +416,7 @@ class PlanEditorView @JvmOverloads constructor(
         action.isEnabled = savePresentation.action != PlanDisplayAction.NONE
         val editable = state.status in setOf(PlanSaveStatus.IDLE, PlanSaveStatus.NOT_SUBMITTED, PlanSaveStatus.REJECTED)
         (fields.values + instructions).forEach { it.isEnabled = editable }
+        ocr.setEditable(editable)
         renderTimes()
         if (!editable) { timeDialog?.dismiss(); timeDialog = null }
         acknowledgement.isEnabled = editable
