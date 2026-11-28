@@ -664,9 +664,13 @@ class ChainOnlineFlowTest {
                 if (InstrumentationRegistry.getArguments().getString("offlineActionRecovery") == "true") {
                     val actionId = b.getString("localDoseActionId")
                     val dao = com.group33.medicationreminder.core.reminder.ReminderDatabase.open(app).reminders()
-                    waitUntil {
-                        dao.action(actionId)?.dispatchState ==
-                            com.group33.medicationreminder.core.reminder.ReminderDispatchState.ACKNOWLEDGED.name
+                    // Exercise the real WorkManager network constraint and 15-second retry backoff;
+                    // this is bounded below one minute and does not wait for a scheduled dose time.
+                    withTimeout(55_000) {
+                        while (dao.action(actionId)?.dispatchState !=
+                            com.group33.medicationreminder.core.reminder.ReminderDispatchState.ACKNOWLEDGED.name) {
+                            delay(100)
+                        }
                     }
                     val acceptedAction = checkNotNull(dao.action(actionId))
                     assertTrue("Cold start must dispatch the durable offline action",
