@@ -214,6 +214,7 @@ internal class DebugChainRepository(
             val l = lease()
             refreshPhotos(l, elderId)
             refreshPlans(l, elderId)
+            refreshHelpFollowUps(l, elderId)
             SyncSummary(l.scope, elderId, SyncCompletion.COMPLETE, System.currentTimeMillis(), null)
         }
     }
@@ -241,6 +242,15 @@ internal class DebugChainRepository(
             put(l, "plans", elderId, json.encodeToString(ReminderPlanCollection.serializer(), plans))
             put(l, "medications", elderId, json.encodeToString(ListSerializer(MedicationView.serializer()), medications))
         } }
+    }
+
+    private suspend fun refreshHelpFollowUps(l: SessionLease, elderId: String) {
+        publish(l) { cache.documents().markStale(scopeId(l.scope), "help-follow-ups", elderId) }
+        val followUps = json.decodeFromString(ItemsResponse.serializer(CaregiverFollowUpView.serializer()),
+            get(l, "/api/v1/elders/${segment(elderId)}/caregiver-follow-ups").text()).items
+        check(followUps.all { it.elderId == elderId && it.state == CaregiverFollowUpState.NEEDS_CONTACT })
+        publish(l) { put(l, "help-follow-ups", elderId,
+            json.encodeToString(ListSerializer(CaregiverFollowUpView.serializer()), followUps)) }
     }
 
     internal suspend fun localElderDoses(
@@ -332,6 +342,30 @@ internal class DebugChainRepository(
             "${occurrence.key.planId}:${occurrence.planRevision}",
             occurrence.planSnapshotAt,
         )
+    }
+
+    internal suspend fun dispatchHelp(
+        expected: TrustedSessionContext,
+        action: com.group33.medicationreminder.core.reminder.ReminderActionRow,
+        registration: com.group33.medicationreminder.core.reminder.ReminderGroupWithOccurrences,
+    ): ReminderDispatchResult = safely {
+        val l = lease()
+        if (l.scope != expected.scope || mutableTrusted.value != expected ||
+            mutableSession.value.user?.role != UserRole.ELDER || l.scope.userId != registration.group.elderId ||
+            executionScopeId(expected) != registration.group.executionScopeId) {
+            throw Failed(local(LocalFailureCode.SESSION_NOT_READY))
+        }
+        val request = HelpRequest(action.actionId, registration.group.elderId, registration.group.groupId,
+            registration.occurrences.map { it.generationId }, action.recordedAtEpochMillis)
+        val reply = doseHttp(l, "POST", "/api/v1/help", action.actionId,
+            json.encodeToString(HelpRequest.serializer(), request))
+        if (reply.status !in 200..299) return@safely ReminderDispatchResult.RETRY
+        val receipt = json.decodeFromString(HelpReceipt.serializer(), reply.text())
+        check(receipt.actionId == action.actionId && receipt.groupId == registration.group.groupId &&
+            receipt.status == HelpActionSyncState.ACCEPTED)
+        ReminderDispatchResult.ACKNOWLEDGED
+    }.let { result ->
+        (result as? Outcome.Success)?.value ?: ReminderDispatchResult.RETRY
     }
 
     /** Inspect the original action after synchronization, under the current credential fence. */
@@ -434,9 +468,15 @@ internal class DebugChainRepository(
                 it.elderId == elderId && it.caregiverId == scope?.userId && it.status == CareRelationshipStatus.ACTIVE
             }?.elder
             if (relationships.access != AccessState.AUTHORIZED || elder == null) emptyFlow()
-            else combine(observeEvents(elderId, range), observeMedications(elderId)) { rows, medications ->
+            else combine(
+                observeEvents(elderId, range),
+                observeMedications(elderId),
+                collection("help-follow-ups", elderId, ListSerializer(CaregiverFollowUpView.serializer()), emptyList()),
+            ) { rows, medications, followUps ->
                 rows.copyValue(ElderOverview(elder,
-                    medications.value.takeIf { medications.access == AccessState.AUTHORIZED }.orEmpty(), rows.value, null))
+                    medications.value.takeIf { medications.access == AccessState.AUTHORIZED }.orEmpty(),
+                    rows.value, null,
+                    followUps.value.takeIf { followUps.access == AccessState.AUTHORIZED }.orEmpty()))
             }
         }
 

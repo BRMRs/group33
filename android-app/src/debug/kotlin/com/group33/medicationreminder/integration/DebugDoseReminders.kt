@@ -85,14 +85,12 @@ internal class DebugDoseReminders(
         action: ReminderActionRow,
         registration: ReminderGroupWithOccurrences,
     ): ReminderDispatchResult = gate.withLock {
+        val trusted = repo.services.trusted.value ?: return@withLock ReminderDispatchResult.RETRY
         val kind = when (ReminderActionKind.valueOf(action.kind)) {
             ReminderActionKind.TAKEN -> DoseActionKind.TAKEN
             ReminderActionKind.SNOOZE -> DoseActionKind.REMIND_LATER
-            // The r1 route cannot represent Help. Preserve the original Room action for the
-            // reviewed V2 adapter instead of inventing a terminal Server rejection locally.
-            ReminderActionKind.HELP -> return@withLock ReminderDispatchResult.RETRY
+            ReminderActionKind.HELP -> return@withLock repo.dispatchHelp(trusted, action, registration)
         }
-        val trusted = repo.services.trusted.value ?: return@withLock ReminderDispatchResult.RETRY
         // A different active account/environment must wait, never discard or rebind old work.
         if (trusted.scope.userId != registration.group.elderId ||
             repo.executionScopeId(trusted) != registration.group.executionScopeId) {

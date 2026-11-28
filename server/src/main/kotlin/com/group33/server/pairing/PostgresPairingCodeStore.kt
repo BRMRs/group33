@@ -105,6 +105,31 @@ internal class PostgresPairingCodeStore(
     }
 
     private class Transaction(private val db: Connection, private val cipher: PairingReceiptCipher) : OccurrenceRegistrationTransaction {
+        override fun helpOperation(actionId: UUID) = query(
+            "SELECT request_payload, receipt_payload, follow_up_payload FROM caregiver_follow_up WHERE action_id = ?",
+            listOf(actionId),
+        ) { row -> HelpOperation(
+            mapper.readValue(row.getString("request_payload"), HelpRequest::class.java),
+            mapper.readValue(row.getString("receipt_payload"), HelpReceipt::class.java),
+            mapper.readValue(row.getString("follow_up_payload"), CaregiverFollowUpView::class.java),
+        ) }.singleOrNull()
+
+        override fun insertHelpOperation(operation: HelpOperation) {
+            check(update("""
+                INSERT INTO caregiver_follow_up
+                    (action_id, elder_id, group_id, request_payload, receipt_payload, follow_up_payload, received_at)
+                VALUES (?, ?, ?, CAST(? AS jsonb), CAST(? AS jsonb), CAST(? AS jsonb), ?)
+            """.trimIndent(), listOf(UUID.fromString(operation.request.actionId), operation.request.elderId,
+                operation.request.groupId, mapper.writeValueAsString(operation.request),
+                mapper.writeValueAsString(operation.receipt), mapper.writeValueAsString(operation.followUp),
+                operation.receipt.receivedAtEpochMillis)) == 1)
+        }
+
+        override fun caregiverFollowUps(elderId: String) = query(
+            "SELECT follow_up_payload FROM caregiver_follow_up WHERE elder_id = ? ORDER BY received_at DESC, action_id",
+            listOf(elderId),
+        ) { row -> mapper.readValue(row.getString("follow_up_payload"), CaregiverFollowUpView::class.java) }
+
         override fun doseGroupOperation(key: RegistrationKey) = query(
             "SELECT installation_id, request_payload, response_payload FROM dose_group_operation WHERE elder_id = ? AND operation_id = ?",
             listOf(key.actorId, key.operationId),

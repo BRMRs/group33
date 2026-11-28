@@ -5,7 +5,7 @@ import com.group33.medicationreminder.core.data.contract.LocalFailureCode
 import com.group33.medicationreminder.core.data.contract.RepositoryError
 import com.group33.shared.contract.ReminderCapabilityView
 
-enum class OverviewMessage { SELECT_ELDER, LOADING, ACCESS_UNKNOWN, REVOKED, UNAVAILABLE, NO_LOCAL_DATA, EMPTY, RESULTS }
+enum class OverviewMessage { SELECT_ELDER, LOADING, ACCESS_UNKNOWN, REVOKED, UNAVAILABLE, NO_LOCAL_DATA, EMPTY, NEEDS_CONTACT, RESULTS }
 enum class OverviewRefreshMessage {
     NONE, REFRESHING, COMPLETE, FAILED, OFFLINE,
     STORAGE_UNAVAILABLE, INVALID_INPUT, RANGE_TOO_LARGE, SERVICE_UNAVAILABLE, RETRY_LATER,
@@ -16,6 +16,7 @@ data class OverviewContent(
     val elderName: String,
     val events: List<OverviewEventRow>,
     val capability: ReminderCapabilityView?,
+    val pendingFollowUpCount: Int,
     val lastSuccessfulSyncAtEpochMillis: Long?,
     val isStale: Boolean,
 )
@@ -43,7 +44,7 @@ data class CaregiverOverviewPresentation(
                 OverviewContent(
                     it.value.elder.displayName,
                     it.value.events.map { event -> event.toCaregiverEventRow() },
-                    it.value.capability, it.lastSuccessfulSyncAtEpochMillis, state.isStale,
+                    it.value.capability, it.value.followUps.size, it.lastSuccessfulSyncAtEpochMillis, state.isStale,
                 )
             }
             val message = when {
@@ -54,6 +55,7 @@ data class CaregiverOverviewPresentation(
                 !authorized && (state.observationFailed || state.hasRefreshFailure) -> OverviewMessage.UNAVAILABLE
                 !authorized -> OverviewMessage.ACCESS_UNKNOWN
                 content == null -> OverviewMessage.NO_LOCAL_DATA
+                content.pendingFollowUpCount > 0 -> OverviewMessage.NEEDS_CONTACT
                 content.events.isEmpty() -> OverviewMessage.EMPTY
                 else -> OverviewMessage.RESULTS
             }

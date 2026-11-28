@@ -57,10 +57,11 @@ def run_checks(output, env=None):
         PERSISTENCE_JDBC_URL=f'jdbc:postgresql://{host}:{port}/{database}', PERSISTENCE_SCHEMA=schema,
         PERSISTENCE_USERNAME=user, PERSISTENCE_PASSWORD=password, PERSISTENCE_RECEIPT_KEY_FILE=str(key),
         JWT_SECRET=secrets.token_urlsafe(64), PHOTO_ENABLED='true', PLAN_ENABLED='true',
-        OCCURRENCE_ENABLED='true', DOSE_GROUP_ENABLED='true', PHOTO_OBJECT_ROOT=str(objects))
+        OCCURRENCE_ENABLED='true', DOSE_GROUP_ENABLED='true', HELP_ENABLED='true',
+        PHOTO_OBJECT_ROOT=str(objects))
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     result = dict(passed=False, real_server=True, real_postgres=True, memory_store=False,
-                  schema_fixture='isolated existing V1-V10 SQL; no managed rollout claimed', checks=[])
+                  schema_fixture='isolated existing V1-V11 SQL; no managed rollout claimed', checks=[])
     process = None; processes = []; schema_created = False; proxy = None; proxy_thread = None
     def check(label, condition):
         result['checks'].append(dict(check=label, passed=bool(condition)))
@@ -117,7 +118,7 @@ def run_checks(output, env=None):
         sql('CREATE SCHEMA ' + schema, scoped=False); schema_created = True
         migrations = sorted((ROOT / 'server/src/schemaMigration/resources/db/migration').glob('V*__*.sql'),
                             key=lambda f: int(f.name.split('__')[0][1:]))
-        check('fixture-uses-existing-ten-migrations', [int(f.name.split('__')[0][1:]) for f in migrations] == list(range(1, 11)))
+        check('fixture-uses-existing-eleven-migrations', [int(f.name.split('__')[0][1:]) for f in migrations] == list(range(1, 12)))
         sql('BEGIN;\n' + '\n'.join(f.read_text() for f in migrations) + '\nCOMMIT;')
         base = start('before-restart'); first_pid = process.pid
         elder = call('elder-login', 201, base, 'POST', '/api/v1/auth/anonymous',
@@ -192,10 +193,35 @@ def run_checks(output, env=None):
         check('registration-receipt-remains-original', call('registration-restarted', 200, base, 'POST', registration_path, dict(items=evidence), et, registration_key) == registration)
         latest = call('caregiver-current-after-restart', 200, base, 'GET', read_path, token=ct)['items']
         check('current-facts-survive-restart', latest == rows and counts() == before_restart)
+        help_id = op(); help_path = '/api/v1/help'
+        help_request = dict(actionId=help_id, elderId=eid, groupId='p0-help-recovery-group',
+                            occurrenceIds=[e['generationId'] for e in evidence],
+                            occurredAtEpochMillis=int(time.time() * 1000) - 1)
+        help_receipt = call('help-first-accept', 200, base, 'POST', help_path, help_request, et, help_id)
+        check('help-receipt-is-accepted', help_receipt['actionId'] == help_id
+              and help_receipt['groupId'] == help_request['groupId'] and help_receipt['status'] == 'ACCEPTED')
+        check('help-identical-replay-keeps-original-receipt',
+              call('help-identical-replay', 200, base, 'POST', help_path, help_request, et, help_id) == help_receipt)
+        changed_help = dict(help_request, groupId='different-help-group')
+        help_conflict = call('help-changed-replay', 409, base, 'POST', help_path, changed_help, et, help_id)
+        check('help-changed-replay-conflicts', help_conflict['code'] == 'IDEMPOTENCY_KEY_REUSED')
+        follow_up_path = f'/api/v1/elders/{eid}/caregiver-follow-ups'
+        follow_ups = call('caregiver-help-read', 200, base, 'GET', follow_up_path, token=ct)['items']
+        check('caregiver-sees-one-needs-contact', len(follow_ups) == 1 and follow_ups[0]['actionId'] == help_id
+              and follow_ups[0]['state'] == 'NEEDS_CONTACT')
+        check('one-postgres-help-row', sql('SELECT count(*) FROM caregiver_follow_up') == '1')
+        stop(); check('help-server-process-stopped', processes[-1].poll() is not None)
+        base = start('after-help-restart')
+        check('help-receipt-survives-server-restart',
+              call('help-replay-after-restart', 200, base, 'POST', help_path, help_request, et, help_id) == help_receipt)
+        check('help-follow-up-survives-server-restart',
+              call('caregiver-help-read-after-restart', 200, base, 'GET', follow_up_path, token=ct)['items'] == follow_ups)
+        check('still-one-postgres-help-row', sql('SELECT count(*) FROM caregiver_follow_up') == '1')
         result.update(passed=True, receiver_mock=False, response_loss_proxy_only=True, original_action_id=action_id,
             original_receipt_sha256=hashlib.sha256(json.dumps(original, sort_keys=True).encode()).hexdigest(),
             original_payload_sha256=captured['request_sha256'], business_rows=before_restart,
-            original_receipt_immutable=True, current_facts_not_overwritten=True, server_pids=[x.pid for x in processes],
+            original_receipt_immutable=True, current_facts_not_overwritten=True,
+            help_idempotent=True, help_follow_up_persisted=True, server_pids=[x.pid for x in processes],
             boot_jar_sha256=hashlib.sha256(jar.read_bytes()).hexdigest())
     finally:
         if proxy is not None: proxy.shutdown(); proxy.server_close()
