@@ -170,4 +170,5 @@ data class ElderOverview(
     val medications: List<MedicationView>,
     val events: List<DoseEventState>,
     val capability: ReminderCapabilityView?,
+    val followUps: List<CaregiverFollowUpView> = emptyList(),
 )

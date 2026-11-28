@@ -34,8 +34,19 @@ internal class DoseGroupOperation(
     override fun toString() = "DoseGroupOperation(REDACTED)"
 }
 internal class RecordedDoseEvent(val event: DoseEventView, val lastRecordedAt: Long)
+internal class HelpOperation(
+    val request: HelpRequest,
+    val receipt: HelpReceipt,
+    val followUp: CaregiverFollowUpView,
+) {
+    override fun toString() = "HelpOperation(REDACTED)"
+}
 
 internal interface OccurrenceRegistrationTransaction : PlanMutationTransaction {
+    fun helpOperation(actionId: UUID): HelpOperation?
+    fun insertHelpOperation(operation: HelpOperation)
+    fun caregiverFollowUps(elderId: String): List<CaregiverFollowUpView>
+
     fun doseGroupOperation(key: RegistrationKey): DoseGroupOperation?
     fun insertDoseGroupOperation(key: RegistrationKey, operation: DoseGroupOperation)
     fun recordedDoseEvent(id: String): RecordedDoseEvent?

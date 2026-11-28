@@ -13,6 +13,8 @@ server:
   port: ${PORT:8080}
 
 app:
+  help:
+    enabled: ${HELP_ENABLED:false}
   dose-group:
     enabled: ${DOSE_GROUP_ENABLED:false}
   occurrence:

@@ -27,7 +27,9 @@ internal class PersistenceRuntimeConfiguration {
     internal fun create(env: Environment): PersistenceRuntime {
         val plansEnabled = env.getProperty("app.plan.enabled", Boolean::class.java, false)
         val occurrencesEnabled = env.getProperty("app.occurrence.enabled", Boolean::class.java, false)
+        val helpEnabled = env.getProperty("app.help.enabled", Boolean::class.java, false)
         require(!occurrencesEnabled || plansEnabled) { "Occurrence registration requires the plan runtime" }
+        require(!helpEnabled || occurrencesEnabled) { "Help follow-up requires the occurrence registration runtime" }
         require(!plansEnabled || env.getProperty("app.photo.enabled", Boolean::class.java, false)) {
             "Plan confirmation requires the private photo runtime"
         }
@@ -95,6 +97,9 @@ internal class PersistenceRuntimeConfiguration {
                     if (doseGroupsEnabled) {
                         s.executeQuery("SELECT elder_id, operation_id, installation_id, request_payload, response_payload FROM dose_group_operation LIMIT 0").close()
                         s.executeQuery("SELECT occurrence_id, last_recorded_at, status, taken_recorded_at, snoozed_until, server_updated_at FROM recorded_dose_event LIMIT 0").close()
+                    }
+                    if (helpEnabled) {
+                        s.executeQuery("SELECT action_id, elder_id, group_id, request_payload, receipt_payload, follow_up_payload, received_at FROM caregiver_follow_up LIMIT 0").close()
                     }
                 }
             }

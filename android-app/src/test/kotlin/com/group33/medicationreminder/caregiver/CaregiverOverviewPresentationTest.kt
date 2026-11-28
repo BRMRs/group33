@@ -4,6 +4,7 @@ import com.group33.medicationreminder.core.data.contract.*
 import com.group33.shared.contract.ContractProtocol
 import com.group33.shared.contract.DoseActionKind
 import com.group33.shared.contract.ElderSnapshot
+import com.group33.shared.contract.CaregiverFollowUpView
 import com.group33.shared.model.ApiError
 import com.group33.shared.model.DoseStatus
 import kotlinx.serialization.json.decodeFromJsonElement
@@ -45,6 +46,17 @@ class CaregiverOverviewPresentationTest {
         assertEquals(event.occurrence, row.occurrence)
         assertEquals(event.generationEvidence.executionTimeZoneId, row.executionTimeZoneId)
         assertEquals(snapshot.elder.displayName, screen.content?.elderName)
+    }
+
+    @Test fun `pending Help follow-up is presented as needs contact not resolved`() {
+        val followUp = CaregiverFollowUpView(
+            "00000000-0000-4000-8000-000000000300", "durable-group", snapshot.elder.id,
+            listOf("00000000-0000-4000-8000-000000000100"), 100, 101,
+        )
+        val input = state().copy(overview = cached().copy(value = overview().copy(followUps = listOf(followUp))))
+        val screen = display(input)
+        assertEquals(OverviewMessage.NEEDS_CONTACT, screen.message)
+        assertEquals(1, screen.content?.pendingFollowUpCount)
     }
 
     @Test fun `pending effective taken does not claim server accepted taking medication`() {
