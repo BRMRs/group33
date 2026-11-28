@@ -1,0 +1,52 @@
+name: Event read access API35
+on:
+  pull_request:
+    paths:
+      - 'android-app/**'
+      - 'shared/**'
+      - 'gradle/**'
+      - '.github/workflows/event-read-access-api35.yml'
+      - 'scripts/run_event_read_access_api35.py'
+permissions:
+  contents: read
+jobs:
+  event-read-access-api35:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact reviewed head
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Verify review artifact checksums
+        run: shasum -a 256 -c docs/contracts/GATE1_ARTIFACTS.sha256
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Install Android 15 emulator image
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "emulator" "system-images;android-35;google_apis;x86_64"
+      - name: Enable runner-local emulator acceleration
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Build app and direct Repository Room tests
+        run: ./gradlew :android-app:assembleDebug :android-app:assembleDebugAndroidTest --console=plain --max-workers=2 --no-parallel
+      - name: Run six real Room event-access regressions
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: python3 scripts/run_event_read_access_api35.py --output "$RUNNER_TEMP/event-read-access-api35"
+      - name: Retain exact-head device evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: event-read-access-api35-${{ github.event.pull_request.head.sha }}
+          path: ${{ runner.temp }}/event-read-access-api35
+          retention-days: 7
