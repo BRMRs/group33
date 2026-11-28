@@ -13,6 +13,24 @@ server:
   port: ${PORT:8080}
 
 app:
+  fusion:
+    enabled: ${PHONE_AUTH_ENABLED:false}
+  bound-phone:
+    enabled: ${BOUND_PHONE_AUTH_ENABLED:false}
+    jwt-key-file: ${BOUND_PHONE_JWT_KEY_FILE:}
+    phone-hash-key-file: ${BOUND_PHONE_HASH_KEY_FILE:}
+    jwt-issuer: ${BOUND_PHONE_JWT_ISSUER:}
+    jwt-audience: ${BOUND_PHONE_JWT_AUDIENCE:}
+    access-key-id: ${BOUND_PHONE_ACCESS_KEY_ID:}
+    access-key-secret: ${BOUND_PHONE_ACCESS_KEY_SECRET:}
+    scheme-code: ${BOUND_PHONE_SCHEME_CODE:}
+    android-package: ${BOUND_PHONE_ANDROID_PACKAGE:}
+    android-signature: ${BOUND_PHONE_ANDROID_SIGNATURE:}
+    trusted-proxy-cidrs: ${BOUND_PHONE_TRUSTED_PROXY_CIDRS:}
+    session-seconds: ${BOUND_PHONE_SESSION_SECONDS:86400}
+    clock-allowance-seconds: ${BOUND_PHONE_CLOCK_ALLOWANCE_SECONDS:60}
+    requests-per-minute: ${BOUND_PHONE_REQUESTS_PER_MINUTE:30}
+    max-tracked-clients: ${BOUND_PHONE_MAX_TRACKED_CLIENTS:10000}
   dose-group:
     enabled: ${DOSE_GROUP_ENABLED:false}
   occurrence:
@@ -22,6 +40,14 @@ app:
   photo:
     enabled: ${PHOTO_ENABLED:false}
     root: ${PHOTO_OBJECT_ROOT:}
+    storage-mode: ${PHOTO_STORAGE_MODE:local-file}
+    supabase:
+      origin: ${SUPABASE_STORAGE_ORIGIN:}
+      bucket: ${SUPABASE_STORAGE_BUCKET:}
+      secret-key-file: ${SUPABASE_STORAGE_SECRET_KEY_FILE:}
+      request-budget-ms: ${SUPABASE_STORAGE_REQUEST_BUDGET_MS:30000}
+  supabase:
+    project-ref: ${SUPABASE_PROJECT_REF:}
   persistence:
     mode: ${PERSISTENCE_MODE:memory}
     require-versioned-schema: ${PERSISTENCE_REQUIRE_VERSIONED_SCHEMA:false}
@@ -30,6 +56,7 @@ app:
     username: ${PERSISTENCE_USERNAME:}
     password: ${PERSISTENCE_PASSWORD:}
     receipt-key-file: ${PERSISTENCE_RECEIPT_KEY_FILE:}
+    ssl-root-cert: ${PERSISTENCE_SSL_ROOT_CERT:}
   jwt:
     issuer: group33-server
     expires-in-seconds: 86400

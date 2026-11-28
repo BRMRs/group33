@@ -3,28 +3,36 @@ package com.group33.server.config
 import com.group33.server.auth.*
 import com.group33.server.pairing.*
 import com.group33.server.plan.PlanMutationStore
-import org.postgresql.ds.PGSimpleDataSource
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.core.env.Environment
-import java.net.URI
 import java.util.UUID
+import javax.sql.DataSource
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermission
 
-internal class PersistenceRuntime(val identities: AnonymousIdentityStore, val pairing: PlanMutationStore) {
+internal class PersistenceRuntime(val identities: AnonymousIdentityStore, val pairing: PlanMutationStore,
+                                  val primary: DataSource? = null) {
     override fun toString() = "PersistenceRuntime(REDACTED)"
 }
 
-/** Explicit local PostgreSQL opt-in. No implicit schema creation, cloud credentials or fallback to memory. */
+/** Explicit PostgreSQL opt-in. Never applies DDL or silently falls back to memory. */
 @Configuration(proxyBeanMethods = false)
 internal class PersistenceRuntimeConfiguration {
-    @Bean fun persistenceRuntime(env: Environment): PersistenceRuntime = create(env)
+    @Bean fun persistenceRuntime(env: Environment, phone: ObjectProvider<BoundPhoneRuntimeSettings>): PersistenceRuntime =
+        build(env, PersistenceDataSourceFactory::create, phone.getIfAvailable())
     @Bean fun anonymousIdentityStore(runtime: PersistenceRuntime): AnonymousIdentityStore = runtime.identities
 
-    internal fun create(env: Environment): PersistenceRuntime {
+    internal fun create(env: Environment,
+        sourceFactory: (Environment, String) -> DataSource = PersistenceDataSourceFactory::create): PersistenceRuntime =
+        build(env, sourceFactory, null)
+
+    private fun build(env: Environment, sourceFactory: (Environment, String) -> DataSource,
+                      phone: BoundPhoneRuntimeSettings?): PersistenceRuntime {
+        require(!BoundPhoneMode.read(env).enabled || phone != null) { "Phone mode requires its validated startup configuration" }
         val plansEnabled = env.getProperty("app.plan.enabled", Boolean::class.java, false)
         val occurrencesEnabled = env.getProperty("app.occurrence.enabled", Boolean::class.java, false)
         require(!occurrencesEnabled || plansEnabled) { "Occurrence registration requires the plan runtime" }
@@ -33,23 +41,21 @@ internal class PersistenceRuntimeConfiguration {
         }
         val mode = env.getProperty("app.persistence.mode", "memory")
         val requireVersioned = env.getProperty("app.persistence.require-versioned-schema", Boolean::class.java, false)
-        require(!requireVersioned || mode == "postgres-local") { "Versioned schema startup validation requires postgres-local persistence" }
+        require(!requireVersioned || mode in setOf("postgres-local", "postgres-supabase")) {
+            "Versioned schema startup validation requires PostgreSQL persistence"
+        }
         val doseGroupsEnabled = env.getProperty("app.dose-group.enabled", Boolean::class.java, false)
         require(!doseGroupsEnabled || occurrencesEnabled) {
             "Dose groups require the occurrence registration runtime"
         }
         if (mode == "memory") return PersistenceRuntime(InMemoryAnonymousIdentityStore(), InMemoryPairingCodeStore())
-        require(mode == "postgres-local") { "app.persistence.mode must be memory or postgres-local" }
+        require(mode in setOf("postgres-local", "postgres-supabase")) {
+            "app.persistence.mode must be memory, postgres-local or postgres-supabase"
+        }
         fun setting(name: String) = env.getProperty(name)?.takeIf { it.isNotBlank() }
             ?: throw IllegalStateException("Required local persistence setting is missing: $name")
         try {
-            val url = setting("app.persistence.jdbc-url")
-            require(url.startsWith("jdbc:postgresql://"))
-            val uri = URI(url.removePrefix("jdbc:"))
-            require(uri.path?.matches(Regex("/[a-zA-Z0-9_-]+")) == true)
-            require(uri.host in setOf("localhost", "127.0.0.1", "[::1]", "::1") && uri.userInfo == null && uri.rawQuery == null && uri.fragment == null)
             val schema = setting("app.persistence.schema")
-            require(schema.matches(Regex("[a-z][a-z0-9_]{0,62}")))
             val jwt = setting("app.jwt.secret")
             require(jwt.toByteArray(Charsets.UTF_8).size >= 32 && jwt != "GROUP33_LOCAL_DEVELOPMENT_SECRET_CHANGE_BEFORE_DEPLOYMENT_2026")
             val file = Path.of(setting("app.persistence.receipt-key-file"))
@@ -58,13 +64,16 @@ internal class PersistenceRuntimeConfiguration {
             require(permissions.none { it in setOf(PosixFilePermission.GROUP_READ, PosixFilePermission.GROUP_WRITE,
                 PosixFilePermission.GROUP_EXECUTE, PosixFilePermission.OTHERS_READ, PosixFilePermission.OTHERS_WRITE, PosixFilePermission.OTHERS_EXECUTE) })
             val key = Files.readAllBytes(file); require(key.size == 32)
+            if (phone != null) require(java.security.MessageDigest.isEqual(key, phone.receiptKey))
             val cipher = PairingReceiptCipher(key)
-            val source = PGSimpleDataSource().apply {
-                setURL(url); user = setting("app.persistence.username"); password = setting("app.persistence.password")
-                currentSchema = schema; connectTimeout = 5; socketTimeout = 15
-            }
+            val source = sourceFactory(env, mode)
             if (requireVersioned) RuntimeSchemaHistory.validate(source, schema)
             source.connection.use { c ->
+                if (mode == "postgres-supabase") c.createStatement().use { statement ->
+                    statement.executeQuery("SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user").use { rows ->
+                        check(rows.next() && !rows.getBoolean(1) && !rows.getBoolean(2))
+                    }
+                }
                 // No DDL at startup. All expected prototype tables/columns must already be initialized.
                 c.createStatement().use { s ->
                     listOf("SELECT id, installation_id, display_name, role FROM anonymous_identity LIMIT 0",
@@ -105,10 +114,10 @@ internal class PersistenceRuntimeConfiguration {
                         rows.getString("receipt_id"), rows.getLong("receipt_expiry"), rows.getBytes("receipt_cipher"))
                 }
             } }
-            return PersistenceRuntime(PostgresAnonymousIdentityStore(source), PostgresPairingCodeStore(source, cipher))
+            return PersistenceRuntime(PostgresAnonymousIdentityStore(source), PostgresPairingCodeStore(source, cipher), source)
         } catch (_: Exception) {
             // Connection/property/key failures can contain credentials. Deliberately omit values and the private cause.
-            throw IllegalStateException("Local PostgreSQL persistence initialization failed; verify private settings and initialized schema")
+            throw IllegalStateException("PostgreSQL persistence initialization failed; verify private settings and initialized schema")
         }
     }
 }

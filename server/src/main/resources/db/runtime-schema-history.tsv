@@ -8,3 +8,5 @@
 8	V8__plan_mutation.sql	-1752780730
 9	V9__occurrence_registration.sql	1089233088
 10	V10__dose_action_groups.sql	621384662
+11	V11__plan_collection_indexes.sql	-96611416
+12	V12__bound_phone_identity.sql	1531914117

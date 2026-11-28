@@ -1,5 +1,7 @@
 # D1 clarification: SDK grant refresh within the original authentication attempt
 
+> Current design status — 2026-11-23: **D1–D4 jointly accepted at #96 `caecd8f`**, preserving the recorded D1/D4 modifications. See the [attributable acceptance ledger](PHONE_IDENTITY_ACCEPTANCE_20261123.md). The dated pending-review statements retained below describe the prior review state; they do not reinstate a completed design-review prerequisite. Implementation, migration, provider, configuration and device gates remain.
+
 ## Recorded S1/lead decision — 2026-11-17
 
 Authority: [BRMRs on #118](https://github.com/BRMRs/group33/issues/118#issuecomment-6940293073), reviewing #96 `d4afbdb62cd707d8063bf3336cfc03575c785b81`. D1 and D4 are **accepted with modifications by S1/lead**; D2 and D3 are **accepted by S1/lead**. C1's prior consumer recommendations are retained, not upgraded to full approval. Independent non-author Server/security approval is still pending; BRMRs contributed integration commits and cannot provide that independent approval. No agent signs for a reviewer. These recorded decisions remove the former wait for S1/lead selection, not the implementation/configuration gates.
