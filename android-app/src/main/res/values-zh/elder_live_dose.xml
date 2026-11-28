@@ -8,5 +8,8 @@
     <string name="elder_no_dose_due">现在没有到点的用药。</string>
     <string name="elder_dose_unavailable">正在等待已确认的计划。</string>
     <string name="elder_enable_dose_notifications">开启用药提醒通知</string>
+    <string name="elder_reminder_notifications_unavailable">通知未开启，用药提醒将无法显示。</string>
+    <string name="elder_reminder_exact_alarm_degraded">提醒已开启，但可能延迟。请允许精确闹钟，以改善提醒时间。</string>
+    <string name="elder_allow_exact_alarms">允许精确闹钟</string>
     <string name="elder_dose_notification_channel">用药提醒</string>
 </resources>

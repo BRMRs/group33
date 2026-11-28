@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/elder_reminder_capability_feedback"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:accessibilityLiveRegion="polite"
+        android:textAppearance="@style/TextAppearance.Group33.Body" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/elder_reminder_permission_action"
+        style="@style/Widget.Group33.PrimaryAction"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/group33_spacing_medium" />
+</LinearLayout>

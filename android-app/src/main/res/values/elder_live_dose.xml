@@ -8,6 +8,9 @@
     <string name="elder_no_dose_due">No medicine is due right now.</string>
     <string name="elder_dose_unavailable">Waiting for a confirmed plan.</string>
     <string name="elder_enable_dose_notifications">Enable reminder notifications</string>
+    <string name="elder_reminder_notifications_unavailable">Reminders cannot appear until notifications are enabled.</string>
+    <string name="elder_reminder_exact_alarm_degraded">Reminders are enabled, but may arrive late. Allow exact alarms to improve reminder timing.</string>
+    <string name="elder_allow_exact_alarms">Allow exact alarms</string>
     <string name="elder_dose_notification_channel">Medicine reminders</string>
     <color name="group33_surface_card">#E8F1FA</color>
     <color name="group33_outline_subtle">#C5D6EA</color>
