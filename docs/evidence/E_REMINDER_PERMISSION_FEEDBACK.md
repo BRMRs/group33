@@ -61,11 +61,14 @@ ReminderCapabilityDeviceTest (API 27)                  applicable cases pass;
 
 The settings-intent device test verifies notification recovery targets this package and exact-alarm
 recovery targets this package on API 31+, with the application-details fallback below API 31.
-The PR's exact-head API35 workflow includes the four layout cases, one settings-intent case, two
-integrated-panel cases, and separate notification-denied, same-occurrence grant recovery, and
-exact-alarm-denied capability phases. Those API35 results remain pending until the PR workflow runs;
-a UI mapping test does not replace platform denial evidence. Separate API31/33 image runs are not
-claimed by this slice.
+The [API35 workflow on implementation head `0e6de8e`](https://github.com/BRMRs/group33/actions/runs/46120281735)
+passed with 20 unique boundary/UI tests, including four layout cases, one settings-intent case and
+two integrated-panel cases. Three separate non-skipped capability phases also passed: notification
+denial retained the same occurrence, notification grant recovered it, and exact-alarm denial reported
+degraded while using the inexact fallback. The retained artifact records API35/x86_64, the exact head,
+all three phases, dispatch/automatic/PostgreSQL recovery and emulator cleanup as passed. A UI mapping
+test does not replace this platform evidence. Separate API31/33 image runs are not claimed by this
+slice.
 
 ## Bilingual accessibility evidence
 
@@ -88,4 +91,4 @@ not depend on color, so its meaning remains available without color perception.
   not complete the designed full-screen ringing experience or a full TalkBack service walkthrough.
 - It does not implement Server Help delivery, caregiver follow-up/probe delivery, or two-device P0
   acceptance. Issue #18 and the wider P0 loop remain open.
-- Exact-head CI/API35 capability phases and non-author review are required before merge.
+- Final-head required checks and non-author review remain merge gates.
