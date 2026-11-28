@@ -668,28 +668,26 @@ class ChainOnlineFlowTest {
                     var lastRecoveryObservation = ""
                     // Exercise the real WorkManager network constraint and 15-second retry backoff;
                     // this is bounded below one minute and does not wait for a scheduled dose time.
-                    withTimeout(55_000) {
-                        while (true) {
-                            val action = dao.action(actionId)
-                            val infos = work.getWorkInfosForUniqueWork("reminder-action-$actionId")
-                                .get(10, java.util.concurrent.TimeUnit.SECONDS)
-                            val observation = listOf(
-                                infos.singleOrNull()?.state,
-                                infos.singleOrNull()?.runAttemptCount,
-                                action?.dispatchState,
-                                action?.dispatchAttempts,
-                                s.auth.observeSession().first().readiness,
-                                s.trusted.value != null,
-                                app.getSystemService(android.net.ConnectivityManager::class.java).activeNetwork != null,
-                            ).joinToString(":")
-                            if (observation != lastRecoveryObservation) {
-                                println("Cold recovery observation: $observation")
-                                lastRecoveryObservation = observation
-                            }
-                            if (action?.dispatchState ==
-                                com.group33.medicationreminder.core.reminder.ReminderDispatchState.ACKNOWLEDGED.name) break
-                            delay(100)
+                    val recoveryDeadline = android.os.SystemClock.elapsedRealtime() + 55_000
+                    while (true) {
+                        val action = dao.action(actionId)
+                        val infos = work.getWorkInfosForUniqueWork("reminder-action-$actionId")
+                            .get(10, java.util.concurrent.TimeUnit.SECONDS)
+                        lastRecoveryObservation = listOf(
+                            infos.singleOrNull()?.state,
+                            infos.singleOrNull()?.runAttemptCount,
+                            action?.dispatchState,
+                            action?.dispatchAttempts,
+                            s.auth.observeSession().first().readiness,
+                            s.trusted.value != null,
+                            app.getSystemService(android.net.ConnectivityManager::class.java).activeNetwork != null,
+                        ).joinToString(":")
+                        if (action?.dispatchState ==
+                            com.group33.medicationreminder.core.reminder.ReminderDispatchState.ACKNOWLEDGED.name) break
+                        if (android.os.SystemClock.elapsedRealtime() >= recoveryDeadline) {
+                            fail("Cold recovery stalled: $lastRecoveryObservation")
                         }
+                        delay(100)
                     }
                     val acceptedAction = checkNotNull(dao.action(actionId))
                     assertTrue("Cold start must dispatch the durable offline action",
