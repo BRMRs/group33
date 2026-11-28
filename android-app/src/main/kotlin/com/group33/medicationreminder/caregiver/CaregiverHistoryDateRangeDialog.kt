@@ -2,10 +2,13 @@ package com.group33.medicationreminder.caregiver
 
 import android.app.Dialog
 import android.content.DialogInterface
+import android.content.res.Configuration
 import android.graphics.Typeface
 import android.os.Bundle
 import android.text.format.DateFormat
 import android.view.Gravity
+import android.view.ContextThemeWrapper
+import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.GridLayout
@@ -40,13 +43,32 @@ internal class CaregiverHistoryDateRangeDialog : DialogFragment() {
     private var minimumCellWidth = 0
     private var cellHeight = 0
     private var columnWidth = 0
-    private val locale: Locale get() = ConfigurationCompat.getLocales(resources.configuration)[0] ?: Locale.getDefault()
+    private val displayResources get() = binding.root.resources
+    private val locale: Locale get() = ConfigurationCompat.getLocales(displayResources.configuration)[0] ?: Locale.getDefault()
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         from = (savedInstanceState ?: requireArguments()).getString(FROM)?.let(LocalDate::parse)
         through = (savedInstanceState ?: requireArguments()).getString(THROUGH)?.let(LocalDate::parse)
         month = savedInstanceState?.getString(MONTH)?.let(YearMonth::parse) ?: YearMonth.from(checkNotNull(from))
-        binding = ViewCaregiverHistoryDateDialogBinding.inflate(requireActivity().layoutInflater)
+        // A component may have a language/font override that differs from its Activity.
+        // Keep only those display inputs in arguments; use the current host's window configuration.
+        val display = Configuration(resources.configuration).apply {
+            setLocale(Locale.forLanguageTag(checkNotNull(requireArguments().getString(LOCALE))))
+            fontScale = requireArguments().getFloat(FONT_SCALE)
+        }
+        // AppCompat applies the application locale to its Dialog context on older Android.
+        // Keep that host-owned window separate from the component-owned content configuration.
+        val builder = MaterialAlertDialogBuilder(requireContext())
+        val context = ContextThemeWrapper(requireContext(), R.style.Theme_Group33).apply {
+            applyOverrideConfiguration(display)
+        }
+        binding = ViewCaregiverHistoryDateDialogBinding.inflate(LayoutInflater.from(context))
+        val title = TextView(context, null, com.google.android.material.R.attr.materialAlertDialogTitleTextStyle).apply {
+            setText(R.string.c3_history_pick_range)
+            val inset = resources.getDimensionPixelSize(R.dimen.group33_spacing_medium)
+            setPadding(inset, inset, inset, inset)
+        }
+        ViewCompat.setAccessibilityHeading(title, true)
         ViewCompat.setAccessibilityHeading(binding.historyCalendarMonth, true)
         binding.historyCalendarPrevious.setOnClickListener { moveMonth(-1) }
         binding.historyCalendarNext.setOnClickListener { moveMonth(1) }
@@ -64,12 +86,12 @@ internal class CaregiverHistoryDateRangeDialog : DialogFragment() {
         }
         measureCells()
         drawMonth()
-        return MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.c3_history_pick_range)
+        return builder
+            .setCustomTitle(title)
             .setBackgroundInsetStart(0)
             .setBackgroundInsetEnd(0)
             .setView(binding.root)
-            .create()
+            .create().also { it.setTitle(title.text) }
     }
 
     override fun onStart() {
@@ -79,7 +101,7 @@ internal class CaregiverHistoryDateRangeDialog : DialogFragment() {
         binding.historyCalendarScroll.post { resizeColumns() }
     }
 
-    private fun dayButton() = requireActivity().layoutInflater.inflate(R.layout.item_caregiver_history_calendar_day,
+    private fun dayButton() = LayoutInflater.from(binding.root.context).inflate(R.layout.item_caregiver_history_calendar_day,
         binding.historyCalendarGrid, false) as MaterialButton
 
     private fun measureCells() {
@@ -101,9 +123,9 @@ internal class CaregiverHistoryDateRangeDialog : DialogFragment() {
     }
 
     // Some Android narrow-standalone providers reduce every Chinese weekday to the same first glyph.
-    private fun weekdayText(day: java.time.DayOfWeek) = resources.getStringArray(R.array.c3_history_weekdays)[day.value - 1]
+    private fun weekdayText(day: java.time.DayOfWeek) = displayResources.getStringArray(R.array.c3_history_weekdays)[day.value - 1]
 
-    private fun weekday(text: String) = TextView(requireContext()).apply {
+    private fun weekday(text: String) = TextView(binding.root.context).apply {
         this.text = text
         textSize = 16f
         gravity = Gravity.CENTER
@@ -120,7 +142,7 @@ internal class CaregiverHistoryDateRangeDialog : DialogFragment() {
         val firstDay = WeekFields.of(locale).firstDayOfWeek
         for (offset in 0..6) grid.addView(weekday(weekdayText(firstDay.plus(offset.toLong()))))
         val blanks = (month.atDay(1).dayOfWeek.value - firstDay.value + 7) % 7
-        repeat(blanks) { grid.addView(Space(requireContext())) }
+        repeat(blanks) { grid.addView(Space(binding.root.context)) }
         for (day in 1..month.lengthOfMonth()) {
             val date = month.atDay(day)
             val button = dayButton()
@@ -137,7 +159,7 @@ internal class CaregiverHistoryDateRangeDialog : DialogFragment() {
             cells += date to button
             grid.addView(button)
         }
-        while (grid.childCount % 7 != 0) grid.addView(Space(requireContext()))
+        while (grid.childCount % 7 != 0) grid.addView(Space(binding.root.context))
         columnWidth = 0
         resizeColumns()
         updateSelection()
@@ -161,8 +183,8 @@ internal class CaregiverHistoryDateRangeDialog : DialogFragment() {
     private fun updateSelection() {
         val start = from
         val end = through
-        binding.historyCalendarFrom.text = getString(R.string.c3_history_calendar_from, start?.toString() ?: getString(R.string.c3_history_date_not_selected))
-        binding.historyCalendarThrough.text = getString(R.string.c3_history_calendar_through, end?.toString() ?: getString(R.string.c3_history_date_not_selected))
+        binding.historyCalendarFrom.text = displayResources.getString(R.string.c3_history_calendar_from, start?.toString() ?: displayResources.getString(R.string.c3_history_date_not_selected))
+        binding.historyCalendarThrough.text = displayResources.getString(R.string.c3_history_calendar_through, end?.toString() ?: displayResources.getString(R.string.c3_history_date_not_selected))
         binding.historyDialogConfirm.isEnabled = start != null && end != null
         for ((date, button) in cells) {
             val selected = start != null && !date.isBefore(start) && !date.isAfter(end ?: start)
@@ -175,7 +197,7 @@ internal class CaregiverHistoryDateRangeDialog : DialogFragment() {
                 selected -> R.string.c3_history_between_days
                 else -> R.string.c3_history_unselected_day
             }
-            button.contentDescription = getString(state, date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL).withLocale(locale)))
+            button.contentDescription = displayResources.getString(state, date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL).withLocale(locale)))
         }
     }
 
@@ -202,8 +224,15 @@ internal class CaregiverHistoryDateRangeDialog : DialogFragment() {
         private const val FROM = "from"
         private const val THROUGH = "through"
         private const val MONTH = "month"
-        fun create(from: String, through: String) = CaregiverHistoryDateRangeDialog().apply {
-            arguments = Bundle().apply { putString(FROM, from); putString(THROUGH, through) }
+        private const val LOCALE = "display-locale"
+        private const val FONT_SCALE = "display-font-scale"
+        fun create(from: String, through: String, display: Configuration) = CaregiverHistoryDateRangeDialog().apply {
+            arguments = Bundle().apply {
+                putString(FROM, from)
+                putString(THROUGH, through)
+                putString(LOCALE, (ConfigurationCompat.getLocales(display)[0] ?: Locale.getDefault()).toLanguageTag())
+                putFloat(FONT_SCALE, display.fontScale)
+            }
         }
     }
 }

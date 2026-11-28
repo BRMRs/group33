@@ -126,7 +126,8 @@ class CaregiverHistoryView @JvmOverloads constructor(context: Context, attrs: At
                 // Reading is explicit: confirming dates must not query or replace the current results.
             }
         }
-        val picker = CaregiverHistoryDateRangeDialog.create(draft.first.toString(), draft.second.toString())
+        val picker = CaregiverHistoryDateRangeDialog.create(
+            draft.first.toString(), draft.second.toString(), context.resources.configuration)
         picker.onDates = ::applyDates
         picker.onClosed = { if (datePicker === picker) datePicker = null }
         datePicker = picker

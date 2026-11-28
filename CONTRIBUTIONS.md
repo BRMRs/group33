@@ -1,5 +1,7 @@
 # Contribution log
 
+2026-11-28 - Cle-cre / C3, Refs #19, PR #89: adopt approved S1 PR #154 a146572 into history head532cb1c, retaining its original commits and attribution. Before this contribution/manifest update the candidate tree was identical to #154 (a4b9fa98003b965488a686f75700ac0bf1c7a04e); runtime and tracked test sources remain identical. Offline Debug162/Release161 JVM tests passed with zero failures/errors/skips; lint0 errors/32 warnings and Debug/Release/test APK builds passed (150 tasks,113 executed/37 cached). Policy,471 artifact hashes and diff checks passed. Device evidence references exact-source API27/API35 CI45779108143; no new physical-device, manual accessibility, live-service or full happy-path run is claimed. C1 requested-change follow-up and accurate adoption-head CI remain separate.
+
 2026-10-27 publication update: the earlier local-candidate entries below describe their preparation time. Those prepared slices are now visible as Draft PRs [#60–#73](https://github.com/BRMRs/group33/pull/60); required scope/reviewer/dependency confirmation and formal acceptance remain open.
 
 Update this file weekly. Use links to GitHub issues and pull requests after the repository has its first commit.
@@ -83,3 +85,5 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 ### 2026-11-17 — XinyanXue / S2 — #96 decision follow-up
 
 Sync actual main; record attributable S1/lead D1–D4 decisions and15-second call boundary, unknown-attempt closure,401/403/404 recovery and configuration truth. Independent non-author security approval and actual provider/service evidence remain pending. Documentation-only own delta.
+
+2026-11-26 — BRMRs / S1 (agent-assisted), Refs #19 / PR #89: corrected Debug Host inset ownership and passed the history component's language/font configuration to all calendar controls. Removed fixture-wide deprecated resource mutation; strengthened the existing 18 device cases to assert actual display configuration and a Chinese-host/English-component mismatch. Preparation local owned read-only API23/API35 runs each passed 18/18, with stopped emulators and unchanged persistent configuration. [Corrective PR #154](https://github.com/BRMRs/group33/pull/154) records final-source results, bilingual 2x captures and the job-owned API27/API35 before/after matrix; all 18 final cases must pass, with actual C1/E/C3 review separate. Original Cle-cre component attribution is retained; no formal page, real data, TalkBack, Server or whole-issue acceptance is claimed.

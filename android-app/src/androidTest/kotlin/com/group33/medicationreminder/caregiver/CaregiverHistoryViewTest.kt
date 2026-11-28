@@ -1,5 +1,10 @@
 package com.group33.medicationreminder.caregiver
 
+import android.graphics.Bitmap
+import android.app.LocaleManager
+import android.os.Build
+import android.os.LocaleList
+import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.view.ContextThemeWrapper
@@ -9,6 +14,9 @@ import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ListView
 import android.widget.TextView
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.ConfigurationCompat
+import androidx.core.os.LocaleListCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
@@ -221,7 +229,7 @@ class CaregiverHistoryViewTest {
     }
 
     @Test fun calendarGridAndButtonsRemainReadableAtBothFontsAndAllWindowWidths() {
-        for (language in listOf("en", "zh")) for (font in listOf(1f, 2f)) withScreen(language, font) {
+        for (language in listOf("en", "zh")) for (font in listOf(2f, 1f)) withScreen(language, font) {
             var picker: DialogFragment? = null
             onMain { picker = openPicker() }
             val root = checkNotNull(picker?.dialog?.window?.decorView)
@@ -232,6 +240,25 @@ class CaregiverHistoryViewTest {
                     assertTrue(visibleViews(root).filterIsInstance<EditText>().isEmpty())
                     assertReadable(root)
                     val grid = root.findViewById<GridLayout>(R.id.history_calendar_grid)
+                    val title = visibleViews(root).filterIsInstance<TextView>().single {
+                        it.text.toString() == context.getString(R.string.c3_history_pick_range)
+                    }
+                    val controls = listOf(R.id.history_calendar_grid, R.id.history_calendar_from,
+                        R.id.history_calendar_through, R.id.history_dialog_confirm, R.id.history_dialog_cancel)
+                        .map { root.findViewById<View>(it) } + title
+                    for (control in controls) {
+                        val config = control.resources.configuration
+                        assertEquals("Calendar language: id=${control.id}; component=${context.resources.configuration}; args=${picker?.arguments}", language,
+                            ConfigurationCompat.getLocales(config)[0]?.language)
+                        assertEquals("Calendar control must use the component font scale", font, config.fontScale, 0.001f)
+                    }
+                    assertEquals("Window title must match the localized calendar heading",
+                        title.text.toString(), picker?.dialog?.window?.attributes?.title?.toString())
+                    if (font == 2f) {
+                        val inset = context.resources.getDimensionPixelSize(R.dimen.group33_spacing_medium)
+                        assertTrue("Calendar title must keep glyphs inside the rounded window edge",
+                            title.compoundPaddingLeft >= inset && title.compoundPaddingTop >= inset)
+                    }
                     val day = grid.findViewWithTag<MaterialButton>(LocalDate.of(2026, 10, 22))
                     assertEquals("22", day.text.toString())
                     assertEquals(1, day.layout.lineCount)
@@ -248,6 +275,7 @@ class CaregiverHistoryViewTest {
                     assertTrue(root.findViewById<View>(R.id.history_dialog_cancel).height >= minimum)
                 }
             }
+            if (font == 2f) captureCalendar(language)
             chooseDay("22"); chooseDay("23")
             onView(withId(R.id.history_dialog_confirm)).inRoot(withDecorView(equalTo(checkNotNull(calendarRoot)))).perform(scrollTo(), click())
             onMain {
@@ -258,38 +286,42 @@ class CaregiverHistoryViewTest {
         }
     }
 
-    @Test fun calendarSupportsLeapDayCrossMonthAndSameDayWithoutImplicitReads() = withScreen {
-        onMain {
-            text(R.id.history_from).text = "2028-02-29"
-            text(R.id.history_through).text = "2028-02-29"
-            openPicker()
-        }
-        val reads = repository.queries.size
-        chooseDate(LocalDate.of(2028, 2, 29))
-        onMain {
-            val popup = host.supportFragmentManager.findFragmentByTag("c3.history.date-range") as DialogFragment
-            assertFalse("First click starts a new range", checkNotNull(popup.dialog).findViewById<View>(R.id.history_dialog_confirm).isEnabled)
-        }
-        onView(withId(R.id.history_calendar_next)).inRoot(withDecorView(equalTo(checkNotNull(calendarRoot)))).perform(scrollTo(), click())
-        chooseDate(LocalDate.of(2028, 3, 1))
-        onMain {
-            val popup = host.supportFragmentManager.findFragmentByTag("c3.history.date-range") as DialogFragment
-            val root = checkNotNull(popup.dialog?.window?.decorView)
-            assertEquals(context.getString(R.string.c3_history_calendar_through, "2028-03-01"), root.findViewById<TextView>(R.id.history_calendar_through).text.toString())
-            assertTrue(root.findViewById<View>(R.id.history_dialog_confirm).isEnabled)
-        }
-        onView(withId(R.id.history_dialog_confirm)).inRoot(withDecorView(equalTo(checkNotNull(calendarRoot)))).perform(scrollTo(), click())
-        onMain {
-            assertEquals("2028-02-29", text(R.id.history_from).text.toString())
-            assertEquals("2028-03-01", text(R.id.history_through).text.toString())
-            assertEquals(reads, repository.queries.size)
-            openPicker()
-        }
-        chooseDate(LocalDate.of(2028, 2, 29)); chooseDate(LocalDate.of(2028, 2, 29))
-        onView(withId(R.id.history_dialog_confirm)).inRoot(withDecorView(equalTo(checkNotNull(calendarRoot)))).perform(scrollTo(), click())
-        onMain {
-            assertEquals("2028-02-29", text(R.id.history_through).text.toString())
-            assertEquals(reads, repository.queries.size)
+    @Test fun calendarSupportsLeapDayCrossMonthAndSameDayWithoutImplicitReads() = withHostLanguage("zh") {
+        withScreen("en") {
+            onMain {
+                assertEquals("Fixture must exercise a Chinese host with an English component", "zh",
+                    ConfigurationCompat.getLocales(host.resources.configuration)[0]?.language)
+                text(R.id.history_from).text = "2028-02-29"
+                text(R.id.history_through).text = "2028-02-29"
+                openPicker()
+            }
+            val reads = repository.queries.size
+            chooseDate(LocalDate.of(2028, 2, 29))
+            onMain {
+                val popup = host.supportFragmentManager.findFragmentByTag("c3.history.date-range") as DialogFragment
+                assertFalse("First click starts a new range", checkNotNull(popup.dialog).findViewById<View>(R.id.history_dialog_confirm).isEnabled)
+            }
+            onView(withId(R.id.history_calendar_next)).inRoot(withDecorView(equalTo(checkNotNull(calendarRoot)))).perform(scrollTo(), click())
+            chooseDate(LocalDate.of(2028, 3, 1))
+            onMain {
+                val popup = host.supportFragmentManager.findFragmentByTag("c3.history.date-range") as DialogFragment
+                val root = checkNotNull(popup.dialog?.window?.decorView)
+                assertEquals(context.getString(R.string.c3_history_calendar_through, "2028-03-01"), root.findViewById<TextView>(R.id.history_calendar_through).text.toString())
+                assertTrue(root.findViewById<View>(R.id.history_dialog_confirm).isEnabled)
+            }
+            onView(withId(R.id.history_dialog_confirm)).inRoot(withDecorView(equalTo(checkNotNull(calendarRoot)))).perform(scrollTo(), click())
+            onMain {
+                assertEquals("2028-02-29", text(R.id.history_from).text.toString())
+                assertEquals("2028-03-01", text(R.id.history_through).text.toString())
+                assertEquals(reads, repository.queries.size)
+                openPicker()
+            }
+            chooseDate(LocalDate.of(2028, 2, 29)); chooseDate(LocalDate.of(2028, 2, 29))
+            onView(withId(R.id.history_dialog_confirm)).inRoot(withDecorView(equalTo(checkNotNull(calendarRoot)))).perform(scrollTo(), click())
+            onMain {
+                assertEquals("2028-02-29", text(R.id.history_through).text.toString())
+                assertEquals(reads, repository.queries.size)
+            }
         }
     }
 
@@ -550,12 +582,57 @@ class CaregiverHistoryViewTest {
             checkNotNull(screen).block()
         } finally {
             onMain { screen?.close(); host.finish() }
+            instrumentation.waitForIdleSync()
         }
     }
 
-    @Suppress("DEPRECATION")
+    private fun captureCalendar(language: String) {
+        val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+        try {
+            instrumentation.targetContext.cacheDir.resolve("history-platform-$language-2x.png").outputStream().use {
+                check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
+            }
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    private fun withHostLanguage(language: String, block: () -> Unit) {
+        val context = instrumentation.targetContext
+        val previous = if (Build.VERSION.SDK_INT >= 33) ApplicationLocales33.get(context)
+            else AppCompatDelegate.getApplicationLocales()
+        fun setLanguages(locales: LocaleListCompat) {
+            onMain {
+                if (Build.VERSION.SDK_INT >= 33) ApplicationLocales33.set(context, locales)
+                else AppCompatDelegate.setApplicationLocales(locales)
+            }
+            instrumentation.waitForIdleSync()
+        }
+        try {
+            setLanguages(LocaleListCompat.forLanguageTags(language))
+            block()
+        } finally {
+            setLanguages(previous)
+        }
+    }
+
+    // Keep API33 class references out of reflected JUnit methods on older ART.
+    private object ApplicationLocales33 {
+        fun get(context: Context): LocaleListCompat {
+            if (Build.VERSION.SDK_INT >= 33) return LocaleListCompat.wrap(
+                checkNotNull(context.getSystemService(LocaleManager::class.java)).applicationLocales)
+            error("Platform per-app locales require API33")
+        }
+
+        fun set(context: Context, locales: LocaleListCompat) {
+            if (Build.VERSION.SDK_INT >= 33) {
+                checkNotNull(context.getSystemService(LocaleManager::class.java)).applicationLocales =
+                    LocaleList.forLanguageTags(locales.toLanguageTags())
+            } else error("Platform per-app locales require API33")
+        }
+    }
+
     private inner class Screen(val host: CaregiverHistoryTestActivity, language: String, fontScale: Float) {
-        private val originalHostConfig = Configuration(host.resources.configuration)
         private val config = Configuration(instrumentation.targetContext.resources.configuration).apply {
             setLocale(Locale.forLanguageTag(language)); this.fontScale = fontScale
         }
@@ -567,8 +644,6 @@ class CaregiverHistoryViewTest {
         val list: ListView get() = view.findViewById(R.id.history_list)
         val header: View get() = list.adapter.getView(0, null, list)
         init {
-            // Dialog fragments inflate from their Activity, so match its fixture language/font too.
-            host.resources.updateConfiguration(config, host.resources.displayMetrics)
             host.container.addView(view)
             view.bind(host, model, host.supportFragmentManager)
             measure()
@@ -620,7 +695,13 @@ class CaregiverHistoryViewTest {
                 try {
                     assertEquals("Date input must expose whether its range is invalid", expected != null, node.isContentInvalid)
                     assertEquals(expected, node.error?.toString())
-                    assertEquals(context.getString(hintId), node.hintText?.toString())
+                    val hint = context.getString(hintId)
+                    if (Build.VERSION.SDK_INT >= 26) assertEquals(hint, node.hintText?.toString())
+                    else {
+                        // Material 1.12 announces value + hint before API26 due to a TalkBack bug.
+                        val value = header.findViewById<EditText>(id).text.toString()
+                        assertEquals(if (value.isEmpty()) hint else "$value, $hint", node.text?.toString())
+                    }
                 } finally {
                     node.recycle()
                 }
@@ -639,7 +720,6 @@ class CaregiverHistoryViewTest {
         fun close() {
             host.container.removeAllViews()
             store.clear()
-            host.resources.updateConfiguration(originalHostConfig, host.resources.displayMetrics)
         }
     }
 
