@@ -1,9 +1,26 @@
 import unittest
 
 from run_p0_two_emulator_api35 import expected_phases, finalize_result, verify_chain_results
+from run_debug_online_chain import inspect_instrumentation, phases_for
 
 
 class VerifyChainResultsTest(unittest.TestCase):
+    def test_shared_phase_plan_includes_the_full_offline_acceptance_tail(self):
+        self.assertEqual(expected_phases(), phases_for(live_dose=True, dose_upload=True))
+
+    def test_instrumentation_result_rejects_skipped_or_duplicate_completion(self):
+        passed = """INSTRUMENTATION_STATUS: class=com.example.FlowTest
+INSTRUMENTATION_STATUS: test=phase
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.example.FlowTest
+INSTRUMENTATION_STATUS: test=phase
+INSTRUMENTATION_STATUS_CODE: 0
+OK (1 test)
+"""
+        self.assertTrue(inspect_instrumentation(passed)["passed"])
+        self.assertFalse(inspect_instrumentation(passed.replace("CODE: 0", "CODE: -3"))["passed"])
+        self.assertFalse(inspect_instrumentation(passed + passed)["passed"])
+
     def test_rejects_a_missing_caregiver_acceptance_phase(self):
         complete = [
             {"phase": phase, "role": role, "passed": True}

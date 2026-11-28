@@ -16,7 +16,7 @@ import tempfile
 import time
 from urllib.request import urlopen
 
-from run_debug_online_chain import PHASES
+from run_debug_online_chain import phases_for
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,16 +28,7 @@ AVD_NAMES = {
 
 
 def expected_phases():
-    return (
-        PHASES[:-2]
-        + [
-            ("caregiver-live-dose-plan", "caregiver"),
-            ("elder-live-dose", "elder"),
-            ("elder-live-dose-restart", "elder"),
-            ("caregiver-sees-taken", "caregiver"),
-        ]
-        + PHASES[-2:]
-    )
+    return phases_for(live_dose=True, dose_upload=True)
 
 
 def verify_chain_results(rows):
@@ -157,7 +148,7 @@ def main():
         for role, serial in SERIALS.items()
     }
 
-    def device(role, *command, timeout=30):
+    def run_adb_for_role(role, *command, timeout=30):
         return subprocess.run(
             [str(adb), "-s", SERIALS[role], *command],
             capture_output=True,
@@ -265,7 +256,7 @@ def main():
                 except OSError:
                     pass
             booted = all(
-                device(role, "shell", "getprop", "sys.boot_completed", timeout=10)
+                run_adb_for_role(role, "shell", "getprop", "sys.boot_completed", timeout=10)
                 .stdout.strip()
                 == "1"
                 for role in SERIALS
@@ -277,13 +268,13 @@ def main():
             raise RuntimeError("Dual-AVD/Server readiness deadline exceeded")
 
         for role in SERIALS:
-            devices[role]["api"] = device(
+            devices[role]["api"] = run_adb_for_role(
                 role, "shell", "getprop", "ro.build.version.sdk"
             ).stdout.strip()
-            devices[role]["abi"] = device(
+            devices[role]["abi"] = run_adb_for_role(
                 role, "shell", "getprop", "ro.product.cpu.abi"
             ).stdout.strip()
-            name = device(role, "emu", "avd", "name").stdout
+            name = run_adb_for_role(role, "emu", "avd", "name").stdout
             if AVD_NAMES[role] not in name:
                 raise RuntimeError(f"Wrong {role} AVD identity")
             if devices[role]["api"] != "35" or devices[role]["abi"] != "x86_64":
@@ -321,9 +312,9 @@ def main():
         for role, process in emulator_processes.items():
             if process.poll() is None:
                 try:
-                    name = device(role, "emu", "avd", "name", timeout=10).stdout
+                    name = run_adb_for_role(role, "emu", "avd", "name", timeout=10).stdout
                     if AVD_NAMES[role] in name:
-                        device(role, "emu", "kill", timeout=10)
+                        run_adb_for_role(role, "emu", "kill", timeout=10)
                     else:
                         process.terminate()
                     process.wait(timeout=30)

@@ -548,11 +548,19 @@ class ChainOnlineFlowTest {
                     .single { it.key.planId == planId && it.plannedAt == plannedAt }
                 assertNull(frozen.takenAt)
 
-                // Android's alarm receiver posts the notification and publishes the due group.
-                val now = System.currentTimeMillis()
-                assertTrue("The test must reach the Elder before the scheduled time", plannedAt > now)
-                withTimeout(plannedAt - now + 75_000) {
-                    app.elderDoses.state.first { state -> state.due?.keys?.any { it.planId == planId } == true }
+                // Use the production coordinator with an explicit due instant. This keeps the
+                // acceptance deterministic; CI must never wait for the next wall-clock minute.
+                val runtime = com.group33.medicationreminder.core.reminder.ReminderDatabase.open(app).reminders()
+                val runtimeGroup = runtime.active().single { it.plannedAtEpochMillis == plannedAt }
+                val registration = checkNotNull(runtime.registration(runtimeGroup.groupId))
+                assertEquals(listOf(frozen.key.planId), registration.occurrences.map { it.planId })
+                val dueAt = plannedAt + 1
+                app.elderDoses.setClockForTest(java.time.Clock.fixed(
+                    java.time.Instant.ofEpochMilli(dueAt), java.time.ZoneOffset.UTC))
+                assertTrue(com.group33.medicationreminder.core.reminder.ReminderCoordinator(app)
+                    .triggerDue(runtimeGroup.groupId, dueAt))
+                withTimeout(20_000) {
+                    app.elderDoses.state.first { state -> state.due?.keys?.any { it == frozen.key } == true }
                 }
                 val manager = app.getSystemService(android.app.NotificationManager::class.java)
                 waitUntil { manager.activeNotifications.any {
@@ -589,8 +597,14 @@ class ChainOnlineFlowTest {
 
                 var localActionId: String? = null
                 if (offlineRecovery) {
-                    val runtime = com.group33.medicationreminder.core.reminder.ReminderDatabase.open(app).reminders()
-                    val action = runtime.pendingActions().single()
+                    val action = withTimeout(20_000) {
+                        var pending: com.group33.medicationreminder.core.reminder.ReminderActionRow? = null
+                        waitUntil {
+                            pending = runtime.pendingActions().singleOrNull()
+                            pending?.dispatchAttempts?.let { it >= 1 } == true
+                        }
+                        checkNotNull(pending)
+                    }
                     assertEquals(com.group33.medicationreminder.core.reminder.ReminderDispatchState.PENDING.name,
                         action.dispatchState)
                     localActionId = action.actionId
@@ -622,6 +636,9 @@ class ChainOnlineFlowTest {
                         futureGroup to DoseActionKind.REMIND_LATER)).actionRecorded)
                 }
                 write(b.put("localTakenAt", recorded.takenAt).put("localDosePid", android.os.Process.myPid())
+                    .put("localDoseGroupId", runtimeGroup.groupId)
+                    .put("liveDoseLocalDate", frozen.key.localDate)
+                    .put("liveDoseLocalTime", frozen.key.localTime)
                     .apply { if (localActionId != null) put("localDoseActionId", localActionId) })
             }
             "elder-live-dose-restart" -> {
@@ -636,11 +653,19 @@ class ChainOnlineFlowTest {
                 if (InstrumentationRegistry.getArguments().getString("offlineActionRecovery") == "true") {
                     val actionId = b.getString("localDoseActionId")
                     val dao = com.group33.medicationreminder.core.reminder.ReminderDatabase.open(app).reminders()
-                    com.group33.medicationreminder.core.reminder.ReminderCoordinator(app).recover()
                     waitUntil {
                         dao.action(actionId)?.dispatchState ==
                             com.group33.medicationreminder.core.reminder.ReminderDispatchState.ACKNOWLEDGED.name
                     }
+                    val acceptedAction = checkNotNull(dao.action(actionId))
+                    assertTrue("Cold-start retry must follow the offline attempt",
+                        acceptedAction.dispatchAttempts >= 2)
+                    assertEquals(b.getString("localDoseGroupId"), acceptedAction.groupId)
+                    val registration = checkNotNull(dao.registration(acceptedAction.groupId))
+                    val member = registration.occurrences.single()
+                    assertEquals(b.getString("liveDosePlan"), member.planId)
+                    assertEquals(b.getString("liveDoseLocalDate"), member.localDate)
+                    assertEquals(b.getString("liveDoseLocalTime"), member.localTime)
                     val scope = trusted.scope
                     val scopeId = ChainCache.digest(listOf(scope.environmentId, scope.installationId, scope.userId)
                         .joinToString("") { "${it.length}:$it" })
@@ -672,7 +697,10 @@ class ChainOnlineFlowTest {
                     }
                     accepted != null
                 }
-                assertEquals(b.getLong("localTakenAt"), checkNotNull(accepted).serverAcceptedTakenAtEpochMillis)
+                val acceptedEvent = checkNotNull(accepted)
+                assertEquals(b.getString("liveDoseLocalDate"), acceptedEvent.occurrence.localDate)
+                assertEquals(b.getString("liveDoseLocalTime"), acceptedEvent.occurrence.localTime)
+                assertEquals(b.getLong("localTakenAt"), acceptedEvent.serverAcceptedTakenAtEpochMillis)
                 println("Checking overview dose display")
                 fun hasAcceptedText(): Boolean {
                     var found = false

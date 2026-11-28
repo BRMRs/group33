@@ -8,6 +8,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,6 +20,28 @@ PHASES = [('elder-login', 'elder'), ('elder-recover-code', 'elder'), ('caregiver
           ('caregiver-recover', 'caregiver'), ('caregiver-stale-401', 'caregiver'),
           ('caregiver-read-failure', 'caregiver'),
           ('elder-revoke', 'elder'), ('caregiver-denied', 'caregiver')]
+
+
+def phases_for(*, live_dose, dose_upload):
+    if not live_dose:
+        return PHASES
+    return PHASES[:-2] + [
+        ('caregiver-live-dose-plan', 'caregiver'), ('elder-live-dose', 'elder'),
+        ('elder-live-dose-restart', 'elder'),
+    ] + ([('caregiver-sees-taken', 'caregiver')] if dose_upload else []) + PHASES[-2:]
+
+
+def inspect_instrumentation(output):
+    text = output.decode(errors='replace') if isinstance(output, bytes) else output
+    codes = [int(value) for value in re.findall(r'^INSTRUMENTATION_STATUS_CODE: (-?\d+)$', text, re.M)]
+    completed = [code for code in codes if code != 1]
+    passed = (
+        completed == [0]
+        and len(re.findall(r'^OK \(1 test\)$', text, re.M)) == 1
+        and 'FAILURES!!!' not in text
+        and 'INSTRUMENTATION_FAILED' not in text
+    )
+    return {'passed': passed, 'status_codes': codes}
 
 
 def main():
@@ -61,7 +84,8 @@ def main():
         if args.locale:
             setup = run(serial, 'shell', 'am', 'instrument', '-w', '-r', '-e', 'class',
                         PKG + '.integration.ChainOnlineFlowTest#configureLanguage', '-e', 'chainLanguage', args.locale, TEST)
-            if b'OK (1 test)' not in setup: raise RuntimeError('Shared language preference setup failed')
+            if not inspect_instrumentation(setup)['passed']:
+                raise RuntimeError('Shared language preference setup failed')
             # Prove the Application restores its saved choice without a live Activity delegate.
             sdk = int(run(serial, 'shell', 'getprop', 'ro.build.version.sdk').strip())
             if sdk >= 33:
@@ -71,10 +95,7 @@ def main():
 
     bridge = None
     results = []
-    phases = PHASES[:-2] + [
-        ('caregiver-live-dose-plan', 'caregiver'), ('elder-live-dose', 'elder'),
-        ('elder-live-dose-restart', 'elder'),
-    ] + ([('caregiver-sees-taken', 'caregiver')] if args.dose_upload else []) + PHASES[-2:] if args.live_dose else PHASES
+    phases = phases_for(live_dose=args.live_dose, dose_upload=args.dose_upload)
     for phase, role in phases:
         serial = devices[role]
         if phase in ['elder-live-dose-restart', 'elder-recover-code', 'caregiver-restart', 'elder-sees-plan', 'caregiver-recover']:
@@ -92,7 +113,7 @@ def main():
             run(serial, 'shell', 'svc', 'wifi', 'enable')
             run(serial, 'shell', 'svc', 'data', 'enable')
         (args.output / (phase + '.log')).write_bytes(output)
-        passed = b'OK (1 test)' in output and b'FAILURES' not in output
+        passed = inspect_instrumentation(output)['passed']
         results.append({'phase': phase, 'role': role, 'passed': passed})
         (args.output / 'results.json').write_text(json.dumps(results, indent=2))
         print(phase, 'PASS' if passed else 'FAIL', flush=True)
