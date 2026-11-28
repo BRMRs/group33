@@ -7,7 +7,7 @@ from run_p0_two_emulator_api35 import (
     system_image_package,
     verify_chain_results,
 )
-from run_debug_online_chain import inspect_instrumentation, phases_for
+from run_debug_online_chain import inspect_instrumentation, network_toggle_commands, phases_for
 
 
 class VerifyChainResultsTest(unittest.TestCase):
@@ -26,6 +26,20 @@ OK (1 test)
         self.assertTrue(inspect_instrumentation(passed)["passed"])
         self.assertFalse(inspect_instrumentation(passed.replace("CODE: 0", "CODE: -3"))["passed"])
         self.assertFalse(inspect_instrumentation(passed + passed)["passed"])
+
+    def test_network_isolation_uses_supported_commands_on_both_api_boundaries(self):
+        self.assertEqual(
+            [('shell', 'svc', 'wifi', 'disable'), ('shell', 'svc', 'data', 'disable')],
+            network_toggle_commands(27, True),
+        )
+        self.assertEqual(
+            [('shell', 'svc', 'wifi', 'enable'), ('shell', 'svc', 'data', 'enable')],
+            network_toggle_commands(27, False),
+        )
+        self.assertEqual(
+            [('shell', 'cmd', 'connectivity', 'airplane-mode', 'enable')],
+            network_toggle_commands(35, True),
+        )
 
     def test_rejects_a_missing_caregiver_acceptance_phase(self):
         complete = [

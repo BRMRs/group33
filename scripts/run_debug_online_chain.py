@@ -45,6 +45,23 @@ def inspect_instrumentation(output):
     return {'passed': passed, 'status_codes': codes}
 
 
+def network_toggle_commands(sdk, enabled):
+    """Return shell commands that deterministically isolate/restore an emulator.
+
+    API 28 and older reject the protected AIRPLANE_MODE broadcast when it is
+    sent by the shell identity.  Disabling both Wi-Fi and mobile data gives the
+    acceptance test the same offline boundary without relying on that broadcast.
+    """
+    if sdk >= 29:
+        return [('shell', 'cmd', 'connectivity', 'airplane-mode',
+                 'enable' if enabled else 'disable')]
+    state = 'disable' if enabled else 'enable'
+    return [
+        ('shell', 'svc', 'wifi', state),
+        ('shell', 'svc', 'data', state),
+    ]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--elder', default='emulator-5560')
@@ -84,25 +101,16 @@ def main():
             time.sleep(0.5)
         raise RuntimeError('Emulator network did not recover before cold-process verification')
 
-    def set_airplane_mode(serial, enabled):
+    def set_network_offline(serial, enabled):
         sdk = int(run(serial, 'shell', 'getprop', 'ro.build.version.sdk').strip())
-        if sdk >= 29:
-            run(serial, 'shell', 'cmd', 'connectivity', 'airplane-mode',
-                'enable' if enabled else 'disable')
-        else:
-            run(serial, 'shell', 'settings', 'put', 'global', 'airplane_mode_on',
-                '1' if enabled else '0')
-            run(serial, 'shell', 'am', 'broadcast', '-a',
-                'android.intent.action.AIRPLANE_MODE', '--ez', 'state',
-                'true' if enabled else 'false')
+        for command in network_toggle_commands(sdk, enabled):
+            # AVDs can expose no cellular service; Wi-Fi is the required path.
+            run(serial, *command, required=command[2:4] != ('svc', 'data'))
 
     devices = {'elder': args.elder, 'caregiver': args.caregiver}
     for serial in devices.values():
         if args.offline_action_recovery:
-            set_airplane_mode(serial, False)
-            run(serial, 'shell', 'svc', 'wifi', 'enable')
-            # google_apis AVDs have Wi-Fi but may expose no cellular service.
-            run(serial, 'shell', 'svc', 'data', 'enable', required=False)
+            set_network_offline(serial, False)
         run(serial, 'install', '-r', str(ROOT / 'android-app/build/outputs/apk/debug/android-app-debug.apk'))
         run(serial, 'install', '-r', str(ROOT / 'android-app/build/outputs/apk/androidTest/debug/android-app-debug-androidTest.apk'))
         if args.reset_test_apps:
@@ -141,9 +149,7 @@ def main():
             # Instrumentation remains reachable over adb while Android networking is disabled.
             # Kill the old process before restoring connectivity so only cold-start recovery can sync.
             run(serial, 'shell', 'am', 'force-stop', PKG)
-            set_airplane_mode(serial, False)
-            run(serial, 'shell', 'svc', 'wifi', 'enable')
-            run(serial, 'shell', 'svc', 'data', 'enable', required=False)
+            set_network_offline(serial, False)
             wait_for_network(serial)
         (args.output / (phase + '.log')).write_bytes(output)
         passed = inspect_instrumentation(output)['passed']

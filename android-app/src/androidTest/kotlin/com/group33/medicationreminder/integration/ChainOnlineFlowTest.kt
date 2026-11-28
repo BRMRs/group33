@@ -583,9 +583,7 @@ class ChainOnlineFlowTest {
                 val offlineRecovery = InstrumentationRegistry.getArguments()
                     .getString("offlineActionRecovery") == "true"
                 if (offlineRecovery) {
-                    setAirplaneMode(true)
-                    shell("svc wifi disable")
-                    shell("svc data disable")
+                    setNetworkOffline(true)
                     waitUntil {
                         app.getSystemService(android.net.ConnectivityManager::class.java).activeNetwork == null
                     }
@@ -804,12 +802,13 @@ class ChainOnlineFlowTest {
         }
     }
 
-    private fun setAirplaneMode(enabled: Boolean) {
+    private fun setNetworkOffline(enabled: Boolean) {
         if (android.os.Build.VERSION.SDK_INT >= 29) {
             shell("cmd connectivity airplane-mode ${if (enabled) "enable" else "disable"}")
         } else {
-            shell("settings put global airplane_mode_on ${if (enabled) 1 else 0}")
-            shell("am broadcast -a android.intent.action.AIRPLANE_MODE --ez state $enabled")
+            val state = if (enabled) "disable" else "enable"
+            shell("svc wifi $state")
+            shell("svc data $state")
         }
     }
 }
