@@ -8,6 +8,8 @@ Branch: `fix/18-reminder-permission-feedback`
 
 Issue: [#18](https://github.com/BRMRs/group33/issues/18)
 
+Implementation: [PR #161](https://github.com/BRMRs/group33/pull/161)
+
 ## Delivered slice
 
 The main-source Elder dose panel now consumes the existing `ReminderCapabilitySnapshot` instead of
@@ -59,7 +61,7 @@ ReminderCapabilityDeviceTest (API 27)                  applicable cases pass;
 
 The settings-intent device test verifies notification recovery targets this package and exact-alarm
 recovery targets this package on API 31+, with the application-details fallback below API 31.
-The exact-head API35 workflow now includes the four layout cases, one settings-intent case, two
+The PR's exact-head API35 workflow includes the four layout cases, one settings-intent case, two
 integrated-panel cases, and separate notification-denied, same-occurrence grant recovery, and
 exact-alarm-denied capability phases. Those API35 results remain pending until the PR workflow runs;
 a UI mapping test does not replace platform denial evidence. Separate API31/33 image runs are not
