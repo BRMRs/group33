@@ -1,6 +1,6 @@
 import unittest
 
-from run_p0_two_emulator_api35 import expected_phases, finalize_result, verify_chain_results
+from run_p0_two_emulator_api35 import avd_names, expected_phases, finalize_result, verify_chain_results
 from run_debug_online_chain import inspect_instrumentation, phases_for
 
 
@@ -40,6 +40,7 @@ OK (1 test)
         result = finalize_result(
             head="abc123",
             expected_head="abc123",
+            expected_api="35",
             devices={
                 "elder": {"api": "35", "abi": "x86_64", "stopped": True},
                 "caregiver": {"api": "35", "abi": "x86_64", "stopped": True},
@@ -51,6 +52,40 @@ OK (1 test)
 
         self.assertFalse(result["passed"])
         self.assertEqual("private-state-not-removed", result["failure"])
+
+    def test_accepts_api27_only_when_both_owned_avds_match_the_requested_api(self):
+        phases = [
+            {"phase": phase, "role": role, "passed": True}
+            for phase, role in expected_phases()
+        ]
+        devices = {
+            "elder": {"api": "27", "abi": "x86_64", "stopped": True},
+            "caregiver": {"api": "27", "abi": "x86_64", "stopped": True},
+        }
+
+        accepted = finalize_result(
+            head="abc123",
+            expected_head="abc123",
+            expected_api="27",
+            devices=devices,
+            phases=phases,
+            server_healthy=True,
+            private_state_removed=True,
+        )
+        mismatched = finalize_result(
+            head="abc123",
+            expected_head="abc123",
+            expected_api="35",
+            devices=devices,
+            phases=phases,
+            server_healthy=True,
+            private_state_removed=True,
+        )
+
+        self.assertTrue(accepted["passed"])
+        self.assertFalse(mismatched["passed"])
+        self.assertEqual("owned-avd-not-verified", mismatched["failure"])
+        self.assertNotEqual(avd_names("27"), avd_names("35"))
 
 
 if __name__ == "__main__":

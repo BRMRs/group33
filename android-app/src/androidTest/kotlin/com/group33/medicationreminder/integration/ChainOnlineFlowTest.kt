@@ -583,7 +583,7 @@ class ChainOnlineFlowTest {
                 val offlineRecovery = InstrumentationRegistry.getArguments()
                     .getString("offlineActionRecovery") == "true"
                 if (offlineRecovery) {
-                    shell("cmd connectivity airplane-mode enable")
+                    setAirplaneMode(true)
                     shell("svc wifi disable")
                     shell("svc data disable")
                     waitUntil {
@@ -801,6 +801,15 @@ class ChainOnlineFlowTest {
     private fun shell(command: String) {
         instrumentation.uiAutomation.executeShellCommand(command).use { descriptor ->
             java.io.FileInputStream(descriptor.fileDescriptor).use { it.readBytes() }
+        }
+    }
+
+    private fun setAirplaneMode(enabled: Boolean) {
+        if (android.os.Build.VERSION.SDK_INT >= 29) {
+            shell("cmd connectivity airplane-mode ${if (enabled) "enable" else "disable"}")
+        } else {
+            shell("settings put global airplane_mode_on ${if (enabled) 1 else 0}")
+            shell("am broadcast -a android.intent.action.AIRPLANE_MODE --ez state $enabled")
         }
     }
 }

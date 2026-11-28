@@ -84,10 +84,22 @@ def main():
             time.sleep(0.5)
         raise RuntimeError('Emulator network did not recover before cold-process verification')
 
+    def set_airplane_mode(serial, enabled):
+        sdk = int(run(serial, 'shell', 'getprop', 'ro.build.version.sdk').strip())
+        if sdk >= 29:
+            run(serial, 'shell', 'cmd', 'connectivity', 'airplane-mode',
+                'enable' if enabled else 'disable')
+        else:
+            run(serial, 'shell', 'settings', 'put', 'global', 'airplane_mode_on',
+                '1' if enabled else '0')
+            run(serial, 'shell', 'am', 'broadcast', '-a',
+                'android.intent.action.AIRPLANE_MODE', '--ez', 'state',
+                'true' if enabled else 'false')
+
     devices = {'elder': args.elder, 'caregiver': args.caregiver}
     for serial in devices.values():
         if args.offline_action_recovery:
-            run(serial, 'shell', 'cmd', 'connectivity', 'airplane-mode', 'disable')
+            set_airplane_mode(serial, False)
             run(serial, 'shell', 'svc', 'wifi', 'enable')
             # google_apis AVDs have Wi-Fi but may expose no cellular service.
             run(serial, 'shell', 'svc', 'data', 'enable', required=False)
@@ -129,7 +141,7 @@ def main():
             # Instrumentation remains reachable over adb while Android networking is disabled.
             # Kill the old process before restoring connectivity so only cold-start recovery can sync.
             run(serial, 'shell', 'am', 'force-stop', PKG)
-            run(serial, 'shell', 'cmd', 'connectivity', 'airplane-mode', 'disable')
+            set_airplane_mode(serial, False)
             run(serial, 'shell', 'svc', 'wifi', 'enable')
             run(serial, 'shell', 'svc', 'data', 'enable', required=False)
             wait_for_network(serial)

@@ -1,4 +1,4 @@
-name: P0 two-emulator API35
+name: P0 two-emulator API27/API35
 
 on:
   workflow_dispatch:
@@ -18,16 +18,17 @@ permissions:
   contents: read
 
 jobs:
-  p0-two-emulator-api35:
-    name: p0-two-emulator-api35 (${{ matrix.locale }})
+  p0-two-emulator:
+    name: p0-two-emulator-api${{ matrix.api }} (${{ matrix.locale }})
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
+        api: ['27', '35']
         locale: [en-US, zh-CN]
     concurrency:
-      group: p0-two-emulator-${{ github.event.pull_request.number || github.ref }}-${{ matrix.locale }}
+      group: p0-two-emulator-${{ github.event.pull_request.number || github.ref }}-${{ matrix.api }}-${{ matrix.locale }}
       cancel-in-progress: true
     steps:
       - name: Check out exact reviewed head
@@ -52,8 +53,8 @@ jobs:
         with:
           packages: platform-tools
 
-      - name: Install Android 15 emulator image
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "emulator" "system-images;android-35;google_apis;x86_64"
+      - name: Install Android emulator image
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "emulator" "system-images;android-${{ matrix.api }};google_apis;x86_64"
 
       - name: Enable runner-local emulator acceleration
         run: |
@@ -81,17 +82,18 @@ jobs:
           EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: >-
           python3 scripts/run_p0_two_emulator_api35.py
+          --api "${{ matrix.api }}"
           --locale "${{ matrix.locale }}"
           --server-jar "$P0_SERVER_JAR"
-          --output "$RUNNER_TEMP/p0-two-emulator-${{ matrix.locale }}"
+          --output "$RUNNER_TEMP/p0-two-emulator-api${{ matrix.api }}-${{ matrix.locale }}"
 
       - name: Retain exact-head causal evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: p0-two-emulator-${{ matrix.locale }}-${{ github.event.pull_request.head.sha || github.sha }}
+          name: p0-two-emulator-api${{ matrix.api }}-${{ matrix.locale }}-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
-            ${{ runner.temp }}/p0-two-emulator-${{ matrix.locale }}
-            !${{ runner.temp }}/p0-two-emulator-${{ matrix.locale }}/**/private/**
+            ${{ runner.temp }}/p0-two-emulator-api${{ matrix.api }}-${{ matrix.locale }}
+            !${{ runner.temp }}/p0-two-emulator-api${{ matrix.api }}-${{ matrix.locale }}/**/private/**
           if-no-files-found: warn
           retention-days: 14

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the existing offline P0 Debug chain on two job-owned API35 AVDs.
+"""Run the existing offline P0 Debug chain on two job-owned API27 or API35 AVDs.
 
 This is acceptance infrastructure for the Debug anonymous/memory-service path. It does not
 claim Release authentication, Help delivery, cloud deployment or physical-device acceptance.
@@ -21,10 +21,15 @@ from run_debug_online_chain import phases_for
 
 ROOT = Path(__file__).resolve().parents[1]
 SERIALS = {"elder": "emulator-5560", "caregiver": "emulator-5562"}
-AVD_NAMES = {
-    "elder": "group33_p0_elder_api35",
-    "caregiver": "group33_p0_caregiver_api35",
-}
+
+
+def avd_names(api):
+    if api not in {"27", "35"}:
+        raise ValueError("P0 acceptance supports only API27 and API35")
+    return {
+        "elder": f"group33_p0_elder_api{api}",
+        "caregiver": f"group33_p0_caregiver_api{api}",
+    }
 
 
 def expected_phases():
@@ -45,7 +50,8 @@ def verify_chain_results(rows):
 
 
 def finalize_result(
-    *, head, expected_head, devices, phases, server_healthy, private_state_removed
+    *, head, expected_head, expected_api, devices, phases, server_healthy,
+    private_state_removed
 ):
     result = {
         "head": head,
@@ -64,7 +70,7 @@ def finalize_result(
         result["failure"] = "server-not-healthy"
         return result
     if set(devices) != {"elder", "caregiver"} or any(
-        device.get("api") != "35"
+        device.get("api") != expected_api
         or device.get("abi") != "x86_64"
         or device.get("stopped") is not True
         for device in devices.values()
@@ -92,7 +98,9 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--server-jar", type=Path, required=True)
     parser.add_argument("--locale", choices=("en-US", "zh-CN"), required=True)
+    parser.add_argument("--api", choices=("27", "35"), required=True)
     args = parser.parse_args()
+    owned_avd_names = avd_names(args.api)
 
     if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("CI") != "true":
         raise RuntimeError("The destructive dual-AVD orchestrator is restricted to GitHub Actions")
@@ -198,11 +206,11 @@ def main():
                     "create",
                     "avd",
                     "--name",
-                    AVD_NAMES[role],
+                    owned_avd_names[role],
                     "--path",
                     str(avd_path),
                     "--package",
-                    "system-images;android-35;google_apis;x86_64",
+                    f"system-images;android-{args.api};google_apis;x86_64",
                     "--device",
                     "pixel_6",
                 ],
@@ -221,7 +229,7 @@ def main():
                 [
                     str(emulator),
                     "-avd",
-                    AVD_NAMES[role],
+                    owned_avd_names[role],
                     "-port",
                     SERIALS[role].removeprefix("emulator-"),
                     "-no-window",
@@ -279,9 +287,9 @@ def main():
                 role, "shell", "getprop", "ro.product.cpu.abi"
             ).stdout.strip()
             name = run_adb_for_role(role, "emu", "avd", "name").stdout
-            if AVD_NAMES[role] not in name:
+            if owned_avd_names[role] not in name:
                 raise RuntimeError(f"Wrong {role} AVD identity")
-            if devices[role]["api"] != "35" or devices[role]["abi"] != "x86_64":
+            if devices[role]["api"] != args.api or devices[role]["abi"] != "x86_64":
                 raise RuntimeError(f"Wrong {role} API or ABI")
 
         chain_output = output / "chain"
@@ -318,7 +326,7 @@ def main():
             if process.poll() is None:
                 try:
                     name = run_adb_for_role(role, "emu", "avd", "name", timeout=10).stdout
-                    if AVD_NAMES[role] in name:
+                    if owned_avd_names[role] in name:
                         run_adb_for_role(role, "emu", "kill", timeout=10)
                     else:
                         process.terminate()
@@ -346,6 +354,7 @@ def main():
         result = finalize_result(
             head=head,
             expected_head=expected_head,
+            expected_api=args.api,
             devices=devices,
             phases=phases,
             server_healthy=server_healthy,
@@ -353,6 +362,7 @@ def main():
         )
         result.update(
             locale=args.locale,
+            api=args.api,
             physical_device=False,
             production_provider=False,
             help_delivery=False,
