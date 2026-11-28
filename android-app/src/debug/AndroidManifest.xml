@@ -5,12 +5,11 @@
         <activity android:name=".caregiver.plan.PlanEditorDebugActivity" android:exported="false" />
         <activity android:name=".caregiver.CaregiverNavigationPreviewActivity" android:exported="true" />
         <activity android:name=".caregiver.CaregiverEventRowTestActivity" android:exported="false" />
-        <receiver android:name=".integration.DebugDoseAlarmReceiver" android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.TIME_SET" />
-                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
-            </intent-filter>
-        </receiver>
+        <activity
+            android:name=".caregiver.CaregiverOverviewTestActivity"
+            android:exported="true"
+            android:permission="android.permission.DUMP"
+            android:label="C3 Overview Preview (Debug)" />
+        <activity android:name=".caregiver.CaregiverOverviewHostTestActivity" android:exported="false" />
     </application>
 </manifest>
