@@ -135,6 +135,9 @@ def main():
     avd_root.mkdir()
     photo_root = private_root / "photos"
     photo_root.mkdir(mode=0o700)
+    acceptance_clock = private_root / "server-clock"
+    acceptance_clock.write_text("SYSTEM\n")
+    acceptance_clock.chmod(0o600)
     env = dict(os.environ, ANDROID_AVD_HOME=str(avd_root))
 
     emulator_processes = {}
@@ -171,6 +174,7 @@ def main():
             DOSE_GROUP_ENABLED="true",
             PERSISTENCE_MODE="memory",
             PHOTO_OBJECT_ROOT=str(photo_root),
+            APP_ACCEPTANCE_CLOCK_FILE=str(acceptance_clock),
         )
         server_process = subprocess.Popen(
             [
@@ -281,6 +285,7 @@ def main():
                 raise RuntimeError(f"Wrong {role} API or ABI")
 
         chain_output = output / "chain"
+        chain_env = dict(env, P0_ACCEPTANCE_CLOCK_FILE=str(acceptance_clock))
         run = subprocess.run(
             [
                 "python3",
@@ -297,7 +302,7 @@ def main():
                 "--reset-test-apps",
             ],
             cwd=ROOT,
-            env=env,
+            env=chain_env,
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,

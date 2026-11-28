@@ -63,6 +63,8 @@ def main():
         parser.error('Use two distinct emulator installations; this harness does not wipe/run physical devices')
     adb = str(Path(os.environ.get('ANDROID_HOME', str(Path.home() / 'Android/sdk'))) / 'platform-tools/adb')
     args.output.mkdir(parents=True, exist_ok=True)
+    acceptance_clock = os.environ.get('P0_ACCEPTANCE_CLOCK_FILE')
+    acceptance_clock = Path(acceptance_clock).resolve() if acceptance_clock else None
 
     def run(serial, *command, data=None, required=True):
         p = subprocess.run([adb, '-s', serial, *command], input=data, capture_output=True, timeout=220 if args.live_dose else 120)
@@ -148,7 +150,11 @@ def main():
                     'cat', f'no_backup/chain-{image}.png'))
         if phase in ['caregiver-live-dose-plan', 'elder-live-dose', 'elder-login', 'elder-recover-code', 'caregiver-request', 'elder-accept', 'elder-photo', 'caregiver-plan-ui', 'caregiver-lost-reply']:
             bridge = run(serial, 'exec-out', 'run-as', PKG, 'cat', 'no_backup/chain-bridge.json')
-            json.loads(bridge)
+            bridge_values = json.loads(bridge)
+            if phase == 'caregiver-live-dose-plan' and acceptance_clock is not None:
+                temporary = acceptance_clock.with_suffix('.next')
+                temporary.write_text(str(bridge_values['liveDoseAt'] + 1) + '\n')
+                os.replace(temporary, acceptance_clock)
     print('All two-emulator local HTTP phases passed. Physical-device and production-login acceptance remain separate.')
 
 
