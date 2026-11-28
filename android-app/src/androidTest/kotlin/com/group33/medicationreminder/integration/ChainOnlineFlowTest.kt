@@ -859,6 +859,7 @@ class ChainOnlineFlowTest {
                 ready()
                 val activity = launch()
                 success(s.pairing.refresh())
+                nav(activity, R.id.nav_records)
                 click(activity, R.string.c3_refresh)
                 val elderId = b.getString("elderId")
                 val date = java.time.Instant.ofEpochMilli(b.getLong("helpDoseAt"))
