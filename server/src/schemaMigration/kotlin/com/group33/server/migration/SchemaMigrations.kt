@@ -56,7 +56,7 @@ class MigrationSettings private constructor(val source: DataSource, val schema: 
 
 /** Versioned SQL is owned by Flyway. No clean, repair, baseline or startup hook is exposed. */
 class SchemaMigrations(private val source: DataSource, private val schema: String) {
-    companion object { const val VERSION = "12" }
+    companion object { const val VERSION = "13" }
     override fun toString() = "SchemaMigrations(REDACTED)"
 
     private fun flyway(): Flyway {

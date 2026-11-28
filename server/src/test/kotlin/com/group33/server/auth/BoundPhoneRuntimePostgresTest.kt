@@ -4,6 +4,22 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.group33.server.MedicationReminderServerApplication
 import com.group33.server.config.PersistenceRuntime
+import com.group33.server.pairing.*
+import com.group33.server.plan.*
+import com.group33.server.photo.*
+import com.group33.server.photo.storage.LocalFilePhotoObjectStore
+import com.group33.shared.contract.*
+import com.group33.shared.model.UserRole
+import java.awt.image.BufferedImage
+import java.io.ByteArrayOutputStream
+import java.net.InetAddress
+import java.time.LocalDate
+import java.time.ZoneId
+import java.sql.SQLException
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import javax.imageio.ImageIO
 import com.group33.server.migration.SchemaMigrations
 import com.group33.server.pairing.PostgresPairingCodeStoreTest.Companion.required
 import java.net.URI
@@ -100,6 +116,8 @@ internal class BoundPhoneRuntimePostgresTest {
         execute("GRANT USAGE ON SCHEMA $schema TO $runtime; GRANT SELECT,INSERT,UPDATE ON ALL TABLES IN SCHEMA $schema TO $runtime")
         if (scalar("SELECT count(*) FROM pg_class WHERE relnamespace='$schema'::regnamespace AND relname='phone_bound_registration_tickets'") == "1")
             execute("GRANT DELETE ON phone_bound_registration_tickets TO $runtime")
+        if (scalar("SELECT count(*) FROM pg_class WHERE relnamespace='$schema'::regnamespace AND relname='server_principal'") == "1")
+            execute("REVOKE INSERT,UPDATE ON server_principal FROM $runtime")
     }
     private fun properties() = mutableMapOf(
         "server.address" to "127.0.0.1", "server.port" to "0", "server.forward-headers-strategy" to "none",
@@ -264,13 +282,243 @@ internal class BoundPhoneRuntimePostgresTest {
         assertEquals(0, calls.get())
         assertEquals(before, scalar("SELECT string_agg(xmin::text,',' ORDER BY installed_rank) FROM group33_schema_history"))
     }
+    @ParameterizedTest @ValueSource(strings = ["missing-registry", "registry-write", "registry-public-column", "registry-client-read",
+        "function-execute", "function-public-execute", "function-path", "trigger-disabled", "projection-drift", "dose-reference", "registry-maintain", "cascading-reference", "runtime-all-data", "runtime-all-write"])
+    fun `registry integrity privilege and trigger drift reject startup without repairing history`(kind: String) {
+        migrate(); grants()
+        when(kind) {
+            "missing-registry" -> execute("DROP TABLE server_principal CASCADE")
+            "registry-write" -> execute("GRANT INSERT ON server_principal TO $runtime")
+            "registry-public-column" -> execute("GRANT SELECT(id) ON server_principal TO PUBLIC")
+            "registry-client-read" -> execute("GRANT SELECT ON server_principal TO anon")
+            "function-execute" -> execute("GRANT EXECUTE ON FUNCTION server_principal_sync() TO $runtime")
+            "function-public-execute" -> execute("GRANT EXECUTE ON FUNCTION server_principal_sync() TO PUBLIC")
+            "function-path" -> execute("ALTER FUNCTION server_principal_sync() SET search_path TO public,pg_catalog")
+            "trigger-disabled" -> execute("ALTER TABLE anonymous_identity DISABLE TRIGGER server_principal_sync")
+            "projection-drift" -> execute("INSERT INTO server_principal(id,kind,role) VALUES ('fictional-orphan','PHONE','ELDER')")
+            "dose-reference" -> execute("ALTER TABLE dose_group_operation DROP CONSTRAINT dose_group_operation_principal")
+            "registry-maintain" -> {
+                val privilege=if(scalar("SHOW server_version_num").toInt()>=170000) "MAINTAIN" else "TRIGGER"
+                execute("GRANT $privilege ON server_principal TO $runtime")
+            }
+            "runtime-all-data" -> admin("GRANT pg_read_all_data TO $runtime WITH INHERIT FALSE, SET TRUE")
+            "runtime-all-write" -> admin("GRANT pg_write_all_data TO $runtime")
+            "cascading-reference" -> execute("ALTER TABLE dose_group_operation DROP CONSTRAINT dose_group_operation_principal; " +
+                "ALTER TABLE dose_group_operation ADD CONSTRAINT dose_group_operation_principal FOREIGN KEY(elder_id) REFERENCES server_principal(id) ON DELETE CASCADE")
+        }
+        val history=scalar("SELECT string_agg(xmin::text,',' ORDER BY installed_rank) FROM group33_schema_history")
+        val failure=assertThrows(Exception::class.java){ start() }
+        assertTrue(generateSequence(failure as Throwable){it.cause}.any{
+            it.message=="Primary principal registry or private privileges do not match this release"
+        })
+        assertEquals(0,calls.get())
+        assertEquals(history,scalar("SELECT string_agg(xmin::text,',' ORDER BY installed_rank) FROM group33_schema_history"))
+    }
+    private fun doseReceipt(id:String,key:UUID=UUID.randomUUID()) {
+        source(runtime).connection.use { c -> c.prepareStatement("""INSERT INTO dose_group_operation
+            (elder_id,operation_id,installation_id,request_payload,response_payload) VALUES (?,?,?,?::jsonb,?::jsonb)""").use { q ->
+            q.setString(1,id);q.setObject(2,key);q.setString(3,UUID.randomUUID().toString())
+            // Structural FK fixture, not a claimed HTTP dose acceptance case.
+            q.setString(4,"{\"actionId\":\"$key\",\"occurrences\":[{}]}")
+            q.setString(5,"{\"actionId\":\"$key\",\"events\":[{}]}");q.executeUpdate()
+        } }
+    }
+    @Test fun `formal forward migration accepts phone Elder reference without anonymous alias and retains old receipt bytes`() {
+        migrate("12");grants()
+        val anonymous=PostgresAnonymousIdentityStore(source(runtime)).getOrCreate("fictional-old-elder-install","Fixture",UserRole.ELDER)
+        doseReceipt(anonymous.id)
+        val phone=BoundPhoneIdentityStore(source(runtime)).transaction { it.registerVerifiedPhone("d".repeat(64),UserRole.ELDER,null) }
+        val key=UUID.randomUUID()
+        val before=scalar("SELECT (to_jsonb(d)||jsonb_build_object('_xmin',d.xmin::text))::text FROM dose_group_operation d")
+        val old=assertThrows(SQLException::class.java){doseReceipt(phone.id,key)}
+        assertEquals("23503",old.sqlState)
+        assertEquals(1,SchemaMigrations(source(owner),schema).migrate());grants()
+        assertEquals(before,scalar("SELECT (to_jsonb(d)||jsonb_build_object('_xmin',d.xmin::text))::text FROM dose_group_operation d WHERE elder_id='${anonymous.id}'"))
+        assertEquals("PHONE",scalar("SELECT kind FROM server_principal WHERE id='${phone.id}'"))
+        assertEquals("0",scalar("SELECT count(*) FROM anonymous_identity WHERE id='${phone.id}'"))
+        doseReceipt(phone.id,key)
+        val deletion=assertThrows(SQLException::class.java){execute("DELETE FROM phone_accounts WHERE user_id='${phone.id}'")}
+        assertEquals("23503",deletion.sqlState)
+        assertEquals("2",scalar("SELECT count(*) FROM dose_group_operation"))
+        assertEquals("1",scalar("SELECT count(*) FROM phone_accounts WHERE user_id='${phone.id}'"))
+        assertEquals("1",scalar("SELECT count(*) FROM server_principal WHERE id='${phone.id}'"))
+        start() // read-only gate accepts a legitimate upgrade, performs no DDL or provider call.
+        assertEquals(0,calls.get())
+    }
+    @Test fun `root lifecycle is atomic immutable and private without merging colliding identities`() {
+        migrate();grants()
+        val identity=BoundPhoneIdentityStore(source(runtime))
+        val phone=identity.transaction {it.registerVerifiedPhone("e".repeat(64),UserRole.ELDER,null)}
+        assertEquals("PHONE:ELDER",scalar("SELECT kind||':'||role FROM server_principal WHERE id='${phone.id}'"))
+        assertThrows(SQLException::class.java){execute("UPDATE phone_accounts SET role='CAREGIVER' WHERE user_id='${phone.id}'")}
+        assertThrows(SQLException::class.java){execute("UPDATE phone_accounts SET user_id='${UUID.randomUUID()}' WHERE user_id='${phone.id}'")}
+        assertThrows(SQLException::class.java){execute("INSERT INTO anonymous_identity VALUES ('${phone.id}','fictional-collision','Fixture','ELDER')")}
+        assertEquals("0",scalar("SELECT count(*) FROM anonymous_identity WHERE id='${phone.id}'"))
+        source(runtime).connection.use { c ->
+            for(sql in listOf("INSERT INTO server_principal VALUES ('fictional-forged','PHONE','ELDER')",
+                "UPDATE server_principal SET role='CAREGIVER' WHERE id='${phone.id}'", "DELETE FROM server_principal WHERE id='${phone.id}'")) {
+                val failure=assertThrows(SQLException::class.java){c.createStatement().use{it.execute(sql)}}
+                assertEquals("42501",failure.sqlState)
+            }
+            c.createStatement().use { q -> q.executeQuery("SELECT has_function_privilege(current_user,'server_principal_sync()','EXECUTE')").use { r ->
+                check(r.next());assertFalse(r.getBoolean(1))
+            } }
+        }
+        execute("DELETE FROM phone_accounts WHERE user_id='${phone.id}'")
+        assertEquals("0",scalar("SELECT count(*) FROM server_principal"))
+        val anonymous=PostgresAnonymousIdentityStore(source(runtime)).getOrCreate("fictional-name-updates","Original",UserRole.ELDER)
+        assertEquals(anonymous.id,PostgresAnonymousIdentityStore(source(runtime)).getOrCreate("fictional-name-updates","Renamed",UserRole.ELDER).id)
+        assertEquals("ANONYMOUS:ELDER",scalar("SELECT kind||':'||role FROM server_principal WHERE id='${anonymous.id}'"))
+    }
+    @Test fun `ambiguous pre registry identities refuse adoption without merging repairing or recording V13`() {
+        migrate("12");grants()
+        val phone=BoundPhoneIdentityStore(source(runtime)).transaction {it.registerVerifiedPhone("a".repeat(64),UserRole.ELDER,null)}
+        execute("INSERT INTO anonymous_identity VALUES ('${phone.id}','fictional-pre-registry-collision','Fixture','ELDER')")
+        val history=scalar("SELECT string_agg(xmin::text,',' ORDER BY installed_rank) FROM group33_schema_history")
+        val before=scalar("SELECT row_to_json(p)::text FROM phone_accounts p")
+        val failure=assertThrows(IllegalStateException::class.java){SchemaMigrations(source(owner),schema).migrate()}
+        assertNull(failure.cause);assertFalse(failure.toString().contains(phone.id))
+        assertEquals(history,scalar("SELECT string_agg(xmin::text,',' ORDER BY installed_rank) FROM group33_schema_history"))
+        assertEquals(before,scalar("SELECT row_to_json(p)::text FROM phone_accounts p"))
+        assertEquals("1",scalar("SELECT count(*) FROM anonymous_identity WHERE id='${phone.id}'"))
+        assertEquals("0",scalar("SELECT count(*) FROM pg_class WHERE relnamespace='$schema'::regnamespace AND relname='server_principal'"))
+    }
+    @Test fun `simultaneous inserts from different identity namespaces commit only one root and one registry entry`() {
+        migrate();grants();val id=UUID.randomUUID().toString();val ready=CountDownLatch(2);val go=CountDownLatch(1)
+        val executor=Executors.newFixedThreadPool(2)
+        try {
+            val jobs=listOf(false,true).map { phone -> executor.submit<Boolean> {
+                source(runtime).connection.use { c ->
+                    ready.countDown();check(go.await(5,TimeUnit.SECONDS))
+                    try {
+                        c.prepareStatement(if(phone) "INSERT INTO phone_accounts(phone_hash,user_id,role,display_name) VALUES (?,?,'ELDER','Fixture')"
+                            else "INSERT INTO anonymous_identity(id,installation_id,role,display_name) VALUES (?,?,'ELDER','Fixture')").use { q ->
+                            q.setString(1,if(phone) "b".repeat(64) else id);q.setString(2,if(phone) id else "fictional-concurrent-install")
+                            q.executeUpdate()
+                        };true
+                    } catch(failure:SQLException){assertEquals("23505",failure.sqlState);false}
+                }
+            } }
+            assertTrue(ready.await(5,TimeUnit.SECONDS));go.countDown()
+            assertEquals(1,jobs.count{it.get(10,TimeUnit.SECONDS)})
+            assertEquals("1",scalar("SELECT count(*) FROM server_principal WHERE id='$id'"))
+            assertEquals("1",scalar("SELECT (SELECT count(*) FROM anonymous_identity WHERE id='$id')+(SELECT count(*) FROM phone_accounts WHERE user_id='$id')"))
+        } finally {go.countDown();executor.shutdownNow()}
+    }
+    private fun phoneLogin(installation: String, role: UserRole = UserRole.CAREGIVER): JsonNode {
+        val verified = verify(installation, attempt(installation))
+        return if (verified["status"].asText() == "SIGNED_IN") verified else ok(post("phone/register", mapOf(
+            "installationId" to installation, "registrationTicket" to verified["registrationTicket"].asText(),
+            "role" to role.name, "displayName" to "Fixture")))
+    }
+    private fun planProperties() = properties().apply {
+        put("app.plan.enabled", "true"); put("app.photo.enabled", "true")
+        put("app.photo.root", directory.resolve("objects").toString())
+    }
+    private data class PlanFixture(val original: ConfirmReminderPlanResponse, val edit: UpdateReminderPlanRequest,
+                                   val caregiverToken: String, val caregiverInstallation: String,
+                                   val elderToken: String, val elderClaims: BoundPhoneSessionClaims, val relation: CareRelationshipView)
+    private fun seedPhonePlan(): PlanFixture {
+        val context = checkNotNull(app); val infra = context.getBean(BoundPhoneInfrastructure::class.java)
+        // Administrative fixture setup for the still-closed pairing/photo/confirmation paths.
+        // Actual plan HTTP below uses the application's restricted runtime store.
+        val store = PostgresPairingCodeStore(source(owner), PairingReceiptCipher(Files.readAllBytes(directory.resolve("receipt"))))
+        val install = UUID.randomUUID().toString(); val caregiver = phoneLogin(install)
+        val caregiverClaims = assertNotNullClaims(infra.jwt.validate(caregiver["accessToken"].asText()))
+        // Independent phone Elder fixture, no corresponding anonymous row. No claim that its
+        // photo/pairing/confirmation HTTP path is wired yet; only writes below use the actual routes.
+        val elder = infra.identity.transaction { tx ->
+            val user = tx.registerVerifiedPhone("f".repeat(64), UserRole.ELDER, null)
+            val now = infra.clock.instant().epochSecond
+            tx.openSession(UUID.fromString(user.id), UUID.randomUUID(), infra.jwt.audience, now, now + 86400)
+        }
+        val elderSetup = AnonymousUser(elder.user.id, elder.claims.installationId.toString(), elder.user.displayName, UserRole.ELDER)
+        val caregiverSetup = AnonymousUser(caregiverClaims.userId.toString(), install, "Fixture", UserRole.CAREGIVER)
+        val code = assertInstanceOf(CodeIssuanceResult.Issued::class.java,
+            PairingCodeIssuanceService(store, infra.clock).issue(elderSetup, UUID.randomUUID())).view.code
+        val pending = assertInstanceOf(PairingRequestResult.Success::class.java,
+            PairingRequestService(store, infra.clock).request(caregiverSetup, UUID.randomUUID(), RequestPairingRequest(code), InetAddress.getByName("192.0.2.44"))).view
+        val relation = assertInstanceOf(PairingDecisionResult.Relationship::class.java,
+            PairingDecisionService(store, infra.clock).accept(elderSetup, pending.id, UUID.randomUUID())).view
+        val bytes = ByteArrayOutputStream().use { out -> ImageIO.write(BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB), "png", out); out.toByteArray() }
+        val objects = LocalFilePhotoObjectStore(directory.resolve("objects"))
+        val photo = assertInstanceOf(PhotoBusinessResult.Uploaded::class.java,
+            MedicationPhotoService(store, objects, infra.clock).upload(elderSetup, elder.user.id, UUID.randomUUID(), bytes, "image/png")).view
+        val zone = "Asia/Shanghai"; val date = LocalDate.ofInstant(infra.clock.instant(), ZoneId.of(zone)).toString()
+        val draft = ReminderPlanDraft(listOf("08:00"), date, zone)
+        val acknowledgment = TimeZoneAcknowledgement(zone, false, zone, zone)
+        val original = assertInstanceOf(PlanConfirmationResult.Confirmed::class.java,
+            ReminderPlanConfirmationService(store, objects, infra.clock).confirm(caregiverSetup, elder.user.id, UUID.randomUUID(),
+                ConfirmReminderPlanRequest(photo.id, MedicationText("Fixture", "Fixture"), draft, acknowledgment))).view
+        assertEquals("0", scalar("SELECT count(*) FROM anonymous_identity WHERE id IN ('${elder.user.id}','${caregiverClaims.userId}')"))
+        assertEquals("2", scalar("SELECT count(*) FROM server_principal WHERE kind='PHONE'"))
+        return PlanFixture(original, UpdateReminderPlanRequest(1, draft.copy(localTimes=listOf("09:00")), acknowledgment),
+            caregiver["accessToken"].asText(), install, infra.jwt.issue(elder.claims), elder.claims, relation)
+    }
+    private fun planRequest(fixture: PlanFixture, token: String = fixture.caregiverToken, key: UUID,
+                            stop: Boolean = false, body: String = mapper.writeValueAsString(fixture.edit),
+                            suffix: String = ""): HttpResponse<String> {
+        val path = "/api/v1/reminder-plans/${fixture.original.plan.id}" + (if (stop) "/deactivate" else "") + suffix
+        val request = HttpRequest.newBuilder(URI("http://127.0.0.1:${checkNotNull(app).webServer.port}$path"))
+            .timeout(Duration.ofSeconds(10)).header("Content-Type", "application/json")
+            .header("Authorization", "Bearer $token").header(ContractProtocol.IDEMPOTENCY_HEADER, key.toString())
+            .method(if (stop) "POST" else "PATCH", HttpRequest.BodyPublishers.ofString(body)).build()
+        return http.send(request, HttpResponse.BodyHandlers.ofString())
+    }
+    private fun problem(response: HttpResponse<String>, status: Int, code: String) {
+        assertEquals(status, response.statusCode(), response.body())
+        val error = mapper.readTree(response.body()); assertEquals(code, error["code"].asText())
+        assertEquals(error["requestId"].asText(), response.headers().firstValue("X-Request-ID").orElseThrow())
+        assertTrue(response.headers().firstValue("Cache-Control").orElseThrow().contains("no-store"))
+        if (status == 401) assertEquals("Bearer", response.headers().firstValue("WWW-Authenticate").orElseThrow())
+    }
+    @Test fun `real phone plan routes retain original write and stop receipts through restart and re login`() {
+        migrate(); grants(); val values = planProperties(); start(values); val fixture = seedPhonePlan(); val key = UUID.randomUUID()
+        val first = ok(planRequest(fixture, key=key)); assertEquals(2, first["plan"]["revision"].asInt())
+        app?.close(); app=null; start(values)
+        val renewed = phoneLogin(fixture.caregiverInstallation)["accessToken"].asText()
+        val replay = ok(planRequest(fixture, token=renewed, key=key)); assertEquals(first, replay)
+        val other = phoneLogin(UUID.randomUUID().toString())["accessToken"].asText()
+        problem(planRequest(fixture, token=other, key=key),409,"IDEMPOTENCY_KEY_REUSED")
+        assertEquals("1",scalar("SELECT count(*) FROM plan_mutation_operation"))
+        val stopKey=UUID.randomUUID(); val stopBody=mapper.writeValueAsString(DeactivateReminderPlanRequest(2))
+        val stopped=ok(planRequest(fixture,token=renewed,key=stopKey,stop=true,body=stopBody)); assertFalse(stopped["active"].asBoolean())
+        assertEquals(stopped,ok(planRequest(fixture,token=renewed,key=stopKey,stop=true,body=stopBody)))
+        assertEquals("2",scalar("SELECT count(*) FROM plan_mutation_operation"));assertEquals("3",scalar("SELECT revision FROM reminder_plan"))
+    }
+    @Test fun `current session and relationship revocation deny actual HTTP effects and original receipt replay`() {
+        migrate(); grants(); start(planProperties()); val fixture=seedPhonePlan();val key=UUID.randomUUID()
+        ok(planRequest(fixture,key=key))
+        val infra=checkNotNull(app).getBean(BoundPhoneInfrastructure::class.java)
+        val claims=assertNotNullClaims(infra.jwt.validate(fixture.caregiverToken))
+        infra.identity.transaction { it.revokeSession(claims.userId,claims.installationId,claims.sessionId,infra.clock.millis()) }
+        problem(planRequest(fixture,key=key),401,"UNAUTHENTICATED")
+        problem(planRequest(fixture,key=UUID.randomUUID()),401,"UNAUTHENTICATED")
+        val renewed=phoneLogin(fixture.caregiverInstallation)["accessToken"].asText()
+        val store=PostgresPairingCodeStore(source(owner),PairingReceiptCipher(Files.readAllBytes(directory.resolve("receipt"))))
+        val elder=AnonymousUser(fixture.elderClaims.userId.toString(),fixture.elderClaims.installationId.toString(),"Fixture",UserRole.ELDER)
+        assertInstanceOf(PairingDecisionResult.Relationship::class.java,
+            PairingDecisionService(store,infra.clock).revoke(elder,fixture.relation.id,UUID.randomUUID()))
+        problem(planRequest(fixture,token=renewed,key=key),404,"RESOURCE_NOT_ACCESSIBLE")
+        problem(planRequest(fixture,token=renewed,key=UUID.randomUUID()),404,"RESOURCE_NOT_ACCESSIBLE")
+        assertEquals("1",scalar("SELECT count(*) FROM plan_mutation_operation"));assertEquals("2",scalar("SELECT revision FROM reminder_plan"))
+    }
+    @Test fun `phone Elder keeps role on forbidden plan edit and malformed requests do not mutate state`() {
+        migrate();grants();start(planProperties());val fixture=seedPhonePlan()
+        problem(planRequest(fixture,token=fixture.elderToken,key=UUID.randomUUID()),403,"ROLE_NOT_ALLOWED")
+        problem(planRequest(fixture,key=UUID.randomUUID(),body="{} {}"),400,"MALFORMED_REQUEST")
+        problem(planRequest(fixture,key=UUID.randomUUID(),suffix="?actor=forged"),400,"MALFORMED_REQUEST")
+        problem(planRequest(fixture,token="invalid",key=UUID.randomUUID(),body="invalid"),401,"UNAUTHENTICATED")
+        assertEquals("0",scalar("SELECT count(*) FROM plan_mutation_operation"));assertEquals("1",scalar("SELECT revision FROM reminder_plan"))
+        assertEquals("ELDER",scalar("SELECT role FROM phone_accounts WHERE user_id='${fixture.elderClaims.userId}'"))
+    }
     @Test fun `previous release cannot boot and formal upgrade preserves old identity data`() {
         migrate("11"); grants()
         execute("INSERT INTO anonymous_identity(id,installation_id,display_name,role) VALUES ('fictional-id','fictional-install','Fixture','ELDER')")
         assertThrows(Exception::class.java) { start() }; assertEquals(0, calls.get())
-        assertEquals(1, SchemaMigrations(source(owner), schema).migrate()); grants(); start()
+        assertEquals(SchemaMigrations.VERSION.toInt()-11, SchemaMigrations(source(owner), schema).migrate()); grants(); start()
         assertEquals("fictional-id", scalar("SELECT id FROM anonymous_identity"))
-        assertEquals("12", scalar("SELECT max(version::int) FROM group33_schema_history"))
+        assertEquals(SchemaMigrations.VERSION, scalar("SELECT max(version::int) FROM group33_schema_history"))
     }
     @Test fun `unmanaged phone trial blocks formal upgrade without recording history or partially creating tables`() {
         migrate("11"); execute("CREATE TABLE phone_trial (marker text); INSERT INTO phone_trial VALUES ('preserved')")

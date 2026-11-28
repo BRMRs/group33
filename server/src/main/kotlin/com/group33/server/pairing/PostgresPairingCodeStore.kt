@@ -2,6 +2,10 @@ package com.group33.server.pairing
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.group33.server.plan.*
+import com.group33.server.auth.BoundPhoneIdentityTransaction
+import com.group33.server.auth.BoundPhoneSessionClaims
+import com.group33.server.auth.PrimaryPrincipalDirectory
+import com.group33.server.auth.PrincipalKind
 import com.group33.server.occurrence.*
 import com.group33.shared.contract.*
 import com.group33.shared.contract.ConfirmReminderPlanResponse
@@ -76,7 +80,29 @@ internal class PostgresPairingCodeStore(
 
     override fun <T> mutationTransaction(work: (PlanMutationTransaction) -> T): T = registrationTransaction { work(it) }
 
-    override fun <T> registrationTransaction(work: (OccurrenceRegistrationTransaction) -> T): T = dataSource.connection.use { connection ->
+    override fun <T> registrationTransaction(work: (OccurrenceRegistrationTransaction) -> T): T =
+        guardedWrite({ Unit }) { _, tx, _ -> work(tx) }
+
+    fun phonePlanMutation(
+        claims: BoundPhoneSessionClaims,
+        nowSeconds: () -> Long,
+        allowance: Long,
+        work: (PlanWriteActor, PlanMutationTransaction, (String) -> Boolean) -> PlanMutationResult,
+    ): PlanMutationResult = guardedWrite({ connection ->
+        val user = BoundPhoneIdentityTransaction(connection).lockCurrentSession(claims, nowSeconds(), allowance)
+        val directory = PrimaryPrincipalDirectory(connection)
+        if (user == null || directory.find(user.id)?.kind != PrincipalKind.PHONE) throw PlanPhoneUnauthenticated()
+        PlanWriteActor(user.id, claims.installationId.toString(), user.role)
+    }) { actor, tx, connection ->
+        if (claims.expiresAtSeconds <= nowSeconds() - allowance) throw PlanPhoneUnauthenticated()
+        val directory = PrimaryPrincipalDirectory(connection)
+        work(actor, tx) { id -> directory.find(id)?.user?.role == UserRole.ELDER }
+    }
+
+    private fun <C, T> guardedWrite(
+        beforeGuard: (Connection) -> C,
+        work: (C, OccurrenceRegistrationTransaction, Connection) -> T,
+    ): T = dataSource.connection.use { connection ->
         connection.transactionIsolation = Connection.TRANSACTION_READ_COMMITTED
         connection.autoCommit = false
         try {
@@ -84,6 +110,7 @@ internal class PostgresPairingCodeStore(
                 it.setString(1, "${lockWaitMillis}ms")
                 it.execute()
             }
+            val authorized = beforeGuard(connection)
             // Shared database row, not a JVM mutex: includes cross-Elder hash checks and quota/receipt writes.
             val suffix = if (lockWaitMillis == 0L) " NOWAIT" else ""
             connection.createStatement().use { statement ->
@@ -91,7 +118,7 @@ internal class PostgresPairingCodeStore(
                     check(it.next()) { "Pairing Store schema is not initialized" }
                 }
             }
-            val result = work(Transaction(connection, receiptCipher))
+            val result = work(authorized, Transaction(connection, receiptCipher), connection)
             // Run deferred validation under the SQL budget after every business/receipt write.
             // A lost final COMMIT response still requires original-operation reconciliation.
             connection.createStatement().use { it.execute("SET CONSTRAINTS ALL IMMEDIATE") }

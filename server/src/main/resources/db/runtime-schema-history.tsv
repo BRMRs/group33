@@ -10,3 +10,4 @@
 10	V10__dose_action_groups.sql	621384662
 11	V11__plan_collection_indexes.sql	-96611416
 12	V12__bound_phone_identity.sql	1531914117
+13	V13__primary_principal_registry.sql	-1216504162

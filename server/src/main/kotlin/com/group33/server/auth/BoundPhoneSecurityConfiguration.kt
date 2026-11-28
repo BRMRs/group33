@@ -26,8 +26,8 @@ internal class BoundPhoneSecurityConfiguration {
         }
         .exceptionHandling { it.authenticationEntryPoint(errors); it.accessDeniedHandler(errors) }
         .build()
-    /** PS2 is not wired yet. Enabling the candidate must not inherit anonymous-era business access. */
-    @Bean @Order(1)
+    /** Each remaining PS2 path stays closed until its dedicated current-state transaction is wired. */
+    @Bean @Order(2)
     fun boundPhonePendingBusinessSecurity(http: HttpSecurity, errors: ApiSecurityHandlers): SecurityFilterChain = http
         .csrf { it.disable() }
         .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
