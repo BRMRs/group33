@@ -11,5 +11,6 @@
             android:permission="android.permission.DUMP"
             android:label="C3 Overview Preview (Debug)" />
         <activity android:name=".caregiver.CaregiverOverviewHostTestActivity" android:exported="false" />
+        <activity android:name=".caregiver.CaregiverHistoryTestActivity" android:exported="false" />
     </application>
 </manifest>

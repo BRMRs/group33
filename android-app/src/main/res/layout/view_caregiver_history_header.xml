@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="match_parent"
+  android:layout_height="wrap_content"
+  android:orientation="vertical">
+
+  <TextView
+    android:id="@+id/history_title"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:text="@string/c3_history"
+    android:textAppearance="?attr/textAppearanceHeadlineSmall" />
+
+  <TextView
+    android:id="@+id/history_elder"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="12dp"
+    android:textSize="18sp" />
+
+  <TextView
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="8dp"
+    android:text="@string/c3_history_window_hint"
+    android:textSize="14sp" />
+
+  <com.google.android.material.button.MaterialButton
+    android:id="@+id/history_pick_range"
+    style="?attr/materialButtonOutlinedStyle"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:minHeight="48dp"
+    android:text="@string/c3_history_pick_range" />
+
+  <com.google.android.material.textfield.TextInputLayout
+    android:id="@+id/history_from_layout"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="12dp"
+    android:hint="@string/c3_history_from">
+    <com.google.android.material.textfield.TextInputEditText
+      android:id="@+id/history_from"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:inputType="date"
+      android:minHeight="48dp"
+      android:textSize="16sp" />
+  </com.google.android.material.textfield.TextInputLayout>
+
+  <com.google.android.material.textfield.TextInputLayout
+    android:id="@+id/history_through_layout"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="8dp"
+    android:hint="@string/c3_history_through">
+    <com.google.android.material.textfield.TextInputEditText
+      android:id="@+id/history_through"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:inputType="date"
+      android:minHeight="48dp"
+      android:textSize="16sp" />
+  </com.google.android.material.textfield.TextInputLayout>
+
+  <com.google.android.material.button.MaterialButton
+    android:id="@+id/history_apply"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:minHeight="48dp"
+    android:text="@string/c3_history_apply" />
+
+  <TextView
+    android:id="@+id/history_range_error"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:accessibilityLiveRegion="polite"
+    android:textSize="16sp" />
+
+  <TextView
+    android:id="@+id/history_applied_range"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="8dp"
+    android:textSize="14sp" />
+
+  <TextView
+    android:id="@+id/history_state"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="12dp"
+    android:accessibilityLiveRegion="polite"
+    android:textSize="16sp" />
+
+  <TextView
+    android:id="@+id/history_freshness"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="8dp"
+    android:textSize="14sp" />
+
+  <TextView
+    android:id="@+id/history_read_error"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="8dp"
+    android:text="@string/c3_history_read_error"
+    android:accessibilityLiveRegion="polite"
+    android:textSize="16sp" />
+
+  <com.google.android.material.button.MaterialButton
+    android:id="@+id/history_retry"
+    style="?attr/materialButtonOutlinedStyle"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:minHeight="48dp"
+    android:text="@string/c3_history_retry" />
+
+
+</LinearLayout>

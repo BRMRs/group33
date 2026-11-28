@@ -84,10 +84,10 @@ class CaregiverOverviewView @JvmOverloads constructor(
         binding.stateMessage.setText(when (screen.message) {
             OverviewMessage.SELECT_ELDER -> R.string.c3_select_elder
             OverviewMessage.LOADING -> R.string.c3_loading
-            OverviewMessage.ACCESS_UNKNOWN -> R.string.c3_access_unknown
+            OverviewMessage.ACCESS_UNKNOWN -> R.string.c3_overview_access_unknown
             OverviewMessage.REVOKED -> R.string.c3_revoked
-            OverviewMessage.UNAVAILABLE -> R.string.c3_unavailable
-            OverviewMessage.NO_LOCAL_DATA -> R.string.c3_no_local_data
+            OverviewMessage.UNAVAILABLE -> R.string.c3_overview_unavailable
+            OverviewMessage.NO_LOCAL_DATA -> R.string.c3_overview_no_local_data
             OverviewMessage.EMPTY -> R.string.c3_empty
             OverviewMessage.RESULTS -> R.string.c3_results
         })
