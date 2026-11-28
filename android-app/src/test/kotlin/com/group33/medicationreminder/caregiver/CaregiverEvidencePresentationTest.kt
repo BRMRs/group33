@@ -30,6 +30,42 @@ class CaregiverEvidencePresentationTest {
         assertNotEquals(report.receivedAtEpochMillis, row.syncedReports.single().recordedAtEpochMillis)
     }
 
+    @Test fun `accepted TAKEN timestamp maps independently from local report time`() {
+        val source = event(snapshot.doseEvents.first())
+        val state = source.copy(
+            lastAcceptedStatus = DoseStatus.TAKEN,
+            serverAcceptedTakenAtEpochMillis = 1_798_777_777_000L,
+            localReports = listOf(
+                LocalActionReceipt(
+                    "local",
+                    source.occurrence,
+                    DoseActionKind.TAKEN,
+                    LocalActionClassification.LATE_TAKEN,
+                    1_798_700_000_000L,
+                    SyncState.SYNCED,
+                ),
+            ),
+        )
+
+        val row = state.toCaregiverEventRow()
+
+        assertEquals(1_798_777_777_000L, row.serverAcceptedTakenRecordedAtEpochMillis)
+        assertEquals(1_798_700_000_000L, row.syncedReports.single().recordedAtEpochMillis)
+    }
+
+    @Test fun `accepted TAKEN timestamp is absent when missing or status is not TAKEN`() {
+        val state = event(snapshot.doseEvents.first())
+
+        assertNull(state.copy(lastAcceptedStatus = DoseStatus.TAKEN)
+            .toCaregiverEventRow().serverAcceptedTakenRecordedAtEpochMillis)
+        val mismatched = state.copy(
+            lastAcceptedStatus = DoseStatus.MISSED,
+            serverAcceptedTakenAtEpochMillis = 1_798_777_777_000L,
+        ).toCaregiverEventRow()
+        assertEquals(DoseStatus.MISSED, mismatched.acceptedStatus)
+        assertNull(mismatched.serverAcceptedTakenRecordedAtEpochMillis)
+    }
+
     @Test fun `every local action classification hides unconfirmed details until Synced`() {
         val state = event(snapshot.doseEvents.first())
         for (classification in LocalActionClassification.entries) {

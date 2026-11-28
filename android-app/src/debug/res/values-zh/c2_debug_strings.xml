@@ -1,8 +1,8 @@
 <resources>
     <string name="c2_debug_open">打开C2表单测试（Debug）</string>
-    <string name="c2_debug_notice">仅供Debug测试：合成图片和内存响应，无登录、服务端保存或长者送达。离开或旋转后测试重置。</string>
+    <string name="c2_debug_notice">DEBUG · 图片与保存均为模拟，不登录或送达。退出或旋转后重置。</string>
     <string name="c2_debug_scenario">响应场景；点击重置以应用</string>
-    <string name="c2_debug_reset">重置测试表单</string>
+    <string name="c2_debug_reset">重置</string>
     <string name="c2_debug_name">测试药品（虚构）</string>
     <string name="c2_debug_dose">测试剂量（虚构）</string>
     <string name="c2_debug_elder">测试长者</string>
