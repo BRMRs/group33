@@ -609,18 +609,13 @@ class ChainOnlineFlowTest {
                 } }
 
                 var localActionId: String? = null
+                var localDispatchAttempts: Int? = null
                 if (offlineRecovery) {
-                    val action = withTimeout(20_000) {
-                        var pending: com.group33.medicationreminder.core.reminder.ReminderActionRow? = null
-                        waitUntil {
-                            pending = runtime.pendingActions().singleOrNull()
-                            pending?.dispatchAttempts?.let { it >= 1 } == true
-                        }
-                        checkNotNull(pending)
-                    }
+                    val action = runtime.pendingActions().single()
                     assertEquals(com.group33.medicationreminder.core.reminder.ReminderDispatchState.PENDING.name,
                         action.dispatchState)
                     localActionId = action.actionId
+                    localDispatchAttempts = action.dispatchAttempts
                 } else if (b.optBoolean("verifyDoseUpload")) {
                     val scope = trusted.scope
                     val scopeId = ChainCache.digest(listOf(scope.environmentId, scope.installationId, scope.userId)
@@ -652,7 +647,10 @@ class ChainOnlineFlowTest {
                     .put("localDoseGroupId", runtimeGroup.groupId)
                     .put("liveDoseLocalDate", frozen.key.localDate)
                     .put("liveDoseLocalTime", frozen.key.localTime)
-                    .apply { if (localActionId != null) put("localDoseActionId", localActionId) })
+                    .apply { if (localActionId != null) {
+                        put("localDoseActionId", localActionId)
+                        put("localDoseDispatchAttempts", localDispatchAttempts)
+                    } })
             }
             "elder-live-dose-restart" -> {
                 val b = read()
@@ -671,8 +669,8 @@ class ChainOnlineFlowTest {
                             com.group33.medicationreminder.core.reminder.ReminderDispatchState.ACKNOWLEDGED.name
                     }
                     val acceptedAction = checkNotNull(dao.action(actionId))
-                    assertTrue("Cold-start retry must follow the offline attempt",
-                        acceptedAction.dispatchAttempts >= 2)
+                    assertTrue("Cold start must dispatch the durable offline action",
+                        acceptedAction.dispatchAttempts > b.getInt("localDoseDispatchAttempts"))
                     assertEquals(b.getString("localDoseGroupId"), acceptedAction.groupId)
                     val registration = checkNotNull(dao.registration(acceptedAction.groupId))
                     val member = registration.occurrences.single()
