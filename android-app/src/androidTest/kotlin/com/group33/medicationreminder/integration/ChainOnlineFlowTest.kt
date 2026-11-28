@@ -770,7 +770,8 @@ class ChainOnlineFlowTest {
                 assertEquals(AuthReadiness.READY, s.auth.observeSession().first().readiness)
                 waitUntil { var cleared = false
                     instrumentation.runOnMainSync { cleared = descendants(activity.window.decorView).filterIsInstance<PlanEditorView>().none { it.isShown } &&
-                        descendants(activity.window.decorView).filterIsInstance<TextView>().none { it.text.contains("Fictional medicine") } &&
+                        descendants(activity.window.decorView).filterIsInstance<TextView>()
+                            .none { it.isShown && it.text.contains("Fictional medicine") } &&
                         activity.findViewById<TextView>(R.id.current_elder_value).text == activity.getString(R.string.caregiver_no_current_elder) }
                     cleared
                 }
