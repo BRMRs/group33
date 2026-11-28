@@ -116,6 +116,9 @@ Contribution percentages are agreed by the whole team near submission. Commit co
 
 Sync actual main; record attributable S1/lead D1–D4 decisions and15-second call boundary, unknown-attempt closure,401/403/404 recovery and configuration truth. Independent non-author security approval and actual provider/service evidence remain pending. Documentation-only own delta.
 
+- 2026-11-25 BRMRs: adapt #97 bounded SDK transport to the current #118 bound-phone provider interface, preserve original-attempt fencing, and add real PostgreSQL identity/late-result coverage. Partial A delivery; production composition, migrations, independent review and live acceptance remain open.
+
+- 2026-11-25 BRMRs: verify the provider bridge with36 real PostgreSQL16 cases, full Server/Android checks and scoped downloadable PostgreSQL CI evidence; supplier responses remain fictional and deployment acceptance remains open.
 - 2026-11-25 BRMRs: replay original C3 overview #95 as a current-main landing candidate on #41, retaining source authorship and all scope controls; reconcile only current Debug declarations and review records. Refs #15 / #19.
 
 - 2026-11-26 BRMRs: integrate actual main after #41 squash landing; preserve all original fourteen scope tests and the C3 reauthentication control with no runtime/test/capture changes. Refs #15 / #19; actual C1/E review still required.

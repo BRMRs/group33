@@ -83,3 +83,13 @@ jobs:
         run: >-
           ./gradlew -PserverOnly :server:postgresIntegrationTest
           --tests '*PostgresBoundPhoneIdentityTest' --tests '*BoundPhone*PostgresTest' --no-daemon
+
+      - name: Retain isolated bound-phone PostgreSQL evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bound-phone-provider-postgres-${{ github.sha }}
+          path: |
+            server/build/test-results/postgresIntegrationTest/*.xml
+            server/build/reports/tests/postgresIntegrationTest/**
+          retention-days: 7

@@ -1,4 +1,5 @@
 [versions]
+aliyunDypns = "2.0.0"
 flyway = "11.7.2"
 postgresql = "42.7.14"
 agp = "8.7.3"
@@ -20,6 +21,7 @@ room = "2.7.2"
 work = "2.11.2"
 
 [libraries]
+aliyun-dypns = { module = "com.aliyun:dypnsapi20170525", version.ref = "aliyunDypns" }
 flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
 flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
