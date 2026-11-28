@@ -664,11 +664,30 @@ class ChainOnlineFlowTest {
                 if (InstrumentationRegistry.getArguments().getString("offlineActionRecovery") == "true") {
                     val actionId = b.getString("localDoseActionId")
                     val dao = com.group33.medicationreminder.core.reminder.ReminderDatabase.open(app).reminders()
+                    val work = androidx.work.WorkManager.getInstance(app)
+                    var lastRecoveryObservation = ""
                     // Exercise the real WorkManager network constraint and 15-second retry backoff;
                     // this is bounded below one minute and does not wait for a scheduled dose time.
                     withTimeout(55_000) {
-                        while (dao.action(actionId)?.dispatchState !=
-                            com.group33.medicationreminder.core.reminder.ReminderDispatchState.ACKNOWLEDGED.name) {
+                        while (true) {
+                            val action = dao.action(actionId)
+                            val infos = work.getWorkInfosForUniqueWork("reminder-action-$actionId")
+                                .get(10, java.util.concurrent.TimeUnit.SECONDS)
+                            val observation = listOf(
+                                infos.singleOrNull()?.state,
+                                infos.singleOrNull()?.runAttemptCount,
+                                action?.dispatchState,
+                                action?.dispatchAttempts,
+                                s.auth.observeSession().first().readiness,
+                                s.trusted.value != null,
+                                app.getSystemService(android.net.ConnectivityManager::class.java).activeNetwork != null,
+                            ).joinToString(":")
+                            if (observation != lastRecoveryObservation) {
+                                println("Cold recovery observation: $observation")
+                                lastRecoveryObservation = observation
+                            }
+                            if (action?.dispatchState ==
+                                com.group33.medicationreminder.core.reminder.ReminderDispatchState.ACKNOWLEDGED.name) break
                             delay(100)
                         }
                     }
