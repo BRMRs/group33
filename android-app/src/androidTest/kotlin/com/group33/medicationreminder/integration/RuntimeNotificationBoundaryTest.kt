@@ -13,10 +13,11 @@ import android.graphics.Rect
 import android.view.InputDevice
 import android.view.MotionEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import androidx.appcompat.app.AppCompatDelegate
-import androidx.core.os.LocaleListCompat
 import androidx.test.platform.app.InstrumentationRegistry
+import com.group33.medicationreminder.Group33Application
 import com.group33.medicationreminder.R
+import com.group33.medicationreminder.core.data.contract.LanguageChoice
+import com.group33.medicationreminder.core.data.contract.Outcome
 import com.group33.medicationreminder.core.reminder.*
 import java.util.UUID
 import kotlinx.coroutines.CompletableDeferred
@@ -127,10 +128,11 @@ class RuntimeNotificationBoundaryTest {
         while (!condition()) delay(50)
     }
 
-    @Test fun applicationContextNotificationUsesThePersistedChineseLocale() {
-        val original = AppCompatDelegate.getApplicationLocales()
+    @Test fun applicationContextNotificationUsesThePersistedChineseLocale() = runBlocking {
+        val app = context.applicationContext as Group33Application
+        val original = app.languageSettings.observeChoice().value
         try {
-            AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("zh-CN"))
+            assertTrue(app.languageSettings.setChoice(LanguageChoice.SIMPLIFIED_CHINESE) is Outcome.Success)
             val now = System.currentTimeMillis()
             val row = testRegistration("notification-locale-${UUID.randomUUID()}", now,
                 state = ReminderState.RINGING).group
@@ -139,7 +141,7 @@ class RuntimeNotificationBoundaryTest {
             assertEquals("用药提醒", notification.extras
                 .getCharSequence(Notification.EXTRA_TITLE).toString())
         } finally {
-            AppCompatDelegate.setApplicationLocales(original)
+            assertTrue(app.languageSettings.setChoice(original) is Outcome.Success)
         }
     }
 

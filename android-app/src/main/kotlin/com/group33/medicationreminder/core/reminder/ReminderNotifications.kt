@@ -10,7 +10,9 @@ import android.content.res.Configuration
 import android.os.Build
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.app.NotificationCompat
+import com.group33.medicationreminder.Group33Application
 import com.group33.medicationreminder.R
+import com.group33.medicationreminder.core.data.contract.LanguageChoice
 import java.util.UUID
 
 internal enum class ReminderAction(val intentAction: String, val kind: ReminderActionKind) {
@@ -115,9 +117,15 @@ internal object ReminderNotifications {
             .build()
     }
 
-    /** AppCompat locales do not update the Application resources on API 27. */
+    /** Background receivers must use the durable choice even when no Activity delegate exists. */
     private fun localizedStrings(context: Context): Context {
-        val locale = AppCompatDelegate.getApplicationLocales()[0] ?: return context
+        val persisted = (context.applicationContext as? Group33Application)
+            ?.languageSettings?.observeChoice()?.value
+        val locale = when (persisted) {
+            LanguageChoice.ENGLISH -> java.util.Locale.forLanguageTag("en")
+            LanguageChoice.SIMPLIFIED_CHINESE -> java.util.Locale.forLanguageTag("zh-CN")
+            LanguageChoice.FOLLOW_SYSTEM, null -> AppCompatDelegate.getApplicationLocales()[0]
+        } ?: return context
         val configuration = Configuration(context.resources.configuration).apply { setLocale(locale) }
         return context.createConfigurationContext(configuration)
     }
