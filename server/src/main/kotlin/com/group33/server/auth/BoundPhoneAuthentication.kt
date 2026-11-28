@@ -48,7 +48,7 @@ internal class BoundPhoneAuthentication(
         val lease = db.primaryTransaction { connection ->
             val store = BoundPhoneAttemptStore(connection)
             val id = UUID.randomUUID()
-            store.start(id, hash, installation, profile, clock.millis() + ATTEMPT_MS)
+            store.start(id, hash, installation, profile, scheme, clock.millis() + ATTEMPT_MS)
             reserve(store, hash, installation, PhoneWork.GRANT)
         }
         grant(capability, installation, lease, initial = true)
@@ -79,7 +79,7 @@ internal class BoundPhoneAuthentication(
             val account = identity.accountForVerifiedPhone(hash)
             val terminal = if (account == null) {
                 val ticket = newCapability()
-                attempts.issueTicket(digest(ticket), attempt.id, installation, profile, hash, clock.millis() + TICKET_SECONDS * 1000)
+                attempts.issueTicket(digest(ticket), attempt.id, installation, profile, scheme, hash, clock.millis() + TICKET_SECONDS * 1000)
                 VerifiedPhone.Registration(ticket)
             } else {
                 val now = clock.instant().epochSecond
@@ -98,7 +98,7 @@ internal class BoundPhoneAuthentication(
 
     fun register(installation: UUID, ticket: String, role: UserRole, displayName: String?): Map<String, Any> = safe {
         val session = db.primaryTransaction { connection ->
-            val hash = BoundPhoneAttemptStore(connection).consumeTicket(digest(ticket), installation, profile, clock::millis)
+            val hash = BoundPhoneAttemptStore(connection).consumeTicket(digest(ticket), installation, profile, scheme, clock::millis)
                 ?: throw PhoneAuthFailure(HttpStatus.UNPROCESSABLE_ENTITY, "REGISTRATION_INVALID")
             val identity = BoundPhoneIdentityTransaction(connection)
             val account = identity.registerVerifiedPhone(hash, role, displayName)
@@ -139,7 +139,7 @@ internal class BoundPhoneAuthentication(
         db.primaryTransaction { reserve(BoundPhoneAttemptStore(it), digest(capability), installation, work, proof) }
 
     private fun reserve(store: BoundPhoneAttemptStore, hash: String, installation: UUID, work: PhoneWork, proof: String? = null): UUID {
-        val attempt = store.current(hash, installation, profile) ?: invalidAttempt()
+        val attempt = store.current(hash, installation, profile, scheme) ?: invalidAttempt()
         val now = clock.millis()
         if (attempt.state != AttemptState.PENDING || attempt.deadline <= now) invalidAttempt()
         if (attempt.leaseUntil != null) {
@@ -154,7 +154,7 @@ internal class BoundPhoneAuthentication(
     }
 
     private fun completing(store: BoundPhoneAttemptStore, capability: String, installation: UUID, lease: UUID): PhoneAttempt {
-        val attempt = store.current(digest(capability), installation, profile) ?: invalidAttempt()
+        val attempt = store.current(digest(capability), installation, profile, scheme) ?: invalidAttempt()
         val now = clock.millis()
         if (attempt.state != AttemptState.PENDING || attempt.lease != lease || attempt.leaseUntil == null ||
             now >= attempt.leaseUntil || now >= attempt.deadline) invalidAttempt()
@@ -164,20 +164,32 @@ internal class BoundPhoneAuthentication(
     private fun close(installation: UUID, capability: String, lease: UUID) {
         db.primaryTransaction { connection ->
             val store = BoundPhoneAttemptStore(connection)
-            val attempt = store.current(digest(capability), installation, profile)
+            val attempt = store.current(digest(capability), installation, profile, scheme)
             if (attempt?.lease == lease && attempt.state == AttemptState.PENDING) {
                 store.finish(attempt.id, AttemptState.CLOSED, attempt.deadline)
             }
         }
     }
 
-    private fun <T> supplier(installation: UUID, capability: String, lease: UUID, call: () -> T): T = try {
-        call()
-    } catch (failure: Exception) {
-        // If even closing fails, the durable expired lease still excludes re-execution and late completion.
-        try { close(installation, capability, lease) } catch (_: BoundPhoneIdentityUnavailable) { }
-        if (failure is InterruptedException) Thread.currentThread().interrupt()
-        unavailable()
+    private fun <T> supplier(installation: UUID, capability: String, lease: UUID, call: () -> T): T {
+        val attempt = db.primaryTransaction { connection ->
+            completing(BoundPhoneAttemptStore(connection), capability, installation, lease)
+        }
+        // Reservation/validation commits and scheduling can consume the original call budget.
+        // Check after the transaction returns, immediately before any proof/grant goes upstream.
+        val remaining = minOf(attempt.deadline, checkNotNull(attempt.leaseUntil)) - clock.millis()
+        if (remaining <= SUPPLIER_BUDGET_MS) {
+            close(installation, capability, lease)
+            invalidAttempt()
+        }
+        return try {
+            call()
+        } catch (failure: Exception) {
+            // If even closing fails, the durable expired lease still excludes re-execution and late completion.
+            try { close(installation, capability, lease) } catch (_: BoundPhoneIdentityUnavailable) { }
+            if (failure is InterruptedException) Thread.currentThread().interrupt()
+            unavailable()
+        }
     }
 
     private fun <T> safe(call: () -> T): T = try { call() }
@@ -194,6 +206,7 @@ internal class BoundPhoneAuthentication(
         const val TICKET_SECONDS = 300L
         // This DB lease leaves margin over the existing 15s supplier call budget.
         const val WORK_MS = 20_000L
+        const val SUPPLIER_BUDGET_MS = 15_000L
         val random = SecureRandom()
         fun newCapability() = Base64.getUrlEncoder().withoutPadding().encodeToString(ByteArray(32).also(random::nextBytes))
         fun digest(value: String) = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.toByteArray()))

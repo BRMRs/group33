@@ -4,6 +4,7 @@ CREATE TABLE phone_auth_attempts (
     capability_hash CHAR(64) NOT NULL UNIQUE,
     installation_id UUID NOT NULL,
     profile VARCHAR(128) NOT NULL,
+    scheme_code TEXT NOT NULL,
     deadline_ms BIGINT NOT NULL,
     state VARCHAR(12) NOT NULL CHECK (state IN ('PENDING', 'CLOSED', 'CONSUMED')),
     work VARCHAR(6) CHECK (work IN ('GRANT', 'VERIFY')),
@@ -22,6 +23,7 @@ CREATE TABLE phone_bound_registration_tickets (
     attempt_id UUID NOT NULL UNIQUE REFERENCES phone_auth_attempts(id),
     installation_id UUID NOT NULL,
     profile VARCHAR(128) NOT NULL,
+    scheme_code TEXT NOT NULL,
     phone_hash CHAR(64) NOT NULL,
     expires_ms BIGINT NOT NULL
 );

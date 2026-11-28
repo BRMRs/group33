@@ -174,4 +174,50 @@ internal class BoundPhoneFlowPostgresTest {
             if (schema != null) { currentSchema = schema; applicationName = schema }
         }
     }
+
+    @Test fun `refresh cannot retarget an original attempt to a changed configured scheme`() {
+        val original = service().start(installation)
+        val capability = original.getValue("authenticationAttemptToken") as String
+        now.addAndGet(60_000)
+        val changed = BoundPhoneAuthentication(BoundPhoneIdentityStore(source(schema)), provider, jwt, clock,
+            "different-scheme", ByteArray(32) { 5 })
+        val response = try { changed.refresh(installation, capability) } catch (failure: PhoneAuthFailure) {
+            assertEquals("PHONE_VERIFICATION_FAILED", failure.code)
+            null
+        }
+        if (response != null) {
+            assertEquals(original.getValue("schemeCode"), response.getValue("schemeCode"),
+                "a surviving original attempt must not echo a different scheme")
+            assertEquals(capability, response.getValue("authenticationAttemptToken"))
+        }
+    }
+
+    @Test fun `old scheme capability cannot authorize proof work on a newly configured supplier`() {
+        val capability = service().start(installation).getValue("authenticationAttemptToken") as String
+        val foreignVerifies = AtomicInteger()
+        val changedProvider = object : BoundPhoneProvider {
+            override fun grant() = BoundPhoneGrant("other-scheme-token", now.get() + 900_000)
+            override fun verify(proof: String): String? { foreignVerifies.incrementAndGet(); return "+8613900000000" }
+        }
+        val changed = BoundPhoneAuthentication(BoundPhoneIdentityStore(source(schema)), changedProvider, jwt, clock,
+            "different-scheme", ByteArray(32) { 5 })
+        try { changed.verify(installation, capability, "proof-from-new-scheme", null) }
+        catch (failure: PhoneAuthFailure) { assertEquals("PHONE_VERIFICATION_FAILED", failure.code) }
+        assertEquals(0, foreignVerifies.get(), "original capability must be fenced before calling a new scheme provider")
+        assertEquals(0, count("phone_bound_registration_tickets"))
+    }
+
+    @Test fun `registration ticket keeps its original scheme and survives foreign scheme rejection`() {
+        val capability = service().start(installation).getValue("authenticationAttemptToken") as String
+        val ticket = service().verify(installation, capability, "scheme-ticket-proof", null)
+            .getValue("registrationTicket") as String
+        val changed = BoundPhoneAuthentication(BoundPhoneIdentityStore(source(schema)), provider, jwt, clock,
+            "different-scheme", ByteArray(32) { 5 })
+        failure("REGISTRATION_INVALID") { changed.register(installation, ticket, UserRole.ELDER, null) }
+        assertEquals(0, count("phone_accounts"))
+        assertEquals("SIGNED_IN", service().register(installation, ticket, UserRole.ELDER, null)["status"])
+        assertEquals(1, count("phone_accounts"))
+        assertEquals(1, verifies.get())
+    }
+
 }
