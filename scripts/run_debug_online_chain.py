@@ -63,9 +63,9 @@ def main():
     adb = str(Path(os.environ.get('ANDROID_HOME', str(Path.home() / 'Android/sdk'))) / 'platform-tools/adb')
     args.output.mkdir(parents=True, exist_ok=True)
 
-    def run(serial, *command, data=None):
+    def run(serial, *command, data=None, required=True):
         p = subprocess.run([adb, '-s', serial, *command], input=data, capture_output=True, timeout=220 if args.live_dose else 120)
-        if p.returncode:
+        if p.returncode and required:
             raise RuntimeError('Emulator command failed (no private bridge values printed)')
         return p.stdout
 
@@ -74,7 +74,8 @@ def main():
         if args.offline_action_recovery:
             run(serial, 'shell', 'cmd', 'connectivity', 'airplane-mode', 'disable')
             run(serial, 'shell', 'svc', 'wifi', 'enable')
-            run(serial, 'shell', 'svc', 'data', 'enable')
+            # google_apis AVDs have Wi-Fi but may expose no cellular service.
+            run(serial, 'shell', 'svc', 'data', 'enable', required=False)
         run(serial, 'install', '-r', str(ROOT / 'android-app/build/outputs/apk/debug/android-app-debug.apk'))
         run(serial, 'install', '-r', str(ROOT / 'android-app/build/outputs/apk/androidTest/debug/android-app-debug-androidTest.apk'))
         if args.reset_test_apps:
@@ -111,7 +112,7 @@ def main():
             # Restore connectivity only after the local action and target process have finished.
             run(serial, 'shell', 'cmd', 'connectivity', 'airplane-mode', 'disable')
             run(serial, 'shell', 'svc', 'wifi', 'enable')
-            run(serial, 'shell', 'svc', 'data', 'enable')
+            run(serial, 'shell', 'svc', 'data', 'enable', required=False)
         (args.output / (phase + '.log')).write_bytes(output)
         passed = inspect_instrumentation(output)['passed']
         results.append({'phase': phase, 'role': role, 'passed': passed})
