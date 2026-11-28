@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import time
 
 ROOT = Path(__file__).resolve().parents[1]
 PKG = 'com.group33.medicationreminder'
@@ -69,6 +70,18 @@ def main():
             raise RuntimeError('Emulator command failed (no private bridge values printed)')
         return p.stdout
 
+    def wait_for_network(serial):
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline:
+            probe = subprocess.run(
+                [adb, '-s', serial, 'shell', 'ping', '-c', '1', '-W', '1', '10.0.2.2'],
+                capture_output=True, timeout=5,
+            )
+            if probe.returncode == 0:
+                return
+            time.sleep(0.5)
+        raise RuntimeError('Emulator network did not recover before cold-process verification')
+
     devices = {'elder': args.elder, 'caregiver': args.caregiver}
     for serial in devices.values():
         if args.offline_action_recovery:
@@ -99,7 +112,10 @@ def main():
     phases = phases_for(live_dose=args.live_dose, dose_upload=args.dose_upload)
     for phase, role in phases:
         serial = devices[role]
-        if phase in ['elder-live-dose-restart', 'elder-recover-code', 'caregiver-restart', 'elder-sees-plan', 'caregiver-recover']:
+        cold_phases = ['elder-live-dose-restart', 'elder-recover-code', 'caregiver-restart',
+                       'elder-sees-plan', 'caregiver-recover']
+        already_stopped_offline_elder = phase == 'elder-live-dose-restart' and args.offline_action_recovery
+        if phase in cold_phases and not already_stopped_offline_elder:
             run(serial, 'shell', 'am', 'force-stop', PKG)
         if bridge is not None:
             run(serial, 'shell', f"run-as {PKG} sh -c 'cat > no_backup/chain-bridge.json'", data=bridge)
@@ -109,10 +125,12 @@ def main():
                      str(args.offline_action_recovery).lower(), TEST)
         if phase == 'elder-live-dose' and args.offline_action_recovery:
             # Instrumentation remains reachable over adb while Android networking is disabled.
-            # Restore connectivity only after the local action and target process have finished.
+            # Kill the old process before restoring connectivity so only cold-start recovery can sync.
+            run(serial, 'shell', 'am', 'force-stop', PKG)
             run(serial, 'shell', 'cmd', 'connectivity', 'airplane-mode', 'disable')
             run(serial, 'shell', 'svc', 'wifi', 'enable')
             run(serial, 'shell', 'svc', 'data', 'enable', required=False)
+            wait_for_network(serial)
         (args.output / (phase + '.log')).write_bytes(output)
         passed = inspect_instrumentation(output)['passed']
         results.append({'phase': phase, 'role': role, 'passed': passed})
