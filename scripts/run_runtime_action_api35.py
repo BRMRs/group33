@@ -23,7 +23,7 @@ TEST_CLASSES = ('com.group33.medicationreminder.integration.RuntimeActionBoundar
                 'com.group33.medicationreminder.elder.ElderReminderPermissionBannerLayoutTest',
                 'com.group33.medicationreminder.elder.ElderReminderPermissionNavigatorDeviceTest',
                 'com.group33.medicationreminder.elder.ElderReminderPermissionPanelDeviceTest')
-EXPECTED_TEST_COUNTS = (11, 3, 4, 1, 2)
+EXPECTED_TEST_COUNTS = (11, 4, 4, 1, 2)
 TEST_CLASS = ','.join(TEST_CLASSES)
 RUNNER = 'com.group33.medicationreminder.test/androidx.test.runner.AndroidJUnitRunner'
 

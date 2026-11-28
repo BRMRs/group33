@@ -13,6 +13,8 @@ import android.graphics.Rect
 import android.view.InputDevice
 import android.view.MotionEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import androidx.test.platform.app.InstrumentationRegistry
 import com.group33.medicationreminder.R
 import com.group33.medicationreminder.core.reminder.*
@@ -123,6 +125,22 @@ class RuntimeNotificationBoundaryTest {
 
     private suspend fun await(condition: suspend () -> Boolean) = withTimeout(7_000) {
         while (!condition()) delay(50)
+    }
+
+    @Test fun applicationContextNotificationUsesThePersistedChineseLocale() {
+        val original = AppCompatDelegate.getApplicationLocales()
+        try {
+            AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("zh-CN"))
+            val now = System.currentTimeMillis()
+            val row = testRegistration("notification-locale-${UUID.randomUUID()}", now,
+                state = ReminderState.RINGING).group
+            val notification = ReminderNotifications.build(context, row)
+            assertEquals("需要帮助", notification.actions.last().title.toString())
+            assertEquals("用药提醒", notification.extras
+                .getCharSequence(Notification.EXTRA_TITLE).toString())
+        } finally {
+            AppCompatDelegate.setApplicationLocales(original)
+        }
     }
 
     @Test fun newlyPostedLastWindowNotificationExplainsUnavailableSnoozeAndKeepsTaken() = runBlocking {
