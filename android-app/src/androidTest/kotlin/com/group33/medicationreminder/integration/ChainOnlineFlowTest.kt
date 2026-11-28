@@ -548,17 +548,28 @@ class ChainOnlineFlowTest {
                     .single { it.key.planId == planId && it.plannedAt == plannedAt }
                 assertNull(frozen.takenAt)
 
-                // Use the production coordinator with an explicit due instant. This keeps the
-                // acceptance deterministic; CI must never wait for the next wall-clock minute.
+                // Prove AlarmManager owns the exact occurrence PendingIntent, then fire that same
+                // platform token under a controlled due instant. CI must not wait for a minute.
                 val runtime = com.group33.medicationreminder.core.reminder.ReminderDatabase.open(app).reminders()
                 val runtimeGroup = runtime.active().single { it.plannedAtEpochMillis == plannedAt }
                 val registration = checkNotNull(runtime.registration(runtimeGroup.groupId))
                 assertEquals(listOf(frozen.key.planId), registration.occurrences.map { it.planId })
+                val alarmIntent = android.content.Intent(
+                    app, com.group33.medicationreminder.core.reminder.ReminderAlarmReceiver::class.java)
+                    .setAction(com.group33.medicationreminder.core.reminder.ReminderAlarmReceiver.ACTION_ALARM)
+                    .setData(android.net.Uri.parse("group33://reminder/${android.net.Uri.encode(runtimeGroup.groupId)}/alarm/due"))
+                    .putExtra(com.group33.medicationreminder.core.reminder.ReminderAlarmReceiver.EXTRA_GROUP_ID,
+                        runtimeGroup.groupId)
+                    .putExtra(com.group33.medicationreminder.core.reminder.ReminderAlarmReceiver.EXTRA_KIND,
+                        com.group33.medicationreminder.core.reminder.ReminderAlarmKind.DUE.name)
+                val pendingAlarm = android.app.PendingIntent.getBroadcast(
+                    app, 0, alarmIntent,
+                    android.app.PendingIntent.FLAG_NO_CREATE or android.app.PendingIntent.FLAG_IMMUTABLE)
+                assertNotNull("The due alarm must be registered with AlarmManager", pendingAlarm)
                 val dueAt = plannedAt + 1
                 app.elderDoses.setClockForTest(java.time.Clock.fixed(
                     java.time.Instant.ofEpochMilli(dueAt), java.time.ZoneOffset.UTC))
-                assertTrue(com.group33.medicationreminder.core.reminder.ReminderCoordinator(app)
-                    .triggerDue(runtimeGroup.groupId, dueAt))
+                checkNotNull(pendingAlarm).send()
                 withTimeout(20_000) {
                     app.elderDoses.state.first { state -> state.due?.keys?.any { it == frozen.key } == true }
                 }

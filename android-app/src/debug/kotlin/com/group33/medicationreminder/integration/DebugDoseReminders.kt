@@ -41,6 +41,7 @@ internal class DebugDoseReminders(
     internal fun setClockForTest(value: Clock) {
         check(app.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0)
         clock = value
+        (app.applicationContext as? DebugChainApplication)?.setReminderTimeForTest(value.millis())
     }
 
     fun start(scope: CoroutineScope) {
