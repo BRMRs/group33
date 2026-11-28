@@ -54,7 +54,11 @@ jobs:
           packages: platform-tools
 
       - name: Install Android emulator image
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "emulator" "system-images;android-${{ matrix.api }};google_apis;x86_64"
+        run: |
+          image_tag=google_apis
+          if [[ "${{ matrix.api }}" == "27" ]]; then image_tag=default; fi
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "emulator" \
+            "system-images;android-${{ matrix.api }};${image_tag};x86_64"
 
       - name: Enable runner-local emulator acceleration
         run: |

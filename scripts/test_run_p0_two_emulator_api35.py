@@ -1,6 +1,12 @@
 import unittest
 
-from run_p0_two_emulator_api35 import avd_names, expected_phases, finalize_result, verify_chain_results
+from run_p0_two_emulator_api35 import (
+    avd_names,
+    expected_phases,
+    finalize_result,
+    system_image_package,
+    verify_chain_results,
+)
 from run_debug_online_chain import inspect_instrumentation, phases_for
 
 
@@ -86,6 +92,14 @@ OK (1 test)
         self.assertFalse(mismatched["passed"])
         self.assertEqual("owned-avd-not-verified", mismatched["failure"])
         self.assertNotEqual(avd_names("27"), avd_names("35"))
+        self.assertEqual(
+            "system-images;android-27;default;x86_64",
+            system_image_package("27"),
+        )
+        self.assertEqual(
+            "system-images;android-35;google_apis;x86_64",
+            system_image_package("35"),
+        )
 
 
 if __name__ == "__main__":

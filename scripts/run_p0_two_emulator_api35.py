@@ -32,6 +32,14 @@ def avd_names(api):
     }
 
 
+def system_image_package(api):
+    if api == "27":
+        return "system-images;android-27;default;x86_64"
+    if api == "35":
+        return "system-images;android-35;google_apis;x86_64"
+    raise ValueError("P0 acceptance supports only API27 and API35")
+
+
 def expected_phases():
     return phases_for(live_dose=True, dose_upload=True)
 
@@ -210,7 +218,7 @@ def main():
                     "--path",
                     str(avd_path),
                     "--package",
-                    f"system-images;android-{args.api};google_apis;x86_64",
+                    system_image_package(args.api),
                     "--device",
                     "pixel_6",
                 ],
@@ -363,6 +371,7 @@ def main():
         result.update(
             locale=args.locale,
             api=args.api,
+            system_image=system_image_package(args.api),
             physical_device=False,
             production_provider=False,
             help_delivery=False,
