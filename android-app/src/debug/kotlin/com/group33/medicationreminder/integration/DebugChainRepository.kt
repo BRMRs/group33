@@ -214,7 +214,11 @@ internal class DebugChainRepository(
             val l = lease()
             refreshPhotos(l, elderId)
             refreshPlans(l, elderId)
-            refreshHelpFollowUps(l, elderId)
+            // Elder plan refresh uses this same repository overload. Follow-ups are a
+            // caregiver-only projection and must never turn an Elder refresh into a 403.
+            if (mutableSession.value.user?.role == UserRole.CAREGIVER) {
+                refreshHelpFollowUps(l, elderId)
+            }
             SyncSummary(l.scope, elderId, SyncCompletion.COMPLETE, System.currentTimeMillis(), null)
         }
     }
