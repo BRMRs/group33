@@ -82,4 +82,4 @@ jobs:
           S2_PG_INTEGRATION_PASSWORD: fictional-ci-only
         run: >-
           ./gradlew -PserverOnly :server:postgresIntegrationTest
-          --tests '*PostgresBoundPhoneIdentityTest' --no-daemon
+          --tests '*PostgresBoundPhoneIdentityTest' --tests '*BoundPhone*PostgresTest' --no-daemon

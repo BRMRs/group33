@@ -11,7 +11,10 @@ import javax.sql.DataSource
 
 /** Internal persistence seam only. No Boot bean, route, provider call or runtime DDL. */
 internal class BoundPhoneIdentityStore(private val source: DataSource) {
-    fun <T> transaction(work: (BoundPhoneIdentityTransaction) -> T): T = try {
+    fun <T> transaction(work: (BoundPhoneIdentityTransaction) -> T): T =
+        primaryTransaction { work(BoundPhoneIdentityTransaction(it)) }
+
+    fun <T> primaryTransaction(work: (Connection) -> T): T = try {
         source.connection.use { connection ->
             connection.transactionIsolation = Connection.TRANSACTION_READ_COMMITTED
             connection.autoCommit = false
@@ -20,7 +23,7 @@ internal class BoundPhoneIdentityStore(private val source: DataSource) {
                     it.execute("SET LOCAL lock_timeout = '1000ms'")
                     it.execute("SET LOCAL statement_timeout = '5000ms'")
                 }
-                val result = work(BoundPhoneIdentityTransaction(connection))
+                val result = work(connection)
                 connection.createStatement().use { it.execute("SET CONSTRAINTS ALL IMMEDIATE") }
                 connection.commit()
                 result
@@ -63,7 +66,7 @@ internal class BoundPhoneIdentityTransaction(private val db: Connection) {
     fun accountForVerifiedPhone(phoneHash: String): User? {
         requireHash(phoneHash)
         return query("SELECT user_id, role, display_name, revoked_at_ms FROM phone_accounts WHERE phone_hash = ? FOR UPDATE",
-            listOf(phoneHash)) { row -> currentUser(row) }.singleOrNull()
+            listOf(phoneHash)) { row -> currentUser(row) ?: throw BoundPhoneIdentityRevoked() }.singleOrNull()
     }
 
     /** Used only after the surrounding auth transaction has locked/validated its bound ticket. */
