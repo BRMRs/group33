@@ -285,7 +285,9 @@ class ChainOnlineFlowTest {
                     val fields = descendants(editor).filterIsInstance<EditText>()
                     fields[0].setText("Fictional medicine"); fields[1].setText("One demo unit")
                     descendants(editor).filterIsInstance<CheckBox>().filter { it.visibility == View.VISIBLE }.forEach { it.isChecked = true }
-                    descendants(editor).filterIsInstance<Button>().filterNot { it is CheckBox }.single().performClick()
+                    descendants(editor).filterIsInstance<Button>().single {
+                        it.text == activity.getString(R.string.c2_plan_save) && it.isShown && it.isEnabled
+                    }.performClick()
                 }
                 val plans = withTimeout(20_000) { s.plans.observePlans(b.getString("elderId")).first { it.access == AccessState.AUTHORIZED && it.value.isNotEmpty() } }
                 assertEquals(1, plans.value.size)
