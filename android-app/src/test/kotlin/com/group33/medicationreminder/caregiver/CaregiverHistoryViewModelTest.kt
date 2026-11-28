@@ -275,7 +275,41 @@ class CaregiverHistoryViewModelTest {
         assertFalse(model.applyRange("2026-10-01", "2026-10-01"))
     }
 
-    private fun model(repository: DoseEventRepository) = CaregiverHistoryViewModel(repository, scope, snapshot.elder, range)
+    @Test fun `no default range observes nothing until the user applies dates`() = runTest(dispatcher) {
+        val repo = Repository(cached(emptyList()))
+        val model = model(repo, null)
+        runCurrent()
+        assertEquals(HistoryMessage.SELECT_DATES, model.state.value.message)
+        assertTrue(model.validateRangeDraft(range.fromDate, range.throughDate))
+        model.retryObservation()
+        runCurrent()
+        assertTrue(repo.queries.isEmpty())
+        assertTrue(model.applyRange(range.fromDate, range.throughDate))
+        runCurrent()
+        assertEquals(listOf(snapshot.elder.id to range), repo.queries)
+        assertEquals(HistoryMessage.EMPTY, model.state.value.message)
+    }
+
+    @Test fun `date source changes keep a manual range until the context changes`() = runTest(dispatcher) {
+        val repo = Repository(cached(emptyList()))
+        val model = model(repo, null)
+        val incoming = LocalDateRange("2026-09-01", "2026-09-30")
+        assertTrue(model.applyRange(range.fromDate, range.throughDate))
+        runCurrent()
+        model.rebindDateSource(repo, scope, snapshot.elder, incoming)
+        model.rebindDateSource(repo, scope, snapshot.elder, null)
+        runCurrent()
+        assertEquals(listOf(snapshot.elder.id to range), repo.queries)
+        assertEquals(range, model.state.value.range)
+        model.selectContext(repo, scope.copy(environmentId = "test-local"), snapshot.elder, null)
+        runCurrent()
+        assertEquals(1, repo.queries.size)
+        assertEquals(HistoryMessage.SELECT_DATES, model.state.value.message)
+        assertNull(model.state.value.cached)
+    }
+
+    private fun model(repository: DoseEventRepository, initialRange: LocalDateRange? = range) =
+        CaregiverHistoryViewModel(repository, scope, snapshot.elder, initialRange)
         .also { store.put("history", it) }
     private fun events() = snapshot.doseEvents.map {
         DoseEventState(it.occurrence, it.id, it.generationEvidence, it.medicationId, it.medicationSnapshot,

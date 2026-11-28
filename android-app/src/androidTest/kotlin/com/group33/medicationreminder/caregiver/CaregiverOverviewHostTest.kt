@@ -45,8 +45,8 @@ class CaregiverOverviewHostTest {
         val repository = FakeRepository("test-elder", "Private elder A")
         val trustedContext = context(generation = 1, relationshipId = "relationship-a")
 
-        ActivityScenario.launch<CaregiverHistoryTestActivity>(
-            Intent(instrumentation.targetContext, CaregiverHistoryTestActivity::class.java),
+        ActivityScenario.launch<CaregiverOverviewHostTestActivity>(
+            Intent(instrumentation.targetContext, CaregiverOverviewHostTestActivity::class.java),
         ).use { scenario ->
             scenario.onActivity { activity ->
                 val host = CaregiverOverviewHost(activity)
@@ -74,8 +74,8 @@ class CaregiverOverviewHostTest {
         // Same scope and Elder ID, but a new session and relationship must rebind the VM.
         val secondContext = context(generation = 2, relationshipId = "relationship-b")
 
-        ActivityScenario.launch<CaregiverHistoryTestActivity>(
-            Intent(instrumentation.targetContext, CaregiverHistoryTestActivity::class.java),
+        ActivityScenario.launch<CaregiverOverviewHostTestActivity>(
+            Intent(instrumentation.targetContext, CaregiverOverviewHostTestActivity::class.java),
         ).use { scenario ->
             lateinit var host: CaregiverOverviewHost
             scenario.onActivity { activity ->
@@ -136,8 +136,8 @@ class CaregiverOverviewHostTest {
         val repository = FakeRepository("test-elder", "Private elder A")
         val trustedContext = context(1, "relationship-a")
         var historyRequest: Pair<String, LocalDateRange>? = null
-        ActivityScenario.launch<CaregiverHistoryTestActivity>(
-            Intent(instrumentation.targetContext, CaregiverHistoryTestActivity::class.java),
+        ActivityScenario.launch<CaregiverOverviewHostTestActivity>(
+            Intent(instrumentation.targetContext, CaregiverOverviewHostTestActivity::class.java),
         ).use { scenario ->
             lateinit var host: CaregiverOverviewHost
             scenario.onActivity { activity ->
@@ -186,8 +186,8 @@ class CaregiverOverviewHostTest {
     @Test
     fun detachedHostReboundWithoutCurrentContextCannotRedisplayOldAuthorizedValues() {
         val repository = FakeRepository("test-elder", "Private elder A")
-        ActivityScenario.launch<CaregiverHistoryTestActivity>(
-            Intent(instrumentation.targetContext, CaregiverHistoryTestActivity::class.java),
+        ActivityScenario.launch<CaregiverOverviewHostTestActivity>(
+            Intent(instrumentation.targetContext, CaregiverOverviewHostTestActivity::class.java),
         ).use { scenario ->
             lateinit var host: CaregiverOverviewHost
             scenario.onActivity { activity ->
@@ -226,8 +226,8 @@ class CaregiverOverviewHostTest {
     fun detachedHostRebindsNewIdentityWithoutOldRepositoryRepopulation() {
         val oldRepository = FakeRepository("test-elder", "Private elder A")
         val currentRepository = FakeRepository("test-elder", "Private elder B")
-        ActivityScenario.launch<CaregiverHistoryTestActivity>(
-            Intent(instrumentation.targetContext, CaregiverHistoryTestActivity::class.java),
+        ActivityScenario.launch<CaregiverOverviewHostTestActivity>(
+            Intent(instrumentation.targetContext, CaregiverOverviewHostTestActivity::class.java),
         ).use { scenario ->
             lateinit var host: CaregiverOverviewHost
             scenario.onActivity { activity ->
@@ -284,8 +284,8 @@ class CaregiverOverviewHostTest {
         val trustedContext = context(generation = 1, relationshipId = "relationship-a")
         val changedRange = LocalDateRange("2026-10-02", "2026-10-29")
 
-        ActivityScenario.launch<CaregiverHistoryTestActivity>(
-            Intent(instrumentation.targetContext, CaregiverHistoryTestActivity::class.java),
+        ActivityScenario.launch<CaregiverOverviewHostTestActivity>(
+            Intent(instrumentation.targetContext, CaregiverOverviewHostTestActivity::class.java),
         ).use { scenario ->
             lateinit var host: CaregiverOverviewHost
             scenario.onActivity { activity ->
@@ -350,8 +350,8 @@ class CaregiverOverviewHostTest {
         val currentRepository = FakeRepository("test-elder", "Private elder B")
         val firstContext = context(generation = 1, relationshipId = "relationship-a")
 
-        ActivityScenario.launch<CaregiverHistoryTestActivity>(
-            Intent(instrumentation.targetContext, CaregiverHistoryTestActivity::class.java),
+        ActivityScenario.launch<CaregiverOverviewHostTestActivity>(
+            Intent(instrumentation.targetContext, CaregiverOverviewHostTestActivity::class.java),
         ).use { scenario ->
             lateinit var host: CaregiverOverviewHost
             scenario.onActivity { activity ->
@@ -393,7 +393,7 @@ class CaregiverOverviewHostTest {
 
     private fun assertAuthorizedContent(
         host: CaregiverOverviewHost,
-        activity: CaregiverHistoryTestActivity,
+        activity: CaregiverOverviewHostTestActivity,
         elderLabel: String,
     ) {
         assertEquals(activity.getString(R.string.c3_results),
@@ -403,7 +403,7 @@ class CaregiverOverviewHostTest {
         assertTrue(host.findViewById<View>(R.id.refresh_button).isEnabled)
     }
 
-    private fun assertRevokedContent(host: CaregiverOverviewHost, activity: CaregiverHistoryTestActivity) {
+    private fun assertRevokedContent(host: CaregiverOverviewHost, activity: CaregiverOverviewHostTestActivity) {
         assertEquals(activityText(activity, R.string.c3_revoked),
             activity.findViewById<TextView>(R.id.state_message).text.toString())
         assertEquals("", elderName(host))
@@ -422,7 +422,7 @@ class CaregiverOverviewHostTest {
     private fun elderName(host: CaregiverOverviewHost) =
         host.findViewById<TextView>(R.id.elder_name).text.toString()
 
-    private fun activityText(activity: CaregiverHistoryTestActivity, resource: Int) =
+    private fun activityText(activity: CaregiverOverviewHostTestActivity, resource: Int) =
         activity.getString(resource)
 
     private class FakeRepository(

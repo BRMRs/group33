@@ -3,6 +3,7 @@ package com.group33.medicationreminder.caregiver
 import android.content.Context
 import android.util.AttributeSet
 import android.view.LayoutInflater
+import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.annotation.MainThread
@@ -51,6 +52,16 @@ class CaregiverOverviewView @JvmOverloads constructor(
         render(CaregiverFeedbackState(null, null, null, isLoading = false))
     }
 
+    /** Shared pages already own scrolling; reuse this content without another scroll viewport. */
+    internal fun useParentScrolling() {
+        check(!isAttachedToWindow)
+        if (binding.root.parent !== this) return
+        val content = binding.root.getChildAt(0)
+        binding.root.removeView(content)
+        removeView(binding.root)
+        addView(content, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+    }
+
     @MainThread
     fun bind(
         owner: LifecycleOwner,
@@ -90,10 +101,10 @@ class CaregiverOverviewView @JvmOverloads constructor(
         binding.stateMessage.setText(when (screen.message) {
             OverviewMessage.SELECT_ELDER -> R.string.c3_select_elder
             OverviewMessage.LOADING -> R.string.c3_loading
-            OverviewMessage.ACCESS_UNKNOWN -> R.string.c3_access_unknown
+            OverviewMessage.ACCESS_UNKNOWN -> R.string.c3_overview_access_unknown
             OverviewMessage.REVOKED -> R.string.c3_revoked
-            OverviewMessage.UNAVAILABLE -> R.string.c3_unavailable
-            OverviewMessage.NO_LOCAL_DATA -> R.string.c3_no_local_data
+            OverviewMessage.UNAVAILABLE -> R.string.c3_overview_unavailable
+            OverviewMessage.NO_LOCAL_DATA -> R.string.c3_overview_no_local_data
             OverviewMessage.EMPTY -> R.string.c3_empty
             OverviewMessage.RESULTS -> R.string.c3_results
         })
@@ -110,6 +121,7 @@ class CaregiverOverviewView @JvmOverloads constructor(
             OverviewRefreshMessage.RANGE_TOO_LARGE -> context.getString(R.string.c3_refresh_range_too_large)
             OverviewRefreshMessage.SERVICE_UNAVAILABLE -> context.getString(R.string.c3_refresh_service_unavailable)
             OverviewRefreshMessage.RETRY_LATER -> context.getString(R.string.c3_refresh_retry_later)
+            OverviewRefreshMessage.AUTHORIZATION_FAILED -> context.getString(R.string.c3_refresh_authorization_failed)
         })
         binding.freshness.showText(content?.takeIf { it.isStale }?.let { context.getString(R.string.c3_stale) })
         binding.lastSync.showText(content?.let {

@@ -19,7 +19,7 @@ import com.group33.shared.model.UserRole
 
 /**
  * C3 composition point for read-only history. The caller supplies the trusted Elder context,
- * bound Repository, explicit date range, lifecycle owner, and FragmentManager.
+ * bound Repository, optional trusted initial range, lifecycle owner, and FragmentManager.
  */
 class CaregiverHistoryHost @JvmOverloads constructor(
     context: Context,
@@ -46,7 +46,7 @@ class CaregiverHistoryHost @JvmOverloads constructor(
         owner: LifecycleOwner,
         repository: DoseEventRepository,
         elderContext: CaregiverElderContext?,
-        range: LocalDateRange,
+        range: LocalDateRange?,
         fragmentManager: FragmentManager,
     ) {
         val current = if (elderContext == null) {
@@ -70,7 +70,7 @@ class CaregiverHistoryHost @JvmOverloads constructor(
             // Compare all trusted identity fields, including generation and relationship. Context
             // display-name changes are presentation-only, but are forwarded on a changed bind.
             if (!isNewModel && (elderContext != boundContext || repository !== boundRepository || range != boundRange)) {
-                model.selectContext(repository, elderContext.scope, elder(elderContext), range)
+                model.rebindDateSource(repository, elderContext.scope, elder(elderContext), range)
             }
             modelContext = elderContext
             boundContext = elderContext
@@ -98,7 +98,7 @@ class CaregiverHistoryHost @JvmOverloads constructor(
         fun factory(
             repository: DoseEventRepository,
             context: CaregiverElderContext,
-            range: LocalDateRange,
+            range: LocalDateRange?,
         ) = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {

@@ -18,4 +18,5 @@
   <string name="c3_report_late_taken">reported taking medication after the response window; this does not turn a Missed event into Taken</string>
   <string name="c3_report_remind_later">previously requested a later reminder; this does not promise another reminder</string>
   <string name="c3_report_unlinked">Some reports could not be associated with this event. Their details are unavailable and have not been used to change its result.</string>
+
 </resources>

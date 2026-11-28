@@ -1,0 +1,89 @@
+# C1 日期输入：本地人工试用记录
+
+用户反馈“可以了我测试好像没啥问题”。记录为虚构数据场景的总体试用反馈，用户未逐项确认，不能补写逐项通过或正式审批。生产日期来源仍未接通。
+
+## 版本和范围
+
+- 开发基线：main `61140712193b816980045c52cc7276223731c268`。
+- 组合基线：#124 `a377a7df0731d48fc052514b61d37955e014f06d` 加`acaea5d`发布时的原始补丁；不是2026-11-20的当前修订补丁。
+- 设备：Mi Pad 4 Plus / API27；独立 applicationId `com.group33.medicationreminder.c1review124`。
+- 临时 instrumentation 控制提供虚构日期、会话失效及显式重新进入；未加入四文件补丁。不能仅应用补丁就声称复现了此次人工入口。
+- 场景使用空事件列表，控制按钮可能遮住部分头部；不作为长列表、无遮挡布局、读屏、真实换账号或换长者验收。
+
+## 试用记录
+
+当时安装对应 app/test APK 后，运行以下命令。人工窗口现已结束，重新执行前须恢复并核对临时 fixture 及对应 APK；普通自动测试不传 `c1Manual`。
+
+```powershell
+adb -s <tablet> shell am instrument -w -r -e c1Manual true -e class com.group33.medicationreminder.integration.CaregiverFeedbackEntryTest#explicitDatesRouteFullPagesAndPreservePairingAndPlanSections com.group33.medicationreminder.c1review124.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+| 操作 | 预期 | 人工逐项结果 |
+|---|---|---|
+| 有效日期 2026-10-30 | 显示 2026-10-01 至 2026-10-30，共 30 个日期 | 未单独确认 |
+| 日期缺失 | 清除完整历史，保留既有简面板 | 未单独确认 |
+| 新会话保留旧日期 | 拒绝旧会话日期 | 未单独确认 |
+| 给新会话提供日期 | 显示 2026-10-18 至 2026-11-16 | 未单独确认 |
+| 退出，再恢复新会话和日期 | 退出时清理旧内容；恢复后使用新上下文 | 未单独确认 |
+| 切换计划、记录、设置及语言 | 导航可达，语言行为保留 | 未单独确认 |
+
+原始人工模式日志记录正常结束，耗时 751.543 秒，`OK (1 test)`。这证明前置断言及等待/结束流程完成，不证明用户点击了所有控制项。原始日志、临时 fixture 和安装包仅保留在本地恢复资料中，未纳入本交付。
+
+## 剩余验收
+
+试用之后，[S1 已记录日期规则和分工](https://github.com/BRMRs/group33/issues/15#issuecomment-6939380941)，但正式来源接口和生产实现尚未交付。C1/C3 宿主接线审查、滚动问题收口、适用人工验收及支持环境中的完整检查仍待完成。同条件原版/组合版对照已补充，详见 [#124 对照记录](124_BASELINE_COMPARISON.md)；它不代替本次人工试用。组合设备失败和 Windows Server 失败详见 [交接说明](../../contracts/C1_FEEDBACK_DATE_INPUT.md)，不得记为通过。本交付仅引用 #15/#19，不关闭整票；人工审批由成员本人完成。
+
+## 11-20 修订版：尚未人工验收
+
+最新候选已消费#136 `a3d462e`，没有默认日期也能挂载手选表单，同一上下文的来源更新/撤回保留手动查询和草稿；换会话则清空。详细组合输入、自动测试及双语截图见[交接说明](../../contracts/C1_FEEDBACK_DATE_INPUT.md#2026-11-20-current-136-combination)。11-21核对#136新head b73603a只增证据；main已变为b5acc05，尚未声称完成新main整合。最新完整设备回归54/54、原顺序重复60/60通过；旧驱动的末条点击失败已复现并保留，改进单次点击驱动不代表已证明产品缺陷原因。
+
+本记录上方的旧版总体试用反馈不代表本人已验收本修订版。当前不要求本人重复测试旧页面或真实登录：生产日期流、最终页面组合和手机号服务均未交付，局部测试使用虚构Repository。滚动问题收口、正常入口组合就绪后，再安排清晰的手选日期/读取、换长者与退出清理人工步骤；真实登录及可信默认日期另用同版服务验收。未获上传批准，也未上传。
+
+## 11-21 正常入口已准备，等待本人验收
+
+独立包`com.group33.medicationreminder.c1datemanual`已安装到小米API27，未覆盖原应用。通过既有匿名Debug登录及真实本地HTTP配对路由创建虚构长者“日期验收长者”；不是已验证手机号。临时代理仅用于准备虚构关系，凭据只在内存，未记录。进入实际照护者Activity的“记录”页，已检查空白日期表单截图；生产日期来源保持未注册。
+
+最初安排两步：选择日期并确认，再点“读取所选日期的记录”。此前将结果预期写成“空记录”不准确：本地Room没有该区间缓存时，权限状态是UNKNOWN，不能预期已授权空记录。本轮不把此项当作有数据历史、跨账号、默认可信日期或最终组合验收。
+
+本地正常入口APK、原始UI XML和截图及摘要保留在`.git/c1-local-recovery-20261117/pr132-136-manual-*`和`pr132-manual-*`。临时源码依赖已逐文件恢复，原有53文件main合并暂存树`a3c3280a`不变；新main b5acc05仍待正式整合。测试服务保留供本次人工验收，未上传。
+
+### 本人反馈及诊断：读取验收未通过
+
+本人报告“尚未确认访问权限，不让我访问”。实际UI XML确认已应用`2026-11-12`至`2026-11-26`，并显示“尚未确认访问权限，暂不显示记录。请检查登录和所选长者。”日期应用成功不等于读取成功，不补写整体验收通过。
+
+代码核对：#136 History的读取动作调用`applyRange`，只启动`DoseEventRepository.observeEvents`；Debug实现观察按区间分键的Room文档，不存在文档时返回UNKNOWN。`CaregiverDashboardRepository.refresh(elderId, range)`已有HTTP读取并更新Room的实现，但当前C1日期候选没有在手选读取链上协调该调用。正常登录只同步关系、照片及计划，不能替代历史区间授权结果。仓库`REPOSITORY_INTERFACES.md`明确观察不承诺网络刷新；不能修改UNKNOWN映射，也不能从有效配对关系伪造此资源已授权。
+
+下一步由C1核对并补实际入口同步协调，先与C3/S1对齐读取动作的可消费调用点、所选区间和上下文失效边界；不直接给C3按钮追加第二监听器，不猜新的Host API，不修改生产协议。修复后须补真实HTTP→Room→实际页面测试，包括首次无缓存、手选区间、401/403/404、切换后迟到响应及重复点击；现有替身54/54和重复60/60不覆盖此缺口。暂不要求本人反复测试同一未修复版本。尚未提交、上传或发布阻塞回复。
+
+### 同步接线已补，等待修复版人工复测
+
+核对既有接口后，无需新增C3 Host API：C1传入局部Repository组合适配器，在有效历史观察开始时协调已有Dashboard区间刷新，仍只从事件Repository读取Room结果。空范围、月历草稿不请求；旧上下文不启动/发布；取消时不自动重试，已有REVOKED不再刷新。未替换按钮监听器，也未把UNKNOWN改为AUTHORIZED。生产注册及可信默认日期来源保持未接入。
+
+Debug197/Release196和构建通过；新增协调测试6项包含在内。旧包用真实入口测试复现了等待区间授权20秒超时；修复包实际HTTP→Room→Activity中英文各1项通过，截图已检查并归入`normal-read-en.png`和`normal-read-zh-CN.png`，完整命令和版本见交接说明。初轮JUnit返回类型、关系刷新准备和USB转发丢失导致的失败均保留。该实际成功场景仍只覆盖空历史，未新增真实401/403/404或有人类双账号切换的验收结论。
+
+本人尚未复测此修复版，不补写通过。修复版完整设备回归中英文各27/27、共54/54通过；最终lint/policy/diff/401摘要通过。已从正常导出登录入口自动恢复已登录照护者，再进入实际记录页，空日期表单可见。直接用ADB启动非导出的Home曾被系统正常拒绝，没有改变其导出权限；随后使用正常登录入口完成准备。现在请本人重新选择日期并点读取，等待正常空结果及上次成功同步时间；真实手机号和有数据历史另验。未上传。
+
+### 11-21 本人已确认修复版通过
+
+本人回复“这次对了，继续推进”，记录为上述修复版正常入口日期选择及读取的人工验收通过；不扩大为真实手机号、有数据历史、跨账号、可信默认日期或最终整体验收。下一步消费#136新head 021b39f的日历显示时钟增量并核对main b5acc05。新组合的自动验证另行记录，不把本次人工确认冒称新版本的重新测试。继续推进不等于批准提交、推送或对外发布。
+
+随后纳入021b39f：C1九个源码文件与已验收修复版逐字节相同；最新完整设备回归中英文各28/28、共56/56通过，包含新增的固定2024年2月空日历不选择/不观察用例；真实HTTP→Room→Activity中英文各1项再次通过，Debug197/Release196及构建/lint通过。`normal-read-*`两张现有图片已更新为最新组合且逐张检查；旧图仍在本地online04证据中。新clock测试脚本首次缺变量而未执行业务，修正后完整通过，失败记录保留。新增量只改变日历显示月份的可测性，无新增需本人重复操作的C1交互项，不补写本人重测了新依赖版本。
+
+### 11-22 C3复审：首次异步缓存时序修复
+
+#132 8ed4a74d已在11-21经本人批准推送、CI通过并发布回复；之后C3新增Request changes：订阅已建立不等于Room首值已返回，REVOKED首值前可能抢先刷新。本轮先补独立异步反例，旧代码11项中4项失败、原6项仍通过；再修复C1局部适配器。没有证明真实设备泄露，不改协议、C3实现或生产注册。
+
+新实现只在收到首个当前上下文缓存值后决定是否刷新；REVOKED不刷新，UNKNOWN/AUTHORIZED最多刷新一次。首值前取消或上下文失效不刷新、不转发旧值；后续撤权取消在途刷新，仍以缓存观察为准。新增5项JVM回归覆盖这些边界。当前九文件补丁仅有适配器和测试两份源码相对旧候选变化；基线34574a3，应用后树efb2774，完整SHA及重建步骤见交接说明。
+
+实际运行命令（目录为既有c1-review-pr119，Windows/JDK17）：
+
+```powershell
+.\gradlew.bat :android-app:testDebugUnitTest --tests '*CaregiverHistorySyncRepositoryTest' -I ../group33/.git/c1-local-recovery-20261117/c1-date-manual.init.gradle --offline --no-daemon --max-workers=1 --no-parallel --console=plain
+.\gradlew.bat :android-app:testDebugUnitTest :android-app:testReleaseUnitTest :android-app:lintDebug :android-app:assembleDebug :android-app:assembleRelease :android-app:assembleDebugAndroidTest -PdebugServerUrl=http://127.0.0.1:18087 -I ../group33/.git/c1-local-recovery-20261117/c1-date-manual.init.gradle --offline --no-daemon --max-workers=1 --no-parallel --console=plain
+```
+
+第一条为修复前反例，退出1；第二条为修复后完整验证，退出0（9分46秒）。Debug202/Release201均零失败、错误、跳过，其中协调测试各11/11；lint 0错误/33警告，三个APK构建通过。原始反例XML/log、完整日志、JUnit及lint归档、匹配APK和源码摘要保存在`.git/c1-local-recovery-20261117/pr132-revoked-*`。受测源码树d699bc7与导出候选efb2774的android-app/src逐路径相同。其余模块未改，本轮未重跑Server/Shared，不把旧Linux记录写成本轮执行。
+
+本轮未运行设备或真实HTTP：ADB只列出模拟器，没有小米平板；未占用其他窗口的模拟器。此前56/56和中英文HTTP各1项为旧候选0aeea04的历史证据。没有界面或人工操作变化，本轮时序边界由可控挂起首值测试验证，无需本人重复点选；不补写新版本的人工/设备通过。最终联合验收仍按计划执行。
+
+验证后已逐一恢复51项临时源码，真实暂存树19bc9c9保持不变，只留下C1补丁及本轮证据更新。`python scripts/check_repository_policy.py`、`git diff --check`及407项规范化摘要通过；主工作区gradle.properties原始SHA不变。新版本尚未提交、推送或回复；待本人批准后更新#132，CI通过再发复审回复，保持Draft并交C3/S1复审。

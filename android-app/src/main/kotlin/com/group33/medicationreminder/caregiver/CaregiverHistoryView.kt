@@ -49,6 +49,7 @@ class CaregiverHistoryView @JvmOverloads constructor(context: Context, attrs: At
     private var collection: Job? = null
     private var rangeErrorDescription: String? = null
     private var renderedSelection: Triple<RepositoryScope?, String?, LocalDateRange?>? = null
+    private var renderedModel: CaregiverHistoryViewModel? = null
 
     init {
         binding.root.setItemsCanFocus(true)
@@ -77,6 +78,10 @@ class CaregiverHistoryView @JvmOverloads constructor(context: Context, attrs: At
         dismissDatePicker()
         (fragmentManager.findFragmentByTag(DATE_PICKER_TAG) as? DialogFragment)?.dismissAllowingStateLoss()
         collection?.cancel()
+        if (renderedModel !== viewModel) {
+            renderedModel = viewModel
+            renderedSelection = null
+        }
         render(viewModel.state.value)
         header.historyApply.setOnClickListener {
             viewModel.applyRange(header.historyFrom.text.toString(), header.historyThrough.text.toString())
@@ -103,7 +108,7 @@ class CaregiverHistoryView @JvmOverloads constructor(context: Context, attrs: At
     private fun showDatePicker(owner: LifecycleOwner, viewModel: CaregiverHistoryViewModel, manager: FragmentManager) {
         if (datePicker != null || manager.isStateSaved || !owner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
         val state = viewModel.state.value
-        val applied = state.range ?: return
+        val applied = state.range
         if (state.elder == null || state.scope == null || state.access == AccessState.REVOKED) return
         val generation = bindingGeneration
         val selection = Triple(state.scope, state.elder.id, applied)
@@ -113,7 +118,7 @@ class CaregiverHistoryView @JvmOverloads constructor(context: Context, attrs: At
             val through = LocalDate.parse(header.historyThrough.text.toString().trim())
             require(!through.isBefore(from))
             from to through
-        }.getOrElse { LocalDate.parse(applied.fromDate) to LocalDate.parse(applied.throughDate) }
+        }.getOrElse { applied?.let { LocalDate.parse(it.fromDate) to LocalDate.parse(it.throughDate) } }
         fun applyDates(fromText: String, throughText: String) {
             val current = viewModel.state.value
             if (bindingGeneration === generation && isAttachedToWindow &&
@@ -126,7 +131,8 @@ class CaregiverHistoryView @JvmOverloads constructor(context: Context, attrs: At
                 // Reading is explicit: confirming dates must not query or replace the current results.
             }
         }
-        val picker = CaregiverHistoryDateRangeDialog.create(draft.first.toString(), draft.second.toString())
+        val picker = CaregiverHistoryDateRangeDialog.create(
+            draft?.first?.toString(), draft?.second?.toString(), display = context.resources.configuration)
         picker.onDates = ::applyDates
         picker.onClosed = { if (datePicker === picker) datePicker = null }
         datePicker = picker
@@ -146,6 +152,8 @@ class CaregiverHistoryView @JvmOverloads constructor(context: Context, attrs: At
         dismissDatePicker()
         collection?.cancel()
         collection = null
+        renderedModel = null
+        renderedSelection = null
         header.historyApply.setOnClickListener(null)
         header.historyRetry.setOnClickListener(null)
         header.historyPickRange.setOnClickListener(null)
@@ -163,9 +171,15 @@ class CaregiverHistoryView @JvmOverloads constructor(context: Context, attrs: At
         val selection = Triple(state.scope, state.elder?.id, state.range)
         val contextChanged = selection != renderedSelection
         if (contextChanged || state.access == AccessState.REVOKED) dismissDatePicker()
+        val previous = renderedSelection
+        val sameIdentity = previous != null && previous.first == state.scope && previous.second == state.elder?.id
+        val hasDraft = header.historyFrom.text.toString() != previous?.third?.fromDate.orEmpty() ||
+            header.historyThrough.text.toString() != previous?.third?.throughDate.orEmpty()
         if (contextChanged) {
-            header.historyFrom.setText(state.range?.fromDate.orEmpty())
-            header.historyThrough.setText(state.range?.throughDate.orEmpty())
+            if (!sameIdentity || !hasDraft) {
+                header.historyFrom.setText(state.range?.fromDate.orEmpty())
+                header.historyThrough.setText(state.range?.throughDate.orEmpty())
+            }
             renderedSelection = selection
             binding.root.setSelection(0)
         }
@@ -186,6 +200,7 @@ class CaregiverHistoryView @JvmOverloads constructor(context: Context, attrs: At
         header.historyRangeError.showText(rangeErrorDescription)
         header.historyState.setText(when (state.message) {
             HistoryMessage.SELECT_ELDER -> R.string.c3_select_elder
+            HistoryMessage.SELECT_DATES -> R.string.c3_history_pick_range
             HistoryMessage.LOADING -> R.string.c3_loading
             HistoryMessage.ACCESS_UNKNOWN -> R.string.c3_access_unknown
             HistoryMessage.REVOKED -> R.string.c3_revoked

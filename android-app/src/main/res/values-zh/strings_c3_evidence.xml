@@ -18,4 +18,5 @@
   <string name="c3_report_late_taken">响应期结束后登记的已服药报告；不会将未及时确认的事件改为已服药</string>
   <string name="c3_report_remind_later">曾请求延后提醒；这不保证还会再次提醒</string>
   <string name="c3_report_unlinked">部分报告无法与本事件关联，其详情暂不可用，未用于更改事件结果。</string>
+
 </resources>

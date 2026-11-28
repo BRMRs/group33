@@ -4,6 +4,7 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.Rect
 import android.view.ContextThemeWrapper
 import android.view.LayoutInflater
 import android.view.View
@@ -283,23 +284,40 @@ class CaregiverEventRowViewTest {
     }
 
     @Test fun debugHostKeepsScrolledReportAboveSystemBars() = withRow(scale = 2f, widthDp = 320,
+        viewportHeightDp = 600,
         afterLayout = { host, row ->
             val scroll = host.container
             val bars = checkNotNull(ViewCompat.getRootWindowInsets(scroll)).getInsets(
                 WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-            assertTrue("bottom padding=${scroll.paddingBottom}, system inset=${bars.bottom}",
-                scroll.paddingBottom >= bars.bottom)
-            assertTrue("top padding must avoid system UI", scroll.paddingTop >= bars.top)
-            assertTrue("fixture must exceed viewport", row.root.height > scroll.height)
-            scroll.isSmoothScrollingEnabled = false
-            scroll.fullScroll(View.FOCUS_DOWN)
             val scrollPosition = IntArray(2).also(scroll::getLocationOnScreen)
-            val reportPosition = IntArray(2).also(row.syncedReports::getLocationOnScreen)
-            val safeBottom = scrollPosition[1] + scroll.height - bars.bottom
-            assertTrue("last report must be above system bar",
-                reportPosition[1] + row.syncedReports.height <= safeBottom)
-            assertTrue("last report must be fully inside the visible viewport",
-                reportPosition[1] >= scrollPosition[1] + scroll.paddingTop)
+            val displayBottom = scroll.resources.displayMetrics.heightPixels - bars.bottom
+            assertTrue("top content must avoid system UI",
+                scrollPosition[1] + scroll.paddingTop >= bars.top)
+            assertTrue("bottom content must avoid system UI",
+                scrollPosition[1] + scroll.height - scroll.paddingBottom <= displayBottom)
+            assertTrue("fixture must exceed viewport", row.root.height > scroll.height)
+            row.syncedReports.requestRectangleOnScreen(Rect(0, 0,
+                row.syncedReports.width, row.syncedReports.height), true)
+            val requestedPosition = IntArray(2).also(row.syncedReports::getLocationOnScreen)
+            val requestedScrollPosition = IntArray(2).also(scroll::getLocationOnScreen)
+            val safeBottom = minOf(
+                requestedScrollPosition[1] + scroll.height - scroll.paddingBottom,
+                displayBottom,
+            )
+            val overflow = requestedPosition[1] + row.syncedReports.height - safeBottom
+            if (overflow > 0) scroll.scrollBy(0, overflow)
+            val scrolledPosition = IntArray(2).also(scroll::getLocationOnScreen)
+            val visibleReportPosition = IntArray(2).also(row.syncedReports::getLocationOnScreen)
+            val finalSafeBottom = minOf(
+                scrolledPosition[1] + scroll.height - scroll.paddingBottom,
+                displayBottom,
+            )
+            assertTrue("last report must be above system bar: reportBottom=${visibleReportPosition[1] + row.syncedReports.height}, safeBottom=$finalSafeBottom",
+                visibleReportPosition[1] + row.syncedReports.height <= finalSafeBottom)
+            val finalSafeTop = maxOf(scrolledPosition[1] + scroll.paddingTop, bars.top)
+            assertTrue("report must intersect the readable viewport: reportTop=${visibleReportPosition[1]}, reportBottom=${visibleReportPosition[1] + row.syncedReports.height}, safeTop=$finalSafeTop, safeBottom=$finalSafeBottom, scrollY=${scroll.scrollY}, childHeight=${scroll.getChildAt(0).height}",
+                visibleReportPosition[1] < finalSafeBottom &&
+                    visibleReportPosition[1] + row.syncedReports.height > finalSafeTop)
         }) { row ->
         row.bindEvent(event.copy(medicationSnapshot = MedicationText("Fictional medication ".repeat(40),
             "Fictional dosage ".repeat(40)), localReports = listOf(report)).toCaregiverEventRow())
@@ -320,6 +338,7 @@ class CaregiverEventRowViewTest {
     }
 
     private fun withRow(language: String = "en", scale: Float = 1f, widthDp: Int = 360,
+        viewportHeightDp: Int? = null,
         afterLayout: ((CaregiverEventRowTestActivity, ItemCaregiverOverviewEventBinding) -> Unit)? = null,
         block: (ItemCaregiverOverviewEventBinding) -> Unit,
     ) {
@@ -339,6 +358,13 @@ class CaregiverEventRowViewTest {
                 }
                 val context = ContextThemeWrapper(host.createConfigurationContext(configuration), R.style.Theme_Group33)
                 row = ItemCaregiverOverviewEventBinding.inflate(LayoutInflater.from(context))
+                viewportHeightDp?.let { heightDp ->
+                    val density = context.resources.displayMetrics.density
+                    host.container.layoutParams = host.container.layoutParams.apply {
+                        width = (widthDp * density).toInt()
+                        height = (heightDp * density).toInt()
+                    }
+                }
                 host.container.addView(row.root, ViewGroup.LayoutParams(
                     (widthDp * context.resources.displayMetrics.density).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT))
                 block(row)

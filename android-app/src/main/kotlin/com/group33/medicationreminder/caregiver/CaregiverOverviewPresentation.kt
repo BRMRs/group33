@@ -9,6 +9,7 @@ enum class OverviewMessage { SELECT_ELDER, LOADING, ACCESS_UNKNOWN, REVOKED, UNA
 enum class OverviewRefreshMessage {
     NONE, REFRESHING, COMPLETE, FAILED, OFFLINE,
     STORAGE_UNAVAILABLE, INVALID_INPUT, RANGE_TOO_LARGE, SERVICE_UNAVAILABLE, RETRY_LATER,
+    AUTHORIZATION_FAILED,
 }
 
 data class OverviewContent(
@@ -31,7 +32,7 @@ data class CaregiverOverviewPresentation(
         fun from(state: CaregiverFeedbackState): CaregiverOverviewPresentation {
             val hasSelection = state.elderId != null && state.range != null && state.scope != null
             val inaccessible = when (val error = state.refreshError) {
-                is RepositoryError.Remote -> error.error.code in setOf("RESOURCE_NOT_ACCESSIBLE", "UNAUTHENTICATED", "ROLE_NOT_ALLOWED")
+                is RepositoryError.Remote -> error.error.code in setOf("RESOURCE_NOT_ACCESSIBLE", "UNAUTHENTICATED")
                 is RepositoryError.Local -> error.code == LocalFailureCode.SESSION_NOT_READY
                 null -> false
             }
@@ -67,6 +68,7 @@ data class CaregiverOverviewPresentation(
                         else -> OverviewRefreshMessage.FAILED
                     }
                     is RepositoryError.Remote -> when (error.error.code) {
+                        "ROLE_NOT_ALLOWED" -> OverviewRefreshMessage.AUTHORIZATION_FAILED
                         "SNAPSHOT_RANGE_TOO_LARGE" -> OverviewRefreshMessage.RANGE_TOO_LARGE
                         "VALIDATION_FAILED" -> OverviewRefreshMessage.INVALID_INPUT
                         "SERVICE_UNAVAILABLE" -> OverviewRefreshMessage.SERVICE_UNAVAILABLE
