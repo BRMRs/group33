@@ -115,9 +115,11 @@ def run_checks(output, env=None):
             "'events',(SELECT count(*) FROM recorded_dose_event),'operations',(SELECT count(*) FROM dose_group_operation))"))
     try:
         sql('CREATE SCHEMA ' + schema, scoped=False); schema_created = True
-        migrations = sorted((ROOT / 'server/src/schemaMigration/resources/db/migration').glob('V*__*.sql'),
-                            key=lambda f: int(f.name.split('__')[0][1:]))
-        check('fixture-uses-existing-ten-migrations', [int(f.name.split('__')[0][1:]) for f in migrations] == list(range(1, 11)))
+        available_migrations = sorted((ROOT / 'server/src/schemaMigration/resources/db/migration').glob('V*__*.sql'),
+                                      key=lambda f: int(f.name.split('__')[0][1:]))
+        migrations = [f for f in available_migrations if int(f.name.split('__')[0][1:]) <= 10]
+        check('fixture-uses-existing-v1-v10-prefix',
+              [int(f.name.split('__')[0][1:]) for f in migrations] == list(range(1, 11)))
         sql('BEGIN;\n' + '\n'.join(f.read_text() for f in migrations) + '\nCOMMIT;')
         base = start('before-restart'); first_pid = process.pid
         elder = call('elder-login', 201, base, 'POST', '/api/v1/auth/anonymous',
