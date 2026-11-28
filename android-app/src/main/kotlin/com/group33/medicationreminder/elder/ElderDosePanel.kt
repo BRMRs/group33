@@ -1,60 +1,72 @@
 package com.group33.medicationreminder.elder
 
-import android.Manifest
-import android.content.Intent
-import android.net.Uri
-import android.os.Build
-import android.provider.Settings
+import android.content.Context
+import android.view.LayoutInflater
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.button.MaterialButton
 import com.group33.medicationreminder.R
 import com.group33.medicationreminder.databinding.ElderLiveDoseCardBinding
 import com.group33.shared.contract.DoseActionKind
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 internal class ElderDosePanel(
-    private val activity: ElderHomeActivity,
+    context: Context,
     private val host: LinearLayout,
     private val doses: LiveElderDoses,
+    lifecycleOwner: LifecycleOwner,
+    private val scope: CoroutineScope,
+    private val recoverPermission: (ReminderPermissionPrompt) -> Unit,
 ) {
-    private val card = ElderLiveDoseCardBinding.inflate(activity.layoutInflater, host, true)
-    private val status = TextView(activity).apply { textSize = 20f; host.addView(this) }
-    private val feedback = TextView(activity).apply {
+    constructor(
+        activity: AppCompatActivity,
+        host: LinearLayout,
+        doses: LiveElderDoses,
+    ) : this(
+        activity,
+        host,
+        doses,
+        activity,
+        activity.lifecycleScope,
+        createPermissionRecovery(activity, doses),
+    )
+
+    private val card = ElderLiveDoseCardBinding.inflate(LayoutInflater.from(context), host, true)
+    private val status = TextView(context).apply { textSize = 20f; host.addView(this) }
+    private val feedback = TextView(context).apply {
         textSize = 20f
         accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         host.addView(this)
     }
-    private val enable = MaterialButton(activity).apply {
-        minHeight = (64 * resources.displayMetrics.density).toInt()
-        setText(R.string.elder_enable_dose_notifications)
-        host.addView(this)
-    }
+    private val permissionBanner = LayoutInflater.from(context).inflate(
+        R.layout.elder_reminder_permission_banner,
+        host,
+        true,
+    )
+    private val capabilityFeedback: TextView = permissionBanner.findViewById(
+        R.id.elder_reminder_capability_feedback,
+    )
+    private val permissionAction: MaterialButton = permissionBanner.findViewById(
+        R.id.elder_reminder_permission_action,
+    )
     private var saving = false
-    private val permission = activity.registerForActivityResult(ActivityResultContracts.RequestPermission()) {
-        activity.lifecycleScope.launch { doses.refresh() }
-    }
+    private var permissionPrompt = ReminderPermissionPrompt.NONE
 
     init {
         card.dueTakenButton.setOnClickListener { record(DoseActionKind.TAKEN) }
         card.dueRemindLaterButton.setOnClickListener { record(DoseActionKind.REMIND_LATER) }
-        enable.setOnClickListener {
-            if (Build.VERSION.SDK_INT >= 33 &&
-                activity.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                permission.launch(Manifest.permission.POST_NOTIFICATIONS)
-            } else {
-                activity.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                    Uri.fromParts("package", activity.packageName, null)))
-            }
-        }
-        activity.lifecycleScope.launch {
-            activity.repeatOnLifecycle(Lifecycle.State.STARTED) {
+        permissionAction.setOnClickListener { recoverPermission(permissionPrompt) }
+        scope.launch {
+            lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 doses.state.collect(::render)
             }
         }
@@ -67,7 +79,12 @@ internal class ElderDosePanel(
         card.root.isVisible = due != null
         status.isVisible = due == null
         status.setText(if (state.available) R.string.elder_no_dose_due else R.string.elder_dose_unavailable)
-        enable.isVisible = state.session != null && !state.notificationsEnabled
+        permissionPrompt = state.permissionPrompt()
+        val permissionPresentation = permissionPrompt.presentation
+        capabilityFeedback.isVisible = state.session != null && permissionPresentation.message != null
+        permissionPresentation.message?.let(capabilityFeedback::setText)
+        permissionAction.isVisible = state.session != null && permissionPresentation.action != null
+        permissionPresentation.action?.let(permissionAction::setText)
         if (due != null) {
             card.dueTime.text = due.occurrences.first().key.localTime
             card.dueMedicationName.text = due.occurrences.joinToString("\n\n") { occurrence ->
@@ -87,7 +104,7 @@ internal class ElderDosePanel(
         saving = true
         card.dueTakenButton.isEnabled = false
         card.dueRemindLaterButton.isEnabled = false
-        activity.lifecycleScope.launch {
+        scope.launch {
             val saved = doses.record(session, due, kind)
             saving = false
             val latest = doses.state.value
@@ -99,6 +116,21 @@ internal class ElderDosePanel(
                 })
             }
             render(latest)
+        }
+    }
+
+    companion object {
+        private fun createPermissionRecovery(
+            activity: AppCompatActivity,
+            doses: LiveElderDoses,
+        ): (ReminderPermissionPrompt) -> Unit {
+            val permission = activity.registerForActivityResult(
+                ActivityResultContracts.RequestPermission(),
+            ) { activity.lifecycleScope.launch { doses.refresh() } }
+            val navigator = ElderReminderPermissionNavigator(activity) {
+                permission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            }
+            return navigator::recover
         }
     }
 }

@@ -19,7 +19,11 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 TEST_CLASSES = ('com.group33.medicationreminder.integration.RuntimeActionBoundaryTest',
-                'com.group33.medicationreminder.integration.RuntimeNotificationBoundaryTest')
+                'com.group33.medicationreminder.integration.RuntimeNotificationBoundaryTest',
+                'com.group33.medicationreminder.elder.ElderReminderPermissionBannerLayoutTest',
+                'com.group33.medicationreminder.elder.ElderReminderPermissionNavigatorDeviceTest',
+                'com.group33.medicationreminder.elder.ElderReminderPermissionPanelDeviceTest')
+EXPECTED_TEST_COUNTS = (10, 3, 4, 1, 2)
 TEST_CLASS = ','.join(TEST_CLASSES)
 RUNNER = 'com.group33.medicationreminder.test/androidx.test.runner.AndroidJUnitRunner'
 
@@ -37,10 +41,13 @@ def inspect_instrumentation(log):
             if code != 1 and pending.get('class') in TEST_CLASSES and 'test' in pending:
                 completed.append(dict(test=pending['test'], suite=pending['class'], code=code))
             pending = {}
-    passed = (len(completed) == 13 and len({(x['suite'], x['test']) for x in completed}) == 13
-              and [sum(x['suite'] == suite for x in completed) for suite in TEST_CLASSES] == [10, 3]
+    expected_total = sum(EXPECTED_TEST_COUNTS)
+    passed = (len(completed) == expected_total
+              and len({(x['suite'], x['test']) for x in completed}) == expected_total
+              and [sum(x['suite'] == suite for x in completed) for suite in TEST_CLASSES]
+              == list(EXPECTED_TEST_COUNTS)
               and all(x['code'] == 0 for x in completed)
-              and re.search(r'^OK \(13 tests\)$', log, re.M) is not None
+              and re.search(rf'^OK \({expected_total} tests\)$', log, re.M) is not None
               and 'FAILURES!!!' not in log)
     return dict(passed=passed, completed=completed)
 
@@ -75,11 +82,18 @@ def main():
         'scripts/check_reminder_dispatch_recovery.py',
         'scripts/check_postgres_receipt_recovery.py',
         'android-app/src/androidTest/kotlin/com/group33/medicationreminder/integration/RuntimeActionBoundaryTest.kt',
+        'android-app/src/androidTest/kotlin/com/group33/medicationreminder/elder/ElderReminderPermissionBannerLayoutTest.kt',
+        'android-app/src/androidTest/kotlin/com/group33/medicationreminder/elder/ElderReminderPermissionNavigatorDeviceTest.kt',
+        'android-app/src/androidTest/kotlin/com/group33/medicationreminder/elder/ElderReminderPermissionPanelDeviceTest.kt',
+        'android-app/src/androidTest/kotlin/com/group33/medicationreminder/core/reminder/ReminderCapabilityDeviceTest.kt',
         'android-app/src/debug/kotlin/com/group33/medicationreminder/integration/DebugDoseReminders.kt',
         'android-app/src/debug/kotlin/com/group33/medicationreminder/integration/DebugChainRepository.kt',
         'android-app/src/main/kotlin/com/group33/medicationreminder/core/reminder/ReminderCoordinator.kt',
         'android-app/src/main/kotlin/com/group33/medicationreminder/core/reminder/ReminderNotifications.kt',
         'android-app/src/main/kotlin/com/group33/medicationreminder/core/reminder/ReminderAlarmReceiver.kt',
+        'android-app/src/main/kotlin/com/group33/medicationreminder/elder/ElderDosePanel.kt',
+        'android-app/src/main/kotlin/com/group33/medicationreminder/elder/ElderReminderPermissionNavigator.kt',
+        'android-app/src/main/kotlin/com/group33/medicationreminder/elder/ElderReminderPermissionState.kt',
         'android-app/src/androidTest/kotlin/com/group33/medicationreminder/integration/RuntimeNotificationBoundaryTest.kt']
     result['sha256'] = {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in proof_paths}
     avd_root = Path(tempfile.mkdtemp(prefix='group33-api35-', dir=out.parent))
@@ -125,6 +139,52 @@ def main():
             result.update(inspect_instrumentation(output))
             result['adb_exit'] = run.returncode
             result['passed'] = result['passed'] and run.returncode == 0
+            boundary_tests_passed = result['passed']
+            result['passed'] = False
+            capability_class = ('com.group33.medicationreminder.core.reminder.'
+                                'ReminderCapabilityDeviceTest')
+
+            def capability_phase(name, method, phase):
+                phase_run = device('shell', 'am', 'instrument', '-w', '-r',
+                    '-e', 'class', f'{capability_class}#{method}',
+                    '-e', 'capabilityPhase', phase, RUNNER, timeout=90)
+                phase_output = phase_run.stdout + phase_run.stderr
+                (out / f'capability-{name}.log').write_text(phase_output)
+                passed = (phase_run.returncode == 0
+                          and re.search(r'^OK \(1 test\)$', phase_output, re.M) is not None
+                          and 'INSTRUMENTATION_STATUS_CODE: 0' in phase_output
+                          and 'INSTRUMENTATION_STATUS_CODE: -3' not in phase_output
+                          and 'FAILURES!!!' not in phase_output
+                          and 'SKIPPED' not in phase_output)
+                if not passed:
+                    raise RuntimeError(f'Capability phase {name} failed or skipped')
+                return dict(passed=True, method=method, phase=phase)
+
+            package = 'com.group33.medicationreminder'
+            device('shell', 'pm', 'revoke', package,
+                   'android.permission.POST_NOTIFICATIONS').check_returncode()
+            denied = capability_phase('notification-denied',
+                'notificationDeniedLeavesTheSameOccurrenceRecoverable', 'notification-denied')
+            device('shell', 'pm', 'grant', package,
+                   'android.permission.POST_NOTIFICATIONS').check_returncode()
+            granted = capability_phase('notification-granted',
+                'notificationGrantRecoversTheSameOccurrence', 'notification-granted')
+            device('shell', 'appops', 'set', package, 'SCHEDULE_EXACT_ALARM',
+                   'deny').check_returncode()
+            try:
+                exact = capability_phase('exact-denied',
+                    'exactAlarmDenialIsDegradedAndUsesInexactFallback', 'exact-denied')
+            finally:
+                device('shell', 'appops', 'set', package, 'SCHEDULE_EXACT_ALARM',
+                       'allow').check_returncode()
+            result['capability_phases'] = dict(
+                notification_denied=denied,
+                notification_granted=granted,
+                exact_denied=exact,
+            )
+            result['passed'] = boundary_tests_passed and all(
+                phase['passed'] for phase in result['capability_phases'].values()
+            )
             screenshot = subprocess.run([str(adb), '-s', serial, 'exec-out', 'run-as',
                 'com.group33.medicationreminder', 'cat', 'files/runtime-notification-feedback.png'],
                 capture_output=True, timeout=20, env=env)
@@ -133,7 +193,7 @@ def main():
             (out / 'notification-feedback.png').write_bytes(screenshot.stdout)
             result['notification_screenshot_sha256'] = hashlib.sha256(screenshot.stdout).hexdigest()
             if not result['passed']:
-                raise RuntimeError('All thirteen exact-head API35 regressions must pass')
+                raise RuntimeError('All exact-head API35 regressions must pass')
             from check_reminder_dispatch_recovery import run_checks
             boundary_passed = result['passed']
             result['passed'] = False

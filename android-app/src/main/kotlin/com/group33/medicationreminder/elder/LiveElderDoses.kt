@@ -2,6 +2,7 @@ package com.group33.medicationreminder.elder
 
 import com.group33.medicationreminder.core.data.contract.TrustedSessionContext
 import com.group33.medicationreminder.core.reminder.InitialTiming
+import com.group33.medicationreminder.core.reminder.ReminderCapabilitySnapshot
 import com.group33.medicationreminder.core.reminder.ReminderTimingPolicy
 import com.group33.medicationreminder.core.reminder.ReminderWindow
 import com.group33.shared.contract.DoseActionKind
@@ -51,8 +52,8 @@ internal data class ElderDoseGroup(
 internal data class ElderDoseScreen(
     val session: TrustedSessionContext? = null,
     val due: ElderDoseGroup? = null,
-    val notificationsEnabled: Boolean = false,
     val available: Boolean = false,
+    val capability: ReminderCapabilitySnapshot? = null,
 )
 
 internal interface LiveElderDoses {
