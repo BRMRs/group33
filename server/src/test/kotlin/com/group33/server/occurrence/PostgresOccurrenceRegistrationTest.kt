@@ -2,6 +2,7 @@ package com.group33.server.occurrence
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.group33.server.pairing.*
+import com.group33.server.help.*
 import com.group33.server.pairing.PostgresPairingCodeStoreTest.Companion.dataSource
 import com.group33.server.pairing.PostgresPairingCodeStoreTest.Companion.required
 import com.group33.shared.contract.*
@@ -124,6 +125,29 @@ internal class PostgresOccurrenceRegistrationTest : OccurrenceRegistrationContra
                     assertTrue(rows.next())
                     assertEquals(1, rows.getInt(1))
                 }
+            }
+        } }
+    }
+    @Test fun `Help receipt and caregiver follow-up survive a fresh PostgreSQL adapter`() {
+        sql(checkNotNull(javaClass.getResource("/db/migration/V11__caregiver_follow_up.sql")).readText())
+        val actionId = key()
+        val request = HelpRequest(actionId.toString(), elder.id, "durable-fixture-group",
+            listOf(key().toString()), clock.millis())
+        val service = HelpFollowUpService(OccurrenceBackedHelpStore(adapter()), clock)
+        val original = assertInstanceOf(HelpResult.Accepted::class.java,
+            service.accept(elder, actionId, request)).receipt
+        clock.now.addAndGet(86_400_000)
+        val restarted = HelpFollowUpService(OccurrenceBackedHelpStore(adapter()), clock)
+        assertEquals(original, assertInstanceOf(HelpResult.Accepted::class.java,
+            restarted.accept(elder, actionId, request)).receipt)
+        val read = assertInstanceOf(HelpResult.FollowUps::class.java,
+            restarted.followUps(caregiver, elder.id)).items
+        assertEquals(1, read.size)
+        assertEquals(HelpActionSyncState.ACCEPTED, original.status)
+        assertEquals(CaregiverFollowUpState.NEEDS_CONTACT, read.single().state)
+        dataSource(schema).connection.use { connection -> connection.createStatement().use { statement ->
+            statement.executeQuery("SELECT count(*) FROM caregiver_follow_up").use { rows ->
+                assertTrue(rows.next()); assertEquals(1, rows.getInt(1))
             }
         } }
     }

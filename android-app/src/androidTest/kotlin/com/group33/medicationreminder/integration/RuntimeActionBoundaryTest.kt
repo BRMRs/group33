@@ -22,6 +22,7 @@ class RuntimeActionBoundaryTest {
     private inner class Transport : ChainHttp("http://127.0.0.1:18979") {
         var registrationStatus = 201
         var actionStatus = 200
+        var helpStatus = 200
         var calls = 0
         lateinit var occurrence: LocalElderOccurrence
         override suspend fun call(method: String, path: String, token: String?, operationId: String?,
@@ -30,6 +31,15 @@ class RuntimeActionBoundaryTest {
                 this@RuntimeActionBoundaryTest.json.encodeToString(AuthResponse.serializer(),
                     AuthResponse("fictional-token", "Bearer", 3600, User("fictional-elder", "Fixture", UserRole.ELDER))))
             calls++
+            if (path == "/api/v1/help") {
+                if (helpStatus != 200) return reply(helpStatus, "{}")
+                val request = this@RuntimeActionBoundaryTest.json.decodeFromString(
+                    HelpRequest.serializer(), checkNotNull(json))
+                check(request.actionId == operationId && request.elderId == "fictional-elder")
+                return reply(200, this@RuntimeActionBoundaryTest.json.encodeToString(
+                    HelpReceipt.serializer(), HelpReceipt(request.actionId, request.groupId,
+                        HelpActionSyncState.ACCEPTED, request.occurredAtEpochMillis + 1)))
+            }
             if (path.endsWith("/occurrence-registrations")) return reply(registrationStatus, "{}")
             check(path.endsWith("/dose-action-groups"))
             if (actionStatus != 200) return reply(actionStatus, "{}")
@@ -139,11 +149,19 @@ class RuntimeActionBoundaryTest {
         assertEquals(ReminderDispatchResult.ACKNOWLEDGED, f.adapter.dispatchRuntimeAction(f.action, original))
     }
 
-    @Test fun unsupportedHelpRemainsExplicitlyUnacknowledged() = runBlocking {
+    @Test fun acceptedHelpAcknowledgesTheOriginalDurableAction() = runBlocking {
         val f = fixture()
-        assertEquals(ReminderDispatchResult.PERMANENT_FAILURE, f.adapter.dispatchRuntimeAction(
+        assertEquals(ReminderDispatchResult.ACKNOWLEDGED, f.adapter.dispatchRuntimeAction(
             f.action.copy(kind = ReminderActionKind.HELP.name), f.registration))
-        assertEquals(0, f.transport.calls)
+        assertEquals(1, f.transport.calls)
+    }
+
+    @Test fun rejectedHelpStaysRetryableAndNeverPretendsSuccess() = runBlocking {
+        val f = fixture()
+        f.transport.helpStatus = 422
+        assertEquals(ReminderDispatchResult.RETRY, f.adapter.dispatchRuntimeAction(
+            f.action.copy(kind = ReminderActionKind.HELP.name), f.registration))
+        assertEquals(1, f.transport.calls)
     }
 
     @Test fun snoozeAtTheLastTenMinutesDoesNotCommitAnUnsendableAction() = runBlocking {

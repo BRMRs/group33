@@ -89,6 +89,7 @@ class CaregiverOverviewView @JvmOverloads constructor(
             OverviewMessage.UNAVAILABLE -> R.string.c3_unavailable
             OverviewMessage.NO_LOCAL_DATA -> R.string.c3_no_local_data
             OverviewMessage.EMPTY -> R.string.c3_empty
+            OverviewMessage.NEEDS_CONTACT -> R.string.c3_needs_contact
             OverviewMessage.RESULTS -> R.string.c3_results
         })
         binding.elderName.showText(content?.let { context.getString(R.string.c3_elder, it.elderName) })

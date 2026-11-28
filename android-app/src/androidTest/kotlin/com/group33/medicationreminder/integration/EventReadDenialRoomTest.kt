@@ -209,6 +209,10 @@ class EventReadDenialRoomTest {
                     "Asia/Shanghai", planned, planned + 7_200_000, evidence, DoseStatus.TAKEN, emptyList(), planned, takenRecordedAtEpochMillis = planned)
                 return reply(this@EventReadDenialRoomTest.json.encodeToString(ItemsResponse.serializer(DoseEventView.serializer()), ItemsResponse(listOf(row))))
             }
+            if (method == "GET" && path.startsWith("/api/v1/elders/") && path.endsWith("/caregiver-follow-ups")) {
+                return reply(this@EventReadDenialRoomTest.json.encodeToString(
+                    ItemsResponse.serializer(CaregiverFollowUpView.serializer()), ItemsResponse(emptyList())))
+            }
             error("Unexpected fictional request")
         }
         private fun denied(status: Int) = reply(this@EventReadDenialRoomTest.json.encodeToString(ApiError.serializer(),

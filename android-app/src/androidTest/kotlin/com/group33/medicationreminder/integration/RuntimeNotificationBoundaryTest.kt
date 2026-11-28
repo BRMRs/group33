@@ -14,7 +14,10 @@ import android.view.InputDevice
 import android.view.MotionEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.test.platform.app.InstrumentationRegistry
+import com.group33.medicationreminder.Group33Application
 import com.group33.medicationreminder.R
+import com.group33.medicationreminder.core.data.contract.LanguageChoice
+import com.group33.medicationreminder.core.data.contract.Outcome
 import com.group33.medicationreminder.core.reminder.*
 import java.util.UUID
 import kotlinx.coroutines.CompletableDeferred
@@ -123,6 +126,23 @@ class RuntimeNotificationBoundaryTest {
 
     private suspend fun await(condition: suspend () -> Boolean) = withTimeout(7_000) {
         while (!condition()) delay(50)
+    }
+
+    @Test fun applicationContextNotificationUsesThePersistedChineseLocale() = runBlocking {
+        val app = context.applicationContext as Group33Application
+        val original = app.languageSettings.observeChoice().value
+        try {
+            assertTrue(app.languageSettings.setChoice(LanguageChoice.SIMPLIFIED_CHINESE) is Outcome.Success)
+            val now = System.currentTimeMillis()
+            val row = testRegistration("notification-locale-${UUID.randomUUID()}", now,
+                state = ReminderState.RINGING).group
+            val notification = ReminderNotifications.build(context, row)
+            assertEquals("需要帮助", notification.actions.last().title.toString())
+            assertEquals("用药提醒", notification.extras
+                .getCharSequence(Notification.EXTRA_TITLE).toString())
+        } finally {
+            assertTrue(app.languageSettings.setChoice(original) is Outcome.Success)
+        }
     }
 
     @Test fun newlyPostedLastWindowNotificationExplainsUnavailableSnoozeAndKeepsTaken() = runBlocking {

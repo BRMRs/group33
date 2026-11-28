@@ -103,6 +103,7 @@ internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000
     private var occurrences = mutableMapOf<com.group33.shared.contract.OccurrenceKey, RegisteredOccurrence>()
     private var doseGroupOperations = mutableMapOf<RegistrationKey, DoseGroupOperation>()
     private var recordedDoseEvents = mutableMapOf<String, RecordedDoseEvent>()
+    private var helpOperations = mutableMapOf<UUID, HelpOperation>()
     override fun <T> registrationTransaction(work: (OccurrenceRegistrationTransaction) -> T): T {
         if (!lock.tryLock(lockWaitMillis, TimeUnit.MILLISECONDS)) throw CodeStoreBusy()
         try {
@@ -123,12 +124,21 @@ internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000
             val stagedOccurrences = occurrences.toMutableMap()
             val stagedDoseGroups = doseGroupOperations.toMutableMap()
             val stagedDoseEvents = recordedDoseEvents.toMutableMap()
+            val stagedHelpOperations = helpOperations.toMutableMap()
             val stagedMutations = mutations.toMutableMap()
             val stagedConfirmations = confirmations.toMutableMap()
             val stagedMedications = medications.toMutableMap()
             val stagedPlans = plans.toMutableMap()
             val stagedRevisions = revisions.toMutableMap()
             val result = work(object : OccurrenceRegistrationTransaction {
+                override fun helpOperation(actionId: UUID) = stagedHelpOperations[actionId]
+                override fun insertHelpOperation(operation: HelpOperation) {
+                    val key = UUID.fromString(operation.request.actionId)
+                    check(stagedHelpOperations.putIfAbsent(key, operation) == null)
+                }
+                override fun caregiverFollowUps(elderId: String) = stagedHelpOperations.values
+                    .map { it.followUp }.filter { it.elderId == elderId }
+                    .sortedByDescending { it.receivedAtEpochMillis }
                 override fun doseGroupOperation(key: RegistrationKey) = stagedDoseGroups[key]
                 override fun insertDoseGroupOperation(key: RegistrationKey, operation: DoseGroupOperation) {
                     check(stagedDoseGroups.putIfAbsent(key, operation) == null)
@@ -385,6 +395,7 @@ internal class InMemoryPairingCodeStore(private val lockWaitMillis: Long = 1_000
             occurrences = stagedOccurrences
             doseGroupOperations = stagedDoseGroups
             recordedDoseEvents = stagedDoseEvents
+            helpOperations = stagedHelpOperations
             mutations = stagedMutations
             confirmations = stagedConfirmations
             medications = stagedMedications

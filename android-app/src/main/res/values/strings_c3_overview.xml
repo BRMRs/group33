@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="c3_needs_contact">Needs contact</string>
   <string name="c3_overview_title">Medication records overview</string>
   <string name="c3_elder">Elder: %1$s</string>
   <string name="c3_range">Dates: %1$s – %2$s</string>
