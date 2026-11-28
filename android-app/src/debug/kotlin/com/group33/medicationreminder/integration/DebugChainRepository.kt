@@ -511,6 +511,10 @@ internal class DebugChainRepository(
             publish(lease) {
                 put(lease, kind, elderId, json.encodeToString(ListSerializer(DoseEventView.serializer()), rows))
             }
+            // The caregiver's explicit overview refresh is the P0 delivery mechanism for Help.
+            // Fetch it in the same refresh operation; opening the plan/photo surfaces must not be
+            // required before a NEEDS_CONTACT work item becomes visible.
+            refreshHelpFollowUps(lease, elderId)
             SyncSummary(lease.scope, elderId, SyncCompletion.COMPLETE, System.currentTimeMillis(), null)
         }
     }
