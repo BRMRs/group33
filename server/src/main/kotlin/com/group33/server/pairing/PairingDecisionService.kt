@@ -1,7 +1,9 @@
 package com.group33.server.pairing
 
 import com.group33.server.auth.AnonymousUser
+import com.group33.server.auth.BoundPhoneJwt
 import com.group33.server.auth.CareRelationshipAccess
+import com.group33.server.plan.PlanPhoneUnauthenticated
 import com.group33.shared.contract.CareRelationshipStatus
 import com.group33.shared.contract.CareRelationshipView
 import com.group33.shared.contract.ContractProtocol
@@ -14,7 +16,7 @@ import java.time.Clock
 import java.util.UUID
 
 internal enum class PairingDecisionRejection {
-    RESOURCE_NOT_ACCESSIBLE, ROLE_NOT_ALLOWED, IDEMPOTENCY_KEY_REUSED,
+    UNAUTHENTICATED, RESOURCE_NOT_ACCESSIBLE, ROLE_NOT_ALLOWED, IDEMPOTENCY_KEY_REUSED,
     PAIRING_REQUEST_CLOSED, ELDER_ALREADY_PAIRED, OPERATION_IN_PROGRESS,
 }
 
@@ -41,30 +43,58 @@ internal class PairingDecisionService(private val store: PairingDecisionStore, p
     fun revoke(actor: AnonymousUser, relationshipId: String, operationId: UUID) =
         decide(actor, relationshipId, operationId, PairingDecision.REVOKE)
 
+    fun acceptPhone(postgres: PostgresPairingCodeStore, jwt: BoundPhoneJwt, bearer: String, requestId: String, operationId: UUID) =
+        decidePhone(postgres, jwt, bearer, requestId, operationId, PairingDecision.ACCEPT)
+    fun rejectPhone(postgres: PostgresPairingCodeStore, jwt: BoundPhoneJwt, bearer: String, requestId: String, operationId: UUID) =
+        decidePhone(postgres, jwt, bearer, requestId, operationId, PairingDecision.REJECT)
+    fun cancelPhone(postgres: PostgresPairingCodeStore, jwt: BoundPhoneJwt, bearer: String, requestId: String, operationId: UUID) =
+        decidePhone(postgres, jwt, bearer, requestId, operationId, PairingDecision.CANCEL)
+    fun revokePhone(postgres: PostgresPairingCodeStore, jwt: BoundPhoneJwt, bearer: String, relationshipId: String, operationId: UUID) =
+        decidePhone(postgres, jwt, bearer, relationshipId, operationId, PairingDecision.REVOKE)
+
     fun relationship(actor: AnonymousUser, id: String): PairingDecisionResult = transaction { tx ->
         val view = tx.relationship(id)
         if (view == null || !participant(actor, view.elderId, view.caregiverId)) inaccessible()
         else PairingDecisionResult.Relationship(view)
     }
 
+    private fun decidePhone(postgres: PostgresPairingCodeStore, jwt: BoundPhoneJwt, bearer: String,
+                            target: String, operation: UUID, action: PairingDecision): PairingDecisionResult {
+        val claims = jwt.validate(bearer) ?: return rejected(PairingDecisionRejection.UNAUTHENTICATED)
+        return try {
+            postgres.phoneBusinessWrite(claims, { clock.instant().epochSecond }, jwt.allowance) { actor, tx, _ ->
+                decideInTransaction(actor, tx, target, operation, action)
+            }
+        } catch (_: PlanPhoneUnauthenticated) {
+            rejected(PairingDecisionRejection.UNAUTHENTICATED)
+        } catch (_: CodeStoreBusy) {
+            PairingDecisionResult.Rejected(PairingDecisionRejection.OPERATION_IN_PROGRESS, 1)
+        }
+    }
+
     private fun decide(actor: AnonymousUser, target: String, operation: UUID, action: PairingDecision): PairingDecisionResult = transaction { tx ->
+        decideInTransaction(actor, tx, target, operation, action)
+    }
+
+    private fun decideInTransaction(actor: AnonymousUser, tx: PairingDecisionTransaction, target: String,
+                                    operation: UUID, action: PairingDecision): PairingDecisionResult {
         val now = clock.millis() // expiry must be checked after lock acquisition
         val request = if (action == PairingDecision.REVOKE) null else tx.request(target, now)
         val relation = if (action == PairingDecision.REVOKE) tx.relationship(target) else null
-        val elderId = request?.elderId ?: relation?.elderId ?: return@transaction inaccessible()
+        val elderId = request?.elderId ?: relation?.elderId ?: return inaccessible()
         val caregiverId = request?.caregiver?.id ?: checkNotNull(relation).caregiverId
         // Participants retain terminal metadata access after revocation; medical-data access does not follow a receipt.
-        if (!participant(actor, elderId, caregiverId)) return@transaction inaccessible()
+        if (!participant(actor, elderId, caregiverId)) return inaccessible()
         if ((action == PairingDecision.ACCEPT || action == PairingDecision.REJECT) && actor.role != UserRole.ELDER) {
-            return@transaction rejected(PairingDecisionRejection.ROLE_NOT_ALLOWED)
+            return rejected(PairingDecisionRejection.ROLE_NOT_ALLOWED)
         }
         val key = PairingDecisionKey(actor.id, action, operation)
         val fingerprint = PairingCodeIssuanceService.hash("${ContractProtocol.CANONICALIZATION_VERSION}:$action:$target:{}")
         val previous = tx.decisionOperation(key)
         if (previous != null && (previous.installationId != actor.installationId || previous.fingerprint != fingerprint)) {
-            return@transaction rejected(PairingDecisionRejection.IDEMPOTENCY_KEY_REUSED)
+            return rejected(PairingDecisionRejection.IDEMPOTENCY_KEY_REUSED)
         }
-        previous?.result?.let { if (it !is PairingDecisionResult.Rejected) return@transaction it }
+        previous?.result?.let { if (it !is PairingDecisionResult.Rejected) return it }
         val result = when {
             action == PairingDecision.REVOKE -> PairingDecisionResult.Relationship(tx.revokeRelationship(target, now))
             checkNotNull(request).status != PairingRequestStatus.PENDING -> rejected(PairingDecisionRejection.PAIRING_REQUEST_CLOSED)
@@ -88,7 +118,7 @@ internal class PairingDecisionService(private val store: PairingDecisionStore, p
             }
         }
         tx.putDecisionOperation(key, PairingDecisionOperation(actor.installationId, fingerprint, result))
-        result
+        return result
     }
 
     private fun participant(actor: AnonymousUser, elderId: String, caregiverId: String) =

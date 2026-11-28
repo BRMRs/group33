@@ -3,6 +3,7 @@ package com.group33.server.plan
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.group33.server.auth.BoundPhoneBearer
 import com.group33.server.web.ApiException
+import com.group33.shared.contract.ConfirmReminderPlanRequest
 import com.group33.shared.contract.DeactivateReminderPlanRequest
 import com.group33.shared.contract.UpdateReminderPlanRequest
 import jakarta.servlet.http.HttpServletRequest
@@ -15,6 +16,26 @@ import org.springframework.web.bind.annotation.*
 @ConditionalOnProperty(name = ["app.bound-phone.enabled", "app.plan.enabled"], havingValue = "true")
 internal class BoundPhonePlanController(private val plans: BoundPhonePlanOperations, mapper: ObjectMapper) {
     private val wire = PlanHttpSupport(mapper)
+
+    @PostMapping("/api/v1/elders/{elderId}/reminder-plan-confirmations", consumes = [MediaType.APPLICATION_JSON_VALUE])
+    fun confirm(@PathVariable elderId: String, @RequestBody body: String, request: HttpServletRequest): ResponseEntity<*> {
+        wire.noQuery(request)
+        val key = wire.operation(request)
+        val input = wire.decode(body, ConfirmReminderPlanRequest::class.java)
+        return wire.confirmationResult(plans.confirm(BoundPhoneBearer.token(request), elderId, key, input))
+    }
+
+    @GetMapping("/api/v1/elders/{elderId}/medications")
+    fun medications(@PathVariable elderId: String, request: HttpServletRequest): ResponseEntity<*> {
+        wire.noQuery(request)
+        return wire.confirmationResult(plans.medications(BoundPhoneBearer.token(request), elderId))
+    }
+
+    @GetMapping("/api/v1/elders/{elderId}/reminder-plans")
+    fun plans(@PathVariable elderId: String, request: HttpServletRequest): ResponseEntity<*> {
+        wire.noQuery(request)
+        return wire.confirmationResult(plans.plans(BoundPhoneBearer.token(request), elderId))
+    }
 
     @PatchMapping("/api/v1/reminder-plans/{planId}", consumes = [MediaType.APPLICATION_JSON_VALUE])
     fun update(@PathVariable planId: String, @RequestBody body: String, request: HttpServletRequest): ResponseEntity<*> {

@@ -5,9 +5,12 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.group33.server.auth.AnonymousUser
+import com.group33.server.auth.BoundPhoneJwt
 import com.group33.server.config.PersistenceRuntime
 import com.group33.server.pairing.CodeStoreBusy
+import com.group33.server.pairing.PostgresPairingCodeStore
 import com.group33.server.pairing.VerifiedPairingActorResolver
+import com.group33.server.plan.PlanPhoneUnauthenticated
 import com.group33.server.web.ApiErrors
 import com.group33.server.web.ApiException
 import com.group33.shared.contract.*
@@ -32,81 +35,116 @@ internal class DebugDoseGroups(private val store: OccurrenceRegistrationStore, p
     fun submit(actor: AnonymousUser, elderId: String, input: DebugDoseGroupRequest): DebugDoseGroupReceipt {
         if (actor.id != elderId) inaccessible()
         if (actor.role != UserRole.ELDER) fail(HttpStatus.FORBIDDEN, "ROLE_NOT_ALLOWED")
+        val (operationId, request) = validateInput(input)
+        return store.registrationTransaction { tx -> submitInTransaction(actor, operationId, request, tx) }
+    }
+
+    fun submitPhone(postgres: PostgresPairingCodeStore, jwt: BoundPhoneJwt, bearer: String,
+                    elderId: String, input: DebugDoseGroupRequest): DebugDoseGroupReceipt {
+        val claims = jwt.validate(bearer) ?: unauthenticated()
+        val (operationId, request) = validateInput(input)
+        return try {
+            postgres.phoneBusinessWrite(claims, { clock.instant().epochSecond }, jwt.allowance) { actor, tx, _ ->
+                if (actor.id != elderId) inaccessible()
+                if (actor.role != UserRole.ELDER) fail(HttpStatus.FORBIDDEN, "ROLE_NOT_ALLOWED")
+                submitInTransaction(actor, operationId, request, tx)
+            }
+        } catch (_: PlanPhoneUnauthenticated) { unauthenticated() }
+    }
+
+    private fun validateInput(input: DebugDoseGroupRequest): Pair<UUID, DebugDoseGroupRequest> {
         if (input.occurrences.size !in 1..100 || input.occurrences.distinct().size != input.occurrences.size ||
             input.occurrences.any { canonicalUuid(it.planId) == null })
             fail(HttpStatus.UNPROCESSABLE_ENTITY, "VALIDATION_FAILED")
         val operationId = canonicalUuid(input.actionId) ?: fail(HttpStatus.BAD_REQUEST, "MALFORMED_REQUEST")
-        val request = input.copy(occurrences = Collections.unmodifiableList(input.occurrences.toList()))
-        return store.registrationTransaction { tx ->
-            val key = RegistrationKey(actor.id, operationId)
-            tx.doseGroupOperation(key)?.let {
-                if (it.installationId != actor.installationId || it.request != request)
-                    fail(HttpStatus.CONFLICT, "IDEMPOTENCY_KEY_REUSED")
-                return@registrationTransaction it.receipt
-            }
-            val now = clock.millis()
-            val group = request.occurrences.map { occurrence ->
-                val registered = tx.occurrence(occurrence) ?: inaccessible()
-                val event = registered.receipt.event
-                if (event.elderId != actor.id || registered.installationId != actor.installationId) inaccessible()
-                tx.recordedDoseEvent(event.id) ?: RecordedDoseEvent(event, Long.MIN_VALUE)
-            }
-            val planned = group.first().event.plannedAtEpochMillis
-            val deadline = group.first().event.responseDeadlineEpochMillis
-            if (group.any { it.event.plannedAtEpochMillis != planned || it.event.responseDeadlineEpochMillis != deadline } ||
-                request.recordedAtEpochMillis !in planned until deadline || request.recordedAtEpochMillis > now)
-                fail(HttpStatus.UNPROCESSABLE_ENTITY, "VALIDATION_FAILED")
-            val applied = group.map { old ->
-                val event = old.event
-                if (event.status == DoseStatus.TAKEN ||
-                    (request.kind == DoseActionKind.REMIND_LATER && request.recordedAtEpochMillis < old.lastRecordedAt)) old
-                else {
-                    val updated = when (request.kind) {
-                        DoseActionKind.TAKEN -> event.copy(status = DoseStatus.TAKEN,
-                            takenRecordedAtEpochMillis = request.recordedAtEpochMillis, snoozedUntilEpochMillis = null,
-                            serverUpdatedAtEpochMillis = now)
-                        DoseActionKind.REMIND_LATER -> {
-                            val until = Math.addExact(request.recordedAtEpochMillis, 600_000L)
-                            if (until >= deadline) fail(HttpStatus.UNPROCESSABLE_ENTITY, "VALIDATION_FAILED")
-                            event.copy(status = if (now < until) DoseStatus.SNOOZED
-                                else if (now < deadline) DoseStatus.DUE else DoseStatus.MISSED,
-                                snoozedUntilEpochMillis = until, serverUpdatedAtEpochMillis = now)
-                        }
-                    }
-                    RecordedDoseEvent(updated, maxOf(old.lastRecordedAt, request.recordedAtEpochMillis))
-                }
-            }
-            val receipt = DebugDoseGroupReceipt(request.actionId, now, Collections.unmodifiableList(applied.map { it.event }))
-            applied.zip(group).forEach { (updated, previous) ->
-                if (updated !== previous) tx.putRecordedDoseEvent(updated)
-            }
-            tx.insertDoseGroupOperation(key, DoseGroupOperation(actor.installationId, request, receipt))
-            receipt
+        return operationId to input.copy(occurrences = Collections.unmodifiableList(input.occurrences.toList()))
+    }
+
+    private fun submitInTransaction(actor: AnonymousUser, operationId: UUID, request: DebugDoseGroupRequest,
+                                    tx: OccurrenceRegistrationTransaction): DebugDoseGroupReceipt {
+        val key = RegistrationKey(actor.id, operationId)
+        tx.doseGroupOperation(key)?.let {
+            if (it.installationId != actor.installationId || it.request != request)
+                fail(HttpStatus.CONFLICT, "IDEMPOTENCY_KEY_REUSED")
+            return it.receipt
         }
+        val now = clock.millis()
+        val group = request.occurrences.map { occurrence ->
+            val registered = tx.occurrence(occurrence) ?: inaccessible()
+            val event = registered.receipt.event
+            if (event.elderId != actor.id || registered.installationId != actor.installationId) inaccessible()
+            tx.recordedDoseEvent(event.id) ?: RecordedDoseEvent(event, Long.MIN_VALUE)
+        }
+        val planned = group.first().event.plannedAtEpochMillis
+        val deadline = group.first().event.responseDeadlineEpochMillis
+        if (group.any { it.event.plannedAtEpochMillis != planned || it.event.responseDeadlineEpochMillis != deadline } ||
+            request.recordedAtEpochMillis !in planned until deadline || request.recordedAtEpochMillis > now)
+            fail(HttpStatus.UNPROCESSABLE_ENTITY, "VALIDATION_FAILED")
+        val applied = group.map { old ->
+            val event = old.event
+            if (event.status == DoseStatus.TAKEN ||
+                (request.kind == DoseActionKind.REMIND_LATER && request.recordedAtEpochMillis < old.lastRecordedAt)) old
+            else {
+                val updated = when (request.kind) {
+                    DoseActionKind.TAKEN -> event.copy(status = DoseStatus.TAKEN,
+                        takenRecordedAtEpochMillis = request.recordedAtEpochMillis, snoozedUntilEpochMillis = null,
+                        serverUpdatedAtEpochMillis = now)
+                    DoseActionKind.REMIND_LATER -> {
+                        val until = Math.addExact(request.recordedAtEpochMillis, 600_000L)
+                        if (until >= deadline) fail(HttpStatus.UNPROCESSABLE_ENTITY, "VALIDATION_FAILED")
+                        event.copy(status = if (now < until) DoseStatus.SNOOZED
+                            else if (now < deadline) DoseStatus.DUE else DoseStatus.MISSED,
+                            snoozedUntilEpochMillis = until, serverUpdatedAtEpochMillis = now)
+                    }
+                }
+                RecordedDoseEvent(updated, maxOf(old.lastRecordedAt, request.recordedAtEpochMillis))
+            }
+        }
+        val receipt = DebugDoseGroupReceipt(request.actionId, now, Collections.unmodifiableList(applied.map { it.event }))
+        applied.zip(group).forEach { (updated, previous) ->
+            if (updated !== previous) tx.putRecordedDoseEvent(updated)
+        }
+        tx.insertDoseGroupOperation(key, DoseGroupOperation(actor.installationId, request, receipt))
+        return receipt
     }
 
     fun read(actor: AnonymousUser, elderId: String, from: LocalDate, through: LocalDate): List<DoseEventView> =
-        store.registrationTransaction { tx ->
-            val authorized = when (actor.role) {
-                UserRole.ELDER -> actor.id == elderId
-                UserRole.CAREGIVER -> tx.activeRelationship(elderId)?.caregiverId == actor.id
-            }
-            if (!authorized) inaccessible()
-            val now = clock.millis()
-            tx.recordedDoseEvents(elderId, from.toString(), through.toString()).map { event ->
-                if (event.status == DoseStatus.TAKEN) event
-                else if (now >= event.responseDeadlineEpochMillis) event.copy(status = DoseStatus.MISSED)
-                else if ((event.snoozedUntilEpochMillis ?: Long.MIN_VALUE) <= now) event.copy(status = DoseStatus.DUE)
-                else event
-            }.sortedByDescending { it.plannedAtEpochMillis }.toList()
-        }
+        store.registrationTransaction { tx -> readInTransaction(actor, elderId, from, through, tx) { true } }
 
+    fun readPhone(postgres: PostgresPairingCodeStore, jwt: BoundPhoneJwt, bearer: String,
+                  elderId: String, from: LocalDate, through: LocalDate): List<DoseEventView> {
+        val claims = jwt.validate(bearer) ?: unauthenticated()
+        return try {
+            postgres.phoneBusinessRead(claims, { clock.instant().epochSecond }, jwt.allowance) { actor, tx, currentElder ->
+                readInTransaction(actor, elderId, from, through, tx, currentElder)
+            }
+        } catch (_: PlanPhoneUnauthenticated) { unauthenticated() }
+    }
+
+    private fun readInTransaction(actor: AnonymousUser, elderId: String, from: LocalDate, through: LocalDate,
+                                  tx: OccurrenceRegistrationTransaction, currentElder: (String) -> Boolean): List<DoseEventView> {
+        val authorized = currentElder(elderId) && when (actor.role) {
+            UserRole.ELDER -> actor.id == elderId
+            UserRole.CAREGIVER -> tx.activeRelationship(elderId)?.caregiverId == actor.id
+        }
+        if (!authorized) inaccessible()
+        val now = clock.millis()
+        return tx.recordedDoseEvents(elderId, from.toString(), through.toString()).map { event ->
+            if (event.status == DoseStatus.TAKEN) event
+            else if (now >= event.responseDeadlineEpochMillis) event.copy(status = DoseStatus.MISSED)
+            else if ((event.snoozedUntilEpochMillis ?: Long.MIN_VALUE) <= now) event.copy(status = DoseStatus.DUE)
+            else event
+        }.sortedByDescending { it.plannedAtEpochMillis }.toList()
+    }
+
+    private fun unauthenticated(): Nothing = fail(HttpStatus.UNAUTHORIZED, "UNAUTHENTICATED")
     private fun inaccessible(): Nothing = fail(HttpStatus.NOT_FOUND, "RESOURCE_NOT_ACCESSIBLE")
     private fun fail(status: HttpStatus, code: String): Nothing = throw ApiException(status, code, "Dose group request failed")
 }
 
 @RestController
 @ConditionalOnProperty(name = ["app.dose-group.enabled"], havingValue = "true")
+@ConditionalOnProperty(name = ["app.bound-phone.enabled"], havingValue = "false", matchIfMissing = true)
 internal class DebugDoseGroupController(
     private val actors: VerifiedPairingActorResolver,
     runtime: PersistenceRuntime,

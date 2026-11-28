@@ -9,6 +9,7 @@ import com.group33.server.web.ApiException
 import com.group33.shared.contract.ContractProtocol
 import com.group33.shared.model.ApiError
 import jakarta.servlet.http.HttpServletRequest
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.http.CacheControl
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -23,6 +24,7 @@ import java.util.UUID
 
 /** Local HTTP adapter for issuance only; no caller-selected target or installation is accepted. */
 @RestController
+@ConditionalOnProperty(name = ["app.bound-phone.enabled"], havingValue = "false", matchIfMissing = true)
 internal class PairingCodeController(
     private val actors: VerifiedPairingActorResolver,
     private val service: PairingCodeIssuanceService,
@@ -61,6 +63,7 @@ internal class PairingCodeController(
             is CodeIssuanceResult.Issued -> ResponseEntity.status(HttpStatus.CREATED)
                 .cacheControl(CacheControl.noStore()).body(result.view)
             is CodeIssuanceResult.Rejected -> when (result.reason) {
+                CodeIssueRejection.UNAUTHENTICATED -> error(HttpStatus.UNAUTHORIZED, "UNAUTHENTICATED")
                 CodeIssueRejection.ROLE_FORBIDDEN -> error(HttpStatus.FORBIDDEN, "ROLE_NOT_ALLOWED")
                 CodeIssueRejection.IDEMPOTENCY_KEY_REUSED -> error(HttpStatus.CONFLICT, "IDEMPOTENCY_KEY_REUSED")
                 CodeIssueRejection.RATE_LIMITED -> error(HttpStatus.TOO_MANY_REQUESTS, "RETRY_LATER", true,

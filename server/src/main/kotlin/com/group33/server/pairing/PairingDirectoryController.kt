@@ -10,6 +10,7 @@ import com.group33.shared.contract.ContractProtocol
 import com.group33.shared.contract.PairingRequestStatus
 import com.group33.shared.model.ApiError
 import jakarta.servlet.http.HttpServletRequest
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.http.CacheControl
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -21,6 +22,7 @@ import java.util.Collections
 import java.util.UUID
 
 @RestController
+@ConditionalOnProperty(name = ["app.bound-phone.enabled"], havingValue = "false", matchIfMissing = true)
 internal class PairingDirectoryController(private val actors: VerifiedPairingActorResolver,
     private val service: PairingDirectoryService, mapper: ObjectMapper) {
     private val reader = mapper.readerFor(JsonNode::class.java).with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS,
@@ -60,6 +62,7 @@ internal class PairingDirectoryController(private val actors: VerifiedPairingAct
             when (val result = service.deleteCode(actor, id, key)) {
                 CodeDeletionResult.Deleted -> ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build<Void>()
                 is CodeDeletionResult.Rejected -> when (result.reason) {
+                    CodeDeletionRejection.UNAUTHENTICATED -> error(HttpStatus.UNAUTHORIZED, result.reason.name)
                     CodeDeletionRejection.ROLE_NOT_ALLOWED -> error(HttpStatus.FORBIDDEN, result.reason.name)
                     CodeDeletionRejection.RESOURCE_NOT_ACCESSIBLE -> error(HttpStatus.NOT_FOUND, result.reason.name)
                     CodeDeletionRejection.IDEMPOTENCY_KEY_REUSED -> error(HttpStatus.CONFLICT, result.reason.name)
