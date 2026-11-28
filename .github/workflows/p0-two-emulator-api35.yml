@@ -1,0 +1,103 @@
+name: P0 two-emulator API27/API35
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'android-app/**'
+      - 'server/**'
+      - 'shared/**'
+      - 'gradle/**'
+      - '.github/workflows/p0-two-emulator-api35.yml'
+      - 'scripts/run_debug_online_chain.py'
+      - 'scripts/run_p0_two_emulator_api35.py'
+      - 'scripts/test_run_p0_two_emulator_api35.py'
+      - 'docs/contracts/GATE1_ARTIFACTS.sha256'
+
+permissions:
+  contents: read
+
+jobs:
+  p0-two-emulator:
+    name: p0-two-emulator-api${{ matrix.api }} (${{ matrix.locale }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        api: ['27', '35']
+        locale: [en-US, zh-CN]
+    concurrency:
+      group: p0-two-emulator-${{ github.event.pull_request.number || github.ref }}-${{ matrix.api }}-${{ matrix.locale }}
+      cancel-in-progress: true
+    steps:
+      - name: Check out exact reviewed head
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify review artifact checksums
+        run: shasum -a 256 -c docs/contracts/GATE1_ARTIFACTS.sha256
+
+      - name: Verify acceptance result parser
+        run: python3 scripts/test_run_p0_two_emulator_api35.py
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android emulator image
+        run: |
+          image_tag=google_apis
+          if [[ "${{ matrix.api }}" == "27" ]]; then image_tag=default; fi
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "emulator" \
+            "system-images;android-${{ matrix.api }};${image_tag};x86_64"
+
+      - name: Enable runner-local emulator acceleration
+        run: |
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build real Server and Android acceptance artifacts
+        run: >-
+          ./gradlew :server:bootJar :android-app:assembleDebug
+          :android-app:assembleDebugAndroidTest
+          -PdebugServerUrl=http://10.0.2.2:18082
+          --console=plain --max-workers=2 --no-parallel
+
+      - name: Locate exact-head Server JAR
+        run: |
+          server_jar=$(find server/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' -print -quit)
+          test -n "$server_jar"
+          echo "P0_SERVER_JAR=$server_jar" >> "$GITHUB_ENV"
+
+      - name: Run bilingual real HTTP offline recovery loop
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: >-
+          python3 scripts/run_p0_two_emulator_api35.py
+          --api "${{ matrix.api }}"
+          --locale "${{ matrix.locale }}"
+          --server-jar "$P0_SERVER_JAR"
+          --output "$RUNNER_TEMP/p0-two-emulator-api${{ matrix.api }}-${{ matrix.locale }}"
+
+      - name: Retain exact-head causal evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-two-emulator-api${{ matrix.api }}-${{ matrix.locale }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ${{ runner.temp }}/p0-two-emulator-api${{ matrix.api }}-${{ matrix.locale }}
+            !${{ runner.temp }}/p0-two-emulator-api${{ matrix.api }}-${{ matrix.locale }}/**/private/**
+          if-no-files-found: warn
+          retention-days: 14

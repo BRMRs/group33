@@ -285,7 +285,9 @@ class ChainOnlineFlowTest {
                     val fields = descendants(editor).filterIsInstance<EditText>()
                     fields[0].setText("Fictional medicine"); fields[1].setText("One demo unit")
                     descendants(editor).filterIsInstance<CheckBox>().filter { it.visibility == View.VISIBLE }.forEach { it.isChecked = true }
-                    descendants(editor).filterIsInstance<Button>().filterNot { it is CheckBox }.single().performClick()
+                    descendants(editor).filterIsInstance<Button>().single {
+                        it.text == activity.getString(R.string.c2_plan_save) && it.isShown && it.isEnabled
+                    }.performClick()
                 }
                 val plans = withTimeout(20_000) { s.plans.observePlans(b.getString("elderId")).first { it.access == AccessState.AUTHORIZED && it.value.isNotEmpty() } }
                 assertEquals(1, plans.value.size)
@@ -548,11 +550,30 @@ class ChainOnlineFlowTest {
                     .single { it.key.planId == planId && it.plannedAt == plannedAt }
                 assertNull(frozen.takenAt)
 
-                // Android's alarm receiver posts the notification and publishes the due group.
-                val now = System.currentTimeMillis()
-                assertTrue("The test must reach the Elder before the scheduled time", plannedAt > now)
-                withTimeout(plannedAt - now + 75_000) {
-                    app.elderDoses.state.first { state -> state.due?.keys?.any { it.planId == planId } == true }
+                // Prove AlarmManager owns the exact occurrence PendingIntent, then fire that same
+                // platform token under a controlled due instant. CI must not wait for a minute.
+                val runtime = com.group33.medicationreminder.core.reminder.ReminderDatabase.open(app).reminders()
+                val runtimeGroup = runtime.active().single { it.plannedAtEpochMillis == plannedAt }
+                val registration = checkNotNull(runtime.registration(runtimeGroup.groupId))
+                assertEquals(listOf(frozen.key.planId), registration.occurrences.map { it.planId })
+                val alarmIntent = android.content.Intent(
+                    app, com.group33.medicationreminder.core.reminder.ReminderAlarmReceiver::class.java)
+                    .setAction(com.group33.medicationreminder.core.reminder.ReminderAlarmReceiver.ACTION_ALARM)
+                    .setData(android.net.Uri.parse("group33://reminder/${android.net.Uri.encode(runtimeGroup.groupId)}/alarm/due"))
+                    .putExtra(com.group33.medicationreminder.core.reminder.ReminderAlarmReceiver.EXTRA_GROUP_ID,
+                        runtimeGroup.groupId)
+                    .putExtra(com.group33.medicationreminder.core.reminder.ReminderAlarmReceiver.EXTRA_KIND,
+                        com.group33.medicationreminder.core.reminder.ReminderAlarmKind.DUE.name)
+                val pendingAlarm = android.app.PendingIntent.getBroadcast(
+                    app, 0, alarmIntent,
+                    android.app.PendingIntent.FLAG_NO_CREATE or android.app.PendingIntent.FLAG_IMMUTABLE)
+                assertNotNull("The due alarm must be registered with AlarmManager", pendingAlarm)
+                val dueAt = plannedAt + 1
+                app.elderDoses.setClockForTest(java.time.Clock.fixed(
+                    java.time.Instant.ofEpochMilli(dueAt), java.time.ZoneOffset.UTC))
+                checkNotNull(pendingAlarm).send()
+                withTimeout(20_000) {
+                    app.elderDoses.state.first { state -> state.due?.keys?.any { it == frozen.key } == true }
                 }
                 val manager = app.getSystemService(android.app.NotificationManager::class.java)
                 waitUntil { manager.activeNotifications.any {
@@ -562,9 +583,7 @@ class ChainOnlineFlowTest {
                 val offlineRecovery = InstrumentationRegistry.getArguments()
                     .getString("offlineActionRecovery") == "true"
                 if (offlineRecovery) {
-                    shell("cmd connectivity airplane-mode enable")
-                    shell("svc wifi disable")
-                    shell("svc data disable")
+                    setNetworkOffline(true)
                     waitUntil {
                         app.getSystemService(android.net.ConnectivityManager::class.java).activeNetwork == null
                     }
@@ -588,12 +607,13 @@ class ChainOnlineFlowTest {
                 } }
 
                 var localActionId: String? = null
+                var localDispatchAttempts: Int? = null
                 if (offlineRecovery) {
-                    val runtime = com.group33.medicationreminder.core.reminder.ReminderDatabase.open(app).reminders()
                     val action = runtime.pendingActions().single()
                     assertEquals(com.group33.medicationreminder.core.reminder.ReminderDispatchState.PENDING.name,
                         action.dispatchState)
                     localActionId = action.actionId
+                    localDispatchAttempts = action.dispatchAttempts
                 } else if (b.optBoolean("verifyDoseUpload")) {
                     val scope = trusted.scope
                     val scopeId = ChainCache.digest(listOf(scope.environmentId, scope.installationId, scope.userId)
@@ -622,7 +642,13 @@ class ChainOnlineFlowTest {
                         futureGroup to DoseActionKind.REMIND_LATER)).actionRecorded)
                 }
                 write(b.put("localTakenAt", recorded.takenAt).put("localDosePid", android.os.Process.myPid())
-                    .apply { if (localActionId != null) put("localDoseActionId", localActionId) })
+                    .put("localDoseGroupId", runtimeGroup.groupId)
+                    .put("liveDoseLocalDate", frozen.key.localDate)
+                    .put("liveDoseLocalTime", frozen.key.localTime)
+                    .apply { if (localActionId != null) {
+                        put("localDoseActionId", localActionId)
+                        put("localDoseDispatchAttempts", localDispatchAttempts)
+                    } })
             }
             "elder-live-dose-restart" -> {
                 val b = read()
@@ -636,11 +662,40 @@ class ChainOnlineFlowTest {
                 if (InstrumentationRegistry.getArguments().getString("offlineActionRecovery") == "true") {
                     val actionId = b.getString("localDoseActionId")
                     val dao = com.group33.medicationreminder.core.reminder.ReminderDatabase.open(app).reminders()
-                    com.group33.medicationreminder.core.reminder.ReminderCoordinator(app).recover()
-                    waitUntil {
-                        dao.action(actionId)?.dispatchState ==
-                            com.group33.medicationreminder.core.reminder.ReminderDispatchState.ACKNOWLEDGED.name
+                    val work = androidx.work.WorkManager.getInstance(app)
+                    var lastRecoveryObservation = ""
+                    // Exercise the real WorkManager network constraint and 15-second retry backoff;
+                    // this is bounded below one minute and does not wait for a scheduled dose time.
+                    val recoveryDeadline = android.os.SystemClock.elapsedRealtime() + 55_000
+                    while (true) {
+                        val action = dao.action(actionId)
+                        val infos = work.getWorkInfosForUniqueWork("reminder-action-$actionId")
+                            .get(10, java.util.concurrent.TimeUnit.SECONDS)
+                        lastRecoveryObservation = listOf(
+                            infos.singleOrNull()?.state,
+                            infos.singleOrNull()?.runAttemptCount,
+                            action?.dispatchState,
+                            action?.dispatchAttempts,
+                            s.auth.observeSession().first().readiness,
+                            s.trusted.value != null,
+                            app.getSystemService(android.net.ConnectivityManager::class.java).activeNetwork != null,
+                        ).joinToString(":")
+                        if (action?.dispatchState ==
+                            com.group33.medicationreminder.core.reminder.ReminderDispatchState.ACKNOWLEDGED.name) break
+                        if (android.os.SystemClock.elapsedRealtime() >= recoveryDeadline) {
+                            fail("Cold recovery stalled: $lastRecoveryObservation")
+                        }
+                        delay(100)
                     }
+                    val acceptedAction = checkNotNull(dao.action(actionId))
+                    assertTrue("Cold start must dispatch the durable offline action",
+                        acceptedAction.dispatchAttempts > b.getInt("localDoseDispatchAttempts"))
+                    assertEquals(b.getString("localDoseGroupId"), acceptedAction.groupId)
+                    val registration = checkNotNull(dao.registration(acceptedAction.groupId))
+                    val member = registration.occurrences.single()
+                    assertEquals(b.getString("liveDosePlan"), member.planId)
+                    assertEquals(b.getString("liveDoseLocalDate"), member.localDate)
+                    assertEquals(b.getString("liveDoseLocalTime"), member.localTime)
                     val scope = trusted.scope
                     val scopeId = ChainCache.digest(listOf(scope.environmentId, scope.installationId, scope.userId)
                         .joinToString("") { "${it.length}:$it" })
@@ -672,7 +727,10 @@ class ChainOnlineFlowTest {
                     }
                     accepted != null
                 }
-                assertEquals(b.getLong("localTakenAt"), checkNotNull(accepted).serverAcceptedTakenAtEpochMillis)
+                val acceptedEvent = checkNotNull(accepted)
+                assertEquals(b.getString("liveDoseLocalDate"), acceptedEvent.occurrence.localDate)
+                assertEquals(b.getString("liveDoseLocalTime"), acceptedEvent.occurrence.localTime)
+                assertEquals(b.getLong("localTakenAt"), acceptedEvent.serverAcceptedTakenAtEpochMillis)
                 println("Checking overview dose display")
                 fun hasAcceptedText(): Boolean {
                     var found = false
@@ -708,11 +766,25 @@ class ChainOnlineFlowTest {
                     assertTrue(repository.refresh(b.getString("elderId"), LocalDateRange(date, date)) is Outcome.Failure)
                 }
                 assertEquals(AuthReadiness.READY, s.auth.observeSession().first().readiness)
-                waitUntil { var cleared = false
-                    instrumentation.runOnMainSync { cleared = descendants(activity.window.decorView).filterIsInstance<PlanEditorView>().none { it.isShown } &&
-                        descendants(activity.window.decorView).filterIsInstance<TextView>().none { it.text.contains("Fictional medicine") } &&
-                        activity.findViewById<TextView>(R.id.current_elder_value).text == activity.getString(R.string.caregiver_no_current_elder) }
-                    cleared
+                val clearDeadline = android.os.SystemClock.elapsedRealtime() + 20_000
+                var clearObservation = ""
+                while (true) {
+                    var cleared = false
+                    instrumentation.runOnMainSync {
+                        val editorShown = descendants(activity.window.decorView)
+                            .filterIsInstance<PlanEditorView>().any { it.isShown }
+                        val oldTextShown = descendants(activity.window.decorView).filterIsInstance<TextView>()
+                            .any { it.isShown && it.text.contains("Fictional medicine") }
+                        val elderText = activity.findViewById<TextView>(R.id.current_elder_value).text.toString()
+                        val expected = activity.getString(R.string.caregiver_no_current_elder)
+                        clearObservation = "$editorShown:$oldTextShown:${elderText == expected}"
+                        cleared = !editorShown && !oldTextShown && elderText == expected
+                    }
+                    if (cleared) break
+                    if (android.os.SystemClock.elapsedRealtime() >= clearDeadline) {
+                        fail("Revoked context remained visible: $clearObservation")
+                    }
+                    delay(50)
                 }
                 nav(activity, R.id.nav_settings)
                 click(activity, R.string.chain_logout)
@@ -727,6 +799,16 @@ class ChainOnlineFlowTest {
     private fun shell(command: String) {
         instrumentation.uiAutomation.executeShellCommand(command).use { descriptor ->
             java.io.FileInputStream(descriptor.fileDescriptor).use { it.readBytes() }
+        }
+    }
+
+    private fun setNetworkOffline(enabled: Boolean) {
+        if (android.os.Build.VERSION.SDK_INT >= 29) {
+            shell("cmd connectivity airplane-mode ${if (enabled) "enable" else "disable"}")
+        } else {
+            val state = if (enabled) "disable" else "enable"
+            shell("svc wifi $state")
+            shell("svc data $state")
         }
     }
 }

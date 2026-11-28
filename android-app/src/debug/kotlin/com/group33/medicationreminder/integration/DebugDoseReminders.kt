@@ -29,13 +29,20 @@ internal class LocalDoseUpdate(
 internal class DebugDoseReminders(
     private val app: Context,
     private val repo: DebugChainRepository,
-    private val clock: Clock = Clock.systemUTC(),
+    private var clock: Clock = Clock.systemUTC(),
 ) : LiveElderDoses {
     private val mutableState = MutableStateFlow(ElderDoseScreen())
     override val state = mutableState.asStateFlow()
     private val gate = Mutex()
     private val coordinator = ReminderCoordinator(app)
     private var lastExecutionScopeId: String? = null
+
+    /** Test-host seam: advance feature time without making CI wait for a wall-clock minute. */
+    internal fun setClockForTest(value: Clock) {
+        check(app.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0)
+        clock = value
+        (app.applicationContext as? DebugChainApplication)?.setReminderTimeForTest(value.millis())
+    }
 
     fun start(scope: CoroutineScope) {
         scope.launch {

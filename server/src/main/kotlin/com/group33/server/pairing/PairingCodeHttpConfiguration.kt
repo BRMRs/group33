@@ -1,14 +1,19 @@
 package com.group33.server.pairing
 
 import com.group33.server.config.PersistenceRuntime
+import com.group33.server.config.serverClock
 import com.group33.server.plan.PlanMutationStore
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.env.Environment
 import java.time.Clock
 
 @Configuration(proxyBeanMethods = false)
 internal class PairingCodeHttpConfiguration {
-    @Bean fun pairingCodeClock(): Clock = Clock.systemUTC()
+    @Bean fun pairingCodeClock(env: Environment): Clock = serverClock(
+        env.getProperty("app.acceptance-clock-file"),
+        env.getProperty("app.persistence.mode", "memory"),
+    )
     @Bean fun pairingCodeGenerator(): PairingCodeGenerator = SecurePairingCodeGenerator()
     @Bean fun pairingCodeStore(runtime: PersistenceRuntime): PlanMutationStore = runtime.pairing
     @Bean fun pairingDirectoryService(store: PairingDirectoryStore, clock: Clock) = PairingDirectoryService(store, clock)
