@@ -37,10 +37,10 @@ def inspect_instrumentation(log):
             if code != 1 and pending.get('class') in TEST_CLASSES and 'test' in pending:
                 completed.append(dict(test=pending['test'], suite=pending['class'], code=code))
             pending = {}
-    passed = (len(completed) == 13 and len({(x['suite'], x['test']) for x in completed}) == 13
-              and [sum(x['suite'] == suite for x in completed) for suite in TEST_CLASSES] == [10, 3]
+    passed = (len(completed) == 14 and len({(x['suite'], x['test']) for x in completed}) == 14
+              and [sum(x['suite'] == suite for x in completed) for suite in TEST_CLASSES] == [11, 3]
               and all(x['code'] == 0 for x in completed)
-              and re.search(r'^OK \(13 tests\)$', log, re.M) is not None
+              and re.search(r'^OK \(14 tests\)$', log, re.M) is not None
               and 'FAILURES!!!' not in log)
     return dict(passed=passed, completed=completed)
 
@@ -133,7 +133,7 @@ def main():
             (out / 'notification-feedback.png').write_bytes(screenshot.stdout)
             result['notification_screenshot_sha256'] = hashlib.sha256(screenshot.stdout).hexdigest()
             if not result['passed']:
-                raise RuntimeError('All thirteen exact-head API35 regressions must pass')
+                raise RuntimeError('All fourteen exact-head API35 regressions must pass')
             from check_reminder_dispatch_recovery import run_checks
             boundary_passed = result['passed']
             result['passed'] = False
