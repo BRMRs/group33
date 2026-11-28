@@ -768,12 +768,25 @@ class ChainOnlineFlowTest {
                     assertTrue(repository.refresh(b.getString("elderId"), LocalDateRange(date, date)) is Outcome.Failure)
                 }
                 assertEquals(AuthReadiness.READY, s.auth.observeSession().first().readiness)
-                waitUntil { var cleared = false
-                    instrumentation.runOnMainSync { cleared = descendants(activity.window.decorView).filterIsInstance<PlanEditorView>().none { it.isShown } &&
-                        descendants(activity.window.decorView).filterIsInstance<TextView>()
-                            .none { it.isShown && it.text.contains("Fictional medicine") } &&
-                        activity.findViewById<TextView>(R.id.current_elder_value).text == activity.getString(R.string.caregiver_no_current_elder) }
-                    cleared
+                val clearDeadline = android.os.SystemClock.elapsedRealtime() + 20_000
+                var clearObservation = ""
+                while (true) {
+                    var cleared = false
+                    instrumentation.runOnMainSync {
+                        val editorShown = descendants(activity.window.decorView)
+                            .filterIsInstance<PlanEditorView>().any { it.isShown }
+                        val oldTextShown = descendants(activity.window.decorView).filterIsInstance<TextView>()
+                            .any { it.isShown && it.text.contains("Fictional medicine") }
+                        val elderText = activity.findViewById<TextView>(R.id.current_elder_value).text.toString()
+                        val expected = activity.getString(R.string.caregiver_no_current_elder)
+                        clearObservation = "$editorShown:$oldTextShown:${elderText == expected}"
+                        cleared = !editorShown && !oldTextShown && elderText == expected
+                    }
+                    if (cleared) break
+                    if (android.os.SystemClock.elapsedRealtime() >= clearDeadline) {
+                        fail("Revoked context remained visible: $clearObservation")
+                    }
+                    delay(50)
                 }
                 nav(activity, R.id.nav_settings)
                 click(activity, R.string.chain_logout)
