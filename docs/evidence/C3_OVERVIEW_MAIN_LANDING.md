@@ -1,0 +1,13 @@
+# C3 overview component current-main landing candidate
+
+Refs #15 / #19. Original #95 was merged only into the auxiliary `feature/19-c3-overview-base` branch at `a834423adcad80eb163c67f9ae786bb36d359753`; it has not landed in main. This candidate replays that original component with `cherry-pick -x`, retaining its original author and source attribution. It now integrates current main `fda43c4c7921dfe5e00aea646ddbdcd120d38e22`, after #112, #113, #119 and #152 landed.
+
+Current-main review made two bounded corrections before landing: the overview now follows the accepted403/404 contract by retaining an authorized stale local report with an explicit bilingual authorization-failure message on `ROLE_NOT_ALLOWED`, while inaccessible404 remains hidden; and the layout consumes the centrally owned Group33 spacing, typography and button tokens. The duplicate instant formatter was also replaced by the existing caregiver formatter. Original captures remain historical evidence rather than claims about these final layout bytes.
+
+The existing ViewModel implementation is already in main via #116. #41 has now delivered its original missing tests to main; this candidate preserves that exact test source and adds the original #95 reauthentication-presentation control. No current ViewModel, Shared, Server, Room schema, HTTP, date authority or production navigation is rewritten.
+
+The original #95 component structure, tests and captured-image bytes are retained with the bounded contract/token corrections above. The Debug manifest keeps current main declarations and adds only the permission-protected OverviewTestActivity; the production reminder receiver remains owned by the main manifest. The exported preview retains `android.permission.DUMP` and remains Debug-only. Current contributor histories and complete checkout hashes are reconciled; the old entire feature-baseline manifest is not copied.
+
+This is a component source landing candidate, not live Host/normal-entry integration. #120/#122/#124 must consume actual current prerequisites and retain their declared remaining scope. The historical component/TalkBack/capture evidence belongs to the original source/author. Current build/device evidence, cache modes, exact current CI and independent review are recorded separately in the PR after execution. No original screenshot is labelled a new capture, and no actual Server/cloud/phone or complete happy path is claimed.
+
+Normal non-author C1/E review of the complete current component is still required; a historical auxiliary-branch approval does not approve this head. BRMRs contributes current-main integration and cannot self-approve. #15/#19 stay open.

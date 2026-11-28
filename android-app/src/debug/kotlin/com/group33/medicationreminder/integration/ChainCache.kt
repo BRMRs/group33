@@ -14,6 +14,7 @@ internal data class ChainDocument(
     val kind: String,
     val target: String,
     val body: String,
+    // Event tombstones reserve Long.MIN_VALUE when no successful sync has occurred.
     val syncedAt: Long,
     val access: String = "AUTHORIZED",
     val stale: Boolean = false,
