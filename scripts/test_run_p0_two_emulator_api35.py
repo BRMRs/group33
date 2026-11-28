@@ -12,7 +12,10 @@ from run_debug_online_chain import inspect_instrumentation, network_toggle_comma
 
 class VerifyChainResultsTest(unittest.TestCase):
     def test_shared_phase_plan_includes_the_full_offline_acceptance_tail(self):
-        self.assertEqual(expected_phases(), phases_for(live_dose=True, dose_upload=True))
+        self.assertEqual(expected_phases(), phases_for(
+            live_dose=True, dose_upload=True, help_delivery=True))
+        self.assertIn(('elder-help-restart', 'elder'), expected_phases())
+        self.assertIn(('caregiver-sees-help', 'caregiver'), expected_phases())
 
     def test_instrumentation_result_rejects_skipped_or_duplicate_completion(self):
         passed = """INSTRUMENTATION_STATUS: class=com.example.FlowTest
@@ -49,6 +52,16 @@ OK (1 test)
         missing = [row for row in complete if row["phase"] != "caregiver-sees-taken"]
 
         with self.assertRaisesRegex(ValueError, "caregiver-sees-taken"):
+            verify_chain_results(missing)
+
+    def test_rejects_a_missing_help_delivery_phase(self):
+        complete = [
+            {"phase": phase, "role": role, "passed": True}
+            for phase, role in expected_phases()
+        ]
+        missing = [row for row in complete if row["phase"] != "caregiver-sees-help"]
+
+        with self.assertRaisesRegex(ValueError, "caregiver-sees-help"):
             verify_chain_results(missing)
 
     def test_requires_both_owned_avds_and_private_state_to_be_removed(self):

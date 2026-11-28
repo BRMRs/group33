@@ -532,8 +532,19 @@ class ChainOnlineFlowTest {
                 val result = s.plans.confirm(elderId, request, command)
                 assertTrue("Real plan must be confirmed", result is OnlineCommandResult.Confirmed)
                 val plan = (result as OnlineCommandResult.Confirmed).value.plan
+                val helpScheduled = scheduled.plusMinutes(1)
+                val helpCommand = success(s.commands.begin(OnlineCommandKind.CONFIRM_PLAN, elderId))
+                val helpRequest = ConfirmReminderPlanRequest(b.getString("photoId"),
+                    MedicationText("Help reminder fixture", "One demo unit"),
+                    ReminderPlanDraft(listOf(helpScheduled.toLocalTime().toString()),
+                        helpScheduled.toLocalDate().toString(), zone.id),
+                    TimeZoneAcknowledgement(zone.id, true, zone.id, null))
+                val helpResult = s.plans.confirm(elderId, helpRequest, helpCommand)
+                assertTrue("Real Help plan must be confirmed", helpResult is OnlineCommandResult.Confirmed)
+                val helpPlan = (helpResult as OnlineCommandResult.Confirmed).value.plan
                 val online = InstrumentationRegistry.getArguments().getString("doseUpload") == "true"
                 write(b.put("liveDosePlan", plan.id).put("liveDoseAt", scheduled.toInstant().toEpochMilli())
+                    .put("helpDosePlan", helpPlan.id).put("helpDoseAt", helpScheduled.toInstant().toEpochMilli())
                     .put("verifyDoseUpload", online))
             }
             "elder-live-dose" -> {
@@ -747,6 +758,131 @@ class ChainOnlineFlowTest {
                 println("Checking history dose display")
                 nav(activity, R.id.nav_records)
                 waitUntil { hasAcceptedText() }
+            }
+            "elder-help" -> {
+                val b = read()
+                ready()
+                val activity = launch()
+                val elderId = b.getString("elderId")
+                val planId = b.getString("helpDosePlan")
+                val plannedAt = b.getLong("helpDoseAt")
+                success(s.photos.refresh(elderId))
+                val trusted = checkNotNull(s.trusted.value)
+                val dueAt = plannedAt + 1
+                val dueClock = java.time.Clock.fixed(
+                    java.time.Instant.ofEpochMilli(dueAt), java.time.ZoneOffset.UTC)
+                app.elderDoses.setClockForTest(dueClock)
+                app.elderDoses.refresh()
+                val frozen = success(repository.localElderDoses(trusted, dueClock)).occurrences
+                    .single { it.key.planId == planId && it.plannedAt == plannedAt }
+                val runtime = com.group33.medicationreminder.core.reminder.ReminderDatabase.open(app).reminders()
+                val runtimeGroup = runtime.active().single { it.plannedAtEpochMillis == plannedAt }
+                val registration = checkNotNull(runtime.registration(runtimeGroup.groupId))
+                assertEquals(listOf(frozen.key.planId), registration.occurrences.map { it.planId })
+                val alarmIntent = android.content.Intent(
+                    app, com.group33.medicationreminder.core.reminder.ReminderAlarmReceiver::class.java)
+                    .setAction(com.group33.medicationreminder.core.reminder.ReminderAlarmReceiver.ACTION_ALARM)
+                    .setData(android.net.Uri.parse(
+                        "group33://reminder/${android.net.Uri.encode(runtimeGroup.groupId)}/alarm/due"))
+                    .putExtra(com.group33.medicationreminder.core.reminder.ReminderAlarmReceiver.EXTRA_GROUP_ID,
+                        runtimeGroup.groupId)
+                    .putExtra(com.group33.medicationreminder.core.reminder.ReminderAlarmReceiver.EXTRA_KIND,
+                        com.group33.medicationreminder.core.reminder.ReminderAlarmKind.DUE.name)
+                val pendingAlarm = android.app.PendingIntent.getBroadcast(
+                    app, 0, alarmIntent,
+                    android.app.PendingIntent.FLAG_NO_CREATE or android.app.PendingIntent.FLAG_IMMUTABLE)
+                assertNotNull("The Help occurrence alarm must be registered", pendingAlarm)
+                checkNotNull(pendingAlarm).send()
+                withTimeout(20_000) {
+                    app.elderDoses.state.first { state -> state.due?.keys?.contains(frozen.key) == true }
+                }
+                val manager = app.getSystemService(android.app.NotificationManager::class.java)
+                waitUntil { manager.activeNotifications.any {
+                    it.notification.channelId ==
+                        com.group33.medicationreminder.core.reminder.ReminderNotifications.CHANNEL_ID
+                } }
+                setNetworkOffline(true)
+                waitUntil {
+                    app.getSystemService(android.net.ConnectivityManager::class.java).activeNetwork == null
+                }
+                val notification = manager.activeNotifications.single {
+                    it.notification.channelId ==
+                        com.group33.medicationreminder.core.reminder.ReminderNotifications.CHANNEL_ID
+                }.notification
+                val helpAction = checkNotNull(notification.actions).single {
+                    it.title.toString() == activity.getString(R.string.reminder_action_help)
+                }
+                helpAction.actionIntent.send()
+                var savedHelp: com.group33.medicationreminder.core.reminder.ReminderActionRow? = null
+                waitUntil {
+                    savedHelp = runtime.pendingActions().singleOrNull { it.groupId == runtimeGroup.groupId &&
+                        it.kind == com.group33.medicationreminder.core.reminder.ReminderActionKind.HELP.name }
+                    savedHelp != null
+                }
+                val help = checkNotNull(savedHelp)
+                assertEquals(com.group33.medicationreminder.core.reminder.ReminderDispatchState.PENDING.name,
+                    help.dispatchState)
+                waitUntil { manager.activeNotifications.none {
+                    it.notification.channelId ==
+                        com.group33.medicationreminder.core.reminder.ReminderNotifications.CHANNEL_ID
+                } }
+                write(b.put("helpActionId", help.actionId)
+                    .put("helpGroupId", runtimeGroup.groupId)
+                    .put("helpDispatchAttempts", help.dispatchAttempts)
+                    .put("helpPid", android.os.Process.myPid())
+                    .put("helpOccurrenceId", registration.occurrences.single().generationId))
+            }
+            "elder-help-restart" -> {
+                val b = read()
+                ready()
+                assertNotEquals(b.getInt("helpPid"), android.os.Process.myPid())
+                val actionId = b.getString("helpActionId")
+                val dao = com.group33.medicationreminder.core.reminder.ReminderDatabase.open(app).reminders()
+                val deadline = android.os.SystemClock.elapsedRealtime() + 55_000
+                while (true) {
+                    val action = dao.action(actionId)
+                    if (action?.dispatchState ==
+                        com.group33.medicationreminder.core.reminder.ReminderDispatchState.ACKNOWLEDGED.name) break
+                    if (android.os.SystemClock.elapsedRealtime() >= deadline) {
+                        fail("Cold Help recovery stalled: ${action?.dispatchState}:${action?.dispatchAttempts}")
+                    }
+                    delay(100)
+                }
+                val accepted = checkNotNull(dao.action(actionId))
+                assertEquals(com.group33.medicationreminder.core.reminder.ReminderActionKind.HELP.name,
+                    accepted.kind)
+                assertEquals(b.getString("helpGroupId"), accepted.groupId)
+                assertTrue(accepted.dispatchAttempts > b.getInt("helpDispatchAttempts"))
+            }
+            "caregiver-sees-help" -> {
+                val b = read()
+                ready()
+                val activity = launch()
+                success(s.pairing.refresh())
+                click(activity, R.string.c3_refresh)
+                val elderId = b.getString("elderId")
+                val date = java.time.Instant.ofEpochMilli(b.getLong("helpDoseAt"))
+                    .atZone(java.time.ZoneId.of("Asia/Shanghai")).toLocalDate().toString()
+                val range = LocalDateRange(date, date)
+                val overview = withTimeout(20_000) {
+                    repository.observeOverview(elderId, range).first { cached ->
+                        cached.value.followUps.any { it.actionId == b.getString("helpActionId") }
+                    }
+                }
+                val followUp = overview.value.followUps.single {
+                    it.actionId == b.getString("helpActionId")
+                }
+                assertEquals(com.group33.shared.contract.CaregiverFollowUpState.NEEDS_CONTACT,
+                    followUp.state)
+                assertEquals(listOf(b.getString("helpOccurrenceId")), followUp.occurrenceIds)
+                waitUntil {
+                    var visible = false
+                    instrumentation.runOnMainSync {
+                        visible = descendants(activity.window.decorView).filterIsInstance<TextView>()
+                            .any { it.isShown && it.text == activity.getString(R.string.c3_needs_contact) }
+                    }
+                    visible
+                }
             }
             "elder-revoke" -> {
                 val b = read(); ready(); val activity = launch()

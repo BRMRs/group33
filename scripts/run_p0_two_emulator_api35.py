@@ -2,7 +2,7 @@
 """Run the existing offline P0 Debug chain on two job-owned API27 or API35 AVDs.
 
 This is acceptance infrastructure for the Debug anonymous/memory-service path. It does not
-claim Release authentication, Help delivery, cloud deployment or physical-device acceptance.
+claim Release authentication, cloud deployment or physical-device acceptance.
 """
 
 import argparse
@@ -41,7 +41,7 @@ def system_image_package(api):
 
 
 def expected_phases():
-    return phases_for(live_dose=True, dose_upload=True)
+    return phases_for(live_dose=True, dose_upload=True, help_delivery=True)
 
 
 def verify_chain_results(rows):
@@ -188,6 +188,7 @@ def main():
             PLAN_ENABLED="true",
             OCCURRENCE_ENABLED="true",
             DOSE_GROUP_ENABLED="true",
+            HELP_ENABLED="true",
             PERSISTENCE_MODE="memory",
             PHOTO_OBJECT_ROOT=str(photo_root),
             APP_ACCEPTANCE_CLOCK_FILE=str(acceptance_clock),
@@ -374,7 +375,7 @@ def main():
             system_image=system_image_package(args.api),
             physical_device=False,
             production_provider=False,
-            help_delivery=False,
+            help_delivery=True,
             sha256={str(path.relative_to(ROOT)): sha256(path) for path in proof_paths},
         )
         (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")

@@ -23,13 +23,19 @@ PHASES = [('elder-login', 'elder'), ('elder-recover-code', 'elder'), ('caregiver
           ('elder-revoke', 'elder'), ('caregiver-denied', 'caregiver')]
 
 
-def phases_for(*, live_dose, dose_upload):
+def phases_for(*, live_dose, dose_upload, help_delivery=False):
     if not live_dose:
         return PHASES
-    return PHASES[:-2] + [
+    dose_phases = [
         ('caregiver-live-dose-plan', 'caregiver'), ('elder-live-dose', 'elder'),
         ('elder-live-dose-restart', 'elder'),
-    ] + ([('caregiver-sees-taken', 'caregiver')] if dose_upload else []) + PHASES[-2:]
+    ] + ([('caregiver-sees-taken', 'caregiver')] if dose_upload else [])
+    if help_delivery:
+        dose_phases += [
+            ('elder-help', 'elder'), ('elder-help-restart', 'elder'),
+            ('caregiver-sees-help', 'caregiver'),
+        ]
+    return PHASES[:-2] + dose_phases + PHASES[-2:]
 
 
 def inspect_instrumentation(output):
@@ -131,12 +137,13 @@ def main():
 
     bridge = None
     results = []
-    phases = phases_for(live_dose=args.live_dose, dose_upload=args.dose_upload)
+    phases = phases_for(live_dose=args.live_dose, dose_upload=args.dose_upload,
+                        help_delivery=args.offline_action_recovery)
     for phase, role in phases:
         serial = devices[role]
-        cold_phases = ['elder-live-dose-restart', 'elder-recover-code', 'caregiver-restart',
+        cold_phases = ['elder-live-dose-restart', 'elder-help-restart', 'elder-recover-code', 'caregiver-restart',
                        'elder-sees-plan', 'caregiver-recover']
-        already_stopped_offline_elder = phase == 'elder-live-dose-restart' and args.offline_action_recovery
+        already_stopped_offline_elder = phase in ('elder-live-dose-restart', 'elder-help-restart') and args.offline_action_recovery
         if phase in cold_phases and not already_stopped_offline_elder:
             run(serial, 'shell', 'am', 'force-stop', PKG)
         if bridge is not None:
@@ -145,7 +152,7 @@ def main():
                      PKG + '.integration.ChainOnlineFlowTest#realOnlinePhase', '-e', 'chainPhase', phase,
                      '-e', 'doseUpload', str(args.dose_upload).lower(), '-e', 'offlineActionRecovery',
                      str(args.offline_action_recovery).lower(), TEST)
-        if phase == 'elder-live-dose' and args.offline_action_recovery:
+        if phase in ('elder-live-dose', 'elder-help') and args.offline_action_recovery:
             # Instrumentation remains reachable over adb while Android networking is disabled.
             # Kill the old process before restoring connectivity so only cold-start recovery can sync.
             run(serial, 'shell', 'am', 'force-stop', PKG)
@@ -166,7 +173,7 @@ def main():
             for image in ['caregiver-browser', 'caregiver-photo']:
                 (args.output / (image + '.png')).write_bytes(run(serial, 'exec-out', 'run-as', PKG,
                     'cat', f'no_backup/chain-{image}.png'))
-        if phase in ['caregiver-live-dose-plan', 'elder-live-dose', 'elder-login', 'elder-recover-code', 'caregiver-request', 'elder-accept', 'elder-photo', 'caregiver-plan-ui', 'caregiver-lost-reply']:
+        if phase in ['caregiver-live-dose-plan', 'elder-live-dose', 'elder-help', 'elder-login', 'elder-recover-code', 'caregiver-request', 'elder-accept', 'elder-photo', 'caregiver-plan-ui', 'caregiver-lost-reply']:
             bridge = run(serial, 'exec-out', 'run-as', PKG, 'cat', 'no_backup/chain-bridge.json')
             bridge_values = json.loads(bridge)
             if phase == 'caregiver-live-dose-plan' and acceptance_clock is not None:
