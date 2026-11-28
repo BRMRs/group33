@@ -20,6 +20,19 @@ class AcceptanceFileClockTest {
         assertEquals(1234, clock.millis())
         file.toFile().writeText("5678\n")
         assertEquals(5678, clock.millis())
+        val zoned = clock.withZone(ZoneOffset.ofHours(8))
+        file.toFile().writeText("6789\n")
+        assertEquals(6789, zoned.millis())
+        assertEquals(ZoneOffset.ofHours(8), zoned.zone)
+    }
+
+    @Test fun refusesAPathReplacedByASymbolicLink() {
+        val file = directory.resolve("clock").also { it.toFile().writeText("SYSTEM\n") }
+        val target = directory.resolve("other").also { it.toFile().writeText("9999\n") }
+        val clock = serverClock(file.toString(), "memory", fallback)
+        file.toFile().delete()
+        java.nio.file.Files.createSymbolicLink(file, target)
+        assertThrows(java.io.IOException::class.java) { clock.millis() }
     }
 
     @Test fun isUnavailableToProductionPersistence() {

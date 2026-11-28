@@ -154,6 +154,7 @@ def main():
             if phase == 'caregiver-live-dose-plan' and acceptance_clock is not None:
                 temporary = acceptance_clock.with_suffix('.next')
                 temporary.write_text(str(bridge_values['liveDoseAt'] + 1) + '\n')
+                temporary.chmod(0o600)
                 os.replace(temporary, acceptance_clock)
     print('All two-emulator local HTTP phases passed. Physical-device and production-login acceptance remain separate.')
 
